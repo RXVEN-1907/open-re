@@ -82,7 +82,7 @@ jobs:
             type=sha
 
       - name: Build and push API image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile.api
@@ -103,7 +103,7 @@ jobs:
             type=sha
 
       - name: Build and push Worker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile.worker
@@ -124,7 +124,7 @@ jobs:
             type=sha
 
       - name: Build and push Worker AI image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile.worker-ai
@@ -145,7 +145,7 @@ jobs:
             type=sha
 
       - name: Build and push Frontend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile.frontend
