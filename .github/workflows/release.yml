@@ -73,7 +73,7 @@ jobs:
 
       - name: Extract metadata for API
         id: meta-api
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}/api
           tags: |
@@ -94,7 +94,7 @@ jobs:
 
       - name: Extract metadata for Worker
         id: meta-worker
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}/worker
           tags: |
@@ -115,7 +115,7 @@ jobs:
 
       - name: Extract metadata for Worker AI
         id: meta-worker-ai
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}/worker-ai
           tags: |
@@ -136,7 +136,7 @@ jobs:
 
       - name: Extract metadata for Frontend
         id: meta-frontend
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}/frontend
           tags: |
