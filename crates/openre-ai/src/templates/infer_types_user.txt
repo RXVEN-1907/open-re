@@ -1,0 +1,16 @@
+Infer types for the following:
+
+**Function Signature**: {{function_signature}}
+**Usage Patterns**: {{usage_patterns}}
+**Data Flow**: {{data_flow}}
+
+**Call Sites**:
+{{call_sites}}
+
+**Library Calls Made**:
+{{library_calls}}
+
+**String Formats Referenced**:
+{{string_formats}}
+
+Provide type inference in the specified format.

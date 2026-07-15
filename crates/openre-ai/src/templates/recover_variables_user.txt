@@ -1,0 +1,17 @@
+Recover variables for the following function:
+
+**Function**: {{function_name}}
+**Stack Frame Size**: {{stack_frame}} bytes
+**Register Usage**: {{register_usage}}
+**Calling Convention**: {{calling_convention}}
+
+**Stack Layout** (from prologue analysis):
+{{stack_layout}}
+
+**Register Allocation** (from data flow):
+{{register_allocation}}
+
+**Data Flow Summary**:
+{{data_flow}}
+
+Provide variable recovery in the specified format.

@@ -1,0 +1,107 @@
+# Companies Dictionary for cspell
+
+NSA
+Vector35
+Hex-Rays
+Avast
+Mandiant
+FireEye
+Google
+Microsoft
+Apple
+Amazon
+Meta
+Intel
+AMD
+ARM
+NVIDIA
+Qualcomm
+Broadcom
+Texas Instruments
+STMicroelectronics
+NXP
+Renesas
+Microchip
+Analog Devices
+Maxim Integrated
+ON Semiconductor
+Infineon
+Cypress
+Silicon Labs
+Nordic Semiconductor
+Espressif
+Raspberry Pi
+Arduino
+BeagleBoard
+Odroid
+Pine64
+Libre Computer
+Hardkernel
+FriendlyElec
+Banana Pi
+Orange Pi
+NanoPi
+Rockchip
+Allwinner
+Amlogic
+Realtek
+MediaTek
+Samsung
+LG
+Sony
+Panasonic
+Toshiba
+Hitachi
+Fujitsu
+NEC
+Mitsubishi
+Renesas
+Sharp
+Casio
+Citizen
+Seiko
+Epson
+Brother
+Canon
+Ricoh
+Konica Minolta
+Kyocera
+Oki
+Murata
+TDK
+Taiyo Yuden
+Kemet
+Vishay
+Bourns
+TT Electronics
+CTS
+Stackpole
+Ohmite
+Dale
+IRC
+Welwyn
+Multicomp
+TE Connectivity
+Molex
+Amphenol
+Hirose
+JST
+Samtec
+Harwin
+FCI
+ITT Cannon
+Deutsch
+Souriau
+Glenair
+Amphenol
+Molex
+TE Connectivity
+Hirose
+JST
+Samtec
+Harwin
+FCI
+ITT Cannon
+Deutsch
+Souriau
+Glenair

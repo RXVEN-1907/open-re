@@ -1,0 +1,339 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database (production)
+  postgres:
+    image: postgres:16-alpine
+    container_name: openre-postgres
+    environment:
+      POSTGRES_DB: openre
+      POSTGRES_USER: openre
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openre -d openre"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - openre-network
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+
+  # Redis for queue and caching (production)
+  redis:
+    image: redis:7-alpine
+    container_name: openre-redis
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - openre-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  # MinIO for object storage (production)
+  minio:
+    image: minio/minio:latest
+    container_name: openre-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - openre-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  # API server (production)
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: openre-api
+    environment:
+      - OPENRE_CONFIG=/app/config.toml
+      - RUST_LOG=info
+      - DATABASE_URL=postgresql://openre:${POSTGRES_PASSWORD}@postgres:5432/openre
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - STORAGE_ENDPOINT=http://minio:9000
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - STORAGE_BUCKET=openre
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - VLLM_BASE_URL=${VLLM_BASE_URL}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./config.prod.toml:/app/config.toml:ro
+      - api_logs:/app/logs
+    networks:
+      - openre-network
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  # General worker (production)
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: openre-worker
+    environment:
+      - OPENRE_CONFIG=/app/config.toml
+      - RUST_LOG=info
+      - DATABASE_URL=postgresql://openre:${POSTGRES_PASSWORD}@postgres:5432/openre
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - STORAGE_ENDPOINT=http://minio:9000
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - STORAGE_BUCKET=openre
+      - WORKER_CONCURRENCY=8
+      - WORKER_PRIORITIES=high,default,low
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./config.prod.toml:/app/config.toml:ro
+      - worker_logs:/app/logs
+    networks:
+      - openre-network
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 2G
+      replicas: 4
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  # AI worker (production)
+  worker-ai:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker-ai
+    container_name: openre-worker-ai
+    environment:
+      - OPENRE_CONFIG=/app/config.toml
+      - RUST_LOG=info
+      - DATABASE_URL=postgresql://openre:${POSTGRES_PASSWORD}@postgres:5432/openre
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - STORAGE_ENDPOINT=http://minio:9000
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - STORAGE_BUCKET=openre
+      - WORKER_CONCURRENCY=4
+      - WORKER_PRIORITIES=high,default
+      - AI_ENABLED=true
+      - ONNX_MODELS_DIR=/app/models
+      - LLAMA_CPP_MODELS_DIR=/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./config.prod.toml:/app/config.toml:ro
+      - worker_ai_logs:/app/logs
+      - ./models:/app/models:ro
+    networks:
+      - openre-network
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 4G
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+
+  # Frontend (nginx) - production
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: openre-frontend
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      - api
+    networks:
+      - openre-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  # Nginx reverse proxy (production)
+  nginx:
+    image: nginx:alpine
+    container_name: openre-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+      - ./docker/certbot:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - api
+    networks:
+      - openre-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  # Prometheus for metrics (production)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: openre-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    volumes:
+      - ./docker/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - openre-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  # Grafana for visualization (production)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: openre-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://${DOMAIN}/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - ./docker/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./docker/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - openre-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+  # Certbot for SSL certificates
+  certbot:
+    image: certbot/certbot:latest
+    container_name: openre-certbot
+    volumes:
+      - ./docker/certbot:/var/www/certbot:ro
+      - ./docker/ssl:/etc/letsencrypt:ro
+    command: certonly --webroot --webroot-path=/var/www/certbot --email ${LETSENCRYPT_EMAIL} --agree-tos --no-eff-email -d ${DOMAIN}
+    networks:
+      - openre-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  api_logs:
+  worker_logs:
+  worker_ai_logs:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  openre-network:
+    driver: bridge

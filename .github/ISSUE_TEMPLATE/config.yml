@@ -1,0 +1,20 @@
+# Issue Template Configuration for open-re
+# Controls the issue creation UI
+
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a Question
+    url: https://github.com/open-re/open-re/discussions/new?category=q-a
+    about: Ask the community for help
+  - name: 💡 Share an Idea
+    url: https://github.com/open-re/open-re/discussions/new?category=ideas
+    about: Propose a new feature or improvement
+  - name: 📚 Request Documentation
+    url: https://github.com/open-re/open-re/discussions/new?category=documentation
+    about: Suggest improvements to documentation
+  - name: 🔒 Report Security Vulnerability
+    url: mailto:security@open-re.org
+    about: Report a security issue privately
+  - name: 🤝 Join the Community
+    url: https://discord.gg/open-re
+    about: Chat with contributors in real-time

@@ -1,0 +1,36 @@
+[package]
+name = "openre-api"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "API server (HTTP/gRPC) for open-re"
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[dependencies]
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+openre-telemetry = { path = "../openre-telemetry" }
+openre-storage = { path = "../openre-storage" }
+openre-queue = { path = "../openre-queue" }
+openre-ai = { path = "../openre-ai" }
+openre-plugins = { path = "../openre-plugins" }
+axum = { workspace = true }
+axum-extra = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+jsonwebtoken = { workspace = true }
+bcrypt = { workspace = true }
+validator = { workspace = true }
+utoipa = { workspace = true }
+utoipa-swagger-ui = { workspace = true }

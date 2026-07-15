@@ -1,0 +1,126 @@
+# GitHub Milestones Configuration for open-re
+# These define the major milestones for each phase
+
+# Phase 0 Milestones
+- title: "Phase 0: Documentation Complete"
+  description: "All 9 core documentation files complete and reviewed"
+  due_on: "2026-08-14"
+  state: "open"
+
+- title: "Phase 0: Architecture Decisions (ADRs)"
+  description: "15+ Architecture Decision Records with team consensus"
+  due_on: "2026-08-14"
+  state: "open"
+
+- title: "Phase 0: Technical Spikes Complete"
+  description: "6 time-boxed technical spikes with documented decisions"
+  due_on: "2026-08-14"
+  state: "open"
+
+- title: "Phase 0: Community Bootstrapped"
+  description: "20+ contributors, 500+ stars, Discord/Matrix active"
+  due_on: "2026-08-14"
+  state: "open"
+
+- title: "Phase 0: Gate 1 Review"
+  description: "Phase gate review: approve Phase 1 plan, secure funding"
+  due_on: "2026-08-21"
+  state: "open"
+
+# Phase 1 Milestones (MVP)
+- title: "M1: Skeleton - Running App with Basic Disassembly"
+  description: "Project setup, plugin system, binary loading, basic disassembly, minimal UI"
+  due_on: "2026-10-15"
+  state: "open"
+
+- title: "M2: Analysis Core - Functions, CFG, Data Flow, Types"
+  description: "Function detection, call graph, SSA, value set analysis, type system, xrefs"
+  due_on: "2027-01-15"
+  state: "open"
+
+- title: "M3: Decompilation - Interactive Pseudo-Code"
+  description: "IL infrastructure, structural analysis, type inference, C-like output, interactive editing"
+  due_on: "2027-04-15"
+  state: "open"
+
+- title: "M4: AI Integration - Local Models in Platform"
+  description: "Model infrastructure, function classification, naming, typing, crypto detection, AI UX"
+  due_on: "2027-05-15"
+  state: "open"
+
+- title: "M5: Plugin System & Scripting - Extensible Platform"
+  description: "WASM runtime, extension points, Python API, Jupyter, headless, plugin SDK"
+  due_on: "2027-06-15"
+  state: "open"
+
+- title: "M6: Polish & MVP Release - v1.0.0"
+  description: "Performance optimization, accessibility, installers, documentation, test corpus, release"
+  due_on: "2027-07-15"
+  state: "open"
+
+- title: "Phase 1: Gate 2 Review"
+  description: "Phase gate review: MVP shipped, metrics met, approve Phase 2"
+  due_on: "2027-07-31"
+  state: "open"
+
+# Phase 2 Milestones
+- title: "M7: Advanced AI - Semantic Understanding"
+  description: "Semantic search, vuln patterns, cross-binary analysis, fine-tuning pipeline, deobfuscation"
+  due_on: "2027-11-15"
+  state: "open"
+
+- title: "M8: Collaboration - Real-Time & Web"
+  description: "CRDT collaboration, web viewer, analysis replay, Git integration, shared symbol server"
+  due_on: "2028-01-15"
+  state: "open"
+
+- title: "M9: Plugin Ecosystem - Marketplace"
+  description: "Plugin marketplace, verified publishers, analytics, monetization options"
+  due_on: "2028-02-15"
+  state: "open"
+
+- title: "M10: Domain Features - Malware, Vuln, Firmware, Education"
+  description: "Capa/YARA/ATT&CK, sink/source DB, patch diffing, flash mapper, lab authoring"
+  due_on: "2028-04-15"
+  state: "open"
+
+- title: "M11: Dynamic Analysis Foundation"
+  description: "DAP debugger, emulator integration, trace import, hybrid analysis"
+  due_on: "2028-05-15"
+  state: "open"
+
+- title: "M12: Phase 2 Release - v2.0.0"
+  description: "All Phase 2 features stable, 100+ plugins, enterprise pilots, cloud beta"
+  due_on: "2028-07-15"
+  state: "open"
+
+- title: "Phase 2: Gate 3 Review"
+  description: "Phase gate review: v2.0.0 released, ecosystem active, approve Phase 3"
+  due_on: "2028-07-31"
+  state: "open"
+
+# Phase 3 Milestones
+- title: "M13: Enterprise Readiness"
+  description: "Air-gapped, SSO, RBAC, FIPS, professional support"
+  due_on: "2029-01-15"
+  state: "open"
+
+- title: "M14: Cloud Platform"
+  description: "Hosted analysis, team workspaces, API, marketplace revenue share, global CDN"
+  due_on: "2028-12-15"
+  state: "open"
+
+- title: "M15: Education Leadership"
+  description: "Certified analyst program, curriculum partnerships, CTF integration, MOOC"
+  due_on: "2029-01-15"
+  state: "open"
+
+- title: "M16: Research & Innovation"
+  description: "Binary synthesis, cross-arch translation, formal verification, AI research, standards"
+  due_on: "2029-04-15"
+  state: "open"
+
+- title: "M17: Governance Maturity"
+  description: "Foundation graduated, diverse leadership, sustainable funding, standards participation"
+  due_on: "2029-07-15"
+  state: "open"

@@ -1,0 +1,84 @@
+[build-system]
+requires = ["maturin>=1.6,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "openre"
+version = "0.1.0"
+description = "open-re Python bindings for reverse engineering"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "open-re Contributors"}]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: Security",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24",
+    "requests>=2.31",
+    "pydantic>=2.5",
+    "rich>=13.0",
+    "typer>=0.9",
+]
+optional-dependencies = {
+    "jupyter" = ["jupyter>=1.0", "ipykernel>=6.0", "matplotlib>=3.7"],
+    "dev" = ["pytest>=7.4", "pytest-asyncio>=0.21", "pytest-cov>=4.1", "ruff>=0.1", "mypy>=1.0"],
+}
+
+[project.urls]
+Homepage = "https://github.com/RXVEN-1907/open-re"
+Repository = "https://github.com/RXVEN-1907/open-re"
+Documentation = "https://github.com/RXVEN-1907/open-re/docs"
+Issues = "https://github.com/RXVEN-1907/open-re/issues"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+compatibility = "off"
+bindings = "pyo3"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+select = ["E", "F", "I", "W", "UP", "B", "C4", "SIM", "TID", "PTH", "ERA", "PL", "TRY", "NPY", "RSE", "RET", "FLY", "ARG", "ASYNC", "LOG", "PERF", "TCH", "DTZ", "QF", "EXE", "ISC", "ICN", "PIE", "T20", "PD", "PGH", "RUF", "SLF", "SLOT", "TRY", "NPY", "RSE", "RET", "FLY", "ARG", "ASYNC", "LOG", "PERF", "TCH", "DTZ", "QF", "EXE", "ISC", "ICN", "PIE", "T20", "PD", "PGH", "RUF", "SLF", "SLOT"]
+ignore = ["migrations"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+
+[tool.coverage.run]
+source = ["openre"]
+omit = ["tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

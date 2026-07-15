@@ -1,0 +1,19 @@
+[package]
+name = "openre-core"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "Core types, errors, and traits for open-re"
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[dependencies]
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+once_cell = { workspace = true }
+bytes = { workspace = true }

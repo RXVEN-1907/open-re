@@ -1,0 +1,36 @@
+[package]
+name = "openre-cli"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "CLI for open-re"
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[[bin]]
+name = "openre"
+path = "src/main.rs"
+
+[dependencies]
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+openre-telemetry = { path = "../openre-telemetry" }
+openre-storage = { path = "../openre-storage" }
+openre-queue = { path = "../openre-queue" }
+openre-ai = { path = "../openre-ai" }
+openre-plugins = { path = "../openre-plugins" }
+openre-api = { path = "../openre-api" }
+clap = { workspace = true }
+clap_complete = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+indicatif = "0.17"
+colored = "2.0"
+tabled = "0.16"

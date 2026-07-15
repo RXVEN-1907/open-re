@@ -1,0 +1,30 @@
+[package]
+name = "openre-ai"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "AI service (providers, prompts, tools) for open-re"
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[dependencies]
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+openre-storage = { path = "../openre-storage" }
+openre-telemetry = { path = "../openre-telemetry" }
+ort = { workspace = true }
+llama-cpp-2 = { workspace = true }
+tokenizers = { workspace = true }
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dashmap = "5.5"
+regex = "1.10"
+futures = "0.3"
+tokio-stream = { version = "0.1", features = ["sync"] }

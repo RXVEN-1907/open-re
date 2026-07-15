@@ -1,0 +1,46 @@
+{
+  "replacementPatterns": [
+    {
+      "pattern": "^\\.\\./",
+      "replacement": ""
+    },
+    {
+      "pattern": "^\\./",
+      "replacement": ""
+    }
+  ],
+  "ignorePatterns": [
+    "^mailto:",
+    "^tel:",
+    "^#",
+    "https://github.com/open-re/open-re/issues/",
+    "https://github.com/open-re/open-re/pull/",
+    "https://github.com/open-re/open-re/discussions/",
+    "https://github.com/open-re/open-re/wiki/",
+    "https://github.com/open-re/open-re/tree/",
+    "https://github.com/open-re/open-re/blob/",
+    "https://github.com/open-re/open-re/compare/",
+    "https://github.com/open-re/open-re/commit/",
+    "https://github.com/open-re/open-re/releases/",
+    "https://github.com/open-re/open-re/milestone/",
+    "https://github.com/open-re/open-re/labels/",
+    "https://github.com/open-re/open-re/projects/",
+    "https://github.com/open-re/open-re/security/",
+    "https://github.com/open-re/open-re/pulse/",
+    "https://github.com/open-re/open-re/graphs/",
+    "https://github.com/open-re/open-re/network/",
+    "https://github.com/open-re/open-re/settings/",
+    "https://github.com/open-re/open-re/branches/",
+    "https://github.com/open-re/open-re/tags/",
+    "https://github.com/open-re/open-re/forks/",
+    "https://github.com/open-re/open-re/stargazers/",
+    "https://github.com/open-re/open-re/watchers/",
+    "https://github.com/open-re/open-re/contributors/"
+  ],
+  "aliveStatusCodes": [200, 206],
+  "retryOn429": true,
+  "retryCount": 3,
+  "fallbackRetryDelay": 1000,
+  "timeout": "10s",
+  "concurrency": 10
+}

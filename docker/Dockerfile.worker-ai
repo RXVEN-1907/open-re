@@ -1,0 +1,78 @@
+# Build stage
+FROM rust:1.78-bookworm AS builder
+
+WORKDIR /app
+
+# Install system dependencies for AI
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libclang-dev \
+    clang \
+    cmake \
+    protobuf-compiler \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ONNX Runtime dependencies
+RUN pip3 install --no-cache-dir onnxruntime
+
+# Copy workspace files
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ ./crates/
+
+# Build dependencies (cached layer)
+RUN mkdir -p crates/openre-ai/src && echo "fn main() {}" > crates/openre-ai/src/main.rs
+RUN cargo build --release --workspace --exclude openre-api --exclude openre-cli 2>/dev/null || true
+
+# Copy actual source
+COPY crates/openre-core/src ./crates/openre-core/src
+COPY crates/openre-config/src ./crates/openre-config/src
+COPY crates/openre-telemetry/src ./crates/openre-telemetry/src
+COPY crates/openre-storage/src ./crates/openre-storage/src
+COPY crates/openre-queue/src ./crates/openre-queue/src
+COPY crates/openre-plugins/src ./crates/openre-plugins/src
+COPY crates/openre-analysis/src ./crates/openre-analysis/src
+COPY crates/openre-ai/src ./crates/openre-ai/src
+
+# Build the AI worker binary
+RUN cargo build --release --bin openre
+
+# Runtime stage
+FROM debian:bookworm-slim AS runtime
+
+# Install runtime dependencies for AI
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    libpq5 \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ONNX Runtime
+RUN pip3 install --no-cache-dir onnxruntime
+
+# Create non-root user
+RUN useradd -r -s /bin/false -u 1000 openre
+
+WORKDIR /app
+
+# Copy binary
+COPY --from=builder /app/target/release/openre /usr/local/bin/openre
+
+# Copy AI models directory (if any)
+# COPY --from=builder /app/models ./models
+
+# Create directories
+RUN mkdir -p /app/data /app/logs /app/models && chown -R openre:openre /app
+
+USER openre
+
+ENV RUST_LOG=info
+ENV OPENRE_CONFIG=/app/config.toml
+ENV OPENRE_MODELS_DIR=/app/models
+
+# AI worker runs with AI capabilities enabled
+CMD ["openre", "worker", "start", "--ai-enabled"]

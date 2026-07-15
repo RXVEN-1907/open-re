@@ -1,0 +1,27 @@
+[package]
+name = "openre-analysis"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "Analysis pipeline (stages, orchestrator) for open-re"
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[dependencies]
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+openre-storage = { path = "../openre-storage" }
+openre-plugins = { path = "../openre-plugins" }
+openre-ai = { path = "../openre-ai" }
+openre-queue = { path = "../openre-queue" }
+openre-telemetry = { path = "../openre-telemetry" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dashmap = "5.5"
+tokio-util = { version = "0.7", features = ["sync"] }

@@ -1,0 +1,156 @@
+# open-re .gitignore
+
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Node.js / JavaScript
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+build/
+.next/
+.out/
+*.tsbuildinfo
+
+# IDE / Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+temp/
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+*.lib
+*.a
+*.exe
+*.out
+*.app
+*.ipa
+*.apk
+*.aab
+
+# Package managers
+*.tar.gz
+*.tgz
+*.zip
+*.whl
+*.egg
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+*.cert
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Coverage
+coverage/
+.lcov
+*.lcov
+
+# Benchmarks
+benchmarks/
+*.bench
+
+# Profiling
+*.prof
+*.profraw
+*.gcda
+*.gcno
+*.gcov
+
+# Fuzzing
+fuzz/
+corpus/
+artifacts/
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+site/
+public/
+
+# Release
+release/
+dist-packages/
+
+# IDE specific
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+
+# Language servers
+.rust-analyzer/
+.rake/
+.ruby-lsp/
+
+# Testing
+test-results/
+junit.xml
+*.trx
+
+# Misc
+*.orig
+*.rej
+.patch
+.diff

@@ -1,0 +1,111 @@
+# Software Terms Dictionary for cspell
+# Add project-specific terms here
+
+open-re
+reverse engineering
+reverse-engineering
+disassembler
+decompiler
+decompilation
+control flow graph
+data flow analysis
+static analysis
+dynamic analysis
+binary analysis
+malware analysis
+vulnerability research
+firmware analysis
+symbolic execution
+taint analysis
+abstract interpretation
+value set analysis
+SSA form
+intermediate representation
+intermediate language
+lifting
+lowering
+optimization pass
+pattern matching
+instruction semantics
+architecture specification
+calling convention
+function prologue
+function epilogue
+basic block
+dominator tree
+post dominator
+loop detection
+induction variable
+phi node
+reaching definitions
+live variables
+dead code elimination
+constant propagation
+copy propagation
+common subexpression elimination
+strength reduction
+loop invariant code motion
+instruction scheduling
+register allocation
+spilling
+coalescing
+call graph
+function inlining
+function outlining
+tail call optimization
+devirtualization
+interprocedural analysis
+context sensitivity
+flow sensitivity
+path sensitivity
+alias analysis
+points-to analysis
+escape analysis
+shape analysis
+separation logic
+symbolic execution
+concolic execution
+hybrid analysis
+fuzzing
+mutation testing
+property-based testing
+model checking
+theorem proving
+SMT solver
+SAT solver
+constraint solving
+bitvector theory
+array theory
+floating point theory
+nonlinear arithmetic
+quantifier elimination
+interpolation
+abstraction refinement
+CEGAR
+predicate abstraction
+trace partitioning
+path merging
+state merging
+loop summarization
+recursion summarization
+library summarization
+function summarization
+modular analysis
+compositional analysis
+incremental analysis
+demand-driven analysis
+goal-directed analysis
+backward analysis
+forward analysis
+bidirectional analysis
+interprocedural
+intraprocedural
+whole program
+modular
+compositional
+incremental
+demand-driven
+goal-directed
+backward
+forward
+bidirectional

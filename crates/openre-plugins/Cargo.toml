@@ -1,0 +1,28 @@
+[package]
+name = "openre-plugins"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "Plugin system (registry, runtime, SDK) for open-re"
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[dependencies]
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+openre-storage = { path = "../openre-storage" }
+openre-telemetry = { path = "../openre-telemetry" }
+wasmtime = { workspace = true }
+wasmparser = { workspace = true }
+libloading = "0.8"
+toml = "0.8"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+dashmap = "5.5"
+notify = "6.1"
+ring = { workspace = true }
+base64 = "0.21"

@@ -1,0 +1,27 @@
+[package]
+name = "openre-queue"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "Queue system (Redis Streams) for open-re"
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[dependencies]
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+openre-telemetry = { path = "../openre-telemetry" }
+openre-storage = { path = "../openre-storage" }
+redis = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dashmap = "5.5"
+futures = "0.3"
+tokio-stream = { version = "0.1", features = ["sync"] }
+cron = "0.9"

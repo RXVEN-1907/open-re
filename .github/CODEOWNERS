@@ -1,0 +1,46 @@
+# CODEOWNERS for open-re
+# These users/groups will be requested for review when matching files are changed
+
+# Global owners (review everything)
+* @crawzyy
+
+# Documentation
+/docs/ @crawzyy
+README.md @crawzyy
+CHANGELOG.md @crawzyy
+CONTRIBUTING.md @crawzyy
+CODE_OF_CONDUCT.md @crawzyy
+SECURITY.md @crawzyy
+LICENSE @crawzyy
+
+# GitHub configuration
+/.github/ @crawzyy
+
+# CI/CD
+/.github/workflows/ @crawzyy
+
+# Dependencies
+/.github/dependabot.yml @crawzyy
+
+# Configuration files
+/.markdownlint.json @crawzyy
+/.cspell.json @crawzyy
+/.gitignore @crawzyy
+
+# Future: Core implementation (when code exists)
+# /src/ @core-team
+# /crates/ @core-team
+# /python/ @python-team
+# /ui/ @ui-team
+# /plugins/ @plugin-team
+# /ai/ @ai-team
+
+# Future: Tests
+# /tests/ @core-team
+# /benches/ @core-team
+# /fuzz/ @security-team
+
+# Future: Packaging
+# /packaging/ @release-team
+# /docker/ @release-team
+# /installers/ @release-team

@@ -1,0 +1,29 @@
+[package]
+name = "openre-storage"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "Storage abstractions (PostgreSQL, SQLite, S3) for open-re"
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[dependencies]
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+openre-telemetry = { path = "../openre-telemetry" }
+sqlx = { workspace = true }
+redis = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+bytes = { workspace = true }
+aws-sdk-s3 = { version = "1.0", features = ["tokio"] }
+aws-config = { version = "1.0", features = ["tokio"] }
+rusqlite = { version = "0.31", features = ["bundled", "serde_json", "chrono", "uuid"] }
+dashmap = "5.5"
+once_cell = { workspace = true }

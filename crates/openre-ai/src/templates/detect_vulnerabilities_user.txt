@@ -1,0 +1,24 @@
+Detect vulnerabilities in the following function:
+
+**Function**: {{function_name}}
+**Pseudocode**: {{pseudocode}}
+
+**Taint Sources** (user-controlled inputs):
+{{taint_sources}}
+
+**Taint Sinks** (dangerous functions):
+{{taint_sinks}}
+
+**Control Flow**: {{cfg_info}}
+**Data Flow**: {{data_flow}}
+
+**Called Functions**:
+{{called_functions}}
+
+**String Operations**:
+{{string_operations}}
+
+**Memory Operations**:
+{{memory_operations}}
+
+Provide vulnerability analysis in the specified format.

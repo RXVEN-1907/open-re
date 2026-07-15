@@ -1,0 +1,114 @@
+# Dependabot Configuration for open-re
+# Automated dependency updates for security and maintenance
+
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      prefix-development: "ci"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Docker (for CI containers)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "ci"
+      prefix-development: "ci"
+      include: "scope"
+
+  # Rust (when Cargo.toml exists)
+  # - package-ecosystem: "cargo"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "monday"
+  #     time: "09:00"
+  #     timezone: "UTC"
+  #   labels:
+  #     - "dependencies"
+  #     - "rust"
+  #   commit-message:
+  #     prefix: "deps"
+  #     prefix-development: "deps"
+  #     include: "scope"
+  #   groups:
+  #     rust-minor-patch:
+  #       patterns:
+  #         - "*"
+  #       update-types:
+  #         - "minor"
+  #         - "patch"
+
+  # Python (when pyproject.toml/requirements.txt exists)
+  # - package-ecosystem: "pip"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "monday"
+  #     time: "09:00"
+  #     timezone: "UTC"
+  #   labels:
+  #     - "dependencies"
+  #     - "python"
+  #   commit-message:
+  #     prefix: "deps"
+  #     prefix-development: "deps"
+  #     include: "scope"
+
+  # npm (when package.json exists)
+  # - package-ecosystem: "npm"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "monday"
+  #     time: "09:00"
+  #     timezone: "UTC"
+  #   labels:
+  #     - "dependencies"
+  #     - "npm"
+  #   commit-message:
+  #     prefix: "deps"
+  #     prefix-development: "deps"
+  #     include: "scope"
+
+  # Go (when go.mod exists)
+  # - package-ecosystem: "gomod"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "monday"
+  #     time: "09:00"
+  #     timezone: "UTC"
+  #   labels:
+  #     - "dependencies"
+  #     - "go"
+  #   commit-message:
+  #     prefix: "deps"
+  #     prefix-development: "deps"
+  #     include: "scope"

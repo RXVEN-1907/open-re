@@ -1,0 +1,21 @@
+Improve the following decompilation:
+
+**Original Pseudocode**:
+{{original_pseudocode}}
+
+**Known Issues**:
+{{issues}}
+
+**Context** (surrounding functions, types, etc.):
+{{context}}
+
+**Function Signature** (if known):
+{{function_signature}}
+
+**Variable Information**:
+{{variable_info}}
+
+**Control Flow Graph**:
+{{cfg_info}}
+
+Provide improved pseudocode with comments explaining each change.

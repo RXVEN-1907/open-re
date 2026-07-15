@@ -1,0 +1,31 @@
+[package]
+name = "openre-telemetry"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "Telemetry (logging, metrics, tracing, audit) for open-re"
+categories = { workspace = true }
+keywords = { workspace = true }
+
+[dependencies]
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+opentelemetry = { version = "0.27", features = ["trace", "metrics", "rt-tokio-current-thread"] }
+opentelemetry-otlp = { version = "0.27", features = ["tonic"] }
+opentelemetry-sdk = { version = "0.27", features = ["trace", "metrics", "rt-tokio-current-thread"] }
+opentelemetry-prometheus = "0.27"
+prometheus = "0.13"
+metrics = "0.21"
+metrics-exporter-prometheus = "0.13"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+sha2 = "0.10"
+tokio = { workspace = true }
+dashmap = "5.5"

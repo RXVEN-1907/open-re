@@ -1,0 +1,21 @@
+Analyze the following function:
+
+**Function**: {{function_name}} (0x{{function_address}})
+**Architecture**: {{architecture}}
+
+**Disassembly**:
+{{disassembly}}
+
+**Pseudocode**:
+{{pseudocode}}
+
+**Control Flow Graph**:
+{{cfg_info}}
+
+**Cross-References**:
+{{xrefs}}
+
+**Referenced Strings**:
+{{strings}}
+
+Provide a comprehensive analysis following the system prompt guidelines.
