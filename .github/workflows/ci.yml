@@ -98,7 +98,7 @@ jobs:
         run: markdownlint "**/*.md" --config .markdownlint.json
 
       - name: Check spelling
-        uses: streetsidesoftware/cspell-action@v6
+        uses: streetsidesoftware/cspell-action@v8
         with:
           files: "**/*.md"
           config: .cspell.json
