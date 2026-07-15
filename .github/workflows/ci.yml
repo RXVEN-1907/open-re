@@ -280,7 +280,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Create Issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { owner, repo } = context.repo;
