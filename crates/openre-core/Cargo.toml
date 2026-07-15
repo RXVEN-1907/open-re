@@ -17,3 +17,5 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 once_cell = { workspace = true }
 bytes = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }

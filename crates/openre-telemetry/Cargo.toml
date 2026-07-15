@@ -13,9 +13,9 @@ openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-opentelemetry = { version = "0.27", features = ["trace", "metrics", "rt-tokio-current-thread"] }
+opentelemetry = { version = "0.27", features = ["trace", "metrics"] }
 opentelemetry-otlp = { version = "0.27", features = ["tonic"] }
-opentelemetry-sdk = { version = "0.27", features = ["trace", "metrics", "rt-tokio-current-thread"] }
+opentelemetry_sdk = { version = "0.27", features = ["trace", "metrics"] }
 opentelemetry-prometheus = "0.27"
 prometheus = "0.13"
 metrics = "0.21"

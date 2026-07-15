@@ -1,6 +1,6 @@
 //! Configuration structures for open-re
 
-use figment::{Figment, providers::{Toml, Env, Json, Serialized}};
+use figment::{Figment, providers::{Toml, Env, Json, Serialized, Format}};
 use once_cell::sync::Lazy;
 use openre_core::error::Result;
 use serde::{Deserialize, Serialize};
@@ -40,26 +40,26 @@ impl Config {
             .merge(Env::prefixed("OPENRE_").split("__"))
             .merge(Json::file("config.local.json"));
 
-        let config: Config = figment.extract()?;
+        let config: Config = figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))?;
         config.validate()?;
         Ok(config)
     }
 
     /// Load and set as global config
-    pub fn load_global() -> Result<&'static Config> {
+    pub fn load_global() -> Result<()> {
         let config = Self::load()?;
         let mut guard = CONFIG.write().unwrap();
         *guard = Some(config);
-        Ok(guard.as_ref().unwrap())
+        Ok(())
     }
 
     /// Get global config (must be loaded first)
-    pub fn global() -> &'static Config {
-        CONFIG.read().unwrap().as_ref().expect("Config not loaded. Call Config::load_global() first.")
+    pub fn global() -> Config {
+        CONFIG.read().unwrap().as_ref().expect("Config not loaded. Call Config::load_global() first.").clone()
     }
 
     /// Validate configuration
-    fn validate(&self) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         self.server.validate()?;
         self.database.validate()?;
         self.redis.validate()?;

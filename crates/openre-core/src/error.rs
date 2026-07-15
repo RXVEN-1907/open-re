@@ -19,10 +19,10 @@ pub enum Error {
     Config(String),
 
     #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
+    Database(String),
 
     #[error("Redis error: {0}")]
-    Redis(#[from] redis::RedisError),
+    Redis(String),
 
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),

@@ -61,45 +61,46 @@ sha2 = "0.10"
 blake3 = "1.5"
 argon2 = "0.5"
 bcrypt = "0.15"
-jsonwebtoken = { version = "9.2", features = ["chrono"] }
+jsonwebtoken = { version = "9.2" }
 validator = { version = "0.16", features = ["derive"] }
-utoipa = { version = "4.0", features = ["axum"] }
+utoipa = { version = "4.0" }
 utoipa-swagger-ui = "5.0"
 
 # Web
 axum = { version = "0.7", features = ["ws", "multipart"] }
-axum-extra = { version = "0.9", features = ["cookie-jar"] }
+axum-extra = { version = "0.9" }
 tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["cors", "trace", "compression", "limit", "timeout", "classify"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-br", "limit", "timeout"] }
 tonic = { version = "0.10", features = ["tls", "transport"] }
-prost = { version = "0.12", features = ["std", "serde"] }
+prost = { version = "0.12", features = ["std"] }
 reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multipart"] }
 governor = { version = "0.6", features = ["std"] }
 
 # Database
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "sqlite", "chrono", "uuid", "migrate", "offline"] }
-redis = { version = "0.24", features = ["tokio-comp", "streams", "scripts", "connection-manager"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "sqlite", "chrono", "uuid", "migrate"] }
+redis = { version = "0.24", features = ["tokio-comp", "streams", "script", "connection-manager"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.20"
 
-# Storage
-aws-sdk-s3 = { version = "1.0", features = ["behavior-version-latest", "tokio"] }
-aws-config = { version = "1.0", features = ["behavior-version-latest", "tokio"] }
+# Storage - commented out for now
+# aws-sdk-s3 = { version = "1.0" }
+# aws-config = { version = "1.0" }
 
-# AI/ML
-ort = { version = "1.17", features = ["load-model", "dynamic"] }
-llama-cpp-2 = { version = "0.10", features = ["metal", "cuda", "vulkan", "blas"] }
-tokenizers = "0.15"
-candle-core = { version = "0.5", features = ["cuda"] }
-candle-nn = { version = "0.5", features = ["cuda"] }
-candle-transformers = { version = "0.5", features = ["cuda"] }
+# AI/ML - commented out for now, will be added when implementing AI features
+# ort = { version = "1.7", features = ["load-model", "dynamic"] }
+# llama-cpp-2 = { version = "0.1", features = ["metal", "cuda", "vulkan", "blas"] }
+# tokenizers = "0.15"
+# candle-core = { version = "0.5", features = ["cuda"] }
+# candle-nn = { version = "0.5", features = ["cuda"] }
+# candle-transformers = { version = "0.5", features = ["cuda"] }
 
 # WASM
-wasmtime = { version = "20.0", features = ["cranelift", "wasi"] }
+wasmtime = { version = "20.0", features = ["cranelift", "wat"] }
 wasmparser = "0.215"
+ring = { version = "0.17", features = ["std"] }
 
 # Config
-figment = { version = "0.11", features = ["toml", "env", "json", "yaml"] }
+figment = { version = "0.10", features = ["toml", "env", "json", "yaml"] }
 config = { version = "0.13", features = ["toml", "env", "yaml"] }
 serde_yaml = "0.9"
 
@@ -109,6 +110,8 @@ clap_complete = "4.5"
 indicatif = "0.17"
 colored = "2.0"
 tabled = "0.16"
+num_cpus = "1.16"
+notify = "6.1"
 
 # Testing
 tempfile = "3.8"
@@ -120,12 +123,12 @@ test-case = "3.0"
 criterion = "0.5"
 
 [workspace.lints]
-rust_2021_idioms = true
-unused_crate_dependencies = "warn"
-unused_import_braces = "warn"
-unused_lifetimes = "warn"
-unused_qualifications = "warn"
-variant_size_differences = "warn"
+rust_2021_idioms = { level = "warn" }
+unused_crate_dependencies = { level = "warn" }
+unused_import_braces = { level = "warn" }
+unused_lifetimes = { level = "warn" }
+unused_qualifications = { level = "warn" }
+variant_size_differences = { level = "warn" }
 
 [profile.release]
 opt-level = 3

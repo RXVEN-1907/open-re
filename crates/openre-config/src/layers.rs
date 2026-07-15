@@ -1,9 +1,10 @@
 //! Configuration layers and hot-reload support
 
 use crate::Config;
-use figment::{Figment, providers::{Toml, Env, Json, Serialized}};
+use figment::{Figment, providers::{Toml, Env, Json, Serialized, Format}};
 use notify::{Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use openre_core::error::Result;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -74,12 +75,12 @@ impl ConfigWatcher {
     ) -> Result<()> {
         let figment = Figment::new()
             .merge(Serialized::defaults(Config::default()))
-            .merge(Toml::file("config.toml"))
-            .merge(Toml::file("config.local.toml"))
+            .merge(figment::providers::Toml::file("config.toml"))
+            .merge(figment::providers::Toml::file("config.local.toml"))
             .merge(Env::prefixed("OPENRE_").split("__"))
-            .merge(Json::file("config.local.json"));
+            .merge(figment::providers::Json::file("config.local.json"));
 
-        let new_config: Config = figment.extract()?;
+        let new_config: Config = figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))?;
         new_config.validate()?;
 
         let mut guard = config.write().await;
@@ -135,12 +136,12 @@ impl ConfigBuilder {
     }
 
     pub fn toml_file(mut self, path: impl Into<PathBuf>) -> Self {
-        self.figment = self.figment.merge(Toml::file(path.into()));
+        self.figment = self.figment.merge(figment::providers::Toml::file(path.into()));
         self
     }
 
     pub fn json_file(mut self, path: impl Into<PathBuf>) -> Self {
-        self.figment = self.figment.merge(Json::file(path.into()));
+        self.figment = self.figment.merge(figment::providers::Json::file(path.into()));
         self
     }
 
@@ -150,7 +151,7 @@ impl ConfigBuilder {
     }
 
     pub fn build<T: for<'de> Deserialize<'de>>(self) -> Result<T> {
-        Ok(self.figment.extract()?)
+        self.figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))
     }
 }
 

@@ -13,9 +13,9 @@ openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-storage = { path = "../openre-storage" }
 openre-telemetry = { path = "../openre-telemetry" }
-ort = { workspace = true }
-llama-cpp-2 = { workspace = true }
-tokenizers = { workspace = true }
+# ort = { workspace = true }
+# llama-cpp-2 = { workspace = true }
+# tokenizers = { workspace = true }
 reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
 tokio = { workspace = true }
 anyhow = { workspace = true }

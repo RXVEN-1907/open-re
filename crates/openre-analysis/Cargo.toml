@@ -24,4 +24,4 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 dashmap = "5.5"
-tokio-util = { version = "0.7", features = ["sync"] }
+tokio-util = { version = "0.7" }

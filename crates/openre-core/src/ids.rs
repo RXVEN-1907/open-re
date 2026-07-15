@@ -41,12 +41,6 @@ macro_rules! define_id {
             }
         }
 
-        impl fmt::Debug for $name {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}({})", stringify!($name), self.0)
-            }
-        }
-
         impl FromStr for $name {
             type Err = uuid::Error;
 
@@ -67,28 +61,7 @@ macro_rules! define_id {
             }
         }
 
-        impl sqlx::Type<sqlx::Postgres> for $name {
-            fn type_info() -> sqlx::postgres::PgTypeInfo {
-                <Uuid as sqlx::Type<sqlx::Postgres>>::type_info()
-            }
-        }
 
-        impl sqlx::Encode<'_, sqlx::Postgres> for $name {
-            fn encode_by_ref(
-                &self,
-                buf: &mut sqlx::postgres::PgArgumentBuffer,
-            ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
-                self.0.encode_by_ref(buf)
-            }
-        }
-
-        impl sqlx::Decode<'_, sqlx::Postgres> for $name {
-            fn decode(
-                value: sqlx::postgres::PgValueRef<'_>,
-            ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-                Ok(Self(Uuid::decode(value)?))
-            }
-        }
     };
 }
 
