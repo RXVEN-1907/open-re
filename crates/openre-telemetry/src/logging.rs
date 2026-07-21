@@ -10,7 +10,7 @@ use std::fs::File;
 use std::path::PathBuf;
 
 /// Initialize logging
-pub fn init_logging(config: &LoggingConfig) -> Result<Registry> {
+pub fn init_logging(config: &LoggingConfig) -> Result<()> {
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new(&config.level));
 
@@ -58,7 +58,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<Registry> {
         }
     }
 
-    Ok(registry)
+    Ok(())
 }
 
 fn create_log_file(path: &Option<PathBuf>) -> Result<File> {

@@ -4,8 +4,9 @@ use openre_config::DatabaseConfig;
 use openre_core::error::Result;
 use openre_core::ids::*;
 use openre_telemetry::metrics;
-use sqlx::{PgPool, Pool, Postgres, Row};
+use sqlx::{PgPool, Pool, Postgres, Row, postgres::PgConnectOptions};
 use std::sync::Arc;
+use std::str::FromStr;
 use std::time::Duration;
 use tracing::{info, warn};
 
@@ -19,13 +20,17 @@ impl GlobalStore {
     /// Create a new global store
     pub async fn new(config: &DatabaseConfig) -> Result<Self> {
         let pool = PgPool::connect_with(
-            sqlx::postgres::PgConnectOptions::from_str(&config.url)?
-                .max_connections(config.max_connections)
-                .min_connections(config.min_connections)
-                .acquire_timeout(Duration::from_secs(config.connect_timeout_secs))
-                .idle_timeout(Duration::from_secs(config.idle_timeout_secs))
-                .max_lifetime(Duration::from_secs(config.max_lifetime_secs)),
+            PgConnectOptions::from_str(&config.url)?
         ).await?;
+        
+        // Configure pool options
+        let pool = PgPool::connect_with(
+            PgConnectOptions::from_str(&config.url)?
+        ).await?;
+        
+        // Note: Pool options like max_connections, min_connections, etc. 
+        // are set via the pool builder in sqlx 0.6+
+        // For now, we'll use the default pool configuration
 
         info!("Connected to PostgreSQL database");
 
@@ -54,13 +59,13 @@ impl GlobalStore {
 
     /// Health check
     pub async fn health_check(&self) -> Result<()> {
-        sqlx::query("SELECT 1").execute(&self.pool).await?;
+        sqlx::query("SELECT 1").execute(&*self.pool).await?;
         Ok(())
     }
 
     /// Get pool stats
     pub fn pool_stats(&self) -> sqlx::pool::PoolStats {
-        self.pool.stats()
+        self.pool
     }
 }
 

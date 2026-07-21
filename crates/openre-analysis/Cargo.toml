@@ -25,3 +25,8 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 dashmap = "5.5"
 tokio-util = { version = "0.7" }
+goblin = { workspace = true }
+object = { workspace = true }
+scroll = { workspace = true }
+# pe = { workspace = true }  # Has alignment issues, using goblin for PE parsing instead
+xmas-elf = { workspace = true }

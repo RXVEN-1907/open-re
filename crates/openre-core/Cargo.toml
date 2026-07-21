@@ -19,3 +19,7 @@ once_cell = { workspace = true }
 bytes = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
+notify = { workspace = true }
+opentelemetry = { workspace = true }
+rusqlite = { version = "0.31", features = ["bundled", "serde_json", "chrono", "uuid"] }
+sqlx = { workspace = true }

@@ -39,12 +39,12 @@ uuid = { version = "1.7", features = ["v4", "serde", "fast-rng"] }
 chrono = { version = "0.4", features = ["serde"] }
 tracing = { version = "0.1", features = ["std"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
-tracing-opentelemetry = "0.25"
-opentelemetry = { version = "0.25", features = ["rt-tokio", "trace"] }
-opentelemetry-otlp = { version = "0.25", features = ["tonic"] }
-opentelemetry-prometheus = "0.25"
-metrics = "0.21"
-metrics-exporter-prometheus = "0.13"
+tracing-opentelemetry = "0.27"
+opentelemetry = { version = "0.27", features = ["trace"] }
+opentelemetry-otlp = { version = "0.27", features = ["tonic"] }
+opentelemetry-prometheus = "0.27"
+metrics = "0.22"
+metrics-exporter-prometheus = "0.14"
 dashmap = "5.5"
 futures = "0.3"
 tokio-stream = { version = "0.1", features = ["sync"] }
@@ -65,6 +65,7 @@ jsonwebtoken = { version = "9.2" }
 validator = { version = "0.16", features = ["derive"] }
 utoipa = { version = "4.0" }
 utoipa-swagger-ui = "5.0"
+notify = "6.1"
 
 # Web
 axum = { version = "0.7", features = ["ws", "multipart"] }
@@ -77,10 +78,18 @@ reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multi
 governor = { version = "0.6", features = ["std"] }
 
 # Database
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "sqlite", "chrono", "uuid", "migrate"] }
+sqlx = { version = "0.6", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "migrate"] }
 redis = { version = "0.24", features = ["tokio-comp", "streams", "script", "connection-manager"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.20"
+rusqlite = { version = "0.31", features = ["bundled", "serde_json", "chrono", "uuid"] }
+
+# Binary parsing
+goblin = { version = "0.7", features = ["std"] }
+object = { version = "0.35", features = ["std"] }
+scroll = "0.11"
+# pe = "0.1"  # Has alignment issues, using goblin for PE parsing instead
+xmas-elf = "0.10"
 
 # Storage - commented out for now
 # aws-sdk-s3 = { version = "1.0" }
@@ -111,7 +120,6 @@ indicatif = "0.17"
 colored = "2.0"
 tabled = "0.16"
 num_cpus = "1.16"
-notify = "6.1"
 
 # Testing
 tempfile = "3.8"

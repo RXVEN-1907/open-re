@@ -12,7 +12,6 @@ keywords = { workspace = true }
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
-openre-storage = { path = "../openre-storage" }
 redis = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }

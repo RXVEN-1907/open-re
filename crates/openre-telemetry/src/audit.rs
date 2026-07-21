@@ -7,9 +7,9 @@ use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 use tracing::{info, warn};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
@@ -66,12 +66,6 @@ pub struct AuditEntry {
     pub risk_level: RiskLevel,
 }
 
-/// Audit writer trait
-#[async_trait::async_trait]
-pub trait AuditWriter: Send + Sync {
-    async fn write_batch(&self, entries: Vec<AuditEntry>) -> Result<()>;
-}
-
 /// Immutable audit writer (append-only with hash chain)
 pub struct ImmutableAuditWriter {
     writer: Arc<Mutex<BufWriter<File>>>,
@@ -81,7 +75,7 @@ pub struct ImmutableAuditWriter {
 
 impl ImmutableAuditWriter {
     /// Create a new immutable audit writer
-    pub fn new(config: AuditConfig) -> Result<Self> {
+    pub async fn new(config: AuditConfig) -> Result<Self> {
         if let Some(parent) = config.file_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -95,8 +89,8 @@ impl ImmutableAuditWriter {
         let hash_chain = Arc::new(Mutex::new(Vec::new()));
 
         // Read existing hash chain from file
-        let existing_chain = Self::read_hash_chain(&config.file_path)?;
-        *hash_chain.lock().unwrap() = existing_chain;
+        let existing_chain = Self::read_hash_chain(&config.file_path).await?;
+        *hash_chain.lock().await = existing_chain;
 
         Ok(Self {
             writer,
@@ -106,7 +100,7 @@ impl ImmutableAuditWriter {
     }
 
     /// Read the last hash from the audit log file
-    fn read_hash_chain(path: &PathBuf) -> Result<Vec<u8>> {
+    async fn read_hash_chain(path: &PathBuf) -> Result<Vec<u8>> {
         if !path.exists() {
             return Ok(Vec::new());
         }
@@ -140,18 +134,17 @@ impl ImmutableAuditWriter {
     }
 }
 
-#[async_trait::async_trait]
-impl AuditWriter for ImmutableAuditWriter {
+impl ImmutableAuditWriter {
     async fn write_batch(&self, entries: Vec<AuditEntry>) -> Result<()> {
-        let mut writer = self.writer.lock().unwrap();
-        let mut hash_chain = self.hash_chain.lock().unwrap();
+        let mut writer = self.writer.lock().await;
+        let mut hash_chain = self.hash_chain.lock().await;
 
         for entry in entries {
             let json = serde_json::to_vec(&entry)?;
 
             // Compute hash: H(previous_hash || entry)
             let mut hasher = Sha256::new();
-            hasher.update(&hash_chain);
+            hasher.update(&*hash_chain);
             hasher.update(&json);
             let hash = hasher.finalize();
 
@@ -187,7 +180,7 @@ impl ImmutableAuditWriter {
 
 /// Async audit logger with buffering
 pub struct AuditLogger {
-    writer: Arc<dyn AuditWriter>,
+    writer: Arc<ImmutableAuditWriter>,
     buffer: Arc<Mutex<Vec<AuditEntry>>>,
     flush_interval: Duration,
     tx: mpsc::UnboundedSender<AuditEntry>,
@@ -196,7 +189,7 @@ pub struct AuditLogger {
 
 impl AuditLogger {
     /// Create a new audit logger
-    pub fn new(writer: Arc<dyn AuditWriter>, config: &AuditConfig) -> Self {
+    pub fn new(writer: Arc<ImmutableAuditWriter>, _config: &AuditConfig) -> Self {
         let buffer = Arc::new(Mutex::new(Vec::new()));
         let (tx, mut rx) = mpsc::unbounded_channel();
         let flush_interval = Duration::from_secs(5);
@@ -209,7 +202,7 @@ impl AuditLogger {
                 tokio::select! {
                     _ = interval.tick() => {
                         let entries = {
-                            let mut buf = buffer_clone.lock().unwrap();
+                            let mut buf = buffer_clone.lock().await;
                             if buf.is_empty() {
                                 continue;
                             }
@@ -221,7 +214,7 @@ impl AuditLogger {
                     }
                     entry = rx.recv() => {
                         if let Some(entry) = entry {
-                            let mut buf = buffer_clone.lock().unwrap();
+                            let mut buf = buffer_clone.lock().await;
                             buf.push(entry);
                             if buf.len() >= 100 {
                                 let entries = std::mem::take(&mut *buf);
@@ -255,7 +248,7 @@ impl AuditLogger {
     /// Flush the buffer
     pub async fn flush(&self) -> Result<()> {
         let entries = {
-            let mut buf = self.buffer.lock().unwrap();
+            let mut buf = self.buffer.lock().await;
             std::mem::take(&mut *buf)
         };
         if !entries.is_empty() {
@@ -266,12 +259,12 @@ impl AuditLogger {
 }
 
 /// Initialize audit logging
-pub fn init_audit(config: &AuditConfig) -> Result<AuditGuard> {
+pub async fn init_audit(config: &AuditConfig) -> Result<AuditGuard> {
     if !config.enabled {
         return Ok(AuditGuard);
     }
 
-    let writer = Arc::new(ImmutableAuditWriter::new(config.clone())?);
+    let writer = Arc::new(ImmutableAuditWriter::new(config.clone()).await?);
     let logger = AuditLogger::new(writer, config);
 
     // Store logger globally (in a real app, use a proper DI container)

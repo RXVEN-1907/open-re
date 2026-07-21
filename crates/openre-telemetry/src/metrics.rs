@@ -2,7 +2,7 @@
 
 use openre_config::MetricsConfig;
 use openre_core::error::Result;
-use metrics::{counter, gauge, histogram, Unit};
+use metrics::{counter, gauge, histogram};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use std::net::SocketAddr;
 
@@ -12,11 +12,13 @@ pub fn init_metrics(config: &MetricsConfig) -> Result<MetricsGuard> {
         return Ok(MetricsGuard);
     }
 
-    let addr: SocketAddr = format!("0.0.0.0:{}", config.port).parse()?;
+    let addr: SocketAddr = format!("0.0.0.0:{}", config.port).parse()
+        .map_err(|e: std::net::AddrParseError| openre_core::Error::Internal(e.into()))?;
     
     PrometheusBuilder::new()
         .with_http_listener(addr)
-        .install()?;
+        .install()
+        .map_err(|e: metrics_exporter_prometheus::BuildError| openre_core::Error::Internal(e.into()))?;
 
     // Register common metrics
     register_common_metrics();
@@ -37,7 +39,7 @@ fn register_common_metrics() {
     // HTTP metrics
     counter!("http_requests_total", "method" => "GET", "status" => "200");
     counter!("http_requests_total", "method" => "POST", "status" => "200");
-    histogram!("http_request_duration_seconds", Unit::Seconds);
+    histogram!("http_request_duration_seconds");
     
     // Job metrics
     counter!("jobs_total", "status" => "queued");
@@ -45,12 +47,12 @@ fn register_common_metrics() {
     counter!("jobs_total", "status" => "completed");
     counter!("jobs_total", "status" => "failed");
     counter!("jobs_total", "status" => "cancelled");
-    histogram!("job_duration_seconds", Unit::Seconds);
+    histogram!("job_duration_seconds");
     gauge!("jobs_active");
     
     // Stage metrics
     counter!("stage_executions_total", "stage" => "identification", "status" => "success");
-    histogram!("stage_duration_seconds", "stage" => "identification", Unit::Seconds);
+    histogram!("stage_duration_seconds", "stage" => "identification");
     
     // Worker metrics
     gauge!("workers_total");
@@ -69,16 +71,16 @@ fn register_common_metrics() {
     // AI metrics
     counter!("ai_requests_total", "task" => "function_naming", "provider" => "local");
     counter!("ai_requests_total", "task" => "pseudocode", "provider" => "local");
-    histogram!("ai_request_duration_seconds", Unit::Seconds);
+    histogram!("ai_request_duration_seconds");
     histogram!("ai_tokens_total");
     gauge!("ai_cache_hit_rate");
     
     // Plugin metrics
     counter!("plugin_executions_total", "plugin" => "unknown", "capability" => "unknown", "status" => "success");
-    histogram!("plugin_execution_duration_seconds", Unit::Seconds);
+    histogram!("plugin_execution_duration_seconds");
     
     // Database metrics
-    histogram!("db_query_duration_seconds", Unit::Seconds);
+    histogram!("db_query_duration_seconds");
     gauge!("db_pool_connections_active");
     gauge!("db_pool_connections_idle");
     

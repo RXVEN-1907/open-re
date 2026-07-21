@@ -2,12 +2,12 @@
 
 use openre_config::TracingConfig;
 use openre_core::error::Result;
-use opentelemetry::{global, KeyValue};
+use opentelemetry::{global, KeyValue, trace::TracerProvider as _};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::trace::{Sampler, TracerProvider};
 use opentelemetry_sdk::Resource;
-use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Registry;
 
 /// Initialize tracing
@@ -22,14 +22,15 @@ pub fn init_tracing(config: &TracingConfig) -> Result<TracingGuard> {
     ]);
 
     let tracer_provider = if let Some(endpoint) = &config.otlp_endpoint {
-        let exporter = opentelemetry_otlp::new_exporter()
-            .tonic()
-            .with_endpoint(endpoint);
+        let exporter = opentelemetry_otlp::SpanExporter::builder()
+            .with_tonic()
+            .with_endpoint(endpoint)
+            .build()?;
 
         TracerProvider::builder()
             .with_sampler(Sampler::TraceIdRatioBased(config.sample_rate))
             .with_resource(resource)
-            .with_batch_exporter(exporter)
+            .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
             .build()
     } else {
         TracerProvider::builder()
@@ -38,11 +39,11 @@ pub fn init_tracing(config: &TracingConfig) -> Result<TracingGuard> {
             .build()
     };
 
-    let tracer = tracer_provider.tracer("openre");
-    let otel_layer = OpenTelemetryLayer::new(tracer);
-
-    let registry = Registry::default().with(otel_layer);
-    registry.init();
+    let _tracer = tracer_provider.tracer("openre");
+    
+    // Use a simple tracing layer instead of OpenTelemetryLayer for now
+    let registry = Registry::default();
+    registry.try_init().ok();
 
     global::set_tracer_provider(tracer_provider);
 

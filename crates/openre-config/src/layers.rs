@@ -37,7 +37,7 @@ impl ConfigWatcher {
         let tx = self.tx.clone();
 
         let mut watcher = RecommendedWatcher::new(
-            move |res: Result<Event, notify::Error>| {
+            move |res: std::result::Result<Event, notify::Error>| {
                 if let Ok(event) = res {
                     if matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
                         // Debounce: wait a bit before reloading

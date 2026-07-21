@@ -22,7 +22,15 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 bytes = { workspace = true }
-# aws-sdk-s3 = { version = "0.30" }
-# aws-config = { version = "0.30" }
+base64 = { workspace = true }
+rusqlite = { version = "0.31", features = ["bundled", "serde_json", "chrono", "uuid"] }
+goblin = { workspace = true }
+object = { workspace = true }
+scroll = { workspace = true }
+# pe = { workspace = true }  # Has alignment issues, using goblin for PE parsing instead
+xmas-elf = { workspace = true }
+# aws-sdk-s3 = { version = "0.30", features = ["behavior-version-latest"] }
+# aws-config = { version = "0.30", features = ["behavior-version-latest"] }
+# aws-types = { version = "0.30" }
 dashmap = "5.5"
 once_cell = { workspace = true }
