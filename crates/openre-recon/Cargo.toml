@@ -1,0 +1,85 @@
+[package]
+name = "openre-recon"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "Reconnaissance plugins for open-re security scanner"
+categories = ["security", "development-tools"]
+keywords = ["security", "reconnaissance", "fingerprinting", "web-application", "api"]
+
+[dependencies]
+# Core workspace dependencies
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+openre-telemetry = { path = "../openre-telemetry" }
+openre-scanner = { path = "../openre-scanner" }
+openre-plugins = { path = "../openre-plugins" }
+
+# External dependencies
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+futures = { workspace = true }
+tokio-stream = { workspace = true }
+reqwest = { workspace = true }
+validator = { workspace = true }
+urlencoding = { workspace = true }
+sha2 = { workspace = true }
+blake3 = { workspace = true }
+figment = { workspace = true }
+config = { workspace = true }
+serde_yaml = { workspace = true }
+clap = { workspace = true }
+indicatif = { workspace = true }
+colored = { workspace = true }
+url = { workspace = true }
+base64 = { workspace = true }
+http = { workspace = true }
+
+# HTTP client for scanning
+http-body = "0.4"
+hyper = { version = "1.0", features = ["full", "client", "http1", "http2"] }
+hyper-rustls = "0.24"
+rustls = "0.21"
+rustls-pemfile = "1.0"
+webpki-roots = "0.25"
+
+# HTML parsing
+select = "0.6"
+html5ever = "0.26"
+markup5ever_rcdom = "0.1"
+
+# TLS analysis
+rustls-pki-types = "1.0"
+x509-parser = "0.16"
+pem = "1.0"
+
+# Cookie parsing
+cookie = "0.16"
+
+# Regex for pattern matching
+regex = "1.10"
+
+# WASM for plugin system
+wasmtime = { workspace = true }
+wasmparser = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
