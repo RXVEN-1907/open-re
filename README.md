@@ -40,9 +40,9 @@ See [INSTALLATION.md](docs/INSTALLATION.md) for detailed instructions.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Frontend (React)                        │
+│                      Frontend (React)                       │
 ├─────────────────────────────────────────────────────────────┤
-│                    API Gateway (Axum)                        │
+│                    API Gateway (Axum)                       │
 ├──────────────┬──────────────┬──────────────┬────────────────┤
 │   Analysis   │    Plugin    │     AI       │   Storage      │
 │  Pipeline    │   Registry   │  Service     │  (PostgreSQL/  │
