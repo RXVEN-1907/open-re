@@ -1,7 +1,7 @@
 //! Object storage (S3-compatible) for open-re
 
 use openre_config::{StorageConfig, S3Config, StorageBackend};
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::FileId;
 use openre_telemetry::metrics;
 use std::path::PathBuf;

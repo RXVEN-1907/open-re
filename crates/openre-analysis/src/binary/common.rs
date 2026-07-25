@@ -1,7 +1,7 @@
 //! Common types for binary analysis
 
 use openre_core::ids::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;

@@ -1,10 +1,11 @@
 //! Queue manager for Redis Streams
 
-use crate::{Job, JobStatus, Priority, QueueConfig, QueueMetrics};
-use openre_core::error::Result;
+use crate::{Job, JobStatus, Priority};
+use openre_config::QueueConfig;
+use openre_core::error::OpenreResult;
 use openre_core::ids::{JobId, ProjectId, UserId};
-use openre_telemetry::metrics::QueueMetrics as TelemetryQueueMetrics;
-use redis::{AsyncCommands, Client, StreamsMaxlen, StreamsRange, XReadOptions};
+use openre_telemetry::metrics::{QueueMetrics as TelemetryQueueMetrics, MetricsRegistry};
+use redis::{AsyncCommands, Client, RedisResult};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -38,21 +39,22 @@ struct PendingJob {
 }
 
 impl QueueManager {
-    pub async fn new(config: QueueConfig, metrics: Arc<TelemetryQueueMetrics>) -> Result<Self> {
-        let client = Client::open(config.redis_url.as_str())?;
+    pub async fn new(config: QueueConfig, redis_config: &openre_config::RedisConfig, metrics: Arc<TelemetryQueueMetrics>) -> OpenreResult<Self> {
+        let client = Client::open(redis_config.url.as_str())?;
         
         // Test connection
         let mut conn = client.get_multiplexed_async_connection().await?;
         redis::cmd("PING").query_async(&mut conn).await?;
 
         // Create consumer groups for each priority
+        let semaphore = Arc::new(Semaphore::new(config.worker.max_concurrent_jobs));
         let manager = Self {
             client,
-            config: config.clone(),
+            config,
             metrics,
             consumer_groups: Arc::new(RwLock::new(HashMap::new())),
             pending_jobs: Arc::new(RwLock::new(HashMap::new())),
-            semaphore: Arc::new(Semaphore::new(config.max_concurrent_jobs)),
+            semaphore,
         };
 
         manager.init_consumer_groups().await?;
@@ -60,7 +62,7 @@ impl QueueManager {
         Ok(manager)
     }
 
-    async fn init_consumer_groups(&self) -> Result<()> {
+    async fn init_consumer_groups(&self) -> OpenreResult<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         
         for priority in [Priority::High, Priority::Default, Priority::Low] {
@@ -68,7 +70,7 @@ impl QueueManager {
             let group = format!("openre-workers-{}", priority.as_str().to_lowercase());
             
             // Create consumer group if not exists
-            let result: Result<String, _> = redis::cmd("XGROUP")
+            let result: redis::RedisResult<String> = redis::cmd("XGROUP")
                 .arg("CREATE")
                 .arg(&stream)
                 .arg(&group)
@@ -93,7 +95,7 @@ impl QueueManager {
         }
 
         // Create scheduled jobs stream
-        let _: () = redis::cmd("XGROUP")
+        let _: RedisResult<()> = redis::cmd("XGROUP")
             .arg("CREATE")
             .arg("openre:scheduled")
             .arg("openre-scheduler")
@@ -103,7 +105,7 @@ impl QueueManager {
             .ok(); // Ignore if exists
 
         // Create dead letter queue stream
-        let _: () = redis::cmd("XGROUP")
+        let _: RedisResult<()> = redis::cmd("XGROUP")
             .arg("CREATE")
             .arg("openre:dlq")
             .arg("openre-dlq-processor")
@@ -120,7 +122,7 @@ impl QueueManager {
     }
 
     /// Enqueue a job
-    pub async fn enqueue(&self, mut job: Job) -> Result<JobId> {
+    pub async fn enqueue(&self, mut job: Job) -> OpenreResult<JobId> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         
         job.status = JobStatus::Queued;
@@ -132,8 +134,8 @@ impl QueueManager {
         let id: String = conn.xadd(&stream, "*", &[("data", job_data)]).await?;
         
         // Update metrics
-        self.metrics.jobs_queued.inc();
-        self.metrics.jobs_by_priority.with_label_values(&[job.priority.as_str()]).inc();
+        self.metrics.jobs_queued.increment(1);
+        self.metrics.jobs_by_priority.increment(1);
         
         info!("Enqueued job {} to stream {} with ID {}", job.id, stream, id);
         
@@ -141,7 +143,7 @@ impl QueueManager {
     }
 
     /// Enqueue a scheduled job
-    pub async fn enqueue_scheduled(&self, job: Job, run_at: chrono::DateTime<chrono::Utc>) -> Result<JobId> {
+    pub async fn enqueue_scheduled(&self, job: Job, run_at: chrono::DateTime<chrono::Utc>) -> OpenreResult<JobId> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         
         let job_data = serde_json::to_string(&job)?;
@@ -151,7 +153,7 @@ impl QueueManager {
         let _: () = conn.zadd("openre:scheduled:jobs", job.id.to_string(), score).await?;
         let _: () = conn.hset("openre:scheduled:data", job.id.to_string(), job_data).await?;
         
-        self.metrics.jobs_scheduled.inc();
+        self.metrics.jobs_scheduled.increment(1);
         
         info!("Scheduled job {} for {}", job.id, run_at);
         
@@ -159,8 +161,8 @@ impl QueueManager {
     }
 
     /// Dequeue a job for processing
-    pub async fn dequeue(&self, worker_id: &str, priorities: &[Priority]) -> Result<Option<Job>> {
-        let _permit = self.semaphore.acquire().await.map_err(|_| openre_core::Error::Internal("Semaphore closed".into()))?;
+    pub async fn dequeue(&self, worker_id: &str, priorities: &[Priority]) -> OpenreResult<Option<Job>> {
+        let _permit = self.semaphore.acquire().await.map_err(|_| openre_core::Error::Internal(anyhow::anyhow!("Semaphore closed")))?;
         
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         
@@ -168,43 +170,55 @@ impl QueueManager {
             let stream = self.stream_name(*priority);
             let group = format!("openre-workers-{}", priority.as_str().to_lowercase());
             
-            // Read from stream with blocking
-            let options = XReadOptions::default()
-                .count(1)
-                .block(Duration::from_millis(self.config.poll_interval_ms));
+            // Read from stream with blocking using XREADGROUP
+            let count = 1;
+            let block_ms = self.config.poll_interval_ms;
             
-            let streams: Vec<(String, String)> = vec![(stream.clone(), ">".to_string())];
-            let result: Option<Vec<redis::streams::StreamReadReply>> = conn.xread_options(&streams, &options).await?;
+            let result: Option<Vec<redis::streams::StreamReadReply>> = redis::cmd("XREADGROUP")
+                .arg("GROUP")
+                .arg(&group)
+                .arg(worker_id)
+                .arg("COUNT")
+                .arg(count)
+                .arg("BLOCK")
+                .arg(block_ms)
+                .arg("STREAMS")
+                .arg(&stream)
+                .arg(">")
+                .query_async(&mut conn)
+                .await?;
             
             if let Some(replies) = result {
                 for reply in replies {
-                    for entry in reply.ids {
-                        if let Some(data) = entry.map.get("data") {
-                            let job_data: String = redis::from_redis_value(data)?;
-                            let mut job: Job = serde_json::from_str(&job_data)?;
+                    for key in reply.keys {
+                        for entry in key.ids {
+                            if let Some(data) = entry.map.get("data") {
+                                let job_data: String = redis::from_redis_value(data)?;
+                                let mut job: Job = serde_json::from_str(&job_data)?;
                             
-                            // Update job status
-                            job.status = JobStatus::Running;
-                            job.started_at = Some(chrono::Utc::now());
-                            job.worker_id = Some(worker_id.to_string());
-                            
-                            // Track pending job
-                            let mut pending = self.pending_jobs.write().await;
-                            pending.insert(job.id, PendingJob {
-                                job: job.clone(),
-                                attempts: 1,
-                                last_attempt: chrono::Utc::now(),
-                                assigned_worker: Some(worker_id.to_string()),
-                            });
-                            
-                            // Update metrics
-                            self.metrics.jobs_dequeued.inc();
-                            self.metrics.jobs_running.inc();
-                            
-                            // Acknowledge message
-                            let _: () = conn.xack(&stream, &group, &[entry.id]).await?;
-                            
-                            return Ok(Some(job));
+                                // Update job status
+                                job.status = JobStatus::Running;
+                                job.started_at = Some(chrono::Utc::now());
+                                job.worker_id = Some(worker_id.to_string());
+                                
+                                // Track pending job
+                                let mut pending = self.pending_jobs.write().await;
+                                pending.insert(job.id, PendingJob {
+                                    job: job.clone(),
+                                    attempts: 1,
+                                    last_attempt: chrono::Utc::now(),
+                                    assigned_worker: Some(worker_id.to_string()),
+                                });
+                                
+                                // Update metrics
+                                self.metrics.jobs_dequeued.increment(1);
+                                self.metrics.jobs_running.increment(1.0);
+                                
+                                // Acknowledge message
+                                let _: () = conn.xack(&stream, &group, &[entry.id]).await?;
+                                
+                                return Ok(Some(job));
+                            }
                         }
                     }
                 }
@@ -215,7 +229,7 @@ impl QueueManager {
     }
 
     /// Complete a job successfully
-    pub async fn complete(&self, job_id: JobId, result: serde_json::Value) -> Result<()> {
+    pub async fn complete(&self, job_id: JobId, result: serde_json::Value) -> OpenreResult<()> {
         let mut pending = self.pending_jobs.write().await;
         
         if let Some(mut pending_job) = pending.remove(&job_id) {
@@ -226,8 +240,8 @@ impl QueueManager {
             // Store result
             self.store_job_result(&pending_job.job).await?;
             
-            self.metrics.jobs_completed.inc();
-            self.metrics.jobs_running.dec();
+            self.metrics.jobs_completed.increment(1);
+            self.metrics.jobs_running.decrement(1.0);
             
             info!("Job {} completed successfully", job_id);
         }
@@ -236,7 +250,7 @@ impl QueueManager {
     }
 
     /// Fail a job (with retry logic)
-    pub async fn fail(&self, job_id: JobId, error: String, retry: bool) -> Result<()> {
+    pub async fn fail(&self, job_id: JobId, error: String, retry: bool) -> OpenreResult<()> {
         let mut pending = self.pending_jobs.write().await;
         
         if let Some(mut pending_job) = pending.remove(&job_id) {
@@ -246,12 +260,13 @@ impl QueueManager {
             if retry && pending_job.attempts <= self.config.max_retries {
                 // Re-queue with backoff
                 let delay = self.calculate_backoff(pending_job.attempts);
+                let scheduled_at = chrono::Utc::now() + delay;
                 pending_job.job.status = JobStatus::Queued;
-                pending_job.job.scheduled_at = Some(chrono::Utc::now() + delay);
+                pending_job.job.scheduled_at = Some(scheduled_at);
                 
-                self.enqueue_scheduled(pending_job.job, pending_job.job.scheduled_at.unwrap()).await?;
+                self.enqueue_scheduled(pending_job.job, scheduled_at).await?;
                 
-                self.metrics.jobs_retried.inc();
+                self.metrics.jobs_retried.increment(1);
                 warn!("Job {} failed, retry {}/{} in {:?}", job_id, pending_job.attempts, self.config.max_retries, delay);
             } else {
                 // Move to DLQ
@@ -261,8 +276,8 @@ impl QueueManager {
                 
                 self.move_to_dlq(&pending_job.job, error).await?;
                 
-                self.metrics.jobs_failed.inc();
-                self.metrics.jobs_running.dec();
+                self.metrics.jobs_failed.increment(1);
+                self.metrics.jobs_running.decrement(1.0);
                 
                 error!("Job {} failed permanently after {} attempts", job_id, pending_job.attempts);
             }
@@ -272,7 +287,7 @@ impl QueueManager {
     }
 
     /// Cancel a job
-    pub async fn cancel(&self, job_id: JobId) -> Result<bool> {
+    pub async fn cancel(&self, job_id: JobId) -> OpenreResult<bool> {
         let mut pending = self.pending_jobs.write().await;
         
         if let Some(pending_job) = pending.remove(&job_id) {
@@ -284,9 +299,9 @@ impl QueueManager {
             
             self.store_job_result(&job).await?;
             
-            self.metrics.jobs_cancelled.inc();
+            self.metrics.jobs_cancelled.increment(1);
             if pending_job.assigned_worker.is_some() {
-                self.metrics.jobs_running.dec();
+                self.metrics.jobs_running.decrement(1.0);
             }
             
             info!("Job {} cancelled", job_id);
@@ -300,7 +315,7 @@ impl QueueManager {
     }
 
     /// Get job status
-    pub async fn get_job_status(&self, job_id: JobId) -> Result<Option<JobStatus>> {
+    pub async fn get_job_status(&self, job_id: JobId) -> OpenreResult<Option<JobStatus>> {
         // Check pending jobs first
         {
             let pending = self.pending_jobs.read().await;
@@ -322,7 +337,7 @@ impl QueueManager {
     }
 
     /// Get job result
-    pub async fn get_job_result(&self, job_id: JobId) -> Result<Option<Job>> {
+    pub async fn get_job_result(&self, job_id: JobId) -> OpenreResult<Option<Job>> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let result: Option<String> = conn.hget("openre:job:results", job_id.to_string()).await?;
         
@@ -334,7 +349,7 @@ impl QueueManager {
         Ok(None)
     }
 
-    async fn store_job_result(&self, job: &Job) -> Result<()> {
+    async fn store_job_result(&self, job: &Job) -> OpenreResult<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let data = serde_json::to_string(job)?;
         let _: () = conn.hset("openre:job:results", job.id.to_string(), data).await?;
@@ -345,7 +360,7 @@ impl QueueManager {
         Ok(())
     }
 
-    async fn move_to_dlq(&self, job: &Job, error: String) -> Result<()> {
+    async fn move_to_dlq(&self, job: &Job, error: String) -> OpenreResult<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         
         let dlq_entry = serde_json::json!({
@@ -355,9 +370,10 @@ impl QueueManager {
             "attempts": job.retry_count,
         });
         
-        let _: () = conn.xadd("openre:dlq", "*", &[("data", serde_json::to_string(&dlq_entry)?)])?;
+        let dlq_data = serde_json::to_string(&dlq_entry)?;
+        let _: () = conn.xadd("openre:dlq", "*", &[("data", dlq_data)]).await?;
         
-        self.metrics.jobs_dlq.inc();
+        self.metrics.jobs_dlq.increment(1);
         
         Ok(())
     }
@@ -368,13 +384,13 @@ impl QueueManager {
         let delay_ms = (base as f64 * 2_f64.powi(attempt as i32 - 1)).min(max as f64) as i64;
         
         // Add jitter
-        let jitter = (rand::random::<f64>() * 0.2 * delay_ms as f64) as i64;
+        let jitter = (fastrand::f64() * 0.2 * delay_ms as f64) as i64;
         
         chrono::Duration::milliseconds(delay_ms + jitter)
     }
 
     /// Get queue statistics
-    pub async fn get_stats(&self) -> Result<QueueStats> {
+    pub async fn get_stats(&self) -> OpenreResult<QueueStats> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         
         let mut stats = QueueStats::default();
@@ -415,10 +431,10 @@ impl QueueManager {
         });
     }
 
-    async fn cleanup_stale_jobs(&self) -> Result<()> {
+    async fn cleanup_stale_jobs(&self) -> OpenreResult<()> {
         let mut pending = self.pending_jobs.write().await;
         let now = chrono::Utc::now();
-        let stale_threshold = chrono::Duration::minutes(self.config.stale_job_timeout_minutes);
+        let stale_threshold = chrono::Duration::minutes(self.config.stale_job_timeout_minutes as i64);
         
         let mut to_remove = Vec::new();
         for (job_id, pj) in pending.iter() {
@@ -435,7 +451,7 @@ impl QueueManager {
                 job.retry_count += 1;
                 self.enqueue(job).await?;
                 
-                self.metrics.jobs_stale_recovered.inc();
+                self.metrics.jobs_stale_recovered.increment(1);
                 warn!("Recovered stale job {}", job_id);
             }
         }
@@ -443,7 +459,7 @@ impl QueueManager {
         Ok(())
     }
 
-    async fn process_scheduled_jobs(&self) -> Result<()> {
+    async fn process_scheduled_jobs(&self) -> OpenreResult<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let now = chrono::Utc::now().timestamp_millis() as f64;
         

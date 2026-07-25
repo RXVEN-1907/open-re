@@ -1,7 +1,7 @@
 //! Plugin manifest parsing and validation
 
 use openre_core::ids::{PluginId, PluginType, Capability, FileFormat, Architecture};
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -22,6 +22,16 @@ pub struct PluginManifest {
     pub resources: ResourceConfig,
     pub ui: Option<UiConfig>,
     pub config: Option<ConfigSchema>,
+    pub path: Option<PathBuf>, // Added for runtime use
+}
+
+/// Remote registry configuration
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RemoteRegistryConfig {
+    pub url: String,
+    pub name: String,
+    pub auth_token: Option<String>,
+    pub priority: i32,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -120,7 +130,8 @@ impl PluginManifest {
         }
 
         let content = std::fs::read_to_string(&manifest_path)?;
-        let manifest: PluginManifest = toml::from_str(&content)?;
+        let manifest: PluginManifest = toml::from_str(&content)
+            .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("TOML parse error: {}", e)))?;
         manifest.validate()?;
         Ok(manifest)
     }
@@ -141,7 +152,7 @@ impl PluginManifest {
         crate::capability::validate_capabilities(self.plugin.r#type, &self.plugin.capabilities)?;
 
         // Validate entry points exist
-        match self.plugin.build.target {
+        match self.build.target {
             BuildTarget::Wasm => {
                 if self.plugin.entry.wasm.is_none() {
                     return Err(openre_core::Error::Validation("WASM plugin must specify wasm entry point".into()));

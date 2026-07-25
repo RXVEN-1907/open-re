@@ -1,7 +1,7 @@
 //! Prompt compiler for open-re AI
 
 use crate::providers::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_storage::ProjectStore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

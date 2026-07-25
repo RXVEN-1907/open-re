@@ -10,8 +10,11 @@ pub use metrics::*;
 pub use tracing::*;
 pub use audit::*;
 
+// Re-export metrics types explicitly
+pub use metrics::{MetricsRegistry, MetricsCounter, MetricsGauge, MetricsHistogram};
+
 use openre_config::Config;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 
 /// Initialize all telemetry systems
 pub async fn init_telemetry(config: &Config) -> Result<TelemetryGuards> {

@@ -2,7 +2,7 @@
 
 use figment::{Figment, providers::{Toml, Env, Json, Serialized, Format}};
 use once_cell::sync::Lazy;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::RwLock;
@@ -402,6 +402,12 @@ pub struct QueueConfig {
     pub autoscaler: AutoscalerConfig,
     pub retry: RetryConfig,
     pub scheduler: SchedulerConfig,
+    pub poll_interval_ms: u64,
+    pub max_retries: u32,
+    pub base_retry_delay_ms: u64,
+    pub max_retry_delay_ms: u64,
+    pub result_ttl_seconds: u64,
+    pub stale_job_timeout_minutes: u64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -496,6 +502,12 @@ impl Default for QueueConfig {
                 enabled: true,
                 check_interval_secs: 10,
             },
+            poll_interval_ms: 5000,
+            max_retries: 3,
+            base_retry_delay_ms: 1000,
+            max_retry_delay_ms: 60000,
+            result_ttl_seconds: 86400,
+            stale_job_timeout_minutes: 30,
         }
     }
 }

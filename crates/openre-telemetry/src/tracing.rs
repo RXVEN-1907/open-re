@@ -1,7 +1,7 @@
 //! Distributed tracing for open-re
 
 use openre_config::TracingConfig;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use opentelemetry::{global, KeyValue, trace::TracerProvider as _};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::trace::{Sampler, TracerProvider};

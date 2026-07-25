@@ -1,9 +1,11 @@
 //! Job cancellation system
 
-use crate::{QueueManager, JobId, JobStatus};
-use openre_core::error::Result;
+use crate::{QueueManager, job::JobStatus};
+use openre_core::ids::JobId;
+use openre_core::error::OpenreResult as Result;
 use openre_telemetry::metrics::CancellationMetrics;
 use redis::{AsyncCommands, Client};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{RwLock, broadcast};
@@ -196,7 +198,7 @@ impl CancellationManager {
         let now = chrono::Utc::now();
         let max_age_chrono = chrono::Duration::from_std(max_age).unwrap_or(chrono::Duration::hours(24));
         
-        cancelled.retain(|_, info| now - info.requested_at < max_age_chrono);
+        cancelled.retain(|_, info| (now - info.requested_at) < max_age_chrono);
         
         debug!("Cleaned up old cancellation records");
     }
@@ -228,7 +230,7 @@ impl CancellationHandler {
                     return Ok(());
                 }
                 Ok(_) => continue,
-                Err(_) => return Err(openre_core::Error::Internal("Cancellation channel closed".into())),
+                Err(_) => return Err(openre_core::Error::Internal(anyhow::anyhow!("Cancellation channel closed"))),
             }
         }
     }
@@ -238,19 +240,25 @@ impl CancellationHandler {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         
         // Check cancellation stream
+        let options = redis::streams::StreamReadOptions::default()
+            .count(10)
+            .block(100);
+        
         let entries: Vec<redis::streams::StreamReadReply> = conn
             .xread_options(
                 &[("openre:cancellation:signals".to_string(), "0-0".to_string())],
-                &redis::XReadOptions::default().count(10).block(Duration::from_millis(100)),
+                &options,
             )
             .await?;
         
         for reply in entries {
-            for entry in reply.ids {
-                if let Some(job_id_str) = entry.map.get("job_id") {
-                    let id_str: String = redis::from_redis_value(job_id_str)?;
-                    if id_str == job_id.to_string() {
-                        return Ok(true);
+            for key in reply.keys {
+                for entry in key.ids {
+                    if let Some(job_id_str) = entry.map.get("job_id") {
+                        let id_str: String = redis::from_redis_value(job_id_str)?;
+                        if id_str == job_id.to_string() {
+                            return Ok(true);
+                        }
                     }
                 }
             }
@@ -268,5 +276,3 @@ pub enum CancellationResult {
     AlreadyCancelled,
     NotFound,
 }
-
-use std::collections::HashMap;

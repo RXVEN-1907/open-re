@@ -1,7 +1,7 @@
 //! Incremental re-analysis for open-re
 
 use crate::orchestrator::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_storage::ProjectStore;
 use std::collections::HashSet;

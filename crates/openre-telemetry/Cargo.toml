@@ -32,3 +32,4 @@ tokio = { workspace = true }
 dashmap = "5.5"
 once_cell = { workspace = true }
 async-trait = { workspace = true }
+sqlx = { workspace = true }

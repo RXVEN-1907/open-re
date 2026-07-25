@@ -1,6 +1,7 @@
 //! Metrics for queue system
 
-use openre_telemetry::metrics::{Counter, Gauge, Histogram, MetricsRegistry};
+use openre_telemetry::{MetricsRegistry, MetricsCounter as Counter, MetricsGauge as Gauge, MetricsHistogram as Histogram};
+use metrics::{counter, gauge, histogram};
 
 /// Queue metrics
 pub struct QueueMetrics {
@@ -22,23 +23,23 @@ pub struct QueueMetrics {
 }
 
 impl QueueMetrics {
-    pub fn new(registry: &MetricsRegistry) -> Self {
+    pub fn new(_registry: &MetricsRegistry) -> Self {
         Self {
-            jobs_queued: registry.counter("queue_jobs_queued_total", "Total jobs queued"),
-            jobs_dequeued: registry.counter("queue_jobs_dequeued_total", "Total jobs dequeued"),
-            jobs_completed: registry.counter("queue_jobs_completed_total", "Total jobs completed"),
-            jobs_failed: registry.counter("queue_jobs_failed_total", "Total jobs failed"),
-            jobs_retried: registry.counter("queue_jobs_retried_total", "Total jobs retried"),
-            jobs_cancelled: registry.counter("queue_jobs_cancelled_total", "Total jobs cancelled"),
-            jobs_scheduled: registry.counter("queue_jobs_scheduled_total", "Total jobs scheduled"),
-            jobs_triggered: registry.counter("queue_jobs_triggered_total", "Total scheduled jobs triggered"),
-            jobs_unscheduled: registry.counter("queue_jobs_unscheduled_total", "Total jobs unscheduled"),
-            jobs_stale_recovered: registry.counter("queue_jobs_stale_recovered_total", "Total stale jobs recovered"),
-            jobs_dlq: registry.counter("queue_jobs_dlq_total", "Total jobs sent to DLQ"),
-            jobs_by_priority: registry.counter("queue_jobs_by_priority_total", "Jobs queued by priority"),
-            jobs_running: registry.gauge("queue_jobs_running", "Currently running jobs"),
-            queue_depth: registry.gauge("queue_depth", "Total jobs in queue"),
-            queue_depth_by_priority: registry.gauge("queue_depth_by_priority", "Jobs in queue by priority"),
+            jobs_queued: counter!("queue_jobs_queued_total"),
+            jobs_dequeued: counter!("queue_jobs_dequeued_total"),
+            jobs_completed: counter!("queue_jobs_completed_total"),
+            jobs_failed: counter!("queue_jobs_failed_total"),
+            jobs_retried: counter!("queue_jobs_retried_total"),
+            jobs_cancelled: counter!("queue_jobs_cancelled_total"),
+            jobs_scheduled: counter!("queue_jobs_scheduled_total"),
+            jobs_triggered: counter!("queue_jobs_triggered_total"),
+            jobs_unscheduled: counter!("queue_jobs_unscheduled_total"),
+            jobs_stale_recovered: counter!("queue_jobs_stale_recovered_total"),
+            jobs_dlq: counter!("queue_jobs_dlq_total"),
+            jobs_by_priority: counter!("queue_jobs_by_priority_total"),
+            jobs_running: gauge!("queue_jobs_running"),
+            queue_depth: gauge!("queue_depth"),
+            queue_depth_by_priority: gauge!("queue_depth_by_priority"),
         }
     }
 }
@@ -54,14 +55,14 @@ pub struct WorkerMetrics {
 }
 
 impl WorkerMetrics {
-    pub fn new(registry: &MetricsRegistry) -> Self {
+    pub fn new(_registry: &MetricsRegistry) -> Self {
         Self {
-            jobs_processed: registry.counter("worker_jobs_processed_total", "Total jobs processed by workers"),
-            jobs_succeeded: registry.counter("worker_jobs_succeeded_total", "Total jobs succeeded"),
-            jobs_failed: registry.counter("worker_jobs_failed_total", "Total jobs failed in workers"),
-            worker_errors: registry.counter("worker_errors_total", "Total worker errors"),
-            job_duration: registry.histogram("worker_job_duration_ms", "Job processing duration in ms"),
-            active_workers: registry.gauge("worker_active", "Number of active workers"),
+            jobs_processed: counter!("worker_jobs_processed_total"),
+            jobs_succeeded: counter!("worker_jobs_succeeded_total"),
+            jobs_failed: counter!("worker_jobs_failed_total"),
+            worker_errors: counter!("worker_errors_total"),
+            job_duration: histogram!("worker_job_duration_ms"),
+            active_workers: gauge!("worker_active"),
         }
     }
 }
@@ -76,13 +77,13 @@ pub struct AutoScalerMetrics {
 }
 
 impl AutoScalerMetrics {
-    pub fn new(registry: &MetricsRegistry) -> Self {
+    pub fn new(_registry: &MetricsRegistry) -> Self {
         Self {
-            scale_events: registry.counter("autoscaler_scale_events_total", "Total scaling events"),
-            current_workers: registry.gauge("autoscaler_current_workers", "Current number of workers"),
-            desired_workers: registry.gauge("autoscaler_desired_workers", "Desired number of workers"),
-            queue_depth: registry.gauge("autoscaler_queue_depth", "Current queue depth"),
-            jobs_running: registry.gauge("autoscaler_jobs_running", "Currently running jobs"),
+            scale_events: counter!("autoscaler_scale_events_total"),
+            current_workers: gauge!("autoscaler_current_workers"),
+            desired_workers: gauge!("autoscaler_desired_workers"),
+            queue_depth: gauge!("autoscaler_queue_depth"),
+            jobs_running: gauge!("autoscaler_jobs_running"),
         }
     }
 }
@@ -94,10 +95,10 @@ pub struct ProgressMetrics {
 }
 
 impl ProgressMetrics {
-    pub fn new(registry: &MetricsRegistry) -> Self {
+    pub fn new(_registry: &MetricsRegistry) -> Self {
         Self {
-            jobs_tracked: registry.counter("progress_jobs_tracked_total", "Total jobs with progress tracking"),
-            progress_updates: registry.counter("progress_updates_total", "Total progress updates"),
+            jobs_tracked: counter!("progress_jobs_tracked_total"),
+            progress_updates: counter!("progress_updates_total"),
         }
     }
 }
@@ -110,11 +111,11 @@ pub struct CancellationMetrics {
 }
 
 impl CancellationMetrics {
-    pub fn new(registry: &MetricsRegistry) -> Self {
+    pub fn new(_registry: &MetricsRegistry) -> Self {
         Self {
-            cancellation_requests: registry.counter("cancellation_requests_total", "Total cancellation requests"),
-            jobs_cancelled: registry.counter("jobs_cancelled_total", "Total jobs cancelled"),
-            jobs_force_cancelled: registry.counter("jobs_force_cancelled_total", "Total jobs force cancelled"),
+            cancellation_requests: counter!("cancellation_requests_total"),
+            jobs_cancelled: counter!("jobs_cancelled_total"),
+            jobs_force_cancelled: counter!("jobs_force_cancelled_total"),
         }
     }
 }
@@ -129,13 +130,13 @@ pub struct SchedulerMetrics {
 }
 
 impl SchedulerMetrics {
-    pub fn new(registry: &MetricsRegistry) -> Self {
+    pub fn new(_registry: &MetricsRegistry) -> Self {
         Self {
-            jobs_scheduled: registry.counter("scheduler_jobs_scheduled_total", "Total jobs scheduled"),
-            recurring_jobs: registry.counter("scheduler_recurring_jobs_total", "Total recurring jobs"),
-            recurring_jobs_removed: registry.counter("scheduler_recurring_jobs_removed_total", "Total recurring jobs removed"),
-            jobs_triggered: registry.counter("scheduler_jobs_triggered_total", "Total scheduled jobs triggered"),
-            jobs_failed: registry.counter("scheduler_jobs_failed_total", "Total scheduled jobs failed to trigger"),
+            jobs_scheduled: counter!("scheduler_jobs_scheduled_total"),
+            recurring_jobs: counter!("scheduler_recurring_jobs_total"),
+            recurring_jobs_removed: counter!("scheduler_recurring_jobs_removed_total"),
+            jobs_triggered: counter!("scheduler_jobs_triggered_total"),
+            jobs_failed: counter!("scheduler_jobs_failed_total"),
         }
     }
 }

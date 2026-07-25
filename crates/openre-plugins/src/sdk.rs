@@ -1,19 +1,48 @@
 //! Plugin SDK for open-re
 
 use openre_core::ids::{PluginId, Capability, FunctionId, BlockId, InstructionId};
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
+/// Plugin instance trait for lifecycle management
+#[async_trait::async_trait]
+pub trait PluginInstance: Send + Sync {
+    async fn start(&self) -> Result<()>;
+    async fn stop(&self) -> Result<()>;
+    async fn shutdown(&self) -> Result<()>;
+    async fn health_check(&self) -> Result<bool>;
+}
+
 /// Plugin trait that all plugins must implement
 #[async_trait::async_trait]
 pub trait Plugin: Send + Sync {
-    type Config: for<'de> Deserialize<'de> + Send + Sync;
+    type Config: for<'de> Deserialize<'de> + Send + Sync + 'static;
 
     fn new(config: Self::Config) -> Self;
     fn capabilities(&self) -> Vec<Capability>;
-    async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse>;
+    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse>;
+    async fn initialize(&self) -> Result<()> { Ok(()) }
+}
+
+/// Dyn-compatible plugin trait for lifecycle management
+pub trait DynPlugin: Send + Sync {
+    fn capabilities(&self) -> Vec<Capability>;
+    fn execute(&self, request: CapabilityRequest) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<CapabilityResponse>> + Send + '_>>;
+    fn initialize(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>>;
+}
+
+impl<T: Plugin> DynPlugin for T {
+    fn capabilities(&self) -> Vec<Capability> {
+        self.capabilities()
+    }
+    fn execute(&self, request: CapabilityRequest) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<CapabilityResponse>> + Send + '_>> {
+        Box::pin(self.execute(request))
+    }
+    fn initialize(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        Box::pin(self.initialize())
+    }
 }
 
 /// Capability request from host

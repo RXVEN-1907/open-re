@@ -1,9 +1,12 @@
 //! AI model providers for open-re
 
-use crate::{CompletionRequest, CompletionResponse, StreamingResponse, ProviderCapabilities, ProviderId, HealthStatus};
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
+
+pub mod onnx;
+pub mod llama_cpp;
+pub mod remote;
 
 /// Model provider trait
 #[async_trait]

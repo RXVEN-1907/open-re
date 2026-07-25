@@ -1,7 +1,7 @@
 //! Analysis pipeline stages for open-re
 
 use crate::{orchestrator::*, incremental::*};
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_plugins::PluginRegistry;
 use openre_storage::ProjectStore;

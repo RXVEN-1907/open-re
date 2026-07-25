@@ -1,6 +1,6 @@
 //! Plugin sandboxing for open-re
 
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::Capability;
 use std::path::PathBuf;
 use std::collections::HashMap;

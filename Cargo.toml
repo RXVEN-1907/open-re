@@ -11,6 +11,7 @@ members = [
     "crates/openre-ai",
     "crates/openre-api",
     "crates/openre-cli",
+    "crates/openre-scanner",
 ]
 
 exclude = [
@@ -66,6 +67,8 @@ validator = { version = "0.16", features = ["derive"] }
 utoipa = { version = "4.0" }
 utoipa-swagger-ui = "5.0"
 notify = "6.1"
+http = "0.2"
+url = "2.5"
 
 # Web
 axum = { version = "0.7", features = ["ws", "multipart"] }
@@ -78,7 +81,7 @@ reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multi
 governor = { version = "0.6", features = ["std"] }
 
 # Database
-sqlx = { version = "0.6", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "migrate"] }
+sqlx = { version = "0.6", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "migrate", "macros"] }
 redis = { version = "0.24", features = ["tokio-comp", "streams", "script", "connection-manager"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.20"
@@ -110,7 +113,7 @@ ring = { version = "0.17", features = ["std"] }
 
 # Config
 figment = { version = "0.10", features = ["toml", "env", "json", "yaml"] }
-config = { version = "0.13", features = ["toml", "env", "yaml"] }
+config = { version = "0.13", features = ["toml", "yaml", "ini"] }
 serde_yaml = "0.9"
 
 # CLI
@@ -118,6 +121,10 @@ clap = { version = "4.5", features = ["derive", "env", "wrap_help", "help", "usa
 clap_complete = "4.5"
 indicatif = "0.17"
 colored = "2.0"
+
+# TUI
+ratatui = "0.26"
+crossterm = "0.27"
 tabled = "0.16"
 num_cpus = "1.16"
 

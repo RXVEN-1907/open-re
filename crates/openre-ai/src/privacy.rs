@@ -1,7 +1,7 @@
 //! Privacy controls for open-re AI
 
 use crate::providers::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_config::PrivacyConfig;
 use regex::Regex;
 use std::collections::HashSet;

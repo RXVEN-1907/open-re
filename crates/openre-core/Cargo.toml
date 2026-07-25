@@ -21,5 +21,8 @@ tokio = { workspace = true }
 async-trait = { workspace = true }
 notify = { workspace = true }
 opentelemetry = { workspace = true }
+tracing = { workspace = true }
+sha2 = { workspace = true }
 rusqlite = { version = "0.31", features = ["bundled", "serde_json", "chrono", "uuid"] }
-sqlx = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "migrate"] }
+redis = { workspace = true }

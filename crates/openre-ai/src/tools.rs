@@ -1,7 +1,7 @@
 //! AI tools for open-re
 
 use crate::providers::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_storage::{GlobalStore, ProjectStore, ObjectStore};
 use serde::{Deserialize, Serialize};

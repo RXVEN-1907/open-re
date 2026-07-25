@@ -12,6 +12,7 @@ keywords = { workspace = true }
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
+openre-storage = { path = "../openre-storage" }
 # ort = { workspace = true }
 # llama-cpp-2 = { workspace = true }
 # tokenizers = { workspace = true }
@@ -19,7 +20,7 @@ reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
@@ -27,3 +28,5 @@ dashmap = "5.5"
 regex = "1.10"
 futures = "0.3"
 tokio-stream = { version = "0.1", features = ["sync"] }
+async-trait = { workspace = true }
+sha2 = "0.10"

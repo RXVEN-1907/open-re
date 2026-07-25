@@ -1,6 +1,6 @@
 //! Database migrations for open-re
 
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use sqlx::{PgPool, Row};
 use std::sync::Arc;
 use tracing::{info, warn};

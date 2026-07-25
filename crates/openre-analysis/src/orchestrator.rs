@@ -2,7 +2,7 @@
 
 use crate::{stages::*, incremental::*, progress::*, metrics::*};
 use openre_config::QueueConfig;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_plugins::PluginRegistry;
 use openre_queue::QueueManager;

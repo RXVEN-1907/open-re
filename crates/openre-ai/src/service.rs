@@ -8,7 +8,7 @@ use crate::{
     cache::AiCache,
     privacy::PrivacyController,
 };
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_config::AiConfig;
 use openre_storage::{GlobalStore, ProjectStore, ObjectStore};
 use std::sync::Arc;

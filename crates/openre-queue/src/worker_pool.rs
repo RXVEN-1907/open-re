@@ -1,7 +1,8 @@
 //! Worker pool for open-re queue system
 
-use crate::{QueueManager, Job, JobHandler, WorkerConfig, WorkerMetrics};
-use openre_core::error::Result;
+use crate::{QueueManager, Job, JobHandler, BoxedJobHandler};
+use openre_config::{WorkerConfig, QueueConfig};
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::WorkerId;
 use openre_telemetry::metrics::WorkerMetrics as TelemetryWorkerMetrics;
 use std::sync::Arc;
@@ -13,7 +14,8 @@ use tracing::{debug, error, info, warn};
 /// Worker pool managing multiple workers
 pub struct WorkerPool {
     queue_manager: Arc<QueueManager>,
-    config: WorkerConfig,
+    worker_config: WorkerConfig,
+    queue_config: QueueConfig,
     metrics: Arc<TelemetryWorkerMetrics>,
     workers: Vec<WorkerHandle>,
     shutdown_tx: Option<mpsc::Sender<()>>,
@@ -25,15 +27,27 @@ struct WorkerHandle {
     shutdown_tx: mpsc::Sender<()>,
 }
 
+impl Clone for WorkerHandle {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            handle: self.handle.clone(),
+            shutdown_tx: self.shutdown_tx.clone(),
+        }
+    }
+}
+
 impl WorkerPool {
     pub fn new(
         queue_manager: Arc<QueueManager>,
-        config: WorkerConfig,
+        worker_config: WorkerConfig,
+        queue_config: QueueConfig,
         metrics: Arc<TelemetryWorkerMetrics>,
     ) -> Self {
         Self {
             queue_manager,
-            config,
+            worker_config,
+            queue_config,
             metrics,
             workers: Vec::new(),
             shutdown_tx: None,
@@ -41,16 +55,17 @@ impl WorkerPool {
     }
 
     /// Start the worker pool
-    pub async fn start(&mut self, handlers: Vec<Box<dyn JobHandler>>) -> Result<()> {
+    pub async fn start(&mut self, handlers: Vec<BoxedJobHandler>) -> Result<()> {
         let (shutdown_tx, mut shutdown_rx) = mpsc::channel(1);
         self.shutdown_tx = Some(shutdown_tx);
 
-        let semaphore = Arc::new(Semaphore::new(self.config.max_workers));
+        let semaphore = Arc::new(Semaphore::new(self.worker_config.max_workers));
         
-        for i in 0..self.config.max_workers {
+        for i in 0..self.worker_config.max_workers {
             let worker_id = WorkerId::new();
             let queue_manager = self.queue_manager.clone();
-            let config = self.config.clone();
+            let worker_config = self.worker_config.clone();
+            let queue_config = self.queue_config.clone();
             let metrics = self.metrics.clone();
             let handlers = handlers.clone();
             let permit = semaphore.clone().acquire_owned().await.unwrap();
@@ -58,7 +73,7 @@ impl WorkerPool {
 
             let handle = tokio::spawn(async move {
                 let _permit = permit; // Hold permit for worker lifetime
-                Self::worker_loop(worker_id, queue_manager, config, metrics, handlers, worker_shutdown_rx).await;
+                Self::worker_loop(worker_id, queue_manager, worker_config, queue_config, metrics, handlers, worker_shutdown_rx).await;
             });
 
             self.workers.push(WorkerHandle {
@@ -86,13 +101,14 @@ impl WorkerPool {
     async fn worker_loop(
         worker_id: WorkerId,
         queue_manager: Arc<QueueManager>,
-        config: WorkerConfig,
+        worker_config: WorkerConfig,
+        queue_config: QueueConfig,
         metrics: Arc<TelemetryWorkerMetrics>,
-        handlers: Vec<Box<dyn JobHandler>>,
+        handlers: Vec<BoxedJobHandler>,
         mut shutdown_rx: mpsc::Receiver<()>,
     ) {
-        let priorities = config.priorities.clone();
-        let poll_interval = Duration::from_millis(config.poll_interval_ms);
+        let priorities = [crate::job::Priority::High, crate::job::Priority::Default, crate::job::Priority::Low];
+        let poll_interval = Duration::from_millis(queue_config.poll_interval_ms);
 
         loop {
             tokio::select! {
@@ -104,7 +120,7 @@ impl WorkerPool {
                     // Try to dequeue a job
                     match queue_manager.dequeue(&worker_id.to_string(), &priorities).await {
                         Ok(Some(job)) => {
-                            metrics.jobs_processed.inc();
+                            metrics.jobs_processed.increment(1);
                             let start = std::time::Instant::now();
                             
                             // Find handler for job type
@@ -112,21 +128,21 @@ impl WorkerPool {
                                 let result = handler.handle(job.clone()).await;
                                 
                                 let duration = start.elapsed().as_millis() as u64;
-                                metrics.job_duration.observe(duration as f64);
+                                metrics.job_duration.record(duration as f64);
                                 
                                 match result {
                                     Ok(output) => {
                                         if let Err(e) = queue_manager.complete(job.id, output).await {
                                             error!("Failed to complete job {}: {}", job.id, e);
                                         }
-                                        metrics.jobs_succeeded.inc();
+                                        metrics.jobs_succeeded.increment(1);
                                     }
                                     Err(e) => {
                                         let should_retry = handler.should_retry(&e);
                                         if let Err(e) = queue_manager.fail(job.id, e.to_string(), should_retry).await {
                                             error!("Failed to fail job {}: {}", job.id, e);
                                         }
-                                        metrics.jobs_failed.inc();
+                                        metrics.jobs_failed.increment(1);
                                     }
                                 }
                             } else {
@@ -171,7 +187,7 @@ impl WorkerPool {
     }
 
     /// Scale worker pool
-    pub async fn scale(&mut self, new_size: usize, handlers: Vec<Box<dyn JobHandler>>) -> Result<()> {
+    pub async fn scale(&mut self, new_size: usize, handlers: Vec<BoxedJobHandler>) -> Result<()> {
         if new_size > self.config.max_workers {
             return Err(openre_core::Error::InvalidInput("Cannot exceed max_workers".into()));
         }

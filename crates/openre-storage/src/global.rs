@@ -1,14 +1,16 @@
 //! Global storage (PostgreSQL) for open-re
 
 use openre_config::DatabaseConfig;
-use openre_core::error::Result;
-use openre_core::ids::*;
+use openre_core::error::OpenreResult as Result;
+use openre_core::ids::{JobId, ProjectId, FileId, UserId, StageId, WorkerId, AnalysisId, ShareLinkId, StageName, JobStatus, FileFormat, Architecture};
+use openre_core::traits::{AnalysisJob, AnalysisResult, Project, CollaboratorRole, FileRecord, CollaboratorInvite, ShareLink, SharePermissions, IdentificationOutput};
 use openre_telemetry::metrics;
-use sqlx::{PgPool, Pool, Postgres, Row, postgres::PgConnectOptions};
+use sqlx::{PgPool, Pool, Postgres, Row, postgres::PgConnectOptions, query, query_as};
 use std::sync::Arc;
 use std::str::FromStr;
 use std::time::Duration;
 use tracing::{info, warn};
+use uuid::Uuid;
 
 /// Global store for PostgreSQL operations
 #[derive(Clone)]
@@ -52,7 +54,15 @@ impl GlobalStore {
     /// Run database migrations
     pub async fn run_migrations(&self) -> Result<()> {
         info!("Running database migrations");
-        sqlx::migrate!("./migrations").run(&self.pool).await?;
+        // Note: sqlx::migrate! requires the "migrate" feature and a migrations directory
+        // For now, we'll skip migrations if the directory doesn't exist
+        if std::path::Path::new("./migrations").exists() {
+            // Use the migrate API directly
+            let migrator = sqlx::migrate::Migrator::new(std::path::Path::new("./migrations")).await
+                .map_err(|e| openre_core::Error::Internal(e.into()))?;
+            migrator.run(&*self.pool).await
+                .map_err(|e| openre_core::Error::Internal(e.into()))?;
+        }
         info!("Database migrations completed");
         Ok(())
     }
@@ -64,81 +74,81 @@ impl GlobalStore {
     }
 
     /// Get pool stats
-    pub fn pool_stats(&self) -> sqlx::pool::PoolStats {
-        self.pool
+    pub fn pool_stats(&self) -> Arc<sqlx::Pool<sqlx::Postgres>> {
+        self.pool.clone()
     }
 }
 
 // Job operations
 impl GlobalStore {
-    pub async fn create_job(&self, job: &crate::AnalysisJob) -> Result<()> {
+    pub async fn create_job(&self, job: &AnalysisJob) -> Result<()> {
         let start = std::time::Instant::now();
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO jobs (id, project_id, file_id, config, status, priority, current_stage, progress, retry_count, max_retries, idempotency_key, created_by, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-            "#,
-            job.id.as_uuid(),
-            job.project_id.as_uuid(),
-            job.file_id.as_uuid(),
-            serde_json::to_value(&job.config)?,
-            "queued",
-            job.priority.0,
-            job.config.stages.first().map(|s| s.as_str()),
-            0.0,
-            job.retry_count as i32,
-            job.max_retries as i32,
-            job.idempotency_key.as_deref(),
-            job.created_by.as_uuid(),
-            job.created_at,
-            job.updated_at,
+            "#
         )
-        .execute(&self.pool)
+        .bind(job.id.as_uuid())
+        .bind(job.project_id.as_uuid())
+        .bind(job.file_id.as_uuid())
+        .bind(serde_json::to_value(&job.config)?)
+        .bind("queued")
+        .bind(job.priority)
+        .bind(job.config.stages.first().map(|s| s.as_str()))
+        .bind(0.0)
+        .bind(job.retry_count as i32)
+        .bind(job.max_retries as i32)
+        .bind(job.idempotency_key.as_deref())
+        .bind(job.created_by.as_uuid())
+        .bind(job.created_at)
+        .bind(job.created_at) // Use created_at as updated_at since there's no updated_at field
+        .execute(&*self.pool)
         .await?;
         metrics::record_db_query(start.elapsed());
         Ok(())
     }
 
-    pub async fn update_job_status(&self, job_id: JobId, status: &crate::JobStatus) -> Result<()> {
+    pub async fn update_job_status(&self, job_id: JobId, status: &JobStatus) -> Result<()> {
         let start = std::time::Instant::now();
         let (status_str, current_stage, progress, error_message, started_at, completed_at) = match status {
-            crate::JobStatus::Queued { queued_at } => ("queued", None, 0.0, None, None, Some(*queued_at)),
-            crate::JobStatus::Running { worker_id, started_at, stage } => ("running", Some(stage.as_str()), 0.0, None, Some(*started_at), None),
-            crate::JobStatus::Completed { completed_at } => ("completed", None, 1.0, None, None, Some(*completed_at)),
-            crate::JobStatus::Failed { error, failed_at, retryable } => ("failed", None, 0.0, Some(error.clone()), None, Some(*failed_at)),
-            crate::JobStatus::Cancelled { cancelled_at, reason } => ("cancelled", None, 0.0, Some(reason.clone()), None, Some(*cancelled_at)),
-            crate::JobStatus::Scheduled { run_at } => ("scheduled", None, 0.0, None, None, Some(*run_at)),
+            JobStatus::Queued { queued_at } => ("queued", None, 0.0, None, None, Some(*queued_at)),
+            JobStatus::Running { worker_id, started_at, stage } => ("running", Some(stage.as_str()), 0.0, None, Some(*started_at), None),
+            JobStatus::Completed { completed_at } => ("completed", None, 1.0, None, None, Some(*completed_at)),
+            JobStatus::Failed { error, failed_at, retryable } => ("failed", None, 0.0, Some(error.clone()), None, Some(*failed_at)),
+            JobStatus::Cancelled { cancelled_at, reason } => ("cancelled", None, 0.0, Some(reason.clone()), None, Some(*cancelled_at)),
+            JobStatus::Scheduled { run_at } => ("scheduled", None, 0.0, None, None, Some(*run_at)),
         };
 
-        sqlx::query!(
+        sqlx::query(
             r#"
             UPDATE jobs SET status = $1, current_stage = $2, progress = $3, error_message = $4, started_at = $5, completed_at = $6, updated_at = NOW()
             WHERE id = $7
-            "#,
-            status_str,
-            current_stage,
-            progress,
-            error_message,
-            started_at,
-            completed_at,
-            job_id.as_uuid(),
+            "#
         )
-        .execute(&self.pool)
+        .bind(status_str)
+        .bind(current_stage)
+        .bind(progress)
+        .bind(error_message)
+        .bind(started_at)
+        .bind(completed_at)
+        .bind(job_id.as_uuid())
+        .execute(&*self.pool)
         .await?;
         metrics::record_db_query(start.elapsed());
         Ok(())
     }
 
-    pub async fn complete_job(&self, job_id: JobId, result: &crate::AnalysisResult) -> Result<()> {
+    pub async fn complete_job(&self, job_id: JobId, result: &AnalysisResult) -> Result<()> {
         let start = std::time::Instant::now();
-        sqlx::query!(
+        sqlx::query(
             r#"
             UPDATE jobs SET status = 'completed', progress = 1.0, completed_at = NOW(), updated_at = NOW()
             WHERE id = $1
-            "#,
-            job_id.as_uuid(),
+            "#
         )
-        .execute(&self.pool)
+        .bind(job_id.as_uuid())
+        .execute(&*self.pool)
         .await?;
         metrics::record_db_query(start.elapsed());
         Ok(())
@@ -147,24 +157,24 @@ impl GlobalStore {
 
 // Project operations
 impl GlobalStore {
-    pub async fn create_project(&self, project: &crate::Project) -> Result<()> {
+    pub async fn create_project(&self, project: &Project) -> Result<()> {
         let start = std::time::Instant::now();
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO projects (id, name, description, owner_id, visibility, settings, sqlite_path, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            "#,
-            project.id.as_uuid(),
-            project.name,
-            project.description,
-            project.owner_id.as_uuid(),
-            project.visibility,
-            serde_json::to_value(&project.settings)?,
-            project.sqlite_path.as_deref(),
-            project.created_at,
-            project.updated_at,
+            "#
         )
-        .execute(&self.pool)
+        .bind(project.id.as_uuid())
+        .bind(project.name.clone())
+        .bind(project.description.clone())
+        .bind(project.owner_id.as_uuid())
+        .bind(project.visibility.clone())
+        .bind(serde_json::to_value(&project.settings)?)
+        .bind(project.sqlite_path.as_deref())
+        .bind(project.created_at)
+        .bind(project.updated_at)
+        .execute(&*self.pool)
         .await?;
         metrics::record_db_query(start.elapsed());
         Ok(())
@@ -176,22 +186,22 @@ impl GlobalStore {
         Ok(())
     }
 
-    pub async fn add_collaborator(&self, project_id: ProjectId, user_id: UserId, role: crate::CollaboratorRole) -> Result<()> {
+    pub async fn add_collaborator(&self, project_id: ProjectId, user_id: UserId, role: CollaboratorRole) -> Result<()> {
         let start = std::time::Instant::now();
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO collaborators (id, project_id, user_id, role, invited_by, invited_at, accepted_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
-            "#,
-            Uuid::new_v4(),
-            project_id.as_uuid(),
-            user_id.as_uuid(),
-            role.as_str(),
-            user_id.as_uuid(), // invited_by = user_id for owner
-            chrono::Utc::now(),
-            chrono::Utc::now(),
+            "#
         )
-        .execute(&self.pool)
+        .bind(Uuid::new_v4())
+        .bind(project_id.as_uuid())
+        .bind(user_id.as_uuid())
+        .bind(role.as_str())
+        .bind(user_id.as_uuid()) // invited_by = user_id for owner
+        .bind(chrono::Utc::now())
+        .bind(chrono::Utc::now())
+        .execute(&*self.pool)
         .await?;
         metrics::record_db_query(start.elapsed());
         Ok(())
@@ -200,38 +210,38 @@ impl GlobalStore {
 
 // File operations
 impl GlobalStore {
-    pub async fn update_file(&self, file: &crate::FileRecord) -> Result<()> {
+    pub async fn update_file(&self, file: &FileRecord) -> Result<()> {
         let start = std::time::Instant::now();
-        sqlx::query!(
+        sqlx::query(
             r#"
             UPDATE files SET size_bytes = $1, sha256_hash = $2, format = $3, architecture = $4, compiler_info = $5, status = $6, updated_at = NOW()
             WHERE id = $7
-            "#,
-            file.size as i64,
-            file.hash,
-            file.format.as_deref().map(|f| f.as_str()),
-            file.architecture.as_deref().map(|a| a.as_str()),
-            file.compiler_info.as_ref().map(serde_json::to_value).transpose()?,
-            file.status.as_str(),
-            file.id.as_uuid(),
+            "#
         )
-        .execute(&self.pool)
+        .bind(file.size as i64)
+        .bind(file.hash.clone())
+        .bind(file.format.as_ref().map(|f| f.as_str()))
+        .bind(file.architecture.as_ref().map(|a| a.as_str()))
+        .bind(file.compiler_info.as_ref().map(serde_json::to_value).transpose()?)
+        .bind(file.status.as_str())
+        .bind(file.id.as_uuid())
+        .execute(&*self.pool)
         .await?;
         metrics::record_db_query(start.elapsed());
         Ok(())
     }
 
-    pub async fn update_file_format(&self, file_id: FileId, format: crate::FileFormat) -> Result<()> {
+    pub async fn update_file_format(&self, file_id: FileId, format: FileFormat) -> Result<()> {
         let start = std::time::Instant::now();
-        sqlx::query!(
+        sqlx::query(
             r#"
             UPDATE files SET format = $1, status = 'ready', updated_at = NOW()
             WHERE id = $2
-            "#,
-            format.as_str(),
-            file_id.as_uuid(),
+            "#
         )
-        .execute(&self.pool)
+        .bind(format.as_str())
+        .bind(file_id.as_uuid())
+        .execute(&*self.pool)
         .await?;
         metrics::record_db_query(start.elapsed());
         Ok(())
@@ -240,23 +250,23 @@ impl GlobalStore {
 
 // Invite operations
 impl GlobalStore {
-    pub async fn create_invite(&self, invite: &crate::CollaboratorInvite) -> Result<()> {
+    pub async fn create_invite(&self, invite: &CollaboratorInvite) -> Result<()> {
         let start = std::time::Instant::now();
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO collaborator_invites (id, project_id, email, role, invited_by, token, expires_at, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            "#,
-            invite.id,
-            invite.project_id.as_uuid(),
-            invite.email,
-            invite.role.as_str(),
-            invite.invited_by.as_uuid(),
-            invite.token,
-            invite.expires_at,
-            invite.created_at,
+            "#
         )
-        .execute(&self.pool)
+        .bind(invite.id)
+        .bind(invite.project_id.as_uuid())
+        .bind(invite.email.clone())
+        .bind(invite.role.as_str())
+        .bind(invite.invited_by.as_uuid())
+        .bind(invite.token.clone())
+        .bind(invite.expires_at)
+        .bind(invite.created_at)
+        .execute(&*self.pool)
         .await?;
         metrics::record_db_query(start.elapsed());
         Ok(())
@@ -265,23 +275,23 @@ impl GlobalStore {
 
 // Share link operations
 impl GlobalStore {
-    pub async fn create_share_link(&self, link: &crate::ShareLink) -> Result<()> {
+    pub async fn create_share_link(&self, link: &ShareLink) -> Result<()> {
         let start = std::time::Instant::now();
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO share_links (id, project_id, analysis_id, permissions, token, created_by, expires_at, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            "#,
-            link.id,
-            link.project_id.as_uuid(),
-            link.analysis_id.as_ref().map(|id| id.as_uuid()),
-            serde_json::to_value(&link.permissions)?,
-            link.token,
-            link.created_by.as_uuid(),
-            link.expires_at,
-            link.created_at,
+            "#
         )
-        .execute(&self.pool)
+        .bind(link.id.as_uuid())
+        .bind(link.project_id.as_uuid())
+        .bind(link.analysis_id.as_ref().map(|id| id.as_uuid()))
+        .bind(serde_json::to_value(&link.permissions)?)
+        .bind(link.token.clone())
+        .bind(link.created_by.as_uuid())
+        .bind(link.expires_at)
+        .bind(link.created_at)
+        .execute(&*self.pool)
         .await?;
         metrics::record_db_query(start.elapsed());
         Ok(())

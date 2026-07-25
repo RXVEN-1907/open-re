@@ -1,7 +1,7 @@
 //! Project storage (SQLite) for open-re
 
 use openre_config::DatabaseConfig;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_telemetry::metrics;
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
@@ -420,7 +420,7 @@ impl ProjectStore {
     }
 
     /// Write identification output
-    pub async fn write_identification(&self, output: &crate::IdentificationOutput) -> Result<()> {
+    pub async fn write_identification(&self, output: &openre_core::traits::IdentificationOutput) -> Result<()> {
         let conn = self.conn.lock().await;
         let start = std::time::Instant::now();
         

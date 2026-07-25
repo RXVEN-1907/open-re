@@ -1,7 +1,7 @@
 //! ONNX Runtime provider for open-re
 
 use crate::providers::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_config::OnnxConfig;
 use ort::{Session, GraphOptimizationLevel};
 use tokenizers::Tokenizer;

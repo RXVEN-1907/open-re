@@ -2,7 +2,7 @@
 
 use openre_core::ids::*;
 use openre_queue::QueueManager;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::collections::HashMap;

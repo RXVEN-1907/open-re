@@ -1,7 +1,7 @@
 //! Model router for open-re AI
 
 use crate::providers::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_config::AiConfig;
 use std::collections::HashMap;
 use std::sync::Arc;

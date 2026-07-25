@@ -1,7 +1,7 @@
 //! Immutable audit logging for open-re
 
 use openre_config::AuditConfig;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};

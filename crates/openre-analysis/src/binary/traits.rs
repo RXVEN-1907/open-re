@@ -1,7 +1,7 @@
 //! Traits for binary analysis
 
 use crate::binary::common::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use async_trait::async_trait;
 
 /// Trait for binary format identification

@@ -12,7 +12,9 @@ keywords = { workspace = true }
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
+openre-storage = { path = "../openre-storage" }
 wasmtime = { workspace = true }
+wasmtime-wasi = { version = "20.0", features = ["preview1"] }
 wasmparser = { workspace = true }
 libloading = "0.8"
 toml = "0.8"
@@ -25,3 +27,9 @@ dashmap = "5.5"
 notify = "6.1"
 ring = { workspace = true }
 base64 = "0.21"
+chrono = { workspace = true }
+sqlx = { workspace = true }
+async-trait = { workspace = true }
+uuid = { workspace = true }
+semver = "1.0"
+tracing = { workspace = true }

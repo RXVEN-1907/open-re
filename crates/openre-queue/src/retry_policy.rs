@@ -1,7 +1,7 @@
 //! Retry policy for job processing
 
-use crate::Job;
-use openre_core::error::Result;
+use crate::{Job, JobRetryPolicy};
+use openre_core::error::OpenreResult as Result;
 use openre_config::RetryConfig;
 use std::time::Duration;
 use tracing::{debug, warn};
@@ -18,15 +18,15 @@ impl RetryPolicy {
 
     /// Calculate delay before next retry
     pub fn calculate_delay(&self, attempt: u32) -> Duration {
-        let base = self.config.base_delay_ms;
-        let max = self.config.max_delay_ms;
-        let multiplier = self.config.multiplier;
+        let base = self.config.base_delay_secs * 1000;
+        let max = self.config.max_delay_secs * 1000;
+        let multiplier = self.config.exponential_base;
         
         let delay_ms = (base as f64 * multiplier.powi(attempt as i32 - 1)).min(max as f64) as u64;
         
         // Add jitter
         let jitter = if self.config.jitter {
-            let jitter_range = (delay_ms as f64 * self.config.jitter_factor) as u64;
+            let jitter_range = (delay_ms as f64 * 0.1) as u64;
             fastrand::u64(0..=jitter_range)
         } else {
             0
@@ -38,8 +38,8 @@ impl RetryPolicy {
     /// Check if job should be retried
     pub fn should_retry(&self, job: &Job, error: &openre_core::Error) -> bool {
         // Check max retries
-        if job.retry_count >= self.config.max_retries {
-            debug!("Job {} exceeded max retries ({})", job.id, self.config.max_retries);
+        if job.retry_count >= self.config.max_attempts {
+            debug!("Job {} exceeded max retries ({})", job.id, self.config.max_attempts);
             return false;
         }
 
@@ -64,9 +64,9 @@ impl RetryPolicy {
         match error {
             openre_core::Error::Timeout(_) => true,
             openre_core::Error::ConnectionError(_) => true,
-            openre_core::Error::Internal(msg) if self.is_transient_internal(msg) => true,
+            openre_core::Error::Internal(e) if self.is_transient_internal(e.to_string().as_str()) => true,
             openre_core::Error::ResourceExhausted(_) => true,
-            openre_core::Error::RateLimited(_) => true,
+            openre_core::Error::RateLimited { .. } => true,
             _ => false,
         }
     }
@@ -89,38 +89,19 @@ impl RetryPolicy {
 
     /// Get retry configuration for a job
     pub fn get_job_retry_config(&self, job: &Job) -> JobRetryConfig {
-        job.retry_policy.clone().unwrap_or_else(|| JobRetryConfig {
-            max_retries: self.config.max_retries,
-            base_delay_ms: self.config.base_delay_ms,
-            max_delay_ms: self.config.max_delay_ms,
-            multiplier: self.config.multiplier,
+        job.retry_policy.clone().unwrap_or_else(|| JobRetryPolicy {
+            max_retries: self.config.max_attempts,
+            base_delay_ms: self.config.base_delay_secs * 1000,
+            max_delay_ms: self.config.max_delay_secs * 1000,
+            multiplier: self.config.exponential_base,
             jitter: self.config.jitter,
-            retryable_errors: self.config.retryable_errors.clone(),
+            retryable_errors: vec![],
         })
     }
 }
 
-/// Job-specific retry configuration
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct JobRetryConfig {
-    pub max_retries: u32,
-    pub base_delay_ms: u64,
-    pub max_delay_ms: u64,
-    pub multiplier: f64,
-    pub jitter: bool,
-    pub retryable_errors: Vec<String>,
-}
-
-impl JobRetryConfig {
-    pub fn should_retry(&self, error: &openre_core::Error) -> bool {
-        if self.retryable_errors.is_empty() {
-            return true; // Default to retryable
-        }
-        
-        let error_str = error.to_string().to_lowercase();
-        self.retryable_errors.iter().any(|e| error_str.contains(&e.to_lowercase()))
-    }
-}
+/// Job-specific retry configuration (alias for JobRetryPolicy)
+pub type JobRetryConfig = JobRetryPolicy;
 
 /// Exponential backoff calculator
 pub struct ExponentialBackoff {

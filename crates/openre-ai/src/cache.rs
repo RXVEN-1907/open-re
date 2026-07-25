@@ -1,7 +1,7 @@
 //! AI response cache for open-re
 
 use crate::providers::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_config::CacheConfig;
 use std::collections::HashMap;
 use std::path::PathBuf;

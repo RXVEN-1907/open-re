@@ -1,7 +1,8 @@
 //! Progress tracking for jobs
 
-use crate::{JobId, StageProgress, JobProgress};
-use openre_core::error::Result;
+use crate::job::{StageProgress, JobProgress, JobStatus};
+use openre_core::ids::JobId;
+use openre_core::error::OpenreResult as Result;
 use openre_telemetry::metrics::ProgressMetrics;
 use redis::{AsyncCommands, Client};
 use std::collections::HashMap;

@@ -1,7 +1,7 @@
 //! Capability system for plugins
 
 use openre_core::ids::Capability;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use std::collections::HashSet;
 
 /// Capability enforcer for runtime permission checking

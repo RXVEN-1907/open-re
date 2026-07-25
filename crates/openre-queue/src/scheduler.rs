@@ -1,7 +1,9 @@
 //! Job scheduler for recurring and delayed jobs
 
-use crate::{QueueManager, Job, JobId, Priority};
-use openre_core::error::Result;
+use crate::{QueueManager, job::Job, job::Priority};
+use openre_core::ids::JobId;
+use openre_config::SchedulerConfig;
+use openre_core::error::OpenreResult as Result;
 use openre_telemetry::metrics::SchedulerMetrics;
 use cron::Schedule;
 use redis::{AsyncCommands, Client};
@@ -29,11 +31,11 @@ struct ScheduledJob {
     recurring: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct RecurringJob {
     id: String,
     name: String,
-    cron_schedule: Schedule,
+    cron_schedule: String, // Store as string for serialization
     job_template: Job,
     next_run: chrono::DateTime<chrono::Utc>,
     enabled: bool,
@@ -98,7 +100,7 @@ impl Scheduler {
         let recurring_job = RecurringJob {
             id: uuid::Uuid::new_v4().to_string(),
             name: name.clone(),
-            cron_schedule: schedule,
+            cron_schedule: cron_expr.to_string(),
             job_template,
             next_run,
             enabled: true,
@@ -275,7 +277,8 @@ impl Scheduler {
                 // Update next run
                 job.last_run = Some(now);
                 job.run_count += 1;
-                job.next_run = job.cron_schedule.upcoming(chrono::Utc).next()
+                let schedule = Schedule::from_str(&job.cron_schedule).ok();
+                job.next_run = schedule.and_then(|s| s.upcoming(chrono::Utc).next())
                     .unwrap_or_else(|| now + chrono::Duration::days(365)); // Far future if no next
                 
                 to_update.push((id.clone(), job.clone()));

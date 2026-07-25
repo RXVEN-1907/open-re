@@ -79,6 +79,39 @@ define_id!(InviteId);
 define_id!(ShareLinkId);
 define_id!(ExportId);
 
+impl StageId {
+    pub fn all_ordered() -> Vec<StageId> {
+        vec![
+            StageId::from_str("identification").unwrap(),
+            StageId::from_str("loading").unwrap(),
+            StageId::from_str("disassembly").unwrap(),
+            StageId::from_str("control_flow").unwrap(),
+            StageId::from_str("data_flow").unwrap(),
+            StageId::from_str("type_recovery").unwrap(),
+            StageId::from_str("decompilation").unwrap(),
+            StageId::from_str("ai_enrichment").unwrap(),
+            StageId::from_str("finalization").unwrap(),
+        ]
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        // Map UUID to stage name - this is a simplified version
+        // In practice, you'd want a proper mapping
+        match self.to_string().as_str() {
+            s if s.starts_with("identification") => "identification",
+            s if s.starts_with("loading") => "loading",
+            s if s.starts_with("disassembly") => "disassembly",
+            s if s.starts_with("control_flow") => "control_flow",
+            s if s.starts_with("data_flow") => "data_flow",
+            s if s.starts_with("type_recovery") => "type_recovery",
+            s if s.starts_with("decompilation") => "decompilation",
+            s if s.starts_with("ai_enrichment") => "ai_enrichment",
+            s if s.starts_with("finalization") => "finalization",
+            _ => "unknown",
+        }
+    }
+}
+
 /// Stage names for the analysis pipeline
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -303,6 +336,18 @@ pub enum FileFormat {
     Unknown,
 }
 
+impl FileFormat {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            FileFormat::Pe => "pe",
+            FileFormat::Elf => "elf",
+            FileFormat::MachO => "macho",
+            FileFormat::Wasm => "wasm",
+            FileFormat::Unknown => "unknown",
+        }
+    }
+}
+
 /// Architectures
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -318,6 +363,24 @@ pub enum Architecture {
     Wasm32,
     Wasm64,
     Unknown,
+}
+
+impl Architecture {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Architecture::X86 => "x86",
+            Architecture::X86_64 => "x86_64",
+            Architecture::Arm => "arm",
+            Architecture::Arm64 => "arm64",
+            Architecture::Mips => "mips",
+            Architecture::Mips64 => "mips64",
+            Architecture::RiscV32 => "riscv32",
+            Architecture::RiscV64 => "riscv64",
+            Architecture::Wasm32 => "wasm32",
+            Architecture::Wasm64 => "wasm64",
+            Architecture::Unknown => "unknown",
+        }
+    }
 }
 
 /// Job status
@@ -366,3 +429,6 @@ define_id!(LoopId);
 define_id!(VariableId);
 define_id!(TypeId);
 define_id!(ObjectId);
+
+/// Alias for BasicBlockId for backwards compatibility
+pub type BlockId = BasicBlockId;

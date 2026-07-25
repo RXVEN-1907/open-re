@@ -4,7 +4,7 @@ use std::fmt;
 use thiserror::Error;
 
 /// Result type alias for open-re operations
-pub type Result<T> = std::result::Result<T, Error>;
+pub type OpenreResult<T> = std::result::Result<T, Error>;
 
 /// Main error type for open-re
 #[derive(Debug, Error)]
@@ -21,8 +21,8 @@ pub enum Error {
     #[error("Database error: {0}")]
     Database(String),
 
-    #[error("Redis error: {0}")]
-    Redis(String),
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
@@ -42,6 +42,9 @@ pub enum Error {
     #[error("SQLx error: {0}")]
     Sqlx(#[from] sqlx::Error),
 
+    #[error("Redis error: {0}")]
+    Redis(#[from] redis::RedisError),
+
     #[error("Internal error: {0}")]
     Internal(#[from] anyhow::Error),
 
@@ -50,6 +53,12 @@ pub enum Error {
 
     #[error("Timeout: {0}")]
     Timeout(String),
+
+    #[error("Connection error: {0}")]
+    ConnectionError(String),
+
+    #[error("Resource exhausted: {0}")]
+    ResourceExhausted(String),
 
     #[error("Unauthorized: {0}")]
     Unauthorized(String),
@@ -77,6 +86,7 @@ impl Error {
             Error::NotFound(_) => "NOT_FOUND",
             Error::Validation(_) => "VALIDATION_ERROR",
             Error::Config(_) => "CONFIG_ERROR",
+            Error::InvalidInput(_) => "INVALID_INPUT",
             Error::Database(_) => "DATABASE_ERROR",
             Error::Redis(_) => "REDIS_ERROR",
             Error::Serialization(_) => "SERIALIZATION_ERROR",
@@ -88,6 +98,8 @@ impl Error {
             Error::Internal(_) => "INTERNAL_ERROR",
             Error::Cancelled => "CANCELLED",
             Error::Timeout(_) => "TIMEOUT",
+            Error::ConnectionError(_) => "CONNECTION_ERROR",
+            Error::ResourceExhausted(_) => "RESOURCE_EXHAUSTED",
             Error::Unauthorized(_) => "UNAUTHORIZED",
             Error::Forbidden(_) => "FORBIDDEN",
             Error::Conflict(_) => "CONFLICT",
@@ -101,7 +113,7 @@ impl Error {
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
-            Error::Database(_) | Error::Redis(_) | Error::Timeout(_) | Error::ServiceUnavailable(_) | Error::Notify(_) | Error::Tracing(_) | Error::Rusqlite(_) | Error::Sqlx(_)
+            Error::Database(_) | Error::Redis(_) | Error::Timeout(_) | Error::ServiceUnavailable(_) | Error::Notify(_) | Error::Tracing(_) | Error::Rusqlite(_) | Error::Sqlx(_) | Error::ConnectionError(_) | Error::ResourceExhausted(_)
         )
     }
 
@@ -109,7 +121,7 @@ impl Error {
     pub fn is_user_facing(&self) -> bool {
         !matches!(
             self,
-            Error::Internal(_) | Error::Database(_) | Error::Redis(_) | Error::Serialization(_) | Error::Io(_) | Error::Notify(_) | Error::Tracing(_) | Error::Rusqlite(_) | Error::Sqlx(_)
+            Error::Internal(_) | Error::Database(_) | Error::Redis(_) | Error::Serialization(_) | Error::Io(_) | Error::Notify(_) | Error::Tracing(_) | Error::Rusqlite(_) | Error::Sqlx(_) | Error::ConnectionError(_) | Error::ResourceExhausted(_)
         )
     }
 }

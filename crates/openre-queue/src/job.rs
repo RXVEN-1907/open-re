@@ -4,13 +4,15 @@ use openre_core::ids::{JobId, ProjectId, FileId, UserId};
 use openre_core::traits::JobType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 use chrono::{DateTime, Utc};
 
 /// Job status
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum JobStatus {
+    #[default]
     Pending,
     Queued,
     Running,
@@ -65,6 +67,17 @@ pub struct JobRetryPolicy {
     pub multiplier: f64,
     pub jitter: bool,
     pub retryable_errors: Vec<String>,
+}
+
+impl JobRetryPolicy {
+    pub fn should_retry(&self, error: &openre_core::Error) -> bool {
+        if self.retryable_errors.is_empty() {
+            return true; // Default to retryable
+        }
+        
+        let error_str = error.to_string().to_lowercase();
+        self.retryable_errors.iter().any(|e| error_str.contains(&e.to_lowercase()))
+    }
 }
 
 impl Default for JobRetryPolicy {
@@ -192,6 +205,9 @@ pub trait JobHandler: Send + Sync {
     }
 }
 
+// Make JobHandler dyn-compatible by providing an Arc version (cloneable)
+pub type BoxedJobHandler = Arc<dyn JobHandler + Send + Sync>;
+
 /// Job result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobResult {
@@ -229,4 +245,4 @@ pub struct StageProgress {
     pub completed_at: Option<DateTime<Utc>>,
 }
 
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;

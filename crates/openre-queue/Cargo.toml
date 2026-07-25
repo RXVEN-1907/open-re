@@ -24,3 +24,7 @@ dashmap = "5.5"
 futures = "0.3"
 tokio-stream = { version = "0.1", features = ["sync"] }
 cron = "0.9"
+fastrand = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+metrics = { workspace = true }

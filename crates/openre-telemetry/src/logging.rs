@@ -1,7 +1,7 @@
 //! Structured logging for open-re
 
 use openre_config::LoggingConfig;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use tracing_subscriber::{fmt, EnvFilter, Layer, Registry};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;

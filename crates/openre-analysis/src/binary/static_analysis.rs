@@ -2,7 +2,7 @@
 
 use crate::binary::common::*;
 use crate::binary::traits::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_storage::GlobalStore;
 use openre_telemetry::metrics;

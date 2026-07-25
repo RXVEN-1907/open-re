@@ -3,7 +3,7 @@
 use crate::Config;
 use figment::{Figment, providers::{Toml, Env, Json, Serialized, Format}};
 use notify::{Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;

@@ -1,10 +1,11 @@
 //! Plugin registry for open-re
 
 use crate::{manifest::*, capability::*};
-use openre_config::PluginConfig as ConfigPluginConfig;
-use openre_core::error::Result;
+use openre_config::{PluginConfig as ConfigPluginConfig, RemoteRegistryConfig};
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::{PluginId, PluginType, Capability};
 use openre_storage::GlobalStore;
+use notify::Watcher;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -16,7 +17,7 @@ pub struct PluginRegistry {
     config: ConfigPluginConfig,
     global_store: Arc<GlobalStore>,
     index: Arc<RwLock<PluginIndex>>,
-    local_watcher: Option<notify::RecommendedWatcher>,
+    local_watcher: Option<Box<dyn Watcher>>,
 }
 
 #[derive(Debug, Default)]
@@ -38,7 +39,7 @@ impl PluginRegistry {
     }
 
     /// Initialize the registry
-    pub async fn initialize(&self) -> Result<()> {
+    pub async fn initialize(&mut self) -> Result<()> {
         // 1. Load built-in plugins
         self.load_builtin_plugins().await?;
 
@@ -94,7 +95,7 @@ impl PluginRegistry {
     }
 
     /// Fetch plugins from remote registry
-    async fn fetch_remote(&self, remote: &crate::manifest::RemoteRegistryConfig) -> Result<()> {
+    async fn fetch_remote(&self, remote: &RemoteRegistryConfig) -> Result<()> {
         // In a real implementation, this would fetch from a remote registry
         info!("Fetching plugins from remote registry: {}", remote.url);
         Ok(())
@@ -106,7 +107,7 @@ impl PluginRegistry {
         let local_dir = self.config.local_plugin_dir.clone();
 
         let (tx, mut rx) = tokio::sync::mpsc::channel(32);
-        let mut watcher = notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
+        let watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
             if let Ok(event) = res {
                 if matches!(event.kind, notify::EventKind::Modify(_) | notify::EventKind::Create(_) | notify::EventKind::Remove(_)) {
                     let _ = tx.try_send(event);
@@ -114,6 +115,7 @@ impl PluginRegistry {
             }
         })?;
 
+        let mut watcher = watcher;
         watcher.watch(&local_dir, notify::RecursiveMode::Recursive)?;
 
         tokio::spawn(async move {
@@ -124,13 +126,14 @@ impl PluginRegistry {
                         if let Ok(manifest) = PluginManifest::from_dir(&path) {
                             let mut idx = index.write().await;
                             // Remove old entry if exists
-                            if let Some(old) = idx.by_id.values().find(|m| m.path == path) {
-                                idx.by_id.remove(&old.id);
+                            let old_id = idx.by_id.values().find(|m| m.path == path).map(|m| m.id);
+                            if let Some(old_id) = old_id {
+                                idx.by_id.remove(&old_id);
                                 for (_, ids) in idx.by_type.iter_mut() {
-                                    ids.retain(|id| id != &old.id);
+                                    ids.retain(|id| id != &old_id);
                                 }
                                 for (_, ids) in idx.by_capability.iter_mut() {
-                                    ids.retain(|id| id != &old.id);
+                                    ids.retain(|id| id != &old_id);
                                 }
                             }
                             // Add new entry
@@ -149,7 +152,7 @@ impl PluginRegistry {
             }
         });
 
-        self.local_watcher = Some(watcher);
+        self.local_watcher = Some(Box::new(watcher));
         Ok(())
     }
 
@@ -249,7 +252,7 @@ impl PluginRegistry {
             .filter(|m| {
                 m.manifest.name.contains(query) ||
                 m.manifest.description.contains(query) ||
-                m.manifest.tags.iter().any(|t| t.contains(query))
+                m.manifest.plugin.capabilities.iter().any(|c| format!("{:?}", c).contains(query))
             })
             .cloned()
             .collect()
@@ -282,7 +285,12 @@ impl PluginRegistry {
 
     /// Persist plugin to database
     async fn persist(&self, metadata: &PluginMetadata) -> Result<()> {
-        sqlx::query!(
+        let manifest_json = serde_json::to_value(&metadata.manifest)?;
+        let source_str = format!("{:?}", metadata.source).to_lowercase();
+        let status_str = format!("{:?}", metadata.status).to_lowercase();
+        let signature = metadata.manifest.dependencies.get("signature").cloned();
+        
+        sqlx::query(
             r#"
             INSERT INTO plugins (id, name, version, type, description, author, license, repository, manifest, source, source_url, signature, status, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
@@ -293,23 +301,23 @@ impl PluginRegistry {
                 signature = EXCLUDED.signature,
                 status = EXCLUDED.status,
                 updated_at = NOW()
-            "#,
-            metadata.id.as_uuid(),
-            metadata.manifest.name,
-            metadata.manifest.version,
-            metadata.manifest.plugin.r#type.as_str(),
-            metadata.manifest.description,
-            metadata.manifest.author,
-            metadata.manifest.license,
-            metadata.manifest.repository,
-            serde_json::to_value(&metadata.manifest)?,
-            format!("{:?}", metadata.source).to_lowercase(),
-            metadata.manifest.repository,
-            metadata.manifest.dependencies.get("signature").cloned(),
-            format!("{:?}", metadata.status).to_lowercase(),
-            metadata.installed_at,
-            chrono::Utc::now(),
+            "#
         )
+        .bind(metadata.id.as_uuid())
+        .bind(&metadata.manifest.name)
+        .bind(&metadata.manifest.version)
+        .bind(metadata.manifest.plugin.r#type.as_str())
+        .bind(&metadata.manifest.description)
+        .bind(&metadata.manifest.author)
+        .bind(&metadata.manifest.license)
+        .bind(&metadata.manifest.repository)
+        .bind(manifest_json)
+        .bind(source_str)
+        .bind(&metadata.manifest.repository)
+        .bind(signature)
+        .bind(status_str)
+        .bind(metadata.installed_at)
+        .bind(chrono::Utc::now())
         .execute(self.global_store.pool())
         .await?;
 
@@ -318,9 +326,46 @@ impl PluginRegistry {
 
     /// Remove plugin from database
     async fn remove_from_db(&self, plugin_id: &PluginId) -> Result<()> {
-        sqlx::query!("DELETE FROM plugins WHERE id = $1", plugin_id.as_uuid())
+        sqlx::query("DELETE FROM plugins WHERE id = $1")
+            .bind(plugin_id.as_uuid())
             .execute(self.global_store.pool())
             .await?;
+        Ok(())
+    }
+
+    /// Hot reload a plugin
+    pub async fn hot_reload(&self, plugin_id: &PluginId) -> Result<()> {
+        // Get the plugin metadata
+        let metadata = self.get_metadata(plugin_id).await?;
+        
+        // Re-scan the plugin directory
+        if let PluginSource::Local = metadata.source {
+            if let Ok(manifest) = PluginManifest::from_dir(&metadata.path) {
+                let mut index = self.index.write().await;
+                // Remove old entry
+                index.by_id.remove(plugin_id);
+                for (_, ids) in index.by_type.iter_mut() {
+                    ids.retain(|id| id != plugin_id);
+                }
+                for (_, ids) in index.by_capability.iter_mut() {
+                    ids.retain(|id| id != plugin_id);
+                }
+                for (_, ids) in index.by_tag.iter_mut() {
+                    ids.retain(|id| id != plugin_id);
+                }
+                // Add new entry
+                let new_metadata = PluginMetadata {
+                    id: manifest.plugin_id(),
+                    manifest,
+                    source: PluginSource::Local,
+                    path: metadata.path.clone(),
+                    installed_at: chrono::Utc::now(),
+                    status: PluginStatus::Active,
+                };
+                Self::add_to_index(&mut index, new_metadata);
+            }
+        }
+        
         Ok(())
     }
 }

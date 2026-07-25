@@ -4,7 +4,7 @@ use crate::binary::common::*;
 use crate::binary::traits::*;
 use crate::binary::elf::ElfMetadataExtractor;
 use crate::binary::pe::PeMetadataExtractor;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_storage::GlobalStore;
 use openre_telemetry::metrics;

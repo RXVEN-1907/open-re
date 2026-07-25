@@ -2,7 +2,7 @@
 
 use crate::binary::common::*;
 use crate::binary::traits::*;
-use openre_core::error::Result;
+use openre_core::error::OpenreResult as Result;
 use async_trait::async_trait;
 use goblin::pe::{PE, PEHeader, SectionTable, Import, Export};
 use goblin::container::{Container, Endian};

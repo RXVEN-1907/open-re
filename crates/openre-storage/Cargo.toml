@@ -34,3 +34,5 @@ xmas-elf = { workspace = true }
 # aws-types = { version = "0.30" }
 dashmap = "5.5"
 once_cell = { workspace = true }
+tracing = { workspace = true }
+sha2 = { workspace = true }

@@ -1,7 +1,8 @@
 //! Auto-scaler for worker pool
 
-use crate::{QueueManager, WorkerPool, AutoScalerConfig, QueueStats};
-use openre_core::error::Result;
+use crate::{QueueManager, WorkerPool, QueueStats};
+use openre_config::AutoscalerConfig;
+use openre_core::error::OpenreResult as Result;
 use openre_telemetry::metrics::AutoScalerMetrics;
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,7 +14,7 @@ use tracing::{debug, info, warn};
 pub struct AutoScaler {
     queue_manager: Arc<QueueManager>,
     worker_pool: Arc<RwLock<Option<Arc<WorkerPool>>>>,
-    config: AutoScalerConfig,
+    config: AutoscalerConfig,
     metrics: Arc<AutoScalerMetrics>,
     last_scale_action: Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
 }
@@ -21,7 +22,7 @@ pub struct AutoScaler {
 impl AutoScaler {
     pub fn new(
         queue_manager: Arc<QueueManager>,
-        config: AutoScalerConfig,
+        config: AutoscalerConfig,
         metrics: Arc<AutoScalerMetrics>,
     ) -> Self {
         Self {
