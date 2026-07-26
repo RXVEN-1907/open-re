@@ -113,5 +113,12 @@ fn allowed_capabilities_for_type(
             Capability::WriteAnnotations,
             Capability::RegisterInstructionSet,
         ].into(),
+        PluginType::Security => [
+            Capability::ReadBinary,
+            Capability::WriteAnnotations,
+            Capability::QueryDatabase,
+            Capability::NetworkAccess,
+            Capability::ReadConfig,
+        ].into(),
     }
 }

@@ -107,7 +107,10 @@ pub trait ScanStorage: Send + Sync {
     async fn save_finding(&self, scan_id: ScanId, finding: &Finding) -> ScannerResult<()>;
     async fn get_findings(&self, scan_id: &ScanId) -> ScannerResult<Vec<Finding>>;
     async fn get_findings_filtered(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>>;
-    async fn get_finding_stats(&self, scan_id: Option<ScanId>) -> ScannerResult<FindingStats>;
+    async fn list_findings(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>>;
+    async fn count_findings(&self, filter: FindingFilter) -> ScannerResult<u64>;
+    async fn get_finding(&self, finding_id: &FindingId) -> ScannerResult<Option<Finding>>;
+    async fn get_finding_stats(&self, filter: FindingFilter) -> ScannerResult<FindingStats>;
     async fn save_log(&self, scan_id: ScanId, log: &ScanLogEntry) -> ScannerResult<()>;
     async fn get_logs(&self, scan_id: &ScanId) -> ScannerResult<Vec<ScanLogEntry>>;
     async fn save_target(&self, target: &Target) -> ScannerResult<()>;
@@ -635,13 +638,219 @@ impl ScanStorage for SqliteScanStorage {
         Ok(findings)
     }
 
-    async fn get_finding_stats(&self, scan_id: Option<ScanId>) -> ScannerResult<FindingStats> {
-        let mut query = "SELECT * FROM findings".to_string();
-        if let Some(sid) = scan_id {
-            query.push_str(&format!(" WHERE scan_id = '{}'", sid));
+    async fn list_findings(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>> {
+        self.get_findings_filtered(filter, sort, limit, offset).await
+    }
+
+    async fn count_findings(&self, filter: FindingFilter) -> ScannerResult<u64> {
+        let mut query = "SELECT COUNT(*) as count FROM findings WHERE 1=1".to_string();
+        let mut params: Vec<String> = Vec::new();
+
+        if let Some(severities) = filter.severity {
+            let placeholders = severities.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            query.push_str(&format!(" AND severity IN ({})", placeholders));
+            for s in severities {
+                params.push(s.to_string());
+            }
         }
 
-        let rows = sqlx::query(&query).fetch_all(&self.pool).await?;
+        if let Some(confidences) = filter.confidence {
+            let placeholders = confidences.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            query.push_str(&format!(" AND confidence IN ({})", placeholders));
+            for c in confidences {
+                params.push(c.to_string());
+            }
+        }
+
+        if let Some(categories) = filter.category {
+            let placeholders = categories.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            query.push_str(&format!(" AND category IN ({})", placeholders));
+            for c in categories {
+                params.push(c.to_string());
+            }
+        }
+
+        if let Some(target) = filter.target {
+            query.push_str(" AND target LIKE ?");
+            params.push(format!("%{}%", target));
+        }
+
+        if let Some(plugin) = filter.plugin_source {
+            query.push_str(" AND plugin_source = ?");
+            params.push(plugin);
+        }
+
+        if let Some(scan_id) = filter.scan_id {
+            query.push_str(" AND scan_id = ?");
+            params.push(scan_id.to_string());
+        }
+
+        if let Some(verified) = filter.verified {
+            query.push_str(" AND verified = ?");
+            params.push(verified.to_string());
+        }
+
+        if let Some(false_positive) = filter.false_positive {
+            query.push_str(" AND false_positive = ?");
+            params.push(false_positive.to_string());
+        }
+
+        if let Some(date_from) = filter.date_from {
+            query.push_str(" AND timestamp >= ?");
+            params.push(date_from.to_rfc3339());
+        }
+
+        if let Some(date_to) = filter.date_to {
+            query.push_str(" AND timestamp <= ?");
+            params.push(date_to.to_rfc3339());
+        }
+
+        if let Some(search) = filter.search {
+            query.push_str(" AND (title LIKE ? OR description LIKE ?)");
+            params.push(format!("%{}%", search));
+            params.push(format!("%{}%", search));
+        }
+
+        if let Some(min_score) = filter.min_risk_score {
+            query.push_str(" AND risk_score >= ?");
+            params.push(min_score.to_string());
+        }
+
+        if let Some(max_score) = filter.max_risk_score {
+            query.push_str(" AND risk_score <= ?");
+            params.push(max_score.to_string());
+        }
+
+        let mut query_builder = sqlx::query(&query);
+        for param in params {
+            query_builder = query_builder.bind(param);
+        }
+
+        let row = query_builder.fetch_one(&self.pool).await?;
+        let count: i64 = row.get("count");
+        Ok(count as u64)
+    }
+
+    async fn get_finding(&self, finding_id: &FindingId) -> ScannerResult<Option<Finding>> {
+        let row = sqlx::query("SELECT * FROM findings WHERE id = ?")
+            .bind(finding_id.to_string())
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if let Some(row) = row {
+            Ok(Some(Finding {
+                id: FindingId::from_string(&row.get::<String, _>("id"))?,
+                title: row.get("title"),
+                description: row.get("description"),
+                severity: row.get::<String, _>("severity").parse()?,
+                confidence: row.get::<String, _>("confidence").parse()?,
+                category: row.get::<String, _>("category").parse()?,
+                target: row.get("target"),
+                target_type: row.get("target_type"),
+                evidence: serde_json::from_str(&row.get::<String, _>("evidence"))?,
+                references: serde_json::from_str(&row.get::<String, _>("references"))?,
+                plugin_source: row.get("plugin_source"),
+                plugin_version: row.get("plugin_version"),
+                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?.with_timezone(&Utc),
+                metadata: serde_json::from_str(&row.get::<String, _>("metadata"))?,
+                tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
+                verified: row.get("verified"),
+                false_positive: row.get("false_positive"),
+                risk_score: row.get::<Option<i64>, _>("risk_score").map(|s| s as u8),
+                cvss_vector: row.get("cvss_vector"),
+                cvss_score: row.get("cvss_score"),
+                scan_id: ScanId::from_string(&row.get::<String, _>("scan_id"))?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn get_finding_stats(&self, filter: FindingFilter) -> ScannerResult<FindingStats> {
+        let mut query = "SELECT * FROM findings WHERE 1=1".to_string();
+        let mut params: Vec<String> = Vec::new();
+
+        if let Some(severities) = filter.severity {
+            let placeholders = severities.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            query.push_str(&format!(" AND severity IN ({})", placeholders));
+            for s in severities {
+                params.push(s.to_string());
+            }
+        }
+
+        if let Some(confidences) = filter.confidence {
+            let placeholders = confidences.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            query.push_str(&format!(" AND confidence IN ({})", placeholders));
+            for c in confidences {
+                params.push(c.to_string());
+            }
+        }
+
+        if let Some(categories) = filter.category {
+            let placeholders = categories.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            query.push_str(&format!(" AND category IN ({})", placeholders));
+            for c in categories {
+                params.push(c.to_string());
+            }
+        }
+
+        if let Some(target) = filter.target {
+            query.push_str(" AND target LIKE ?");
+            params.push(format!("%{}%", target));
+        }
+
+        if let Some(plugin) = filter.plugin_source {
+            query.push_str(" AND plugin_source = ?");
+            params.push(plugin);
+        }
+
+        if let Some(scan_id) = filter.scan_id {
+            query.push_str(" AND scan_id = ?");
+            params.push(scan_id.to_string());
+        }
+
+        if let Some(verified) = filter.verified {
+            query.push_str(" AND verified = ?");
+            params.push(verified.to_string());
+        }
+
+        if let Some(false_positive) = filter.false_positive {
+            query.push_str(" AND false_positive = ?");
+            params.push(false_positive.to_string());
+        }
+
+        if let Some(date_from) = filter.date_from {
+            query.push_str(" AND timestamp >= ?");
+            params.push(date_from.to_rfc3339());
+        }
+
+        if let Some(date_to) = filter.date_to {
+            query.push_str(" AND timestamp <= ?");
+            params.push(date_to.to_rfc3339());
+        }
+
+        if let Some(search) = filter.search {
+            query.push_str(" AND (title LIKE ? OR description LIKE ?)");
+            params.push(format!("%{}%", search));
+            params.push(format!("%{}%", search));
+        }
+
+        if let Some(min_score) = filter.min_risk_score {
+            query.push_str(" AND risk_score >= ?");
+            params.push(min_score.to_string());
+        }
+
+        if let Some(max_score) = filter.max_risk_score {
+            query.push_str(" AND risk_score <= ?");
+            params.push(max_score.to_string());
+        }
+
+        let mut query_builder = sqlx::query(&query);
+        for param in params {
+            query_builder = query_builder.bind(param);
+        }
+
+        let rows = query_builder.fetch_all(&self.pool).await?;
 
         let mut by_severity = HashMap::new();
         let mut by_confidence = HashMap::new();
@@ -960,6 +1169,19 @@ impl ScanStorage for MemoryScanStorage {
         Ok(ids.iter().filter_map(|id| self.findings.get(id).map(|f| f.clone())).collect())
     }
 
+    async fn list_findings(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>> {
+        self.get_findings_filtered(filter, sort, limit, offset).await
+    }
+
+    async fn count_findings(&self, filter: FindingFilter) -> ScannerResult<u64> {
+        let findings = self.get_findings_filtered(filter, FindingSort::SeverityDesc, usize::MAX, 0).await?;
+        Ok(findings.len() as u64)
+    }
+
+    async fn get_finding(&self, finding_id: &FindingId) -> ScannerResult<Option<Finding>> {
+        Ok(self.findings.get(finding_id).map(|f| f.clone()))
+    }
+
     async fn get_findings_filtered(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>> {
         let mut findings: Vec<Finding> = self.findings.iter().map(|f| f.clone()).collect();
 
@@ -1027,12 +1249,8 @@ impl ScanStorage for MemoryScanStorage {
         Ok(findings.into_iter().skip(offset).take(limit).collect())
     }
 
-    async fn get_finding_stats(&self, scan_id: Option<ScanId>) -> ScannerResult<FindingStats> {
-        let findings: Vec<Finding> = if let Some(sid) = scan_id {
-            self.get_findings(&sid).await?
-        } else {
-            self.findings.iter().map(|f| f.clone()).collect()
-        };
+    async fn get_finding_stats(&self, filter: FindingFilter) -> ScannerResult<FindingStats> {
+        let findings = self.get_findings_filtered(filter, FindingSort::SeverityDesc, usize::MAX, 0).await?;
 
         let mut by_severity = HashMap::new();
         let mut by_confidence = HashMap::new();

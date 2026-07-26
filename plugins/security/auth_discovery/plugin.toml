@@ -1,0 +1,36 @@
+name = "auth_discovery"
+version = "0.1.0"
+description = "Discovers authentication endpoints including login forms, registration pages, password reset flows, MFA indicators, SSO providers, and OAuth/OpenID Connect endpoints"
+author = "open-re Team"
+license = "MIT"
+repository = "https://github.com/open-re/open-re"
+homepage = "https://github.com/open-re/open-re"
+
+[plugin]
+type = "security"
+capabilities = ["ReadBinary", "WriteAnnotations", "QueryDatabase", "NetworkAccess", "ReadConfig"]
+min_core_version = "0.1.0"
+max_core_version = "1.0.0"
+
+[plugin.entry]
+wasm = "auth_discovery.wasm"
+native = { linux = "libauth_discovery.so", macos = "libauth_discovery.dylib", windows = "auth_discovery.dll" }
+
+[build]
+target = "wasm"
+rust_version = "1.75"
+features = []
+
+[resources]
+max_memory_mb = 256
+max_fuel = 10000000
+max_execution_time_secs = 300
+
+[ui]
+views = []
+panels = []
+menus = []
+
+[config]
+schema = "config_schema.json"
+defaults = {}

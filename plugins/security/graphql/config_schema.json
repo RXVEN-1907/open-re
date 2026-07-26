@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GraphQL Security Plugin Configuration",
+  "type": "object",
+  "properties": {
+    "request_timeout": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300,
+      "default": 30,
+      "description": "Request timeout in seconds"
+    },
+    "max_concurrent_requests": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 10,
+      "description": "Maximum concurrent requests"
+    },
+    "user_agent": {
+      "type": "string",
+      "default": "open-re-graphql-scanner/1.0",
+      "description": "User agent string"
+    },
+    "follow_redirects": {
+      "type": "boolean",
+      "default": true,
+      "description": "Follow HTTP redirects"
+    },
+    "max_redirects": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20,
+      "default": 10,
+      "description": "Maximum redirect depth"
+    },
+    "verify_ssl": {
+      "type": "boolean",
+      "default": true,
+      "description": "Verify SSL certificates"
+    }
+  },
+  "required": [
+    "request_timeout",
+    "max_concurrent_requests",
+    "user_agent",
+    "follow_redirects",
+    "max_redirects",
+    "verify_ssl"
+  ]
+}

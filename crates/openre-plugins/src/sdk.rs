@@ -1,10 +1,13 @@
 //! Plugin SDK for open-re
 
-use openre_core::ids::{PluginId, Capability, FunctionId, BlockId, InstructionId};
-use openre_core::error::OpenreResult as Result;
+use openre_core::ids::{FunctionId, BlockId, InstructionId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+
+/// Re-export commonly used types for plugin authors
+pub use openre_core::ids::{PluginId, Capability};
+pub use openre_core::error::OpenreResult as Result;
 
 /// Plugin instance trait for lifecycle management
 #[async_trait::async_trait]
@@ -68,6 +71,22 @@ impl CapabilityResponse {
 
     pub fn error(error: String) -> Self {
         Self { success: false, output: None, error: Some(error) }
+    }
+}
+
+/// Plugin error for serialization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginError {
+    pub code: String,
+    pub message: String,
+}
+
+impl From<openre_core::Error> for PluginError {
+    fn from(err: openre_core::Error) -> Self {
+        Self {
+            code: err.code().to_string(),
+            message: err.to_string(),
+        }
     }
 }
 
@@ -140,7 +159,7 @@ pub enum LogLevel {
 #[macro_export]
 macro_rules! plugin_entry {
     ($plugin_type:ty) => {
-        use $crate::sdk::{Plugin, CapabilityRequest, CapabilityResponse};
+        use $crate::sdk::Plugin;
         use std::sync::Mutex;
 
         static PLUGIN: Mutex<Option<$plugin_type>> = Mutex::new(None);
@@ -166,7 +185,7 @@ macro_rules! plugin_entry {
                 return -1;
             }
             let request_slice = unsafe { std::slice::from_raw_parts(request_ptr, request_len) };
-            let request: CapabilityRequest = match serde_json::from_slice(request_slice) {
+            let request: $crate::sdk::CapabilityRequest = match serde_json::from_slice(request_slice) {
                 Ok(r) => r,
                 Err(_) => return -1,
             };
@@ -178,7 +197,15 @@ macro_rules! plugin_entry {
             };
 
             let rt = tokio::runtime::Runtime::new().unwrap();
-            let response = rt.block_on(async { plugin.execute(request).await });
+            let result = rt.block_on(async { plugin.execute(request).await });
+
+            let response = match result {
+                Ok(r) => r,
+                Err(e) => {
+                    let plugin_error: $crate::sdk::PluginError = e.into();
+                    CapabilityResponse::error(serde_json::to_string(&plugin_error).unwrap_or_else(|_| "Unknown error".to_string()))
+                }
+            };
 
             let response_json = match serde_json::to_vec(&response) {
                 Ok(v) => v,

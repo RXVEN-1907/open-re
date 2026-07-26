@@ -7,6 +7,7 @@ pub mod registry;
 pub mod runtime;
 pub mod sandbox;
 pub mod sdk;
+pub mod security;
 
 pub use capability::*;
 pub use lifecycle::*;
@@ -15,3 +16,4 @@ pub use registry::*;
 pub use runtime::*;
 pub use sandbox::*;
 pub use sdk::*;
+pub use security::*;

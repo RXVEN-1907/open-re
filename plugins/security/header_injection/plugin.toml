@@ -1,0 +1,36 @@
+name = "header_injection"
+version = "1.0.0"
+description = "Detects HTTP header injection vulnerabilities including response splitting, cache poisoning, and header manipulation"
+author = "open-re Team"
+license = "MIT"
+repository = "https://github.com/open-re/open-re"
+homepage = "https://github.com/open-re/open-re"
+
+[plugin]
+type = "security"
+capabilities = ["NetworkAccess", "ReadConfig"]
+min_core_version = "0.1.0"
+max_core_version = "1.0.0"
+
+[plugin.entry]
+wasm = "header_injection.wasm"
+native = { linux = "libheader_injection.so", macos = "libheader_injection.dylib", windows = "header_injection.dll" }
+
+[build]
+target = "wasm"
+rust_version = "1.75"
+features = []
+
+[resources]
+max_memory_mb = 256
+max_fuel = 10000000
+max_execution_time_secs = 300
+
+[ui]
+views = []
+panels = []
+menus = []
+
+[config]
+schema = "config_schema.json"
+defaults = {}

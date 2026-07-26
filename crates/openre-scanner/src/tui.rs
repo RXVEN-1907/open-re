@@ -532,6 +532,512 @@ pub enum FindingCommands {
 
     /// Update finding (mark verified/false positive)
     Update(FindingUpdateArgs),
+
+    /// Security-specific finding commands
+    #[command(subcommand)]
+    Security(SecurityFindingCommands),
+}
+
+/// Security-specific finding commands
+#[derive(Subcommand, Debug)]
+pub enum SecurityFindingCommands {
+    /// List authentication findings
+    Auth(AuthFindingArgs),
+
+    /// List session management findings
+    Session(SessionFindingArgs),
+
+    /// List cookie security findings
+    Cookie(CookieFindingArgs),
+
+    /// List security header findings
+    Headers(HeadersFindingArgs),
+
+    /// List CORS findings
+    Cors(CorsFindingArgs),
+
+    /// List rate limiting findings
+    RateLimit(RateLimitFindingArgs),
+
+    /// List information disclosure findings
+    InfoDisclosure(InfoDisclosureFindingArgs),
+
+    /// List injection findings
+    Injection(InjectionFindingArgs),
+
+    /// Get injection findings statistics
+    InjectionStats(InjectionStatsArgs),
+
+    /// Get injection categories
+    InjectionCategories,
+
+    /// Get detection methods
+    DetectionMethods,
+
+    /// List REST API findings
+    Api(ApiFindingArgs),
+
+    /// Get REST API statistics
+    ApiStats(ApiStatsArgs),
+
+    /// List GraphQL findings
+    Graphql(GraphqlFindingArgs),
+
+    /// Get GraphQL statistics
+    GraphqlStats(GraphqlStatsArgs),
+
+    /// List rate limiting findings
+    RateLimiting(RateLimitingFindingArgs),
+
+    /// Get rate limiting statistics
+    RateLimitingStats(RateLimitingStatsArgs),
+
+    /// List access control findings
+    AccessControl(AccessControlFindingArgs),
+
+    /// Get access control statistics
+    AccessControlStats(AccessControlStatsArgs),
+
+    /// List file upload findings
+    FileUpload(FileUploadFindingArgs),
+
+    /// Get file upload statistics
+    FileUploadStats(FileUploadStatsArgs),
+
+    /// List path traversal findings
+    PathTraversal(PathTraversalFindingArgs),
+
+    /// Get path traversal statistics
+    PathTraversalStats(PathTraversalStatsArgs),
+
+    /// List sensitive info findings
+    SensitiveInfo(SensitiveInfoFindingArgs),
+
+    /// Get sensitive info statistics
+    SensitiveInfoStats(SensitiveInfoStatsArgs),
+
+    /// Get security findings summary
+    Summary(SecuritySummaryArgs),
+}
+
+/// Authentication findings arguments
+#[derive(Args, Debug)]
+pub struct AuthFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Session management findings arguments
+#[derive(Args, Debug)]
+pub struct SessionFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Cookie security findings arguments
+#[derive(Args, Debug)]
+pub struct CookieFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Security header findings arguments
+#[derive(Args, Debug)]
+pub struct HeadersFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// CORS findings arguments
+#[derive(Args, Debug)]
+pub struct CorsFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Rate limiting findings arguments
+#[derive(Args, Debug)]
+pub struct RateLimitFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Information disclosure findings arguments
+#[derive(Args, Debug)]
+pub struct InfoDisclosureFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Injection findings arguments
+#[derive(Args, Debug)]
+pub struct InjectionFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Filter by injection category
+    #[arg(long, value_delimiter = ',')]
+    pub injection_category: Option<Vec<String>>,
+
+    /// Filter by detection method
+    #[arg(long, value_delimiter = ',')]
+    pub detection_method: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Injection statistics arguments
+#[derive(Args, Debug)]
+pub struct InjectionStatsArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Filter by injection category
+    #[arg(long, value_delimiter = ',')]
+    pub injection_category: Option<Vec<String>>,
+
+    /// Filter by detection method
+    #[arg(long, value_delimiter = ',')]
+    pub detection_method: Option<Vec<String>>,
+}
+
+/// REST API findings arguments
+#[derive(Args, Debug)]
+pub struct ApiFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// REST API statistics arguments
+#[derive(Args, Debug)]
+pub struct ApiStatsArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+}
+
+/// GraphQL findings arguments
+#[derive(Args, Debug)]
+pub struct GraphqlFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// GraphQL statistics arguments
+#[derive(Args, Debug)]
+pub struct GraphqlStatsArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+}
+
+/// Rate limiting findings arguments
+#[derive(Args, Debug)]
+pub struct RateLimitingFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Rate limiting statistics arguments
+#[derive(Args, Debug)]
+pub struct RateLimitingStatsArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+}
+
+/// Access control findings arguments
+#[derive(Args, Debug)]
+pub struct AccessControlFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Access control statistics arguments
+#[derive(Args, Debug)]
+pub struct AccessControlStatsArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+}
+
+/// File upload findings arguments
+#[derive(Args, Debug)]
+pub struct FileUploadFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// File upload statistics arguments
+#[derive(Args, Debug)]
+pub struct FileUploadStatsArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+}
+
+/// Path traversal findings arguments
+#[derive(Args, Debug)]
+pub struct PathTraversalFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Path traversal statistics arguments
+#[derive(Args, Debug)]
+pub struct PathTraversalStatsArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+}
+
+/// Sensitive info findings arguments
+#[derive(Args, Debug)]
+pub struct SensitiveInfoFindingArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+
+    /// Maximum number of findings
+    #[arg(short, long, default_value = "50")]
+    pub limit: usize,
+
+    /// Offset for pagination
+    #[arg(long, default_value = "0")]
+    pub offset: usize,
+}
+
+/// Sensitive info statistics arguments
+#[derive(Args, Debug)]
+pub struct SensitiveInfoStatsArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by severity
+    #[arg(long, value_delimiter = ',')]
+    pub severity: Option<Vec<String>>,
+}
+
+/// Security summary arguments
+#[derive(Args, Debug)]
+pub struct SecuritySummaryArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
 }
 
 /// Finding list arguments
@@ -777,6 +1283,7 @@ impl TuiApp {
             FindingCommands::Get(args) => self.cmd_finding_get(args).await,
             FindingCommands::Stats(args) => self.cmd_finding_stats(args).await,
             FindingCommands::Update(args) => self.cmd_finding_update(args).await,
+            FindingCommands::Security(args) => self.run_security_finding_command(args).await,
         }
     }
 
@@ -1119,6 +1626,574 @@ impl TuiApp {
     async fn cmd_finding_update(&self, args: FindingUpdateArgs) -> ScannerResult<()> {
         info!("Updating finding: {}", args.id);
         println!("Finding update not fully implemented (placeholder)");
+        Ok(())
+    }
+
+    // Security finding command implementations
+    async fn run_security_finding_command(&self, command: SecurityFindingCommands) -> ScannerResult<()> {
+        match command {
+            SecurityFindingCommands::Auth(args) => self.cmd_security_auth_findings(args).await,
+            SecurityFindingCommands::Session(args) => self.cmd_security_session_findings(args).await,
+            SecurityFindingCommands::Cookie(args) => self.cmd_security_cookie_findings(args).await,
+            SecurityFindingCommands::Headers(args) => self.cmd_security_headers_findings(args).await,
+            SecurityFindingCommands::Cors(args) => self.cmd_security_cors_findings(args).await,
+            SecurityFindingCommands::RateLimit(args) => self.cmd_security_rate_limit_findings(args).await,
+            SecurityFindingCommands::InfoDisclosure(args) => self.cmd_security_info_disclosure_findings(args).await,
+            SecurityFindingCommands::Injection(args) => self.cmd_security_injection_findings(args).await,
+            SecurityFindingCommands::InjectionStats(args) => self.cmd_security_injection_stats(args).await,
+            SecurityFindingCommands::InjectionCategories => self.cmd_security_injection_categories().await,
+            SecurityFindingCommands::DetectionMethods => self.cmd_security_detection_methods().await,
+            SecurityFindingCommands::Api(args) => self.cmd_security_api_findings(args).await,
+            SecurityFindingCommands::ApiStats(args) => self.cmd_security_api_stats(args).await,
+            SecurityFindingCommands::Graphql(args) => self.cmd_security_graphql_findings(args).await,
+            SecurityFindingCommands::GraphqlStats(args) => self.cmd_security_graphql_stats(args).await,
+            SecurityFindingCommands::RateLimiting(args) => self.cmd_security_rate_limiting_findings(args).await,
+            SecurityFindingCommands::RateLimitingStats(args) => self.cmd_security_rate_limiting_stats(args).await,
+            SecurityFindingCommands::AccessControl(args) => self.cmd_security_access_control_findings(args).await,
+            SecurityFindingCommands::AccessControlStats(args) => self.cmd_security_access_control_stats(args).await,
+            SecurityFindingCommands::FileUpload(args) => self.cmd_security_file_upload_findings(args).await,
+            SecurityFindingCommands::FileUploadStats(args) => self.cmd_security_file_upload_stats(args).await,
+            SecurityFindingCommands::PathTraversal(args) => self.cmd_security_path_traversal_findings(args).await,
+            SecurityFindingCommands::PathTraversalStats(args) => self.cmd_security_path_traversal_stats(args).await,
+            SecurityFindingCommands::SensitiveInfo(args) => self.cmd_security_sensitive_info_findings(args).await,
+            SecurityFindingCommands::SensitiveInfoStats(args) => self.cmd_security_sensitive_info_stats(args).await,
+            SecurityFindingCommands::Summary(args) => self.cmd_security_summary(args).await,
+        }
+    }
+
+    async fn cmd_security_auth_findings(&self, args: AuthFindingArgs) -> ScannerResult<()> {
+        info!("Listing authentication findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: Some(vec![Category::BrokenAuthentication]),
+            plugin_source: Some("auth_discovery".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_session_findings(&self, args: SessionFindingArgs) -> ScannerResult<()> {
+        info!("Listing session management findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: Some(vec![Category::BrokenAuthentication]),
+            plugin_source: Some("session_management".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_cookie_findings(&self, args: CookieFindingArgs) -> ScannerResult<()> {
+        info!("Listing cookie security findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: Some(vec![Category::SecurityMisconfiguration]),
+            plugin_source: Some("cookie_security".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_headers_findings(&self, args: HeadersFindingArgs) -> ScannerResult<()> {
+        info!("Listing security header findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: Some(vec![Category::SecurityMisconfiguration]),
+            plugin_source: Some("security_headers".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_cors_findings(&self, args: CorsFindingArgs) -> ScannerResult<()> {
+        info!("Listing CORS findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: Some(vec![Category::SecurityMisconfiguration]),
+            plugin_source: Some("cors_analysis".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_rate_limit_findings(&self, args: RateLimitFindingArgs) -> ScannerResult<()> {
+        info!("Listing rate limiting findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: Some(vec![Category::SecurityMisconfiguration]),
+            plugin_source: Some("rate_limiting".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_info_disclosure_findings(&self, args: InfoDisclosureFindingArgs) -> ScannerResult<()> {
+        info!("Listing information disclosure findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: Some(vec![Category::InformationDisclosure]),
+            plugin_source: Some("information_disclosure".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_injection_findings(&self, args: InjectionFindingArgs) -> ScannerResult<()> {
+        info!("Listing injection findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: Some(vec![Category::Injection]),
+            plugin_source: Some("injection_framework".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_injection_stats(&self, args: InjectionStatsArgs) -> ScannerResult<()> {
+        info!("Getting injection statistics");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: Some(vec![Category::Injection]),
+            plugin_source: Some("injection_framework".to_string()),
+            ..Default::default()
+        };
+        let stats = self.storage.get_finding_stats(filter).await?;
+        
+        println!("Injection Findings Statistics");
+        println!("=============================");
+        println!("Total: {}", stats.total);
+        println!("Verified: {}", stats.verified_count);
+        println!("False Positives: {}", stats.false_positive_count);
+        println!();
+        println!("By Severity:");
+        for (severity, count) in &stats.by_severity {
+            println!("  {}: {}", severity, count);
+        }
+        println!();
+        println!("By Confidence:");
+        for (confidence, count) in &stats.by_confidence {
+            println!("  {}: {}", confidence, count);
+        }
+        println!();
+        println!("By Category:");
+        for (category, count) in &stats.by_category {
+            println!("  {}: {}", category, count);
+        }
+        println!();
+        println!("By Plugin:");
+        for (plugin, count) in &stats.by_plugin {
+            println!("  {}: {}", plugin, count);
+        }
+        Ok(())
+    }
+
+    async fn cmd_security_api_findings(&self, args: ApiFindingArgs) -> ScannerResult<()> {
+        info!("Listing REST API findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("rest_api_security".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_api_stats(&self, args: ApiStatsArgs) -> ScannerResult<()> {
+        info!("Getting REST API statistics");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("rest_api_security".to_string()),
+            ..Default::default()
+        };
+        let stats = self.storage.get_finding_stats(filter).await?;
+        
+        println!("REST API Security Statistics");
+        println!("==============================");
+        println!("Total: {}", stats.total);
+        println!("Verified: {}", stats.verified_count);
+        println!("False Positives: {}", stats.false_positive_count);
+        println!();
+        println!("By Severity:");
+        for (severity, count) in &stats.by_severity {
+            println!("  {}: {}", severity, count);
+        }
+        println!();
+        println!("By Confidence:");
+        for (confidence, count) in &stats.by_confidence {
+            println!("  {}: {}", confidence, count);
+        }
+        println!();
+        println!("By Category:");
+        for (category, count) in &stats.by_category {
+            println!("  {}: {}", category, count);
+        }
+        Ok(())
+    }
+
+    async fn cmd_security_graphql_findings(&self, args: GraphqlFindingArgs) -> ScannerResult<()> {
+        info!("Listing GraphQL findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("graphql_security".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_graphql_stats(&self, args: GraphqlStatsArgs) -> ScannerResult<()> {
+        info!("Getting GraphQL statistics");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("graphql_security".to_string()),
+            ..Default::default()
+        };
+        let stats = self.storage.get_finding_stats(filter).await?;
+        
+        println!("GraphQL Security Statistics");
+        println!("===========================");
+        println!("Total: {}", stats.total);
+        println!("Verified: {}", stats.verified_count);
+        println!("False Positives: {}", stats.false_positive_count);
+        println!();
+        println!("By Severity:");
+        for (severity, count) in &stats.by_severity {
+            println!("  {}: {}", severity, count);
+        }
+        println!();
+        println!("By Confidence:");
+        for (confidence, count) in &stats.by_confidence {
+            println!("  {}: {}", confidence, count);
+        }
+        println!();
+        println!("By Category:");
+        for (category, count) in &stats.by_category {
+            println!("  {}: {}", category, count);
+        }
+        Ok(())
+    }
+
+    async fn cmd_security_rate_limiting_findings(&self, args: RateLimitingFindingArgs) -> ScannerResult<()> {
+        info!("Listing rate limiting findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("api_rate_limiting".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_rate_limiting_stats(&self, args: RateLimitingStatsArgs) -> ScannerResult<()> {
+        info!("Getting rate limiting statistics");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("api_rate_limiting".to_string()),
+            ..Default::default()
+        };
+        let stats = self.storage.get_finding_stats(filter).await?;
+        
+        println!("Rate Limiting Statistics");
+        println!("========================");
+        println!("Total: {}", stats.total);
+        println!("Verified: {}", stats.verified_count);
+        println!("False Positives: {}", stats.false_positive_count);
+        println!();
+        println!("By Severity:");
+        for (severity, count) in &stats.by_severity {
+            println!("  {}: {}", severity, count);
+        }
+        println!();
+        println!("By Confidence:");
+        for (confidence, count) in &stats.by_confidence {
+            println!("  {}: {}", confidence, count);
+        }
+        println!();
+        println!("By Category:");
+        for (category, count) in &stats.by_category {
+            println!("  {}: {}", category, count);
+        }
+        Ok(())
+    }
+
+    async fn cmd_security_access_control_findings(&self, args: AccessControlFindingArgs) -> ScannerResult<()> {
+        info!("Listing access control findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("access_control".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_access_control_stats(&self, args: AccessControlStatsArgs) -> ScannerResult<()> {
+        info!("Getting access control statistics");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("access_control".to_string()),
+            ..Default::default()
+        };
+        let stats = self.storage.get_finding_stats(filter).await?;
+        
+        println!("Access Control Statistics");
+        println!("=========================");
+        println!("Total: {}", stats.total);
+        println!("Verified: {}", stats.verified_count);
+        println!("False Positives: {}", stats.false_positive_count);
+        println!();
+        println!("By Severity:");
+        for (severity, count) in &stats.by_severity {
+            println!("  {}: {}", severity, count);
+        }
+        println!();
+        println!("By Confidence:");
+        for (confidence, count) in &stats.by_confidence {
+            println!("  {}: {}", confidence, count);
+        }
+        println!();
+        println!("By Category:");
+        for (category, count) in &stats.by_category {
+            println!("  {}: {}", category, count);
+        }
+        Ok(())
+    }
+
+    async fn cmd_security_file_upload_findings(&self, args: FileUploadFindingArgs) -> ScannerResult<()> {
+        info!("Listing file upload findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("file_upload".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_file_upload_stats(&self, args: FileUploadStatsArgs) -> ScannerResult<()> {
+        info!("Getting file upload statistics");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("file_upload".to_string()),
+            ..Default::default()
+        };
+        let stats = self.storage.get_finding_stats(filter).await?;
+        
+        println!("File Upload Statistics");
+        println!("======================");
+        println!("Total: {}", stats.total);
+        println!("Verified: {}", stats.verified_count);
+        println!("False Positives: {}", stats.false_positive_count);
+        println!();
+        println!("By Severity:");
+        for (severity, count) in &stats.by_severity {
+            println!("  {}: {}", severity, count);
+        }
+        println!();
+        println!("By Confidence:");
+        for (confidence, count) in &stats.by_confidence {
+            println!("  {}: {}", confidence, count);
+        }
+        println!();
+        println!("By Category:");
+        for (category, count) in &stats.by_category {
+            println!("  {}: {}", category, count);
+        }
+        Ok(())
+    }
+
+    async fn cmd_security_path_traversal_findings(&self, args: PathTraversalFindingArgs) -> ScannerResult<()> {
+        info!("Listing path traversal findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("path_traversal".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_path_traversal_stats(&self, args: PathTraversalStatsArgs) -> ScannerResult<()> {
+        info!("Getting path traversal statistics");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("path_traversal".to_string()),
+            ..Default::default()
+        };
+        let stats = self.storage.get_finding_stats(filter).await?;
+        
+        println!("Path Traversal Statistics");
+        println!("=========================");
+        println!("Total: {}", stats.total);
+        println!("Verified: {}", stats.verified_count);
+        println!("False Positives: {}", stats.false_positive_count);
+        println!();
+        println!("By Severity:");
+        for (severity, count) in &stats.by_severity {
+            println!("  {}: {}", severity, count);
+        }
+        println!();
+        println!("By Confidence:");
+        for (confidence, count) in &stats.by_confidence {
+            println!("  {}: {}", confidence, count);
+        }
+        println!();
+        println!("By Category:");
+        for (category, count) in &stats.by_category {
+            println!("  {}: {}", category, count);
+        }
+        Ok(())
+    }
+
+    async fn cmd_security_sensitive_info_findings(&self, args: SensitiveInfoFindingArgs) -> ScannerResult<()> {
+        info!("Listing sensitive info findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("sensitive_info".to_string()),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        self.output_findings(&findings)?;
+        Ok(())
+    }
+
+    async fn cmd_security_sensitive_info_stats(&self, args: SensitiveInfoStatsArgs) -> ScannerResult<()> {
+        info!("Getting sensitive info statistics");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            plugin_source: Some("sensitive_info".to_string()),
+            ..Default::default()
+        };
+        let stats = self.storage.get_finding_stats(filter).await?;
+        
+        println!("Sensitive Information Statistics");
+        println!("================================");
+        println!("Total: {}", stats.total);
+        println!("Verified: {}", stats.verified_count);
+        println!("False Positives: {}", stats.false_positive_count);
+        println!();
+        println!("By Severity:");
+        for (severity, count) in &stats.by_severity {
+            println!("  {}: {}", severity, count);
+        }
+        println!();
+        println!("By Confidence:");
+        for (confidence, count) in &stats.by_confidence {
+            println!("  {}: {}", confidence, count);
+        }
+        println!();
+        println!("By Category:");
+        for (category, count) in &stats.by_category {
+            println!("  {}: {}", category, count);
+        }
+        Ok(())
+    }
+
+    async fn cmd_security_injection_categories(&self) -> ScannerResult<()> {
+        info!("Listing injection categories");
+        println!("Available Injection Categories:");
+        println!("===============================");
+        println!("1. sql_injection - SQL Injection (CWE-89)");
+        println!("2. nosql_injection - NoSQL Injection (CWE-943)");
+        println!("3. xss - Cross-Site Scripting (CWE-79, CWE-80)");
+        println!("4. ssti - Server-Side Template Injection (CWE-1336)");
+        println!("5. command_injection - Command Injection (CWE-78)");
+        println!("6. xxe - XML External Entity (CWE-611)");
+        println!("7. ldap_injection - LDAP Injection (CWE-90)");
+        println!("8. xpath_injection - XPath Injection (CWE-643)");
+        println!("9. header_injection - HTTP Header Injection (CWE-113)");
+        Ok(())
+    }
+
+    async fn cmd_security_detection_methods(&self) -> ScannerResult<()> {
+        info!("Listing detection methods");
+        println!("Available Detection Methods:");
+        println!("============================");
+        println!("1. error_based - Error-Based Detection (High reliability)");
+        println!("2. boolean_based - Boolean-Based Blind (High reliability)");
+        println!("3. time_based - Time-Based Blind (Medium reliability)");
+        println!("4. reflection - Reflection-Based (Very High reliability)");
+        println!("5. pattern_match - Pattern Matching (High reliability)");
+        println!("6. differential - Differential Analysis (Medium reliability)");
+        println!("7. out_of_band - Out-of-Band (Very High reliability)");
+        println!("8. heuristic - Heuristic Analysis (Low reliability)");
+        Ok(())
+    }
+
+    async fn cmd_security_summary(&self, args: SecuritySummaryArgs) -> ScannerResult<()> {
+        info!("Getting security findings summary");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            ..Default::default()
+        };
+        let stats = self.storage.get_finding_stats(filter).await?;
+        
+        println!("Security Findings Summary");
+        println!("=========================");
+        println!("Total Findings: {}", stats.total);
+        println!("Verified: {}", stats.verified);
+        println!("False Positives: {}", stats.false_positives);
+        println!("Average Risk Score: {:.1}", stats.avg_risk_score);
+        println!();
+        println!("By Severity:");
+        for (severity, count) in &stats.by_severity {
+            println!("  {}: {}", severity, count);
+        }
+        println!();
+        println!("By Category:");
+        for (category, count) in &stats.by_category {
+            println!("  {}: {}", category, count);
+        }
+        println!();
+        println!("By Plugin:");
+        for (plugin, count) in &stats.by_plugin {
+            println!("  {}: {}", plugin, count);
+        }
         Ok(())
     }
 

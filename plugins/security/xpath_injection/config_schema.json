@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "XPath Injection Plugin Configuration",
+  "type": "object",
+  "properties": {
+    "enabled_tests": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["basic", "blind", "auth_bypass", "data_extraction", "xpath2"]
+      },
+      "default": ["basic", "blind", "auth_bypass", "data_extraction", "xpath2"],
+      "description": "Enabled test categories"
+    },
+    "request_timeout": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300,
+      "default": 30,
+      "description": "Request timeout in seconds"
+    },
+    "max_concurrent_requests": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 10,
+      "description": "Maximum concurrent requests"
+    },
+    "user_agent": {
+      "type": "string",
+      "default": "open-re-xpath-tester/1.0",
+      "description": "User agent string"
+    },
+    "follow_redirects": {
+      "type": "boolean",
+      "default": true,
+      "description": "Follow HTTP redirects"
+    },
+    "max_redirects": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20,
+      "default": 10,
+      "description": "Maximum redirect depth"
+    },
+    "safety": {
+      "type": "object",
+      "properties": {
+        "max_requests_per_test": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100,
+          "description": "Maximum requests per test"
+        },
+        "max_total_requests": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 10000,
+          "description": "Maximum total requests per scan"
+        },
+        "rate_limit_rps": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 10.0,
+          "description": "Request rate limit (requests per second)"
+        },
+        "max_payloads_per_param": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 50,
+          "description": "Maximum payloads per parameter"
+        },
+        "max_concurrency": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 5,
+          "description": "Maximum concurrency"
+        },
+        "request_timeout_secs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300,
+          "default": 30,
+          "description": "Request timeout in seconds"
+        },
+        "allowed_scopes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Allowed target scopes (for scope enforcement)"
+        },
+        "blocked_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [
+            "DROP TABLE",
+            "DELETE FROM",
+            "TRUNCATE",
+            "SHUTDOWN",
+            "REBOOT",
+            "rm -rf",
+            "format",
+            "mkfs"
+          ],
+          "description": "Blocked payload patterns"
+        },
+        "require_authorization": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require explicit authorization"
+        }
+      },
+      "required": [
+        "max_requests_per_test",
+        "max_total_requests",
+        "rate_limit_rps",
+        "max_payloads_per_param",
+        "max_concurrency",
+        "request_timeout_secs",
+        "allowed_scopes",
+        "blocked_patterns",
+        "require_authorization"
+      ]
+    }
+  },
+  "required": [
+    "enabled_tests",
+    "request_timeout",
+    "max_concurrent_requests",
+    "user_agent",
+    "follow_redirects",
+    "max_redirects",
+    "safety"
+  ]
+}

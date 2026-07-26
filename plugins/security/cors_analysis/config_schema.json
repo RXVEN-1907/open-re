@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CORS Analysis Plugin Configuration",
+  "type": "object",
+  "properties": {
+    "settings": {
+      "type": "object",
+      "properties": {
+        "aggressive_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable aggressive scanning"
+        },
+        "verify_ssl": {
+          "type": "boolean",
+          "default": true,
+          "description": "Verify SSL certificates"
+        },
+        "test_origins": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["https://evil.com", "https://sub.evil.com", "null"],
+          "description": "Origins to test for CORS misconfiguration"
+        },
+        "test_methods": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["PUT", "DELETE", "PATCH", "TRACE", "CONNECT"],
+          "description": "HTTP methods to test for CORS"
+        }
+      }
+    },
+    "enabled_checks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["wildcard_origin", "credentials", "origin_reflection", "unsafe_methods", "preflight", "allow_headers"]
+      },
+      "default": ["wildcard_origin", "credentials", "origin_reflection", "unsafe_methods", "preflight", "allow_headers"],
+      "description": "Which CORS checks to enable"
+    },
+    "request_timeout": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "maximum": 300,
+      "description": "Request timeout in seconds"
+    },
+    "max_concurrent_requests": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Maximum concurrent requests"
+    },
+    "user_agent": {
+      "type": "string",
+      "default": "open-re-security-scanner/1.0",
+      "description": "User agent string for requests"
+    },
+    "follow_redirects": {
+      "type": "boolean",
+      "default": true,
+      "description": "Follow HTTP redirects"
+    },
+    "max_redirects": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 0,
+      "maximum": 50,
+      "description": "Maximum number of redirects to follow"
+    }
+  },
+  "required": ["request_timeout", "max_concurrent_requests", "user_agent"]
+}

@@ -9,6 +9,7 @@ pub mod plugins;
 pub mod auth;
 pub mod users;
 pub mod exports;
+pub mod security;
 
 use crate::{AppState, ApiResult};
 use axum::Router;
@@ -25,4 +26,5 @@ pub fn create_routes(state: std::sync::Arc<AppState>) -> Router {
         .nest("/auth", auth::routes(state.clone()))
         .nest("/users", users::routes(state.clone()))
         .nest("/exports", exports::routes(state.clone()))
+        .nest("/security", security::routes(state.clone()))
 }

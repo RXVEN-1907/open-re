@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Security Headers Plugin Configuration",
+  "type": "object",
+  "properties": {
+    "settings": {
+      "type": "object",
+      "properties": {
+        "aggressive_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable aggressive scanning"
+        },
+        "verify_ssl": {
+          "type": "boolean",
+          "default": true,
+          "description": "Verify SSL certificates"
+        },
+        "check_csp": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check Content-Security-Policy header"
+        },
+        "check_hsts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check Strict-Transport-Security header"
+        },
+        "check_xfo": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check X-Frame-Options header"
+        },
+        "check_referrer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check Referrer-Policy header"
+        },
+        "check_permissions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check Permissions-Policy header"
+        },
+        "check_xcto": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check X-Content-Type-Options header"
+        },
+        "check_cache_control": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check Cache-Control header"
+        },
+        "check_cross_origin": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check Cross-Origin headers (COOP, COEP, CORP)"
+        }
+      }
+    },
+    "enabled_checks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["csp", "hsts", "xfo", "referrer_policy", "permissions_policy", "xcto", "cache_control", "x_xss_protection", "x_permitted_cross_domain", "cross_origin_isolation"]
+      },
+      "default": ["csp", "hsts", "xfo", "referrer_policy", "permissions_policy", "xcto", "cache_control", "x_xss_protection", "x_permitted_cross_domain", "cross_origin_isolation"],
+      "description": "Which security header checks to enable"
+    },
+    "request_timeout": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "maximum": 300,
+      "description": "Request timeout in seconds"
+    },
+    "max_concurrent_requests": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Maximum concurrent requests"
+    },
+    "user_agent": {
+      "type": "string",
+      "default": "open-re-security-scanner/1.0",
+      "description": "User agent string for requests"
+    },
+    "follow_redirects": {
+      "type": "boolean",
+      "default": true,
+      "description": "Follow HTTP redirects"
+    },
+    "max_redirects": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 0,
+      "maximum": 50,
+      "description": "Maximum number of redirects to follow"
+    }
+  },
+  "required": ["request_timeout", "max_concurrent_requests", "user_agent"]
+}

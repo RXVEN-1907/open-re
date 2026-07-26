@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Cookie Security Plugin Configuration",
+  "type": "object",
+  "properties": {
+    "settings": {
+      "type": "object",
+      "properties": {
+        "aggressive_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable aggressive scanning"
+        },
+        "verify_ssl": {
+          "type": "boolean",
+          "default": true,
+          "description": "Verify SSL certificates"
+        },
+        "check_cookie_prefixes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check for __Secure- and __Host- cookie prefixes"
+        },
+        "check_entropy": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check cookie value entropy"
+        }
+      }
+    },
+    "enabled_checks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["secure_flag", "httponly_flag", "samesite", "domain_scope", "path_scope", "expiration", "weak_values", "cookie_prefixes"]
+      },
+      "default": ["secure_flag", "httponly_flag", "samesite", "domain_scope", "path_scope", "expiration", "weak_values", "cookie_prefixes"],
+      "description": "Which cookie security checks to enable"
+    },
+    "request_timeout": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "maximum": 300,
+      "description": "Request timeout in seconds"
+    },
+    "max_concurrent_requests": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Maximum concurrent requests"
+    },
+    "user_agent": {
+      "type": "string",
+      "default": "open-re-security-scanner/1.0",
+      "description": "User agent string for requests"
+    },
+    "follow_redirects": {
+      "type": "boolean",
+      "default": true,
+      "description": "Follow HTTP redirects"
+    },
+    "max_redirects": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 0,
+      "maximum": 50,
+      "description": "Maximum number of redirects to follow"
+    }
+  },
+  "required": ["request_timeout", "max_concurrent_requests", "user_agent"]
+}

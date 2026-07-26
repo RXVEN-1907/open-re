@@ -78,6 +78,9 @@ define_id!(ApiKeyId);
 define_id!(InviteId);
 define_id!(ShareLinkId);
 define_id!(ExportId);
+define_id!(FindingId);
+define_id!(ScanId);
+define_id!(TargetId);
 
 impl StageId {
     pub fn all_ordered() -> Vec<StageId> {
@@ -196,6 +199,7 @@ pub enum PluginType {
     UiExtension,
     Theme,
     Language,
+    Security,
 }
 
 impl PluginType {
@@ -211,6 +215,7 @@ impl PluginType {
             PluginType::UiExtension => "ui-extension",
             PluginType::Theme => "theme",
             PluginType::Language => "language",
+            PluginType::Security => "security",
         }
     }
 }
@@ -236,6 +241,7 @@ impl FromStr for PluginType {
             "ui-extension" => Ok(PluginType::UiExtension),
             "theme" => Ok(PluginType::Theme),
             "language" => Ok(PluginType::Language),
+            "security" => Ok(PluginType::Security),
             _ => Err(format!("Unknown plugin type: {}", s)),
         }
     }

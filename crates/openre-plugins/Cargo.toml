@@ -33,3 +33,12 @@ async-trait = { workspace = true }
 uuid = { workspace = true }
 semver = "1.0"
 tracing = { workspace = true }
+regex = "1.10"
+url = "2.5"
+reqwest = { version = "0.12", features = ["json", "cookies", "gzip", "brotli", "deflate", "rustls-tls", "multipart"] }
+http = "1.0"
+urlencoding = "2.1"
+
+[dev-dependencies]
+wiremock = "0.5"
+tokio-test = "0.4"

@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "API Rate Limiting Plugin Configuration",
+  "type": "object",
+  "properties": {
+    "request_timeout": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300,
+      "default": 30,
+      "description": "Request timeout in seconds"
+    },
+    "max_concurrent_requests": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 5,
+      "description": "Maximum concurrent requests"
+    },
+    "user_agent": {
+      "type": "string",
+      "default": "open-re-api-rate-limiter/1.0",
+      "description": "User agent string"
+    },
+    "follow_redirects": {
+      "type": "boolean",
+      "default": true,
+      "description": "Follow HTTP redirects"
+    },
+    "max_redirects": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20,
+      "default": 10,
+      "description": "Maximum redirect depth"
+    },
+    "verify_ssl": {
+      "type": "boolean",
+      "default": true,
+      "description": "Verify SSL certificates"
+    },
+    "sustained_requests_per_second": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 5,
+      "description": "Sustained requests per second for testing"
+    },
+    "sustained_test_duration_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60,
+      "default": 10,
+      "description": "Duration of sustained rate test in seconds"
+    },
+    "burst_test_size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30,
+      "default": 10,
+      "description": "Number of requests in burst test"
+    },
+    "auth_endpoint_test_requests": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 5,
+      "description": "Number of requests to test auth endpoints"
+    },
+    "max_test_requests": {
+      "type": "integer",
+      "minimum": 10,
+      "maximum": 200,
+      "default": 50,
+      "description": "Maximum total test requests per endpoint"
+    },
+    "test_requests_per_endpoint": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 100,
+      "default": 20,
+      "description": "Test requests per endpoint"
+    }
+  },
+  "required": [
+    "request_timeout",
+    "max_concurrent_requests",
+    "user_agent",
+    "follow_redirects",
+    "max_redirects",
+    "verify_ssl",
+    "sustained_requests_per_second",
+    "sustained_test_duration_seconds",
+    "burst_test_size",
+    "auth_endpoint_test_requests",
+    "max_test_requests",
+    "test_requests_per_endpoint"
+  ]
+}

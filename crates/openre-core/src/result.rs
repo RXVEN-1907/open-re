@@ -1,0 +1,531 @@
+//! Standardized finding model for all plugins
+
+use crate::ids::{FindingId, ScanId};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use chrono::{DateTime, Utc};
+
+/// Severity levels for findings
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Severity {
+    /// Informational - no direct security impact
+    Info,
+    /// Low severity - minor security issue
+    Low,
+    /// Medium severity - moderate security issue
+    Medium,
+    /// High severity - significant security issue
+    High,
+    /// Critical severity - severe security issue
+    Critical,
+}
+
+impl Severity {
+    /// Get numeric value for sorting
+    pub fn value(&self) -> u8 {
+        match self {
+            Severity::Info => 0,
+            Severity::Low => 1,
+            Severity::Medium => 2,
+            Severity::High => 3,
+            Severity::Critical => 4,
+        }
+    }
+
+    /// Get color for display
+    pub fn color(&self) -> &'static str {
+        match self {
+            Severity::Info => "blue",
+            Severity::Low => "green",
+            Severity::Medium => "yellow",
+            Severity::High => "orange",
+            Severity::Critical => "red",
+        }
+    }
+}
+
+impl std::fmt::Display for Severity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Severity::Info => write!(f, "info"),
+            Severity::Low => write!(f, "low"),
+            Severity::Medium => write!(f, "medium"),
+            Severity::High => write!(f, "high"),
+            Severity::Critical => write!(f, "critical"),
+        }
+    }
+}
+
+impl std::str::FromStr for Severity {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "info" => Ok(Severity::Info),
+            "low" => Ok(Severity::Low),
+            "medium" => Ok(Severity::Medium),
+            "high" => Ok(Severity::High),
+            "critical" => Ok(Severity::Critical),
+            _ => Err(format!("Invalid severity: {}", s)),
+        }
+    }
+}
+
+/// Confidence levels for findings
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Confidence {
+    /// Very low confidence - speculative
+    VeryLow,
+    /// Low confidence - weak evidence
+    Low,
+    /// Medium confidence - reasonable evidence
+    Medium,
+    /// High confidence - strong evidence
+    High,
+    /// Very high confidence - confirmed
+    VeryHigh,
+}
+
+impl Confidence {
+    /// Get numeric value for sorting
+    pub fn value(&self) -> u8 {
+        match self {
+            Confidence::VeryLow => 0,
+            Confidence::Low => 1,
+            Confidence::Medium => 2,
+            Confidence::High => 3,
+            Confidence::VeryHigh => 4,
+        }
+    }
+
+    /// Get percentage representation
+    pub fn percentage(&self) -> u8 {
+        match self {
+            Confidence::VeryLow => 10,
+            Confidence::Low => 30,
+            Confidence::Medium => 50,
+            Confidence::High => 80,
+            Confidence::VeryHigh => 95,
+        }
+    }
+}
+
+impl std::fmt::Display for Confidence {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Confidence::VeryLow => write!(f, "very_low"),
+            Confidence::Low => write!(f, "low"),
+            Confidence::Medium => write!(f, "medium"),
+            Confidence::High => write!(f, "high"),
+            Confidence::VeryHigh => write!(f, "very_high"),
+        }
+    }
+}
+
+impl std::str::FromStr for Confidence {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "very_low" => Ok(Confidence::VeryLow),
+            "low" => Ok(Confidence::Low),
+            "medium" => Ok(Confidence::Medium),
+            "high" => Ok(Confidence::High),
+            "very_high" => Ok(Confidence::VeryHigh),
+            _ => Err(format!("Invalid confidence: {}", s)),
+        }
+    }
+}
+
+/// Finding categories
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Category {
+    /// Injection vulnerabilities
+    Injection,
+    /// Broken authentication
+    BrokenAuthentication,
+    /// Sensitive data exposure
+    SensitiveDataExposure,
+    /// XML External Entities
+    Xxe,
+    /// Broken access control
+    BrokenAccessControl,
+    /// Security misconfiguration
+    SecurityMisconfiguration,
+    /// Cross-site scripting
+    Xss,
+    /// Insecure deserialization
+    InsecureDeserialization,
+    /// Using components with known vulnerabilities
+    VulnerableComponents,
+    /// Insufficient logging and monitoring
+    InsufficientLogging,
+    /// Server-side request forgery
+    Ssrf,
+    /// Cross-site request forgery
+    Csrf,
+    /// Information disclosure
+    InformationDisclosure,
+    /// Denial of service
+    DenialOfService,
+    /// Business logic error
+    BusinessLogic,
+    /// Cryptographic issues
+    Cryptographic,
+    /// Configuration issue
+    Configuration,
+    /// Custom category
+    Custom(String),
+}
+
+impl Category {
+    /// Get OWASP Top 10 mapping
+    pub fn owasp_category(&self) -> Option<&'static str> {
+        match self {
+            Category::Injection => Some("A03:2021 - Injection"),
+            Category::BrokenAuthentication => Some("A07:2021 - Identification and Authentication Failures"),
+            Category::SensitiveDataExposure => Some("A02:2021 - Cryptographic Failures"),
+            Category::Xxe => Some("A05:2021 - Security Misconfiguration"),
+            Category::BrokenAccessControl => Some("A01:2021 - Broken Access Control"),
+            Category::SecurityMisconfiguration => Some("A05:2021 - Security Misconfiguration"),
+            Category::Xss => Some("A03:2021 - Injection"),
+            Category::InsecureDeserialization => Some("A08:2021 - Software and Data Integrity Failures"),
+            Category::VulnerableComponents => Some("A06:2021 - Vulnerable and Outdated Components"),
+            Category::InsufficientLogging => Some("A09:2021 - Security Logging and Monitoring Failures"),
+            Category::Ssrf => Some("A10:2021 - Server-Side Request Forgery"),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for Category {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Category::Custom(s) => write!(f, "{}", s),
+            _ => write!(f, "{:?}", self),
+        }
+    }
+}
+
+impl std::str::FromStr for Category {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "injection" => Ok(Category::Injection),
+            "broken_authentication" => Ok(Category::BrokenAuthentication),
+            "sensitive_data_exposure" => Ok(Category::SensitiveDataExposure),
+            "xxe" => Ok(Category::Xxe),
+            "broken_access_control" => Ok(Category::BrokenAccessControl),
+            "security_misconfiguration" => Ok(Category::SecurityMisconfiguration),
+            "xss" => Ok(Category::Xss),
+            "insecure_deserialization" => Ok(Category::InsecureDeserialization),
+            "vulnerable_components" => Ok(Category::VulnerableComponents),
+            "insufficient_logging" => Ok(Category::InsufficientLogging),
+            "ssrf" => Ok(Category::Ssrf),
+            "csrf" => Ok(Category::Csrf),
+            "information_disclosure" => Ok(Category::InformationDisclosure),
+            "denial_of_service" => Ok(Category::DenialOfService),
+            "business_logic" => Ok(Category::BusinessLogic),
+            "cryptographic" => Ok(Category::Cryptographic),
+            "configuration" => Ok(Category::Configuration),
+            _ => Ok(Category::Custom(s.to_string())),
+        }
+    }
+}
+
+/// Evidence supporting a finding
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Evidence {
+    /// Type of evidence
+    pub evidence_type: EvidenceType,
+    /// Description of evidence
+    pub description: String,
+    /// Raw data (request/response, code snippet, etc.)
+    pub data: Option<serde_json::Value>,
+    /// Source location (file, line, URL, etc.)
+    pub location: Option<String>,
+    /// Additional metadata
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+/// Type of evidence
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceType {
+    /// HTTP request that triggered the finding
+    HttpRequest,
+    /// HTTP response showing the vulnerability
+    HttpResponse,
+    /// Code snippet
+    CodeSnippet,
+    /// Configuration file excerpt
+    ConfigExcerpt,
+    /// Log entry
+    LogEntry,
+    /// Screenshot
+    Screenshot,
+    /// Custom evidence type
+    Custom(String),
+}
+
+/// Reference to external resources
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Reference {
+    /// Reference type
+    pub reference_type: ReferenceType,
+    /// Title
+    pub title: String,
+    /// URL
+    pub url: String,
+    /// Description
+    pub description: Option<String>,
+}
+
+/// Type of reference
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReferenceType {
+    /// CVE identifier
+    Cve,
+    /// CWE identifier
+    Cwe,
+    /// OWASP reference
+    Owasp,
+    /// Vendor advisory
+    VendorAdvisory,
+    /// Blog post or article
+    Article,
+    /// Documentation
+    Documentation,
+    /// Tool output
+    ToolOutput,
+    /// Custom reference
+    Custom(String),
+}
+
+/// Standardized finding model - all plugins must return findings using this schema
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Finding {
+    /// Unique finding ID
+    pub id: FindingId,
+    /// Finding title
+    pub title: String,
+    /// Detailed description
+    pub description: String,
+    /// Severity level
+    pub severity: Severity,
+    /// Confidence level
+    pub confidence: Confidence,
+    /// Finding category
+    pub category: Category,
+    /// Target that was scanned
+    pub target: String,
+    /// Target type
+    pub target_type: String,
+    /// Evidence supporting the finding
+    pub evidence: Vec<Evidence>,
+    /// External references
+    pub references: Vec<Reference>,
+    /// Plugin that discovered this finding
+    pub plugin_source: String,
+    /// Plugin version
+    pub plugin_version: String,
+    /// Timestamp when finding was discovered
+    pub timestamp: DateTime<Utc>,
+    /// Scan ID this finding belongs to
+    pub scan_id: ScanId,
+    /// Additional metadata
+    pub metadata: HashMap<String, serde_json::Value>,
+    /// Tags for categorization
+    pub tags: Vec<String>,
+    /// Whether finding has been verified
+    pub verified: bool,
+    /// False positive indicator
+    pub false_positive: bool,
+    /// Risk score (0-100)
+    pub risk_score: Option<u8>,
+    /// CVSS vector string (if applicable)
+    pub cvss_vector: Option<String>,
+    /// CVSS score (if applicable)
+    pub cvss_score: Option<f32>,
+}
+
+impl Finding {
+    /// Create a new finding
+    pub fn new(
+        title: String,
+        description: String,
+        severity: Severity,
+        confidence: Confidence,
+        category: Category,
+        target: String,
+        target_type: String,
+        plugin_source: String,
+        plugin_version: String,
+        scan_id: ScanId,
+    ) -> Self {
+        Self {
+            id: FindingId::new(),
+            title,
+            description,
+            severity,
+            confidence,
+            category,
+            target,
+            target_type,
+            evidence: Vec::new(),
+            references: Vec::new(),
+            plugin_source,
+            plugin_version,
+            timestamp: Utc::now(),
+            scan_id,
+            metadata: HashMap::new(),
+            tags: Vec::new(),
+            verified: false,
+            false_positive: false,
+            risk_score: None,
+            cvss_vector: None,
+            cvss_score: None,
+        }
+    }
+
+    /// Add evidence
+    pub fn with_evidence(mut self, evidence: Evidence) -> Self {
+        self.evidence.push(evidence);
+        self
+    }
+
+    /// Add reference
+    pub fn with_reference(mut self, reference: Reference) -> Self {
+        self.references.push(reference);
+        self
+    }
+
+    /// Add tag
+    pub fn with_tag(mut self, tag: String) -> Self {
+        self.tags.push(tag);
+        self
+    }
+
+    /// Set metadata
+    pub fn with_metadata(mut self, key: String, value: serde_json::Value) -> Self {
+        self.metadata.insert(key, value);
+        self
+    }
+
+    /// Set verified status
+    pub fn with_verified(mut self, verified: bool) -> Self {
+        self.verified = verified;
+        self
+    }
+
+    /// Set false positive status
+    pub fn with_false_positive(mut self, false_positive: bool) -> Self {
+        self.false_positive = false_positive;
+        self
+    }
+
+    /// Set risk score
+    pub fn with_risk_score(mut self, score: u8) -> Self {
+        self.risk_score = Some(score.min(100));
+        self
+    }
+
+    /// Set CVSS vector
+    pub fn with_cvss(mut self, vector: String, score: f32) -> Self {
+        self.cvss_vector = Some(vector);
+        self.cvss_score = Some(score);
+        self
+    }
+
+    /// Calculate risk score based on severity and confidence
+    pub fn calculate_risk_score(&self) -> u8 {
+        let severity_weight = self.severity.value() as u16 * 20; // 0-80
+        let confidence_weight = self.confidence.value() as u16 * 5; // 0-20
+        ((severity_weight + confidence_weight).min(100)) as u8
+    }
+
+    /// Get a short summary of the finding
+    pub fn summary(&self) -> String {
+        format!("[{}] {} - {} ({})", self.severity, self.title, self.target, self.plugin_source)
+    }
+}
+
+/// Finding filter for querying findings
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FindingFilter {
+    /// Filter by severity
+    pub severity: Option<Vec<Severity>>,
+    /// Filter by confidence
+    pub confidence: Option<Vec<Confidence>>,
+    /// Filter by category
+    pub category: Option<Vec<Category>>,
+    /// Filter by target
+    pub target: Option<String>,
+    /// Filter by plugin source
+    pub plugin_source: Option<String>,
+    /// Filter by scan ID
+    pub scan_id: Option<ScanId>,
+    /// Filter by verified status
+    pub verified: Option<bool>,
+    /// Filter by false positive status
+    pub false_positive: Option<bool>,
+    /// Filter by tags
+    pub tags: Option<Vec<String>>,
+    /// Filter by date range
+    pub date_from: Option<DateTime<Utc>>,
+    pub date_to: Option<DateTime<Utc>>,
+    /// Search in title/description
+    pub search: Option<String>,
+    /// Minimum risk score
+    pub min_risk_score: Option<u8>,
+    /// Maximum risk score
+    pub max_risk_score: Option<u8>,
+}
+
+/// Finding sort options
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FindingSort {
+    /// Sort by severity (highest first)
+    SeverityDesc,
+    /// Sort by severity (lowest first)
+    SeverityAsc,
+    /// Sort by confidence (highest first)
+    ConfidenceDesc,
+    /// Sort by timestamp (newest first)
+    TimestampDesc,
+    /// Sort by timestamp (oldest first)
+    TimestampAsc,
+    /// Sort by risk score (highest first)
+    RiskScoreDesc,
+    /// Sort by target (alphabetical)
+    TargetAsc,
+}
+
+/// Finding statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FindingStats {
+    /// Total findings
+    pub total: usize,
+    /// Findings by severity
+    pub by_severity: HashMap<Severity, usize>,
+    /// Findings by confidence
+    pub by_confidence: HashMap<Confidence, usize>,
+    /// Findings by category
+    pub by_category: HashMap<Category, usize>,
+    /// Findings by plugin
+    pub by_plugin: HashMap<String, usize>,
+    /// Verified findings
+    pub verified: usize,
+    /// False positives
+    pub false_positives: usize,
+    /// Average risk score
+    pub avg_risk_score: f32,
+    /// Maximum risk score
+    pub max_risk_score: u8,
+}

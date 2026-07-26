@@ -963,4 +963,659 @@ pub async fn execute_plugin_capability(
 
 ---
 
+## Security Plugins (Phase 5A)
+
+The following security assessment plugins are included for authentication, session management, and common web security misconfigurations:
+
+| Plugin ID | Type | Description | Category |
+|-----------|------|-------------|----------|
+| `openre.security.auth_discovery` | Security | Discovers authentication endpoints (login, register, password reset, MFA, SSO, OAuth/OIDC) | Authentication |
+| `openre.security.session_management` | Security | Analyzes session cookie generation, expiration, invalidation, rotation, fixation | Session Management |
+| `openre.security.cookie_security` | Security | Validates cookie security attributes (Secure, HttpOnly, SameSite, Domain, Path, Expiration, Weak values) | Cookie Security |
+| `openre.security.security_headers` | Security | Checks security headers (CSP, HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy, X-Content-Type-Options, Cache-Control, Cross-Origin headers) | Security Headers |
+| `openre.security.cors_analysis` | Security | Evaluates CORS configuration (wildcard origins, credentials, origin reflection, unsafe methods) | CORS |
+| `openre.security.rate_limiting` | Security | Tests rate limiting on endpoints (general, auth, API) | Rate Limiting |
+| `openre.security.information_disclosure` | Security | Detects information exposure (server headers, framework versions, debug pages, stack traces, sensitive data) | Information Disclosure |
+
+### Security Plugin Capabilities
+
+All security plugins require these capabilities:
+- `NetworkAccess` - Make HTTP requests to target
+- `ReadConfig` - Read plugin configuration
+- `ReadBinary` - Read binary data (for consistency with plugin interface)
+- `WriteAnnotations` - Write findings to database
+- `QueryDatabase` - Query scan database
+
+### Security Plugin Manifest Example
+
+```toml
+# plugin.toml for security plugins
+[plugin]
+type = "security"
+capabilities = ["ReadBinary", "WriteAnnotations", "QueryDatabase", "NetworkAccess", "ReadConfig"]
+min_core_version = "0.1.0"
+max_core_version = "1.0.0"
+
+[plugin.entry]
+wasm = "security_plugin.wasm"
+native = { linux = "libsecurity_plugin.so", macos = "libsecurity_plugin.dylib", windows = "security_plugin.dll" }
+
+[build]
+target = "wasm"
+rust_version = "1.75"
+features = []
+
+[resources]
+max_memory_mb = 256
+max_fuel = 10000000
+max_execution_time_secs = 300
+
+[config]
+schema = "config_schema.json"
+defaults = {}
+```
+
+### Security Plugin Configuration Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Security Plugin Configuration",
+  "type": "object",
+  "properties": {
+    "settings": {
+      "type": "object",
+      "properties": {
+        "aggressive_mode": { "type": "boolean", "default": false },
+        "verify_ssl": { "type": "boolean", "default": true }
+      }
+    },
+    "enabled_checks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Which security checks to enable"
+    },
+    "request_timeout": { "type": "integer", "default": 30, "minimum": 5, "maximum": 300 },
+    "max_concurrent_requests": { "type": "integer", "default": 10, "minimum": 1, "maximum": 100 },
+    "user_agent": { "type": "string", "default": "open-re-security-scanner/1.0" },
+    "follow_redirects": { "type": "boolean", "default": true },
+    "max_redirects": { "type": "integer", "default": 10, "minimum": 0, "maximum": 50 }
+  },
+  "required": ["request_timeout", "max_concurrent_requests", "user_agent"]
+}
+```
+
+### Security Finding Schema
+
+Security plugins return findings using the standardized schema with these categories:
+- `BrokenAuthentication` - Authentication and session issues
+- `SecurityMisconfiguration` - Header, cookie, CORS, rate limiting issues
+- `InformationDisclosure` - Information exposure issues
+
+Each finding includes:
+- Severity (Info, Low, Medium, High, Critical)
+- Confidence (VeryLow, Low, Medium, High, VeryHigh)
+- Evidence (HTTP request/response data)
+- References (CWE, OWASP, CVE)
+- Tags for categorization
+- Risk score (0-100)
+- Optional CVSS vector/score
+
+---
+
+## Injection Testing Framework Plugins (Phase 5B)
+
+The injection testing framework provides a modular, shared infrastructure for detecting injection vulnerabilities. Each vulnerability type is implemented as a plugin using the common framework components.
+
+### Injection Plugin Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+                    BaseInjectionPlugin
+├─────────────────────────────────────────────────────────────────┤
+  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────┐
+  │  Payload     │ │  Request     │ │  Response    │ │Confidence│
+  │  Engine      │ │  Engine      │ │  Analyzer    │ │ Scorer   │
+  └──────────────┘ └──────────────┘ └──────────────┘ └──────────┘
+         │               │               │              │
+         └───────────────┼───────────────┼──────────────┘
+                         ▼
+              ┌─────────────────────┐
+              │  Safety Controller  │
+              └─────────────────────┘
+```
+
+### Shared Framework Components
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| **PayloadEngine** | Payload generation, context-aware selection, encoding | `crates/openre-plugins/src/injection/payload_engine.rs` |
+| **RequestEngine** | Tests query params, POST bodies, JSON, XML, multipart, headers, cookies | `crates/openre-plugins/src/injection/request_engine.rs` |
+| **ResponseAnalyzer** | Error-based, boolean-based, time-based, reflection, pattern matching, differential | `crates/openre-plugins/src/injection/response_analyzer.rs` |
+| **ConfidenceScorer** | Multi-factor confidence scoring | `crates/openre-plugins/src/injection/confidence_scoring.rs` |
+| **SafetyController** | Rate limiting, scope enforcement, payload blocking, authorization | `crates/openre-plugins/src/injection/safety_controls.rs` |
+
+### Injection Plugins (Security Type)
+
+| Plugin ID | Category | Detection Methods | Severity |
+|-----------|----------|-------------------|----------|
+| `openre.injection.sql_injection` | SQL Injection | Error-based, Boolean-based, Time-based, Union-based, Pattern Match | High |
+| `openre.injection.nosql_injection` | NoSQL Injection | Error-based, Pattern Match | High |
+| `openre.injection.xss` | Cross-Site Scripting | Reflection, Pattern Match, Differential | High |
+| `openre.injection.ssti` | Server-Side Template Injection | Pattern Match, Error-based, Reflection | Critical |
+| `openre.injection.command_injection` | Command Injection | Pattern Match, Error-based, Time-based | Critical |
+| `openre.injection.xxe` | XML External Entity | Pattern Match, Error-based, Out-of-Band | Critical |
+| `openre.injection.ldap_injection` | LDAP Injection | Error-based, Pattern Match, Boolean-based | High |
+| `openre.injection.xpath_injection` | XPath Injection | Error-based, Pattern Match, Boolean-based | High |
+| `openre.injection.header_injection` | HTTP Header Injection | Reflection, Pattern Match, Differential | High |
+
+### Injection Plugin Capabilities
+
+All injection plugins require:
+- `NetworkAccess` - Make HTTP requests to target
+- `ReadConfig` - Read plugin configuration
+
+### Injection Plugin Manifest Example
+
+```toml
+# plugin.toml for injection plugins
+[plugin]
+type = "security"
+capabilities = ["NetworkAccess", "ReadConfig"]
+min_core_version = "0.1.0"
+max_core_version = "1.0.0"
+
+[plugin.entry]
+wasm = "injection_plugin.wasm"
+native = { linux = "libinjection_plugin.so", macos = "libinjection_plugin.dylib", windows = "injection_plugin.dll" }
+
+[build]
+target = "wasm"
+rust_version = "1.75"
+features = []
+
+[resources]
+max_memory_mb = 256
+max_fuel = 10000000
+max_execution_time_secs = 300
+
+[config]
+schema = "config_schema.json"
+defaults = {}
+```
+
+### Injection Plugin Configuration Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Injection Plugin Configuration",
+  "type": "object",
+  "properties": {
+    "enabled_tests": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Enabled test categories"
+    },
+    "request_timeout": { "type": "integer", "minimum": 1, "maximum": 300, "default": 30 },
+    "max_concurrent_requests": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 },
+    "user_agent": { "type": "string", "default": "open-re-injection-tester/1.0" },
+    "follow_redirects": { "type": "boolean", "default": true },
+    "max_redirects": { "type": "integer", "minimum": 0, "maximum": 20, "default": 10 },
+    "safety": {
+      "type": "object",
+      "properties": {
+        "max_requests_per_test": { "type": "integer", "minimum": 1, "maximum": 1000, "default": 100 },
+        "max_total_requests": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 10000 },
+        "rate_limit_rps": { "type": "number", "minimum": 0, "maximum": 1000, "default": 10.0 },
+        "max_payloads_per_param": { "type": "integer", "minimum": 1, "maximum": 500, "default": 50 },
+        "max_concurrency": { "type": "integer", "minimum": 1, "maximum": 50, "default": 5 },
+        "request_timeout_secs": { "type": "integer", "minimum": 1, "maximum": 300, "default": 30 },
+        "allowed_scopes": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "blocked_patterns": { "type": "array", "items": { "type": "string" }, "default": ["DROP TABLE", "DELETE FROM", "rm -rf"] },
+        "require_authorization": { "type": "boolean", "default": true }
+      },
+      "required": ["max_requests_per_test", "max_total_requests", "rate_limit_rps", "max_payloads_per_param", "max_concurrency", "request_timeout_secs", "allowed_scopes", "blocked_patterns", "require_authorization"]
+    }
+  },
+  "required": ["enabled_tests", "request_timeout", "max_concurrent_requests", "user_agent", "follow_redirects", "max_redirects", "safety"]
+}
+```
+
+### Injection Plugin Implementation Pattern
+
+```rust
+// crates/openre-plugins/src/injection/sql_injection.rs
+use crate::injection::{
+    InjectionCategory, InjectionPluginConfig, InjectionTestResult,
+    ParameterLocation, PayloadContext, PayloadEngine, RequestEngine,
+    ResponseAnalyzer, SafetyConfig, create_payload_engine,
+    create_request_engine, create_response_analyzer,
+};
+use crate::sdk::{Plugin, CapabilityRequest, CapabilityResponse, AnalysisContext, Result, Capability};
+
+pub struct SqlInjectionPlugin {
+    base: BaseInjectionPlugin,
+}
+
+impl SqlInjectionPlugin {
+    pub fn new(config: InjectionPluginConfig) -> Result<Self, String> {
+        let base = BaseInjectionPlugin::new(config, InjectionCategory::SqlInjection)?;
+        Ok(Self { base })
+    }
+}
+
+#[async_trait]
+impl Plugin for SqlInjectionPlugin {
+    type Config = InjectionPluginConfig;
+    
+    fn new(config: Self::Config) -> Self {
+        Self::new(config).expect("Failed to create SQL injection plugin")
+    }
+    
+    fn capabilities(&self) -> Vec<Capability> {
+        vec![Capability::NetworkAccess, Capability::ReadConfig]
+    }
+    
+    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
+        let target_url = request.input.get("target_url").and_then(|v| v.as_str()).unwrap_or("http://localhost");
+        
+        let parameters = request.input.get("parameters")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_else(|| vec![
+                ParameterTestConfig { name: "id".to_string(), location: ParameterLocation::Query, required: false },
+                ParameterTestConfig { name: "search".to_string(), location: ParameterLocation::Query, required: false },
+            ]);
+        
+        let payload_context = PayloadContext {
+            parameter_name: "".to_string(),
+            location: ParameterLocation::Query,
+            technology_hints: vec![],
+            database_type: None,
+            // ... other fields
+        };
+        
+        let results = self.base.execute_injection_tests(target_url, parameters, &payload_context).await;
+        let findings = self.base.results_to_findings(results, scan_id, target_url);
+        
+        Ok(CapabilityResponse::success(json!({ "findings": findings })))
+    }
+}
+
+impl InjectionPlugin for SqlInjectionPlugin {
+    fn injection_category(&self) -> InjectionCategory { InjectionCategory::SqlInjection }
+    fn version(&self) -> &'static str { "1.0.0" }
+    fn payload_engine(&self) -> Box<dyn PayloadEngine> { create_payload_engine(self.base.config.safety.clone()) }
+    fn response_analyzer(&self) -> Box<dyn ResponseAnalyzer> { create_response_analyzer(InjectionCategory::SqlInjection) }
+}
+```
+
+### Adding New Injection Types
+
+1. **Add to `InjectionCategory` enum** in `mod.rs`
+2. **Add payloads** in `payload_engine.rs` → `load_builtin_payloads()`
+3. **Add error patterns** in `response_analyzer.rs` → `load_error_patterns()`
+4. **Add pattern matching** in `response_analyzer.rs` → `check_patterns()`
+5. **Create plugin** following existing pattern
+6. **Add plugin manifest** in `plugins/security/<name>/`
+7. **Register in plugin registry** (auto-discovered from `local_plugin_dir`)
+
+### Injection Testing API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/security/injection/findings` | List injection findings with filters |
+| `GET /api/security/injection/findings/stats` | Injection statistics by category/method |
+| `GET /api/security/injection/categories` | List all injection categories |
+| `GET /api/security/injection/detection-methods` | List all detection methods |
+
+### CLI Commands
+
+```bash
+# List injection findings
+sentinel finding security injection --scan-id <scan_id>
+
+# Injection statistics
+sentinel finding security injection-stats --scan-id <scan_id>
+
+# List categories
+sentinel finding security injection-categories
+
+# List detection methods
+sentinel finding security detection-methods
+```
+
+### Safety Controls
+
+All injection plugins inherit comprehensive safety controls:
+
+- **Authorization Required**: Explicit token required by default
+- **Scope Enforcement**: Allowed/blocked host patterns with wildcards
+- **Payload Blocking**: Blocks destructive patterns (DROP TABLE, rm -rf, etc.)
+- **Rate Limiting**: Token bucket algorithm (configurable RPS)
+- **Request Limits**: Per-test and per-scan limits
+- **Concurrency Control**: Semaphore-based limiting
+- **Timeouts**: Per-request and per-plugin timeouts
+
+### Testing Methodology
+
+Each injection plugin follows evidence-based detection:
+
+1. **Baseline Capture**: Clean request/response for each parameter
+2. **Payload Generation**: Context-aware, encoded variants
+3. **Request Execution**: Rate-limited, safety-checked
+4. **Multi-Method Analysis**: Error-based, boolean-based, time-based, reflection, pattern match, differential
+5. **Confidence Scoring**: Multi-factor algorithm with evidence quality
+6. **Finding Generation**: Reproducible request, verification steps, references
+
+### Documentation
+
+- [Framework Architecture](../injection/framework_architecture.md)
+- [Plugin Development Guide](../injection/plugin_development_guide.md)
+- [Testing Methodology](../injection/testing_methodology.md)
+- [Safety Controls](../injection/safety_controls.md)
+- [API Documentation](../injection/api_documentation.md)
+
+---
+
+## API Security Plugins (Phase 5C)
+
+The API Security plugins provide comprehensive security assessment for modern API architectures including REST APIs, GraphQL services, and rate limiting implementations.
+
+### API Security Plugin Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+                    BaseSecurityPlugin
+├─────────────────────────────────────────────────────────────────┤
+  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────┐
+  │  Discovery   │ │  Analysis    │ │  Validation  │ │ Reporting│
+  │  Engine      │ │  Engine      │ │  Engine      │ │  Engine  │
+  └──────────────┘ └──────────────┘ └──────────────┘ └──────────┘
+```
+
+### API Security Plugins (Security Type)
+
+| Plugin ID | Category | Description | Severity |
+|-----------|----------|-------------|----------|
+| `openre.security.rest_api` | REST API Security | Discovers and analyzes REST API endpoints for security issues | High |
+| `openre.security.graphql` | GraphQL Security | Detects GraphQL endpoints and analyzes for security issues | High |
+| `openre.security.api_rate_limiting` | API Rate Limiting | Evaluates API rate limiting implementation | High |
+
+### API Security Plugin Capabilities
+
+All API security plugins require:
+- `NetworkAccess` - Make HTTP requests to target
+- `ReadConfig` - Read plugin configuration
+
+### API Security Plugin Manifest Example
+
+```toml
+# plugin.toml for API security plugins
+[plugin]
+type = "security"
+capabilities = ["NetworkAccess", "ReadConfig"]
+min_core_version = "0.1.0"
+max_core_version = "1.0.0"
+
+[plugin.entry]
+wasm = "api_security_plugin.wasm"
+native = { linux = "libapi_security_plugin.so", macos = "libapi_security_plugin.dylib", windows = "api_security_plugin.dll" }
+
+[build]
+target = "wasm"
+rust_version = "1.75"
+features = []
+
+[resources]
+max_memory_mb = 256
+max_fuel = 10000000
+max_execution_time_secs = 300
+
+[config]
+schema = "config_schema.json"
+defaults = {}
+```
+
+### API Security Plugin Configuration Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "API Security Plugin Configuration",
+  "type": "object",
+  "properties": {
+    "request_timeout": { "type": "integer", "minimum": 1, "maximum": 300, "default": 30 },
+    "max_concurrent_requests": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 },
+    "user_agent": { "type": "string", "default": "open-re-api-scanner/1.0" },
+    "follow_redirects": { "type": "boolean", "default": true },
+    "max_redirects": { "type": "integer", "minimum": 0, "maximum": 20, "default": 10 },
+    "verify_ssl": { "type": "boolean", "default": true }
+  },
+  "required": ["request_timeout", "max_concurrent_requests", "user_agent", "follow_redirects", "max_redirects", "verify_ssl"]
+}
+```
+
+### API Security Testing API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/security/api/findings` | List REST API findings with filters |
+| `GET /api/security/api/findings/stats` | REST API statistics |
+| `GET /api/security/api/endpoints` | List discovered API endpoints |
+| `GET /api/security/graphql/findings` | List GraphQL findings with filters |
+| `GET /api/security/graphql/findings/stats` | GraphQL statistics |
+| `GET /api/security/rate-limiting/findings` | List rate limiting findings |
+| `GET /api/security/rate-limiting/findings/stats` | Rate limiting statistics |
+
+### CLI Commands
+
+```bash
+# REST API findings
+sentinel finding security api --scan-id <scan_id>
+sentinel finding security api-stats --scan-id <scan_id>
+
+# GraphQL findings
+sentinel finding security graphql --scan-id <scan_id>
+sentinel finding security graphql-stats --scan-id <scan_id>
+
+# Rate limiting findings
+sentinel finding security rate-limiting --scan-id <scan_id>
+sentinel finding security rate-limiting-stats --scan-id <scan_id>
+```
+
+### Documentation
+
+- [API Security Plugin Guide](../security/api_security_plugin_guide.md)
+
+---
+
+## File Handling Security Plugins (Phase 5C)
+
+The File Handling plugins provide comprehensive security assessment for file upload mechanisms, path traversal vulnerabilities, and sensitive information exposure.
+
+### File Handling Plugin Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+                    BaseSecurityPlugin
+├─────────────────────────────────────────────────────────────────┤
+  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────┐
+  │  Discovery   │ │  Payload     │ │  Validation  │ │ Reporting│
+  │  Engine      │ │  Generator   │ │  Engine      │ │  Engine  │
+  └──────────────┘ └──────────────┘ └──────────────┘ └──────────┘
+```
+
+### File Handling Plugins (Security Type)
+
+| Plugin ID | Category | Description | Severity |
+|-----------|----------|-------------|----------|
+| `openre.security.file_upload` | File Upload Security | Evaluates file upload mechanisms for security issues | High |
+| `openre.security.path_traversal` | Path Traversal / LFI | Safely detects Path Traversal and LFI vulnerabilities | Critical |
+| `openre.security.sensitive_info` | Sensitive Information | Detects exposure of sensitive files and endpoints | Critical |
+
+### File Handling Plugin Capabilities
+
+All file handling plugins require:
+- `NetworkAccess` - Make HTTP requests to target
+- `ReadConfig` - Read plugin configuration
+
+### File Handling Plugin Manifest Example
+
+```toml
+# plugin.toml for file handling plugins
+[plugin]
+type = "security"
+capabilities = ["NetworkAccess", "ReadConfig"]
+min_core_version = "0.1.0"
+max_core_version = "1.0.0"
+
+[plugin.entry]
+wasm = "file_handling_plugin.wasm"
+native = { linux = "libfile_handling_plugin.so", macos = "libfile_handling_plugin.dylib", windows = "file_handling_plugin.dll" }
+
+[build]
+target = "wasm"
+rust_version = "1.75"
+features = []
+
+[resources]
+max_memory_mb = 256
+max_fuel = 10000000
+max_execution_time_secs = 300
+
+[config]
+schema = "config_schema.json"
+defaults = {}
+```
+
+### File Handling Testing API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/security/file-upload/findings` | List file upload findings |
+| `GET /api/security/file-upload/findings/stats` | File upload statistics |
+| `GET /api/security/path-traversal/findings` | List path traversal findings |
+| `GET /api/security/path-traversal/findings/stats` | Path traversal statistics |
+| `GET /api/security/sensitive-info/findings` | List sensitive info findings |
+| `GET /api/security/sensitive-info/findings/stats` | Sensitive info statistics |
+
+### CLI Commands
+
+```bash
+# File upload findings
+sentinel finding security file-upload --scan-id <scan_id>
+sentinel finding security file-upload-stats --scan-id <scan_id>
+
+# Path traversal findings
+sentinel finding security path-traversal --scan-id <scan_id>
+sentinel finding security path-traversal-stats --scan-id <scan_id>
+
+# Sensitive info findings
+sentinel finding security sensitive-info --scan-id <scan_id>
+sentinel finding security sensitive-info-stats --scan-id <scan_id>
+```
+
+### Documentation
+
+- [File Handling Plugin Guide](../security/file_handling_plugin_guide.md)
+
+---
+
+## Access Control Testing Plugin (Phase 5C)
+
+The Access Control plugin provides comprehensive assessment of authorization mechanisms.
+
+### Access Control Plugin (Security Type)
+
+| Plugin ID | Category | Description | Severity |
+|-----------|----------|-------------|----------|
+| `openre.security.access_control` | Access Control | Detects IDOR, missing authorization, privilege boundaries, info disclosure | Critical |
+
+### Access Control Plugin Capabilities
+
+- `NetworkAccess` - Make HTTP requests to target
+- `ReadConfig` - Read plugin configuration
+
+### Access Control Plugin Manifest Example
+
+```toml
+# plugin.toml for access control plugin
+[plugin]
+type = "security"
+capabilities = ["NetworkAccess", "ReadConfig"]
+min_core_version = "0.1.0"
+max_core_version = "1.0.0"
+
+[plugin.entry]
+wasm = "access_control.wasm"
+native = { linux = "libaccess_control.so", macos = "libaccess_control.dylib", windows = "access_control.dll" }
+
+[build]
+target = "wasm"
+rust_version = "1.75"
+features = []
+
+[resources]
+max_memory_mb = 256
+max_fuel = 10000000
+max_execution_time_secs = 300
+
+[config]
+schema = "config_schema.json"
+defaults = {}
+```
+
+### Access Control Testing API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/security/access-control/findings` | List access control findings |
+| `GET /api/security/access-control/findings/stats` | Access control statistics |
+
+### CLI Commands
+
+```bash
+# Access control findings
+sentinel finding security access-control --scan-id <scan_id>
+sentinel finding security access-control-stats --scan-id <scan_id>
+```
+
+### Documentation
+
+- [Access Control Testing Documentation](../security/access_control_testing.md)
+
+---
+
+## Testing Methodology (Phase 5C)
+
+Each Phase 5C plugin follows evidence-based detection:
+
+1. **Discovery Phase**: Identify relevant endpoints/parameters
+2. **Payload Generation**: Context-aware, safe test payloads
+3. **Request Execution**: Rate-limited, safety-checked
+4. **Response Analysis**: Pattern matching, behavioral analysis
+5. **Evidence Collection**: HTTP request/response capture
+6. **Finding Generation**: Reproducible request, verification steps, references
+
+### Safety Controls
+
+All Phase 5C plugins inherit comprehensive safety controls:
+
+- **Authorization Required**: Explicit token required by default
+- **Scope Enforcement**: Allowed/blocked host patterns with wildcards
+- **Payload Safety**: Non-destructive test payloads only
+- **Rate Limiting**: Token bucket algorithm (configurable RPS)
+- **Request Limits**: Per-test and per-scan limits
+- **Concurrency Control**: Semaphore-based limiting
+- **Timeouts**: Per-request and per-plugin timeouts
+
+### Documentation
+
+- [API Security Plugin Guide](../security/api_security_plugin_guide.md)
+- [File Handling Plugin Guide](../security/file_handling_plugin_guide.md)
+- [Access Control Testing Documentation](../security/access_control_testing.md)
+
+---
+
 *This plugin architecture enables open-re to be a true platform where every component is replaceable, extensible, and safe by default.*

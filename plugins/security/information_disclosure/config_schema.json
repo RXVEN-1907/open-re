@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Information Disclosure Plugin Configuration",
+  "type": "object",
+  "properties": {
+    "settings": {
+      "type": "object",
+      "properties": {
+        "aggressive_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable aggressive scanning"
+        },
+        "verify_ssl": {
+          "type": "boolean",
+          "default": true,
+          "description": "Verify SSL certificates"
+        },
+        "check_debug_endpoints": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check common debug endpoints"
+        },
+        "check_sensitive_files": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check for exposed sensitive files"
+        },
+        "check_api_docs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check for exposed API documentation"
+        }
+      }
+    },
+    "enabled_checks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["server_headers", "framework_versions", "debug_pages", "stack_traces", "sensitive_data", "directory_listing", "source_code", "backup_files", "comments", "technology_stack"]
+      },
+      "default": ["server_headers", "framework_versions", "debug_pages", "stack_traces", "sensitive_data", "directory_listing", "source_code", "backup_files", "comments", "technology_stack"],
+      "description": "Which information disclosure checks to enable"
+    },
+    "request_timeout": {
+      "type": "integer",
+      "default": 30,
+      "minimum": 5,
+      "maximum": 300,
+      "description": "Request timeout in seconds"
+    },
+    "max_concurrent_requests": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Maximum concurrent requests"
+    },
+    "user_agent": {
+      "type": "string",
+      "default": "open-re-security-scanner/1.0",
+      "description": "User agent string for requests"
+    },
+    "follow_redirects": {
+      "type": "boolean",
+      "default": true,
+      "description": "Follow HTTP redirects"
+    },
+    "max_redirects": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 0,
+      "maximum": 50,
+      "description": "Maximum number of redirects to follow"
+    }
+  },
+  "required": ["request_timeout", "max_concurrent_requests", "user_agent"]
+}

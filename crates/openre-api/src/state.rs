@@ -5,6 +5,7 @@ use openre_ai::AiService;
 use openre_config::Config;
 use openre_plugins::PluginRegistry;
 use openre_queue::{QueueManager, ProgressTracker, CancellationManager, Scheduler};
+use openre_scanner::storage::{ScanStorage, SqliteScanStorage, MemoryScanStorage};
 use openre_storage::{GlobalStore, ObjectStore};
 use openre_telemetry::Telemetry;
 use governor::{Quota, RateLimiter};
@@ -28,6 +29,7 @@ pub struct AppState {
     pub auth_service: Arc<AuthService>,
     pub telemetry: Arc<Telemetry>,
     pub rate_limiter: Arc<RateLimiter<governor::state::NotKeyed, governor::state::InMemoryState, governor::clock::DefaultClock>>,
+    pub scan_storage: Arc<dyn ScanStorage>,
 }
 
 impl AppState {
@@ -86,6 +88,13 @@ impl AppState {
         let quota = Quota::per_minute(NonZeroU32::new(config.rate_limit.requests_per_minute).unwrap());
         let rate_limiter = Arc::new(RateLimiter::direct(quota));
         
+        // Initialize scan storage
+        let scan_storage: Arc<dyn ScanStorage> = if config.database.url.starts_with("sqlite") {
+            Arc::new(SqliteScanStorage::new(&config.database.url).await?)
+        } else {
+            Arc::new(MemoryScanStorage::new())
+        };
+        
         Ok(Self {
             config: Arc::new(config),
             global_store,
@@ -99,6 +108,7 @@ impl AppState {
             auth_service,
             telemetry,
             rate_limiter,
+            scan_storage,
         })
     }
     
