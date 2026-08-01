@@ -36,3 +36,9 @@ dashmap = "5.5"
 once_cell = { workspace = true }
 tracing = { workspace = true }
 sha2 = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true }
