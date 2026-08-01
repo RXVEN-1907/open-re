@@ -438,6 +438,12 @@ pub struct AutoscalerConfig {
     pub scale_down_threshold: f64,
     pub scale_up_cooldown_secs: u64,
     pub scale_down_cooldown_secs: u64,
+    pub max_scale_up_step: usize,
+    pub max_scale_down_step: usize,
+    pub evaluation_interval_seconds: u64,
+    pub target_queue_depth_per_worker: usize,
+    pub min_workers: usize,
+    pub max_workers: usize,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -490,6 +496,12 @@ impl Default for QueueConfig {
                 scale_down_threshold: 0.5,
                 scale_up_cooldown_secs: 60,
                 scale_down_cooldown_secs: 300,
+                max_scale_up_step: 2,
+                max_scale_down_step: 1,
+                evaluation_interval_seconds: 30,
+                target_queue_depth_per_worker: 10,
+                min_workers: 1,
+                max_workers: 10,
             },
             retry: RetryConfig {
                 max_attempts: 3,
