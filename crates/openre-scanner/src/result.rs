@@ -1,559 +1,72 @@
-//! Result Aggregator - Standardized finding model for all plugins
+//! Result Aggregator - Re-exports core finding model for scanner with deduplication
 
 use crate::error::{ScannerError, ScannerResult};
+use openre_core::result::*;
 use openre_core::ids::FindingId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
+use dashmap::DashMap;
+use sha2::{Sha256, Digest};
 
-/// Severity levels for findings
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Severity {
-    /// Informational - no direct security impact
-    Info,
-    /// Low severity - minor security issue
-    Low,
-    /// Medium severity - moderate security issue
-    Medium,
-    /// High severity - significant security issue
-    High,
-    /// Critical severity - severe security issue
-    Critical,
-}
+// Re-export core types
+pub use openre_core::result::{
+    Severity, Confidence, Category, Evidence, EvidenceType, Reference, ReferenceType,
+    Finding, FindingFilter, FindingSort, FindingStats,
+    HttpRequestEvidence, HttpResponseEvidence, TlsInfo, CertificateInfo,
+    TimingEvidence, PayloadEvidence, ReproductionSteps, ReproductionDifficulty,
+    RemediationGuidance, CodeExample, RemediationEffort, RemediationPriority,
+    ExploitabilityAssessment, AttackVector, AttackComplexity, PrivilegesRequired,
+    UserInteraction, Scope, BusinessImpactAssessment, ImpactLevel, AssetCriticality,
+    RegulatoryImpact,
+};
 
-impl Severity {
-    /// Get numeric value for sorting
-    pub fn value(&self) -> u8 {
-        match self {
-            Severity::Info => 0,
-            Severity::Low => 1,
-            Severity::Medium => 2,
-            Severity::High => 3,
-            Severity::Critical => 4,
-        }
-    }
-
-    /// Get color for display
-    pub fn color(&self) -> &'static str {
-        match self {
-            Severity::Info => "blue",
-            Severity::Low => "green",
-            Severity::Medium => "yellow",
-            Severity::High => "orange",
-            Severity::Critical => "red",
-        }
-    }
-}
-
-impl std::fmt::Display for Severity {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Severity::Info => write!(f, "info"),
-            Severity::Low => write!(f, "low"),
-            Severity::Medium => write!(f, "medium"),
-            Severity::High => write!(f, "high"),
-            Severity::Critical => write!(f, "critical"),
-        }
-    }
-}
-
-impl std::str::FromStr for Severity {
-    type Err = ScannerError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "info" => Ok(Severity::Info),
-            "low" => Ok(Severity::Low),
-            "medium" => Ok(Severity::Medium),
-            "high" => Ok(Severity::High),
-            "critical" => Ok(Severity::Critical),
-            _ => Err(ScannerError::ResultAggregation(format!("Invalid severity: {}", s))),
-        }
-    }
-}
-
-/// Confidence levels for findings
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Confidence {
-    /// Very low confidence - speculative
-    VeryLow,
-    /// Low confidence - weak evidence
-    Low,
-    /// Medium confidence - reasonable evidence
-    Medium,
-    /// High confidence - strong evidence
-    High,
-    /// Very high confidence - confirmed
-    VeryHigh,
-}
-
-impl Confidence {
-    /// Get numeric value for sorting
-    pub fn value(&self) -> u8 {
-        match self {
-            Confidence::VeryLow => 0,
-            Confidence::Low => 1,
-            Confidence::Medium => 2,
-            Confidence::High => 3,
-            Confidence::VeryHigh => 4,
-        }
-    }
-
-    /// Get percentage representation
-    pub fn percentage(&self) -> u8 {
-        match self {
-            Confidence::VeryLow => 10,
-            Confidence::Low => 30,
-            Confidence::Medium => 50,
-            Confidence::High => 80,
-            Confidence::VeryHigh => 95,
-        }
-    }
-}
-
-impl std::fmt::Display for Confidence {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Confidence::VeryLow => write!(f, "very_low"),
-            Confidence::Low => write!(f, "low"),
-            Confidence::Medium => write!(f, "medium"),
-            Confidence::High => write!(f, "high"),
-            Confidence::VeryHigh => write!(f, "very_high"),
-        }
-    }
-}
-
-impl std::str::FromStr for Confidence {
-    type Err = ScannerError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "very_low" => Ok(Confidence::VeryLow),
-            "low" => Ok(Confidence::Low),
-            "medium" => Ok(Confidence::Medium),
-            "high" => Ok(Confidence::High),
-            "very_high" => Ok(Confidence::VeryHigh),
-            _ => Err(ScannerError::ResultAggregation(format!("Invalid confidence: {}", s))),
-        }
-    }
-}
-
-/// Finding categories
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Category {
-    /// Injection vulnerabilities
-    Injection,
-    /// Broken authentication
-    BrokenAuthentication,
-    /// Sensitive data exposure
-    SensitiveDataExposure,
-    /// XML External Entities
-    Xxe,
-    /// Broken access control
-    BrokenAccessControl,
-    /// Security misconfiguration
-    SecurityMisconfiguration,
-    /// Cross-site scripting
-    Xss,
-    /// Insecure deserialization
-    InsecureDeserialization,
-    /// Using components with known vulnerabilities
-    VulnerableComponents,
-    /// Insufficient logging and monitoring
-    InsufficientLogging,
-    /// Server-side request forgery
-    Ssrf,
-    /// Cross-site request forgery
-    Csrf,
-    /// Information disclosure
-    InformationDisclosure,
-    /// Denial of service
-    DenialOfService,
-    /// Business logic error
-    BusinessLogic,
-    /// Cryptographic issues
-    Cryptographic,
-    /// Configuration issue
-    Configuration,
-    /// Custom category
-    Custom(String),
-}
-
-impl Category {
-    /// Get OWASP Top 10 mapping
-    pub fn owasp_category(&self) -> Option<&'static str> {
-        match self {
-            Category::Injection => Some("A03:2021 - Injection"),
-            Category::BrokenAuthentication => Some("A07:2021 - Identification and Authentication Failures"),
-            Category::SensitiveDataExposure => Some("A02:2021 - Cryptographic Failures"),
-            Category::Xxe => Some("A05:2021 - Security Misconfiguration"),
-            Category::BrokenAccessControl => Some("A01:2021 - Broken Access Control"),
-            Category::SecurityMisconfiguration => Some("A05:2021 - Security Misconfiguration"),
-            Category::Xss => Some("A03:2021 - Injection"),
-            Category::InsecureDeserialization => Some("A08:2021 - Software and Data Integrity Failures"),
-            Category::VulnerableComponents => Some("A06:2021 - Vulnerable and Outdated Components"),
-            Category::InsufficientLogging => Some("A09:2021 - Security Logging and Monitoring Failures"),
-            Category::Ssrf => Some("A10:2021 - Server-Side Request Forgery"),
-            _ => None,
-        }
-    }
-}
-
-impl std::fmt::Display for Category {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Category::Custom(s) => write!(f, "{}", s),
-            _ => write!(f, "{:?}", self).map(|_| ()).unwrap_or(()),
-        }
-    }
-}
-
-impl std::str::FromStr for Category {
-    type Err = ScannerError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "injection" => Ok(Category::Injection),
-            "broken_authentication" => Ok(Category::BrokenAuthentication),
-            "sensitive_data_exposure" => Ok(Category::SensitiveDataExposure),
-            "xxe" => Ok(Category::Xxe),
-            "broken_access_control" => Ok(Category::BrokenAccessControl),
-            "security_misconfiguration" => Ok(Category::SecurityMisconfiguration),
-            "xss" => Ok(Category::Xss),
-            "insecure_deserialization" => Ok(Category::InsecureDeserialization),
-            "vulnerable_components" => Ok(Category::VulnerableComponents),
-            "insufficient_logging" => Ok(Category::InsufficientLogging),
-            "ssrf" => Ok(Category::Ssrf),
-            "csrf" => Ok(Category::Csrf),
-            "information_disclosure" => Ok(Category::InformationDisclosure),
-            "denial_of_service" => Ok(Category::DenialOfService),
-            "business_logic" => Ok(Category::BusinessLogic),
-            "cryptographic" => Ok(Category::Cryptographic),
-            "configuration" => Ok(Category::Configuration),
-            _ => Ok(Category::Custom(s.to_string())),
-        }
-    }
-}
-
-/// Evidence supporting a finding
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Evidence {
-    /// Type of evidence
-    pub evidence_type: EvidenceType,
-    /// Description of evidence
-    pub description: String,
-    /// Raw data (request/response, code snippet, etc.)
-    pub data: Option<serde_json::Value>,
-    /// Source location (file, line, URL, etc.)
-    pub location: Option<String>,
-    /// Additional metadata
-    pub metadata: HashMap<String, serde_json::Value>,
-}
-
-/// Type of evidence
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EvidenceType {
-    /// HTTP request that triggered the finding
-    HttpRequest,
-    /// HTTP response showing the vulnerability
-    HttpResponse,
-    /// Code snippet
-    CodeSnippet,
-    /// Configuration file excerpt
-    ConfigExcerpt,
-    /// Log entry
-    LogEntry,
-    /// Screenshot
-    Screenshot,
-    /// Custom evidence type
-    Custom(String),
-}
-
-/// Reference to external resources
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Reference {
-    /// Reference type
-    pub reference_type: ReferenceType,
-    /// Title
-    pub title: String,
-    /// URL
-    pub url: String,
-    /// Description
-    pub description: Option<String>,
-}
-
-/// Type of reference
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ReferenceType {
-    /// CVE identifier
-    Cve,
-    /// CWE identifier
-    Cwe,
-    /// OWASP reference
-    Owasp,
-    /// Vendor advisory
-    VendorAdvisory,
-    /// Blog post or article
-    Article,
-    /// Documentation
-    Documentation,
-    /// Tool output
-    ToolOutput,
-    /// Custom reference
-    Custom(String),
-}
-
-/// Standardized finding model - all plugins must return findings using this schema
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Finding {
-    /// Unique finding ID
-    pub id: FindingId,
-    /// Finding title
-    pub title: String,
-    /// Detailed description
-    pub description: String,
-    /// Severity level
-    pub severity: Severity,
-    /// Confidence level
-    pub confidence: Confidence,
-    /// Finding category
-    pub category: Category,
-    /// Target that was scanned
-    pub target: String,
-    /// Target type
-    pub target_type: String,
-    /// Evidence supporting the finding
-    pub evidence: Vec<Evidence>,
-    /// External references
-    pub references: Vec<Reference>,
-    /// Plugin that discovered this finding
-    pub plugin_source: String,
-    /// Plugin version
-    pub plugin_version: String,
-    /// Timestamp when finding was discovered
-    pub timestamp: DateTime<Utc>,
-    /// Scan ID this finding belongs to
-    pub scan_id: openre_core::ids::ScanId,
-    /// Additional metadata
-    pub metadata: HashMap<String, serde_json::Value>,
-    /// Tags for categorization
-    pub tags: Vec<String>,
-    /// Whether finding has been verified
-    pub verified: bool,
-    /// False positive indicator
-    pub false_positive: bool,
-    /// Risk score (0-100)
-    pub risk_score: Option<u8>,
-    /// CVSS vector string (if applicable)
-    pub cvss_vector: Option<String>,
-    /// CVSS score (if applicable)
-    pub cvss_score: Option<f32>,
-}
-
-impl Finding {
-    /// Create a new finding
-    pub fn new(
-        title: String,
-        description: String,
-        severity: Severity,
-        confidence: Confidence,
-        category: Category,
-        target: String,
-        target_type: String,
-        plugin_source: String,
-        plugin_version: String,
-        scan_id: openre_core::ids::ScanId,
-    ) -> Self {
-        Self {
-            id: FindingId::new(),
-            title,
-            description,
-            severity,
-            confidence,
-            category,
-            target,
-            target_type,
-            evidence: Vec::new(),
-            references: Vec::new(),
-            plugin_source,
-            plugin_version,
-            timestamp: Utc::now(),
-            scan_id,
-            metadata: HashMap::new(),
-            tags: Vec::new(),
-            verified: false,
-            false_positive: false,
-            risk_score: None,
-            cvss_vector: None,
-            cvss_score: None,
-        }
-    }
-
-    /// Add evidence
-    pub fn with_evidence(mut self, evidence: Evidence) -> Self {
-        self.evidence.push(evidence);
-        self
-    }
-
-    /// Add reference
-    pub fn with_reference(mut self, reference: Reference) -> Self {
-        self.references.push(reference);
-        self
-    }
-
-    /// Add tag
-    pub fn with_tag(mut self, tag: String) -> Self {
-        self.tags.push(tag);
-        self
-    }
-
-    /// Set metadata
-    pub fn with_metadata(mut self, key: String, value: serde_json::Value) -> Self {
-        self.metadata.insert(key, value);
-        self
-    }
-
-    /// Set verified status
-    pub fn with_verified(mut self, verified: bool) -> Self {
-        self.verified = verified;
-        self
-    }
-
-    /// Set false positive status
-    pub fn with_false_positive(mut self, false_positive: bool) -> Self {
-        self.false_positive = false_positive;
-        self
-    }
-
-    /// Set risk score
-    pub fn with_risk_score(mut self, score: u8) -> Self {
-        self.risk_score = Some(score.min(100));
-        self
-    }
-
-    /// Set CVSS vector
-    pub fn with_cvss(mut self, vector: String, score: f32) -> Self {
-        self.cvss_vector = Some(vector);
-        self.cvss_score = Some(score);
-        self
-    }
-
-    /// Calculate risk score based on severity and confidence
-    pub fn calculate_risk_score(&self) -> u8 {
-        let severity_weight = self.severity.value() as u16 * 20; // 0-80
-        let confidence_weight = self.confidence.value() as u16 * 5; // 0-20
-        ((severity_weight + confidence_weight).min(100)) as u8
-    }
-
-    /// Get a short summary of the finding
-    pub fn summary(&self) -> String {
-        format!("[{}] {} - {} ({})", self.severity, self.title, self.target, self.plugin_source)
-    }
-}
-
-/// Finding filter for querying findings
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct FindingFilter {
-    /// Filter by severity
-    pub severity: Option<Vec<Severity>>,
-    /// Filter by confidence
-    pub confidence: Option<Vec<Confidence>>,
-    /// Filter by category
-    pub category: Option<Vec<Category>>,
-    /// Filter by target
-    pub target: Option<String>,
-    /// Filter by plugin source
-    pub plugin_source: Option<String>,
-    /// Filter by scan ID
-    pub scan_id: Option<openre_core::ids::ScanId>,
-    /// Filter by verified status
-    pub verified: Option<bool>,
-    /// Filter by false positive status
-    pub false_positive: Option<bool>,
-    /// Filter by tags
-    pub tags: Option<Vec<String>>,
-    /// Filter by date range
-    pub date_from: Option<DateTime<Utc>>,
-    pub date_to: Option<DateTime<Utc>>,
-    /// Search in title/description
-    pub search: Option<String>,
-    /// Minimum risk score
-    pub min_risk_score: Option<u8>,
-    /// Maximum risk score
-    pub max_risk_score: Option<u8>,
-}
-
-/// Finding sort options
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FindingSort {
-    /// Sort by severity (highest first)
-    SeverityDesc,
-    /// Sort by severity (lowest first)
-    SeverityAsc,
-    /// Sort by confidence (highest first)
-    ConfidenceDesc,
-    /// Sort by timestamp (newest first)
-    TimestampDesc,
-    /// Sort by timestamp (oldest first)
-    TimestampAsc,
-    /// Sort by risk score (highest first)
-    RiskScoreDesc,
-    /// Sort by target
-    TargetAsc,
-}
-
-/// Finding statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FindingStats {
-    /// Total findings
-    pub total: usize,
-    /// Findings by severity
-    pub by_severity: HashMap<Severity, usize>,
-    /// Findings by confidence
-    pub by_confidence: HashMap<Confidence, usize>,
-    /// Findings by category
-    pub by_category: HashMap<Category, usize>,
-    /// Findings by plugin
-    pub by_plugin: HashMap<String, usize>,
-    /// Verified findings
-    pub verified: usize,
-    /// False positives
-    pub false_positives: usize,
-    /// Average risk score
-    pub avg_risk_score: f32,
-}
-
-/// Result Aggregator - aggregates findings from multiple plugins
+/// Result Aggregator - aggregates findings from multiple plugins with deduplication
 pub struct ResultAggregator {
     /// Findings storage
-    findings: Arc<dashmap::DashMap<FindingId, Finding>>,
+    findings: Arc<DashMap<FindingId, Finding>>,
     /// Findings by scan ID
-    by_scan: Arc<dashmap::DashMap<openre_core::ids::ScanId, Vec<FindingId>>>,
+    by_scan: Arc<DashMap<openre_core::ids::ScanId, Vec<FindingId>>>,
+    /// Findings by fingerprint (for deduplication)
+    by_fingerprint: Arc<DashMap<String, FindingId>>,
 }
 
 impl ResultAggregator {
     /// Create a new result aggregator
     pub fn new() -> Self {
         Self {
-            findings: Arc::new(dashmap::DashMap::new()),
-            by_scan: Arc::new(dashmap::DashMap::new()),
+            findings: Arc::new(DashMap::new()),
+            by_scan: Arc::new(DashMap::new()),
+            by_fingerprint: Arc::new(DashMap::new()),
         }
     }
 
-    /// Add a finding
-    pub fn add_finding(&self, finding: Finding) -> FindingId {
+    /// Add a finding with automatic deduplication
+    pub fn add_finding(&self, mut finding: Finding) -> FindingId {
+        // Generate fingerprint if not present
+        if finding.fingerprint.is_none() {
+            finding.fingerprint = Some(finding.generate_fingerprint());
+        }
+        let fingerprint = finding.fingerprint.clone().unwrap();
+
+        // Check for duplicate
+        if let Some(existing_id) = self.by_fingerprint.get(&fingerprint) {
+            // Merge with existing finding
+            if let Some(mut existing) = self.findings.get_mut(existing_id) {
+                self.merge_findings(&mut existing, &finding);
+                return *existing_id;
+            }
+        }
+
         let id = finding.id;
         let scan_id = finding.scan_id;
-        self.findings.insert(id, finding);
+        
+        self.by_fingerprint.insert(fingerprint, id);
         self.by_scan.entry(scan_id).or_default().push(id);
+        self.findings.insert(id, finding);
         id
     }
 
@@ -564,6 +77,30 @@ impl ResultAggregator {
             ids.push(self.add_finding(finding));
         }
         ids
+    }
+
+    /// Merge two findings (keep the one with higher confidence/severity)
+    fn merge_findings(&self, existing: &mut Finding, new: &Finding) {
+        // Update confidence if new is higher
+        if new.confidence > existing.confidence {
+            existing.confidence = new.confidence;
+        }
+        // Update severity if new is higher
+        if new.severity > existing.severity {
+            existing.severity = new.severity;
+        }
+        // Merge evidence
+        existing.evidence.extend(new.evidence.clone());
+        // Merge references
+        existing.references.extend(new.references.clone());
+        // Merge tags
+        existing.tags.extend(new.tags.clone());
+        // Add related finding
+        existing.related_findings.push(new.id);
+        // Update metadata
+        existing.metadata.extend(new.metadata.clone());
+        // Update risk score
+        existing.risk_score = Some(existing.calculate_advanced_risk_score());
     }
 
     /// Get a finding by ID
@@ -676,6 +213,56 @@ impl ResultAggregator {
                 return false;
             }
         }
+        if let Some(cwe_id) = &filter.cwe_id {
+            if !finding.cwe_ids.contains(cwe_id) {
+                return false;
+            }
+        }
+        if let Some(capec_id) = &filter.capec_id {
+            if !finding.capec_ids.contains(capec_id) {
+                return false;
+            }
+        }
+        if let Some(mitre_id) = &filter.mitre_attack_id {
+            if !finding.mitre_attack_ids.contains(mitre_id) {
+                return false;
+            }
+        }
+        if let Some(owasp) = &filter.owasp_category {
+            if finding.owasp_category.as_ref() != Some(owasp) {
+                return false;
+            }
+        }
+        if let Some(fingerprint) = &filter.fingerprint {
+            if finding.fingerprint.as_ref() != Some(fingerprint) {
+                return false;
+            }
+        }
+        if let Some(priority) = &filter.remediation_priority {
+            if finding.remediation.as_ref().map(|r| r.priority) != Some(*priority) {
+                return false;
+            }
+        }
+        if let Some(min_exp) = filter.min_exploitability_score {
+            if finding.exploitability.as_ref().map(|e| e.score).unwrap_or(0.0) < min_exp {
+                return false;
+            }
+        }
+        if let Some(max_exp) = filter.max_exploitability_score {
+            if finding.exploitability.as_ref().map(|e| e.score).unwrap_or(10.0) > max_exp {
+                return false;
+            }
+        }
+        if let Some(min_impact) = filter.min_business_impact_score {
+            if finding.business_impact.as_ref().map(|b| b.score).unwrap_or(0.0) < min_impact {
+                return false;
+            }
+        }
+        if let Some(max_impact) = filter.max_business_impact_score {
+            if finding.business_impact.as_ref().map(|b| b.score).unwrap_or(10.0) > max_impact {
+                return false;
+            }
+        }
         true
     }
 
@@ -706,25 +293,53 @@ impl ResultAggregator {
         let mut by_confidence = HashMap::new();
         let mut by_category = HashMap::new();
         let mut by_plugin = HashMap::new();
+        let mut by_owasp_category = HashMap::new();
+        let mut by_cwe = HashMap::new();
+        let mut by_remediation_priority = HashMap::new();
         let mut verified = 0;
         let mut false_positives = 0;
         let mut total_risk_score = 0u32;
+        let mut total_advanced_risk_score = 0u32;
         let mut risk_score_count = 0;
+        let mut exploit_available_count = 0;
+        let mut exploited_in_wild_count = 0;
+        let mut max_risk_score = 0u8;
+        let mut max_advanced_risk_score = 0u8;
 
         for finding in &findings {
             *by_severity.entry(finding.severity).or_insert(0) += 1;
             *by_confidence.entry(finding.confidence).or_insert(0) += 1;
             *by_category.entry(finding.category.clone()).or_insert(0) += 1;
             *by_plugin.entry(finding.plugin_source.clone()).or_insert(0) += 1;
-            if finding.verified {
-                verified += 1;
+
+            if let Some(owasp) = &finding.owasp_category {
+                *by_owasp_category.entry(owasp.clone()).or_insert(0) += 1;
             }
-            if finding.false_positive {
-                false_positives += 1;
+
+            for cwe in &finding.cwe_ids {
+                *by_cwe.entry(cwe.clone()).or_insert(0) += 1;
             }
+
+            if let Some(remediation) = &finding.remediation {
+                *by_remediation_priority.entry(remediation.priority).or_insert(0) += 1;
+            }
+
+            if finding.verified { verified += 1; }
+            if finding.false_positive { false_positives += 1; }
+
             if let Some(score) = finding.risk_score {
                 total_risk_score += score as u32;
                 risk_score_count += 1;
+                max_risk_score = max_risk_score.max(score);
+            }
+
+            let advanced_score = finding.calculate_advanced_risk_score();
+            total_advanced_risk_score += advanced_score as u32;
+            max_advanced_risk_score = max_advanced_risk_score.max(advanced_score);
+
+            if let Some(exploitability) = &finding.exploitability {
+                if exploitability.exploit_available { exploit_available_count += 1; }
+                if exploitability.exploited_in_wild { exploited_in_wild_count += 1; }
             }
         }
 
@@ -736,17 +351,32 @@ impl ResultAggregator {
             by_plugin,
             verified,
             false_positives,
-            avg_risk_score: if risk_score_count > 0 {
-                total_risk_score as f32 / risk_score_count as f32
-            } else {
-                0.0
-            },
+            avg_risk_score: if risk_score_count > 0 { total_risk_score as f32 / risk_score_count as f32 } else { 0.0 },
+            max_risk_score,
+            by_owasp_category,
+            by_cwe,
+            avg_advanced_risk_score: if risk_score_count > 0 { total_advanced_risk_score as f32 / risk_score_count as f32 } else { 0.0 },
+            max_advanced_risk_score,
+            by_remediation_priority,
+            exploit_available_count,
+            exploited_in_wild_count,
         }
     }
 
     /// Update a finding
     pub fn update_finding(&self, finding: Finding) -> ScannerResult<()> {
         if self.findings.contains_key(&finding.id) {
+            // Update fingerprint index if fingerprint changed
+            if let Some(old_finding) = self.findings.get(&finding.id) {
+                if let Some(old_fp) = &old_finding.fingerprint {
+                    if finding.fingerprint.as_ref() != Some(old_fp) {
+                        self.by_fingerprint.remove(old_fp);
+                        if let Some(new_fp) = &finding.fingerprint {
+                            self.by_fingerprint.insert(new_fp.clone(), finding.id);
+                        }
+                    }
+                }
+            }
             self.findings.insert(finding.id, finding);
             Ok(())
         } else {
@@ -757,6 +387,9 @@ impl ResultAggregator {
     /// Delete a finding
     pub fn delete_finding(&self, id: &FindingId) -> bool {
         if let Some((_, finding)) = self.findings.remove(id) {
+            if let Some(fp) = &finding.fingerprint {
+                self.by_fingerprint.remove(fp);
+            }
             if let Some(mut ids) = self.by_scan.get_mut(&finding.scan_id) {
                 ids.retain(|fid| fid != id);
             }
@@ -779,6 +412,35 @@ impl ResultAggregator {
     /// Count findings for scan
     pub fn count_for_scan(&self, scan_id: &openre_core::ids::ScanId) -> usize {
         self.by_scan.get(scan_id).map(|ids| ids.len()).unwrap_or(0)
+    }
+
+    /// Deduplicate all findings
+    pub fn deduplicate(&self) -> usize {
+        let mut seen = HashMap::new();
+        let mut to_remove = Vec::new();
+        let mut removed = 0;
+
+        for entry in self.findings.iter() {
+            let finding = entry.value();
+            let fingerprint = finding.fingerprint.clone().unwrap_or_else(|| finding.generate_fingerprint());
+            if let Some(existing_id) = seen.get(&fingerprint) {
+                // Merge into existing
+                if let Some(mut existing) = self.findings.get_mut(existing_id) {
+                    self.merge_findings(&mut existing, finding);
+                }
+                to_remove.push(entry.key().clone());
+                removed += 1;
+            } else {
+                seen.insert(fingerprint, entry.key().clone());
+            }
+        }
+
+        // Remove duplicates
+        for id in to_remove {
+            self.delete_finding(&id);
+        }
+
+        removed
     }
 }
 

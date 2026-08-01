@@ -533,9 +533,161 @@ pub enum FindingCommands {
     /// Update finding (mark verified/false positive)
     Update(FindingUpdateArgs),
 
+    /// Show finding summary with severity distribution
+    Summary(FindingSummaryArgs),
+
+    /// Show risk score breakdown
+    RiskScore(FindingRiskScoreArgs),
+
+    /// Export findings to report
+    Export(FindingExportArgs),
+
+    /// Compare findings across scans
+    Compare(FindingCompareArgs),
+
+    /// Show evidence preview for finding
+    Evidence(FindingEvidenceArgs),
+
     /// Security-specific finding commands
     #[command(subcommand)]
     Security(SecurityFindingCommands),
+}
+
+/// Finding summary arguments
+#[derive(Args, Debug)]
+pub struct FindingSummaryArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Filter by target
+    #[arg(long)]
+    pub target: Option<String>,
+
+    /// Filter by plugin source
+    #[arg(long)]
+    pub plugin: Option<String>,
+
+    /// Show deduplication info
+    #[arg(long)]
+    pub show_dedup: bool,
+}
+
+/// Finding risk score arguments
+#[derive(Args, Debug)]
+pub struct FindingRiskScoreArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Minimum risk score
+    #[arg(long)]
+    pub min_score: Option<u8>,
+
+    /// Maximum risk score
+    #[arg(long)]
+    pub max_score: Option<u8>,
+
+    /// Show advanced risk factors
+    #[arg(long)]
+    pub show_factors: bool,
+}
+
+/// Finding export arguments
+#[derive(Args, Debug)]
+pub struct FindingExportArgs {
+    /// Filter by scan ID
+    #[arg(long)]
+    pub scan_id: Option<ScanId>,
+
+    /// Export format
+    #[arg(short, long, value_enum, default_value = "markdown")]
+    pub format: ExportFormat,
+
+    /// Output file path
+    #[arg(short, long)]
+    pub output: Option<String>,
+
+    /// Include evidence
+    #[arg(long)]
+    pub include_evidence: bool,
+
+    /// Include remediation
+    #[arg(long)]
+    pub include_remediation: bool,
+
+    /// Include reproduction steps
+    #[arg(long)]
+    pub include_reproduction: bool,
+
+    /// Minimum severity
+    #[arg(long, value_enum)]
+    pub min_severity: Option<Severity>,
+}
+
+/// Export format
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum ExportFormat {
+    Markdown,
+    Html,
+    Json,
+    Sarif,
+}
+
+/// Finding compare arguments
+#[derive(Args, Debug)]
+pub struct FindingCompareArgs {
+    /// Baseline scan ID
+    #[arg(long)]
+    pub baseline_scan: ScanId,
+
+    /// Current scan ID
+    #[arg(long)]
+    pub current_scan: ScanId,
+
+    /// Show only new findings
+    #[arg(long)]
+    pub new_only: bool,
+
+    /// Show only fixed findings
+    #[arg(long)]
+    pub fixed_only: bool,
+
+    /// Show only regressed findings
+    #[arg(long)]
+    pub regressed_only: bool,
+
+    /// Show severity changes
+    #[arg(long)]
+    pub severity_changes: bool,
+}
+
+/// Finding evidence arguments
+#[derive(Args, Debug)]
+pub struct FindingEvidenceArgs {
+    /// Finding ID
+    #[arg(short, long)]
+    pub id: FindingId,
+
+    /// Show HTTP request
+    #[arg(long)]
+    pub show_request: bool,
+
+    /// Show HTTP response
+    #[arg(long)]
+    pub show_response: bool,
+
+    /// Show timing
+    #[arg(long)]
+    pub show_timing: bool,
+
+    /// Show payload
+    #[arg(long)]
+    pub show_payload: bool,
+
+    /// Show reproduction steps
+    #[arg(long)]
+    pub show_reproduction: bool,
 }
 
 /// Security-specific finding commands
@@ -1283,6 +1435,11 @@ impl TuiApp {
             FindingCommands::Get(args) => self.cmd_finding_get(args).await,
             FindingCommands::Stats(args) => self.cmd_finding_stats(args).await,
             FindingCommands::Update(args) => self.cmd_finding_update(args).await,
+            FindingCommands::Summary(args) => self.cmd_finding_summary(args).await,
+            FindingCommands::RiskScore(args) => self.cmd_finding_risk_score(args).await,
+            FindingCommands::Export(args) => self.cmd_finding_export(args).await,
+            FindingCommands::Compare(args) => self.cmd_finding_compare(args).await,
+            FindingCommands::Evidence(args) => self.cmd_finding_evidence(args).await,
             FindingCommands::Security(args) => self.run_security_finding_command(args).await,
         }
     }
@@ -1626,6 +1783,351 @@ impl TuiApp {
     async fn cmd_finding_update(&self, args: FindingUpdateArgs) -> ScannerResult<()> {
         info!("Updating finding: {}", args.id);
         println!("Finding update not fully implemented (placeholder)");
+        Ok(())
+    }
+
+    async fn cmd_finding_summary(&self, args: FindingSummaryArgs) -> ScannerResult<()> {
+        info!("Getting finding summary");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            target: args.target,
+            plugin_source: args.plugin,
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, 1000, 0).await?;
+        
+        // Calculate summary
+        let total = findings.len();
+        let mut by_severity = std::collections::HashMap::new();
+        let mut by_confidence = std::collections::HashMap::new();
+        let mut by_category = std::collections::HashMap::new();
+        let mut by_plugin = std::collections::HashMap::new();
+        let mut verified = 0;
+        let mut false_positives = 0;
+        let mut total_risk = 0u32;
+        let mut risk_count = 0;
+        
+        for finding in &findings {
+            *by_severity.entry(finding.severity).or_insert(0) += 1;
+            *by_confidence.entry(finding.confidence).or_insert(0) += 1;
+            *by_category.entry(finding.category.clone()).or_insert(0) += 1;
+            *by_plugin.entry(finding.plugin_source.clone()).or_insert(0) += 1;
+            if finding.verified { verified += 1; }
+            if finding.false_positive { false_positives += 1; }
+            if let Some(score) = finding.risk_score {
+                total_risk += score as u32;
+                risk_count += 1;
+            }
+        }
+        
+        println!("Finding Summary");
+        println!("===============");
+        println!("Total Findings: {}", total);
+        println!("Verified: {}", verified);
+        println!("False Positives: {}", false_positives);
+        println!("Average Risk Score: {:.1}", if risk_count > 0 { total_risk as f32 / risk_count as f32 } else { 0.0 });
+        println!();
+        
+        println!("By Severity:");
+        for (sev, count) in &by_severity {
+            println!("  {}: {}", sev, count);
+        }
+        println!();
+        
+        println!("By Confidence:");
+        for (conf, count) in &by_confidence {
+            println!("  {}: {}", conf, count);
+        }
+        println!();
+        
+        println!("By Category:");
+        for (cat, count) in &by_category {
+            println!("  {}: {}", cat, count);
+        }
+        println!();
+        
+        println!("By Plugin:");
+        for (plugin, count) in &by_plugin {
+            println!("  {}: {}", plugin, count);
+        }
+        
+        if args.show_dedup {
+            use openre_core::deduplication::{DeduplicationEngine, DeduplicationConfig};
+            let mut findings = self.storage.get_findings_filtered(
+                FindingFilter { scan_id: args.scan_id, target: args.target.clone(), plugin_source: args.plugin.clone(), ..Default::default() },
+                FindingSort::SeverityDesc, 10000, 0
+            ).await?;
+            let engine = DeduplicationEngine::new(DeduplicationConfig::default());
+            let original_count = findings.len();
+            let result = engine.deduplicate(&mut findings);
+            println!();
+            println!("Deduplication Analysis:");
+            println!("  Original findings: {}", result.original_count);
+            println!("  After deduplication: {}", result.deduplicated_count);
+            println!("  Duplicates removed: {}", result.duplicates_removed);
+            if !result.duplicate_groups.is_empty() {
+                println!("  Duplicate groups ({}):", result.duplicate_groups.len());
+                for group in &result.duplicate_groups {
+                    println!("    - {} -> {} duplicates merged ({})",
+                        group.primary.title, group.duplicates.len(), group.reason);
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    async fn cmd_finding_risk_score(&self, args: FindingRiskScoreArgs) -> ScannerResult<()> {
+        info!("Getting risk score breakdown");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            min_risk_score: args.min_score,
+            max_risk_score: args.max_score,
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::RiskScoreDesc, 1000, 0).await?;
+        
+        println!("Risk Score Breakdown");
+        println!("====================");
+        
+        let mut score_ranges = std::collections::HashMap::new();
+        for finding in &findings {
+            let score = finding.risk_score.unwrap_or(0);
+            let range = match score {
+                0..=20 => "0-20 (Low)",
+                21..=40 => "21-40 (Low-Medium)",
+                41..=60 => "41-60 (Medium)",
+                61..=80 => "61-80 (High)",
+                81..=100 => "81-100 (Critical)",
+                _ => "Unknown",
+            };
+            *score_ranges.entry(range).or_insert(0) += 1;
+        }
+        
+        println!("Risk Score Distribution:");
+        for (range, count) in &score_ranges {
+            println!("  {}: {}", range, count);
+        }
+        println!();
+        
+        println!("Top 10 Highest Risk Findings:");
+        for (i, finding) in findings.iter().take(10).enumerate() {
+            let score = finding.risk_score.unwrap_or(0);
+            println!("  {}. [{}] {} - {} (Score: {})", 
+                i + 1, finding.severity, finding.title, finding.target, score);
+        }
+        
+        if args.show_factors {
+            println!();
+            println!("Advanced Risk Factors (for findings with exploitability/impact data):");
+            for finding in findings.iter().filter(|f| f.exploitability.is_some() || f.business_impact.is_some()).take(5) {
+                println!("  Finding: {}", finding.title);
+                if let Some(exp) = &finding.exploitability {
+                    println!("    Exploitability: {:.1}/10 (Vector: {:?}, Complexity: {:?}, Privileges: {:?})", 
+                        exp.score, exp.attack_vector, exp.attack_complexity, exp.privileges_required);
+                    println!("    Exploit Available: {}, Exploited in Wild: {}", exp.exploit_available, exp.exploited_in_wild);
+                }
+                if let Some(impact) = &finding.business_impact {
+                    println!("    Business Impact: {:.1}/10 (Conf: {:?}, Integ: {:?}, Avail: {:?}, Asset: {:?})", 
+                        impact.score, impact.confidentiality, impact.integrity, impact.availability, impact.asset_criticality);
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    async fn cmd_finding_export(&self, args: FindingExportArgs) -> ScannerResult<()> {
+        info!("Exporting findings");
+        let filter = FindingFilter {
+            scan_id: args.scan_id,
+            severity: args.min_severity.map(|s| vec![s]),
+            ..Default::default()
+        };
+        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, 10000, 0).await?;
+        
+        // Use the reporting engine's comparison logic via ScanComparison-compatible types
+        use openre_core::reporting::{SeverityChange};
+
+        // Build fingerprint maps for comparison (matching ReportGenerator pattern)
+        let baseline_map: std::collections::HashMap<String, &Finding> = baseline_findings.iter()
+            .filter_map(|f| f.fingerprint.as_ref().map(|fp| (fp.clone(), f)))
+            .collect();
+        let current_map: std::collections::HashMap<String, &Finding> = current_findings.iter()
+            .filter_map(|f| f.fingerprint.as_ref().map(|fp| (fp.clone(), f)))
+            .collect();
+
+        // Collect comparison results using ScanComparison-compatible types
+        let mut new_findings: Vec<&Finding> = Vec::new();
+        let mut fixed_findings: Vec<&Finding> = Vec::new();
+        let mut regressed_findings: Vec<&Finding> = Vec::new();
+        let mut severity_changes: Vec<SeverityChange> = Vec::new();
+
+        for (fp, current_finding) in &current_map {
+            if let Some(baseline_finding) = baseline_map.get(fp) {
+                // Check severity change using ScanComparison-compatible type
+                if current_finding.severity != baseline_finding.severity {
+                    severity_changes.push(SeverityChange {
+                        fingerprint: fp.clone(),
+                        previous_severity: baseline_finding.severity,
+                        current_severity: current_finding.severity,
+                        title: current_finding.title.clone(),
+                        target: current_finding.target.clone(),
+                    });
+                }
+                // Check for regression (was false positive, now not)
+                if baseline_finding.false_positive && !current_finding.false_positive {
+                    regressed_findings.push(*current_finding);
+                }
+            } else {
+                new_findings.push(*current_finding);
+            }
+        }
+
+        for (fp, baseline_finding) in &baseline_map {
+            if !current_map.contains_key(fp) {
+                fixed_findings.push(*baseline_finding);
+            }
+        }
+
+        println!("Scan Comparison: {} vs {}", args.baseline_scan, args.current_scan);
+        println!("==========================================");
+        println!("New Findings: {}", new_findings.len());
+        println!("Fixed Findings: {}", fixed_findings.len());
+        println!("Regressed Findings: {}", regressed_findings.len());
+        println!("Severity Changes: {}", severity_changes.len());
+        println!();
+
+        if args.new_only || (!args.fixed_only && !args.regressed_only && !args.severity_changes) {
+            println!("New Findings:");
+            for f in &new_findings {
+                println!("  [{}] {} - {} ({})", f.severity, f.title, f.target, f.risk_score.unwrap_or(0));
+            }
+            println!();
+        }
+
+        if args.fixed_only || (!args.new_only && !args.regressed_only && !args.severity_changes) {
+            println!("Fixed Findings:");
+            for f in &fixed_findings {
+                println!("  [{}] {} - {} ({})", f.severity, f.title, f.target, f.risk_score.unwrap_or(0));
+            }
+            println!();
+        }
+
+        if args.regressed_only || (!args.new_only && !args.fixed_only && !args.severity_changes) {
+            println!("Regressed Findings:");
+            for f in &regressed_findings {
+                println!("  [{}] {} - {} ({})", f.severity, f.title, f.target, f.risk_score.unwrap_or(0));
+            }
+            println!();
+        }
+
+        if args.severity_changes || (!args.new_only && !args.fixed_only && !args.regressed_only) {
+            println!("Severity Changes:");
+            for change in &severity_changes {
+                println!("  {}: {:?} -> {:?} ({})", change.title, change.previous_severity, change.current_severity, change.fingerprint);
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn cmd_finding_evidence(&self, args: FindingEvidenceArgs) -> ScannerResult<()> {
+        info!("Showing evidence for finding: {}", args.id);
+        
+        // Search across all scans for the finding
+        let all_findings = self.storage.get_findings_filtered(
+            FindingFilter { ..Default::default() },
+            FindingSort::TimestampDesc, 10000, 0
+        ).await?;
+        
+        let finding = all_findings.iter().find(|f| f.id == args.id);
+        
+        if let Some(finding) = finding {
+            println!("Evidence for Finding: {}", finding.title);
+            println!("=====================================");
+            println!("ID: {}", finding.id);
+            println!("Severity: {}", finding.severity);
+            println!("Target: {}", finding.target);
+            println!("Plugin: {} v{}", finding.plugin_source, finding.plugin_version);
+            println!("Timestamp: {}", finding.timestamp);
+            println!();
+            
+            if finding.evidence.is_empty() {
+                println!("No evidence available.");
+                return Ok(());
+            }
+            
+            for (i, evidence) in finding.evidence.iter().enumerate() {
+                println!("Evidence #{}: {}", i + 1, evidence.evidence_type);
+                println!("  Description: {}", evidence.description);
+                if let Some(loc) = &evidence.location {
+                    println!("  Location: {}", loc);
+                }
+                
+                if args.show_request {
+                    if let Some(req) = &evidence.http_request {
+                        println!("  HTTP Request:");
+                        println!("    {} {}", req.method, req.url);
+                        println!("    Headers: {:?}", req.headers);
+                        if let Some(body) = &req.body {
+                            println!("    Body: {}", truncate(body, 200));
+                        }
+                    }
+                }
+                
+                if args.show_response {
+                    if let Some(resp) = &evidence.http_response {
+                        println!("  HTTP Response:");
+                        println!("    Status: {}", resp.status_code);
+                        println!("    Headers: {:?}", resp.headers);
+                        if let Some(body) = &resp.body {
+                            println!("    Body: {}", truncate(body, 200));
+                        }
+                    }
+                }
+                
+                if args.show_timing {
+                    if let Some(timing) = &evidence.timing {
+                        println!("  Timing:");
+                        println!("    Total: {}ms", timing.total_ms);
+                        if let Some(dns) = timing.dns_ms { println!("    DNS: {}ms", dns); }
+                        if let Some(conn) = timing.connect_ms { println!("    Connect: {}ms", conn); }
+                        if let Some(tls) = timing.tls_handshake_ms { println!("    TLS: {}ms", tls); }
+                        if let Some(ttfb) = timing.ttfb_ms { println!("    TTFB: {}ms", ttfb); }
+                        if let Some(dl) = timing.download_ms { println!("    Download: {}ms", dl); }
+                    }
+                }
+                
+                if args.show_payload {
+                    if let Some(payload) = &evidence.payload {
+                        println!("  Payload:");
+                        println!("    Type: {}", payload.payload_type);
+                        println!("    Value: {}", payload.payload);
+                        if let Some(enc) = &payload.encoding { println!("    Encoding: {}", enc); }
+                        println!("    Injection Point: {}", payload.injection_point);
+                    }
+                }
+                
+                if args.show_reproduction {
+                    if let Some(repro) = &evidence.reproduction_steps {
+                        println!("  Reproduction Steps:");
+                        for (j, step) in repro.steps.iter().enumerate() {
+                            println!("    {}. {}", j + 1, step);
+                        }
+                        println!("    Expected: {}", repro.expected_outcome);
+                        println!("    Actual: {}", repro.actual_outcome);
+                        println!("    Difficulty: {:?}", repro.difficulty);
+                        println!("    Verified: {}", repro.verified);
+                    }
+                }
+                
+                println!();
+            }
+        } else {
+            println!("Finding not found: {}", args.id);
+        }
+        
         Ok(())
     }
 
