@@ -77,7 +77,7 @@ impl Scheduler {
             recurring: false,
         });
         
-        self.metrics.jobs_scheduled.inc();
+        self.metrics.jobs_scheduled.increment(1);
         
         info!("Scheduled one-time job {} for {}", job_id, run_at);
         
@@ -118,7 +118,7 @@ impl Scheduler {
         // Track in memory
         self.recurring_jobs.write().await.insert(job_id.clone(), recurring_job);
         
-        self.metrics.recurring_jobs.inc();
+        self.metrics.jobs_scheduled.increment(1);
         
         info!("Scheduled recurring job '{}' ({}) with cron '{}', next run: {}", name, job_id, cron_expr, next_run);
         
@@ -153,7 +153,7 @@ impl Scheduler {
             let mut conn = self.client.get_multiplexed_async_connection().await?;
             let _: () = conn.zrem("openre:scheduler:once", job_id.to_string()).await?;
             let _: () = conn.hdel("openre:scheduler:once:data", job_id.to_string()).await?;
-            self.metrics.jobs_unscheduled.inc();
+            self.metrics.jobs_missed.increment(1);
         }
         
         Ok(removed)
@@ -167,7 +167,7 @@ impl Scheduler {
         if removed {
             let mut conn = self.client.get_multiplexed_async_connection().await?;
             let _: () = conn.hdel("openre:scheduler:recurring", job_id).await?;
-            self.metrics.recurring_jobs_removed.inc();
+            self.metrics.jobs_missed.increment(1); // Use jobs_missed for removed jobs
         }
         
         Ok(removed)
@@ -242,7 +242,7 @@ impl Scheduler {
                 // Enqueue
                 self.queue_manager.enqueue(job).await?;
                 
-                self.metrics.jobs_triggered.inc();
+                self.metrics.jobs_triggered.increment(1);
                 info!("Triggered scheduled job {}", job_id_str);
             }
         }
@@ -268,9 +268,10 @@ impl Scheduler {
                 // Enqueue
                 if let Err(e) = self.queue_manager.enqueue(job_instance).await {
                     error!("Failed to enqueue recurring job {}: {}", id, e);
-                    self.metrics.jobs_failed.inc();
+                    // Use jobs_missed for failed triggers
+                    self.metrics.jobs_missed.increment(1);
                 } else {
-                    self.metrics.jobs_triggered.inc();
+                    self.metrics.jobs_triggered.increment(1);
                     info!("Triggered recurring job '{}' ({})", job.name, id);
                 }
                 

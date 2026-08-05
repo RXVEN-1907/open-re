@@ -8,6 +8,7 @@ use openre_queue::{QueueManager, ProgressTracker, CancellationManager, Scheduler
 use openre_scanner::storage::{ScanStorage, SqliteScanStorage, MemoryScanStorage};
 use openre_storage::{GlobalStore, ObjectStore};
 use openre_telemetry::Telemetry;
+use openre_security_ai::{SecurityAnalyst, SecurityAnalystImpl, FindingProvider, ScanStorageFindingProvider};
 use governor::{Quota, RateLimiter};
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -25,6 +26,7 @@ pub struct AppState {
     pub cancellation_manager: Arc<CancellationManager>,
     pub scheduler: Arc<Scheduler>,
     pub ai_service: Arc<AiService>,
+    pub analyst: Option<Arc<dyn SecurityAnalyst>>, // AI Security Analyst service
     pub plugin_registry: Arc<PluginRegistry>,
     pub auth_service: Arc<AuthService>,
     pub telemetry: Arc<Telemetry>,
@@ -95,6 +97,29 @@ impl AppState {
             Arc::new(MemoryScanStorage::new())
         };
         
+        // Initialize AI Security Analyst if configured
+        let analyst: Option<Arc<dyn SecurityAnalyst>> = if config.ai.providers.is_empty() {
+            None
+        } else {
+            // Use the first available provider for now
+            // In a real implementation, this should be configurable
+            if let Some((provider_id, _)) = config.ai.providers.first() {
+                if let Some(provider) = ai_service.get_provider(provider_id) {
+                    let finding_provider = Arc::new(ScanStorageFindingProvider::new(scan_storage.clone()));
+                    let analyst_impl = SecurityAnalystImpl::new(
+                        finding_provider,
+                        Arc::from(provider),
+                        4096, // max context tokens
+                    );
+                    Some(Arc::new(analyst_impl) as Arc<dyn SecurityAnalyst>)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+        
         Ok(Self {
             config: Arc::new(config),
             global_store,
@@ -104,6 +129,7 @@ impl AppState {
             cancellation_manager,
             scheduler,
             ai_service,
+            analyst,
             plugin_registry,
             auth_service,
             telemetry,

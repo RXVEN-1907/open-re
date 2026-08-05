@@ -13,6 +13,7 @@ members = [
     "crates/openre-cli",
     "crates/openre-scanner",
     "crates/openre-recon",
+    "crates/openre-security-ai",
 ]
 
 exclude = [

@@ -14,6 +14,7 @@ graph TB
         APP[Analysis Service<br/>AI Enrichment Stages]
         UI[Frontend<br/>Chat, Suggestions]
         CLI[CLI/Headless<br/>Batch AI]
+        SEC[Security Analyst<br/>Finding Analysis]
     end
     
     subgraph "AI Service (Abstraction Layer)"
@@ -22,6 +23,7 @@ graph TB
         CA[Context Assembler<br/>Binary, CFG, Types]
         TE[Tool Executor<br/>Function Calling]
         MC[Model Cache<br/>Quantized Models]
+        SA[Security Analyst<br/>Finding Analysis]
     end
     
     subgraph "Provider Layer"
@@ -38,10 +40,14 @@ graph TB
     APP --> AIS
     UI --> AIS
     CLI --> AIS
+    SEC --> SA
     AIS --> PC
     AIS --> CA
     AIS --> TE
     AIS --> MC
+    SA --> AIS
+    SA --> LR
+    SA --> RR
     AIS --> LR
     AIS --> RR
     LR --> MR

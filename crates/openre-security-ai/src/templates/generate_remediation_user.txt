@@ -1,0 +1,18 @@
+Generate remediation guidance for the following security finding:
+
+Title: {{finding_title}}
+Description: {{finding_description}}
+Category: {{category}}
+Target: {{target}}
+
+Evidence Summary:
+{{evidence_summary}}
+
+Provide a comprehensive remediation plan that includes:
+1. A clear summary of the remediation approach
+2. Step-by-step implementation guidance
+3. Specific code examples showing vulnerable vs fixed patterns (when applicable)
+4. Verification steps to confirm the fix works
+5. Effort estimation and priority level
+
+Focus on practical, secure solutions appropriate for the target technology.

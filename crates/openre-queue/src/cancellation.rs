@@ -83,7 +83,7 @@ impl CancellationManager {
             };
             
             self.cancelled_jobs.write().await.insert(job_id, info);
-            self.metrics.jobs_cancelled.inc();
+            self.metrics.jobs_cancelled.increment(1);
             
             // Broadcast cancellation
             let _ = self.cancel_tx.send(job_id);
@@ -105,7 +105,7 @@ impl CancellationManager {
             // Signal worker via Redis
             self.signal_worker(job_id).await?;
             
-            self.metrics.cancellation_requests.inc();
+            self.metrics.cancellation_requests.increment(1);
             
             Ok(CancellationResult::Signalled)
         }
@@ -185,7 +185,7 @@ impl CancellationManager {
         // Broadcast
         let _ = self.cancel_tx.send(job_id);
         
-        self.metrics.jobs_force_cancelled.inc();
+        self.metrics.jobs_force_cancelled.increment(1);
         
         warn!("Job {} force cancelled by {}", job_id, requested_by);
         

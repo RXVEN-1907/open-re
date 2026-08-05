@@ -6,6 +6,7 @@ pub mod file;
 pub mod analysis;
 pub mod function;
 pub mod ai;
+pub mod analyst;
 pub mod plugin;
 pub mod config;
 pub mod server;

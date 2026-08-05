@@ -58,7 +58,7 @@ impl ProgressTracker {
         self.progress_cache.write().await.insert(job_id, progress.clone());
         self.persist_progress(&progress).await?;
         
-        self.metrics.jobs_tracked.inc();
+        self.metrics.jobs_tracked.increment(1);
         
         Ok(())
     }

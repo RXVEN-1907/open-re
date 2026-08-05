@@ -27,16 +27,6 @@ struct WorkerHandle {
     shutdown_tx: mpsc::Sender<()>,
 }
 
-impl Clone for WorkerHandle {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id,
-            handle: self.handle.clone(),
-            shutdown_tx: self.shutdown_tx.clone(),
-        }
-    }
-}
-
 impl WorkerPool {
     pub fn new(
         queue_manager: Arc<QueueManager>,
@@ -86,12 +76,12 @@ impl WorkerPool {
         }
 
         // Start shutdown listener
-        let workers = self.workers.clone();
+        let shutdown_txs: Vec<mpsc::Sender<()>> = self.workers.iter().map(|w| w.shutdown_tx.clone()).collect();
         tokio::spawn(async move {
             shutdown_rx.recv().await;
             info!("Shutdown signal received, stopping workers...");
-            for worker in workers {
-                let _ = worker.shutdown_tx.send(()).await;
+            for tx in shutdown_txs {
+                let _ = tx.send(()).await;
             }
         });
 
@@ -148,7 +138,7 @@ impl WorkerPool {
                             } else {
                                 error!("No handler for job type: {}", job.job_type);
                                 let _ = queue_manager.fail(job.id, "No handler found".to_string(), false).await;
-                                metrics.jobs_failed.inc();
+                                metrics.jobs_failed.increment(1);
                             }
                         }
                         Ok(None) => {
@@ -156,7 +146,7 @@ impl WorkerPool {
                         }
                         Err(e) => {
                             error!("Worker {} dequeue error: {}", worker_id, e);
-                            metrics.worker_errors.inc();
+                            metrics.worker_errors.increment(1);
                         }
                     }
                 }

@@ -1,0 +1,24 @@
+[package]
+name = "openre-security-ai"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "AI Security Analyst — analysis layer over deterministic scanner findings"
+
+[dependencies]
+openre-core = { path = "../openre-core" }
+openre-ai = { path = "../openre-ai" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+sha2 = "0.10"
+dashmap = "5.5"
+tokio-stream = { version = "0.1", features = ["sync"] }
+tracing = { workspace = true }
+regex = "1.0"
+chrono = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+mockall = { workspace = true }

@@ -10,6 +10,7 @@ use openre_cli::{
         analysis::AnalysisCommands,
         function::FunctionCommands,
         ai::AiCommands,
+        analyst::AnalystCommands,
         plugin::PluginCommands,
         config::ConfigCommands,
         server::ServerCommands,
@@ -82,6 +83,10 @@ enum Commands {
     #[command(subcommand)]
     Ai(AiCommands),
 
+    /// AI Security Analyst
+    #[command(subcommand)]
+    Analyst(AnalystCommands),
+
     /// Plugin management
     #[command(subcommand)]
     Plugin(PluginCommands),
@@ -131,6 +136,7 @@ async fn main() -> Result<(), CliError> {
         Commands::Analysis(cmd) => cmd.execute(ctx).await,
         Commands::Function(cmd) => cmd.execute(ctx).await,
         Commands::Ai(cmd) => cmd.execute(ctx).await,
+        Commands::Analyst(cmd) => cmd.execute(ctx).await,
         Commands::Plugin(cmd) => cmd.execute(ctx).await,
         Commands::Config(cmd) => cmd.execute(ctx).await,
         Commands::Server(cmd) => cmd.execute(ctx).await,

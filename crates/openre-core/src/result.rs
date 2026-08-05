@@ -250,6 +250,153 @@ pub struct Evidence {
     pub location: Option<String>,
     /// Additional metadata
     pub metadata: HashMap<String, serde_json::Value>,
+    /// HTTP request details (when evidence_type is HttpRequest)
+    pub http_request: Option<HttpRequestEvidence>,
+    /// HTTP response details (when evidence_type is HttpResponse)
+    pub http_response: Option<HttpResponseEvidence>,
+    /// Timing information
+    pub timing: Option<TimingEvidence>,
+    /// Payload used to trigger the finding
+    pub payload: Option<PayloadEvidence>,
+    /// Reproduction steps
+    pub reproduction_steps: Option<ReproductionSteps>,
+    /// Plugin that generated this evidence
+    pub plugin_source: Option<String>,
+    /// Timestamp when evidence was captured
+    pub timestamp: DateTime<Utc>,
+}
+
+/// HTTP request evidence details
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HttpRequestEvidence {
+    /// HTTP method
+    pub method: String,
+    /// Full URL
+    pub url: String,
+    /// Request headers
+    pub headers: HashMap<String, String>,
+    /// Request body
+    pub body: Option<String>,
+    /// Query parameters
+    pub query_params: HashMap<String, String>,
+    /// Path parameters
+    pub path_params: HashMap<String, String>,
+    /// Cookies
+    pub cookies: HashMap<String, String>,
+    /// Request size in bytes
+    pub size_bytes: Option<u64>,
+}
+
+/// HTTP response evidence details
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HttpResponseEvidence {
+    /// HTTP status code
+    pub status_code: u16,
+    /// Response headers
+    pub headers: HashMap<String, String>,
+    /// Response body
+    pub body: Option<String>,
+    /// Response size in bytes
+    pub size_bytes: Option<u64>,
+    /// Response time in milliseconds
+    pub response_time_ms: Option<u64>,
+    /// TLS information
+    pub tls_info: Option<TlsInfo>,
+}
+
+/// TLS information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TlsInfo {
+    /// TLS version
+    pub version: String,
+    /// Cipher suite
+    pub cipher_suite: String,
+    /// Certificate info
+    pub certificate: Option<CertificateInfo>,
+}
+
+/// Certificate information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CertificateInfo {
+    /// Subject
+    pub subject: String,
+    /// Issuer
+    pub issuer: String,
+    /// Valid from
+    pub valid_from: DateTime<Utc>,
+    /// Valid to
+    pub valid_to: DateTime<Utc>,
+    /// Serial number
+    pub serial_number: String,
+    /// Fingerprint (SHA256)
+    pub fingerprint_sha256: String,
+}
+
+/// Timing evidence
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimingEvidence {
+    /// Total request duration in milliseconds
+    pub total_ms: u64,
+    /// DNS resolution time in milliseconds
+    pub dns_ms: Option<u64>,
+    /// TCP connection time in milliseconds
+    pub connect_ms: Option<u64>,
+    /// TLS handshake time in milliseconds
+    pub tls_handshake_ms: Option<u64>,
+    /// Time to first byte in milliseconds
+    pub ttfb_ms: Option<u64>,
+    /// Content download time in milliseconds
+    pub download_ms: Option<u64>,
+}
+
+/// Payload evidence
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayloadEvidence {
+    /// The payload that was used
+    pub payload: String,
+    /// Payload type (e.g., "sql_injection", "xss", "path_traversal")
+    pub payload_type: String,
+    /// Encoding used (e.g., "url", "base64", "none")
+    pub encoding: Option<String>,
+    /// Parameter/location where payload was injected
+    pub injection_point: String,
+    /// Expected behavior
+    pub expected_behavior: Option<String>,
+    /// Actual behavior observed
+    pub actual_behavior: Option<String>,
+}
+
+/// Reproduction steps
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReproductionSteps {
+    /// Step-by-step instructions
+    pub steps: Vec<String>,
+    /// Prerequisites
+    pub prerequisites: Vec<String>,
+    /// Expected outcome
+    pub expected_outcome: String,
+    /// Actual outcome
+    pub actual_outcome: String,
+    /// Difficulty level
+    pub difficulty: ReproductionDifficulty,
+    /// Whether reproduction was verified
+    pub verified: bool,
+}
+
+/// Reproduction difficulty
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReproductionDifficulty {
+    /// Trivial to reproduce
+    Trivial,
+    /// Easy to reproduce
+    Easy,
+    /// Moderate difficulty
+    Moderate,
+    /// Difficult to reproduce
+    Difficult,
+    /// Very difficult / requires specific conditions
+    VeryDifficult,
 }
 
 /// Type of evidence
@@ -270,6 +417,20 @@ pub enum EvidenceType {
     Screenshot,
     /// Custom evidence type
     Custom(String),
+}
+
+impl std::fmt::Display for EvidenceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EvidenceType::HttpRequest => write!(f, "HTTP Request"),
+            EvidenceType::HttpResponse => write!(f, "HTTP Response"),
+            EvidenceType::CodeSnippet => write!(f, "Code Snippet"),
+            EvidenceType::ConfigExcerpt => write!(f, "Config Excerpt"),
+            EvidenceType::LogEntry => write!(f, "Log Entry"),
+            EvidenceType::Screenshot => write!(f, "Screenshot"),
+            EvidenceType::Custom(s) => write!(f, "{}", s),
+        }
+    }
 }
 
 /// Reference to external resources
@@ -352,6 +513,219 @@ pub struct Finding {
     pub cvss_vector: Option<String>,
     /// CVSS score (if applicable)
     pub cvss_score: Option<f32>,
+    /// CWE identifiers
+    pub cwe_ids: Vec<String>,
+    /// CAPEC identifiers
+    pub capec_ids: Vec<String>,
+    /// MITRE ATT&CK technique IDs
+    pub mitre_attack_ids: Vec<String>,
+    /// OWASP Top 10 category
+    pub owasp_category: Option<String>,
+    /// Deduplication fingerprint
+    pub fingerprint: Option<String>,
+    /// Related finding IDs (for correlation)
+    pub related_findings: Vec<FindingId>,
+    /// Remediation guidance
+    pub remediation: Option<RemediationGuidance>,
+    /// Exploitability assessment
+    pub exploitability: Option<ExploitabilityAssessment>,
+    /// Business impact assessment
+    pub business_impact: Option<BusinessImpactAssessment>,
+}
+
+/// Remediation guidance
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemediationGuidance {
+    /// Summary of remediation
+    pub summary: String,
+    /// Detailed steps
+    pub steps: Vec<String>,
+    /// Code examples (if applicable)
+    pub code_examples: Vec<CodeExample>,
+    /// References for remediation
+    pub references: Vec<Reference>,
+    /// Estimated effort
+    pub effort: RemediationEffort,
+    /// Priority
+    pub priority: RemediationPriority,
+}
+
+/// Code example for remediation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeExample {
+    /// Language
+    pub language: String,
+    /// Vulnerable code
+    pub vulnerable: String,
+    /// Fixed code
+    pub fixed: String,
+    /// Explanation
+    pub explanation: String,
+}
+
+/// Remediation effort
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RemediationEffort {
+    /// Trivial fix (configuration change, etc.)
+    Trivial,
+    /// Low effort (few lines of code)
+    Low,
+    /// Medium effort (refactoring required)
+    Medium,
+    /// High effort (architectural changes)
+    High,
+    /// Very high effort (major redesign)
+    VeryHigh,
+}
+
+/// Remediation priority
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RemediationPriority {
+    /// Immediate - critical risk
+    Immediate,
+    /// High - should be fixed soon
+    High,
+    /// Medium - fix in next sprint
+    Medium,
+    /// Low - fix when convenient
+    Low,
+    /// Deferred - accepted risk
+    Deferred,
+}
+
+/// Exploitability assessment
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExploitabilityAssessment {
+    /// Exploitability score (0-10)
+    pub score: f32,
+    /// Attack vector
+    pub attack_vector: AttackVector,
+    /// Attack complexity
+    pub attack_complexity: AttackComplexity,
+    /// Privileges required
+    pub privileges_required: PrivilegesRequired,
+    /// User interaction
+    pub user_interaction: UserInteraction,
+    /// Scope
+    pub scope: Scope,
+    /// Whether exploit code is publicly available
+    pub exploit_available: bool,
+    /// Whether exploit is actively exploited in the wild
+    pub exploited_in_wild: bool,
+    /// EPSS score (if available)
+    pub epss_score: Option<f32>,
+}
+
+/// Attack vector
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttackVector {
+    /// Network exploitable
+    Network,
+    /// Adjacent network
+    Adjacent,
+    /// Local access required
+    Local,
+    /// Physical access required
+    Physical,
+}
+
+/// Attack complexity
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttackComplexity {
+    /// Low complexity
+    Low,
+    /// High complexity
+    High,
+}
+
+/// Privileges required
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PrivilegesRequired {
+    /// No privileges required
+    None,
+    /// Low privileges required
+    Low,
+    /// High privileges required
+    High,
+}
+
+/// User interaction
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UserInteraction {
+    /// No user interaction required
+    None,
+    /// User interaction required
+    Required,
+}
+
+/// Scope
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Scope {
+    /// Unchanged scope
+    Unchanged,
+    /// Changed scope
+    Changed,
+}
+
+/// Business impact assessment
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BusinessImpactAssessment {
+    /// Impact score (0-10)
+    pub score: f32,
+    /// Confidentiality impact
+    pub confidentiality: ImpactLevel,
+    /// Integrity impact
+    pub integrity: ImpactLevel,
+    /// Availability impact
+    pub availability: ImpactLevel,
+    /// Asset criticality
+    pub asset_criticality: AssetCriticality,
+    /// Regulatory impact
+    pub regulatory_impact: Option<RegulatoryImpact>,
+}
+
+/// Impact level
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ImpactLevel {
+    /// No impact
+    None,
+    /// Low impact
+    Low,
+    /// High impact
+    High,
+}
+
+/// Asset criticality
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AssetCriticality {
+    /// Non-critical asset
+    Low,
+    /// Important asset
+    Medium,
+    /// Critical asset
+    High,
+    /// Mission-critical asset
+    Critical,
+}
+
+/// Regulatory impact
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegulatoryImpact {
+    /// Regulations affected
+    pub regulations: Vec<String>,
+    /// Compliance frameworks
+    pub frameworks: Vec<String>,
+    /// Potential fines/penalties
+    pub potential_fines: Option<String>,
 }
 
 impl Finding {
@@ -368,6 +742,7 @@ impl Finding {
         plugin_version: String,
         scan_id: ScanId,
     ) -> Self {
+        let owasp_category = category.owasp_category().map(|s| s.to_string());
         Self {
             id: FindingId::new(),
             title,
@@ -390,6 +765,15 @@ impl Finding {
             risk_score: None,
             cvss_vector: None,
             cvss_score: None,
+            cwe_ids: Vec::new(),
+            capec_ids: Vec::new(),
+            mitre_attack_ids: Vec::new(),
+            owasp_category,
+            fingerprint: None,
+            related_findings: Vec::new(),
+            remediation: None,
+            exploitability: None,
+            business_impact: None,
         }
     }
 
@@ -442,6 +826,54 @@ impl Finding {
         self
     }
 
+    /// Add CWE ID
+    pub fn with_cwe(mut self, cwe_id: String) -> Self {
+        self.cwe_ids.push(cwe_id);
+        self
+    }
+
+    /// Add CAPEC ID
+    pub fn with_capec(mut self, capec_id: String) -> Self {
+        self.capec_ids.push(capec_id);
+        self
+    }
+
+    /// Add MITRE ATT&CK technique ID
+    pub fn with_mitre_attack(mut self, technique_id: String) -> Self {
+        self.mitre_attack_ids.push(technique_id);
+        self
+    }
+
+    /// Set fingerprint for deduplication
+    pub fn with_fingerprint(mut self, fingerprint: String) -> Self {
+        self.fingerprint = Some(fingerprint);
+        self
+    }
+
+    /// Add related finding
+    pub fn with_related_finding(mut self, finding_id: FindingId) -> Self {
+        self.related_findings.push(finding_id);
+        self
+    }
+
+    /// Set remediation guidance
+    pub fn with_remediation(mut self, remediation: RemediationGuidance) -> Self {
+        self.remediation = Some(remediation);
+        self
+    }
+
+    /// Set exploitability assessment
+    pub fn with_exploitability(mut self, exploitability: ExploitabilityAssessment) -> Self {
+        self.exploitability = Some(exploitability);
+        self
+    }
+
+    /// Set business impact assessment
+    pub fn with_business_impact(mut self, business_impact: BusinessImpactAssessment) -> Self {
+        self.business_impact = Some(business_impact);
+        self
+    }
+
     /// Calculate risk score based on severity and confidence
     pub fn calculate_risk_score(&self) -> u8 {
         let severity_weight = self.severity.value() as u16 * 20; // 0-80
@@ -449,9 +881,55 @@ impl Finding {
         ((severity_weight + confidence_weight).min(100)) as u8
     }
 
+    /// Calculate advanced risk score considering exploitability and business impact
+    pub fn calculate_advanced_risk_score(&self) -> u8 {
+        let base_score = self.calculate_risk_score() as f32;
+        
+        // Adjust based on exploitability
+        let exploitability_multiplier = self.exploitability.as_ref().map(|e| {
+            // Higher exploitability = higher risk
+            1.0 + (e.score / 10.0) * 0.3 // Up to 30% increase
+        }).unwrap_or(1.0);
+        
+        // Adjust based on business impact
+        let impact_multiplier = self.business_impact.as_ref().map(|b| {
+            // Higher business impact = higher risk
+            1.0 + (b.score / 10.0) * 0.2 // Up to 20% increase
+        }).unwrap_or(1.0);
+        
+        // Adjust based on asset criticality
+        let asset_multiplier = self.business_impact.as_ref().map(|b| {
+            match b.asset_criticality {
+                AssetCriticality::Critical => 1.25,
+                AssetCriticality::High => 1.15,
+                AssetCriticality::Medium => 1.05,
+                AssetCriticality::Low => 1.0,
+            }
+        }).unwrap_or(1.0);
+        
+        let adjusted = base_score * exploitability_multiplier * impact_multiplier * asset_multiplier;
+        adjusted.min(100.0) as u8
+    }
+
     /// Get a short summary of the finding
     pub fn summary(&self) -> String {
         format!("[{}] {} - {} ({})", self.severity, self.title, self.target, self.plugin_source)
+    }
+
+    /// Generate a fingerprint for deduplication
+    pub fn generate_fingerprint(&self) -> String {
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(self.title.as_bytes());
+        hasher.update(self.target.as_bytes());
+        hasher.update(self.category.to_string().as_bytes());
+        // Include location from first evidence if available
+        if let Some(evidence) = self.evidence.first() {
+            if let Some(loc) = &evidence.location {
+                hasher.update(loc.as_bytes());
+            }
+        }
+        format!("{:x}", hasher.finalize())[..16].to_string()
     }
 }
 
@@ -485,6 +963,24 @@ pub struct FindingFilter {
     pub min_risk_score: Option<u8>,
     /// Maximum risk score
     pub max_risk_score: Option<u8>,
+    /// Filter by CWE ID
+    pub cwe_id: Option<String>,
+    /// Filter by CAPEC ID
+    pub capec_id: Option<String>,
+    /// Filter by MITRE ATT&CK ID
+    pub mitre_attack_id: Option<String>,
+    /// Filter by OWASP category
+    pub owasp_category: Option<String>,
+    /// Filter by fingerprint (for deduplication)
+    pub fingerprint: Option<String>,
+    /// Filter by remediation priority
+    pub remediation_priority: Option<RemediationPriority>,
+    /// Filter by exploitability score range
+    pub min_exploitability_score: Option<f32>,
+    pub max_exploitability_score: Option<f32>,
+    /// Filter by business impact score range
+    pub min_business_impact_score: Option<f32>,
+    pub max_business_impact_score: Option<f32>,
 }
 
 /// Finding sort options
@@ -528,4 +1024,18 @@ pub struct FindingStats {
     pub avg_risk_score: f32,
     /// Maximum risk score
     pub max_risk_score: u8,
+    /// Findings by OWASP category
+    pub by_owasp_category: HashMap<String, usize>,
+    /// Findings by CWE
+    pub by_cwe: HashMap<String, usize>,
+    /// Average advanced risk score
+    pub avg_advanced_risk_score: f32,
+    /// Maximum advanced risk score
+    pub max_advanced_risk_score: u8,
+    /// Findings by remediation priority
+    pub by_remediation_priority: HashMap<RemediationPriority, usize>,
+    /// Findings with exploit available
+    pub exploit_available_count: usize,
+    /// Findings exploited in wild
+    pub exploited_in_wild_count: usize,
 }

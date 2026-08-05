@@ -73,7 +73,7 @@ impl AutoScaler {
                 // We need mutable access to scale
                 // In a real implementation, we'd use a different pattern
                 // For now, just record the decision
-                self.metrics.scale_events.inc();
+                self.metrics.scale_events.increment(1);
                 *self.last_scale_action.write().await = Some(chrono::Utc::now());
             } else {
                 debug!("Auto-scaler: scaling needed but in cooldown period");
@@ -94,7 +94,7 @@ impl AutoScaler {
         let running = stats.jobs_running;
         
         // Base calculation: target queue depth per worker
-        let target_queue_per_worker = self.config.target_queue_depth_per_worker;
+        let target_queue_per_worker = self.config.target_queue_depth_per_worker as f64;
         let min_workers = self.config.min_workers;
         let max_workers = self.config.max_workers;
         
@@ -102,7 +102,7 @@ impl AutoScaler {
         let queue_based = ((queued as f64) / target_queue_per_worker).ceil() as usize;
         
         // Consider running jobs
-        let running_based = running + (queued / (target_queue_per_worker * 2)).max(1);
+        let running_based = running + (queued as f64 / (target_queue_per_worker * 2.0)).max(1.0) as usize;
         
         // Use the maximum of both calculations
         let desired = queue_based.max(running_based).clamp(min_workers, max_workers);
@@ -113,15 +113,15 @@ impl AutoScaler {
         
         if desired > current {
             // Scale up: require queue to be significantly above threshold
-            if queued > current * scale_up_threshold {
+            if queued > (current as f64 * scale_up_threshold) as usize {
                 desired.min(current + self.config.max_scale_up_step)
             } else {
                 current
             }
         } else if desired < current {
             // Scale down: require queue to be significantly below threshold
-            if queued < current * scale_down_threshold {
-                desired.max(current - self.config.max_scale_down_step)
+            if queued < (current as f64 * scale_down_threshold) as usize {
+                desired.max(current.saturating_sub(self.config.max_scale_down_step))
             } else {
                 current
             }

@@ -1,0 +1,17 @@
+Explain the following security finding in detail:
+
+Title: {{finding_title}}
+Description: {{finding_description}}
+Severity: {{severity}}
+Confidence: {{confidence}}
+Category: {{category}}
+Target: {{target}}
+
+The finding has {{evidence_count}} pieces of evidence. Provide a comprehensive explanation that helps the recipient understand:
+1. Why this finding exists (root cause based on evidence)
+2. Why it matters from a security perspective
+3. Realistic attack scenarios based on the evidence
+4. Confidence assessment in your explanation
+5. Considerations for false positive evaluation
+
+Focus on being actionable and grounded in the provided evidence.
