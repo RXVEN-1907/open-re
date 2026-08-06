@@ -1,5 +1,12 @@
 """
 OpenRE Python client for interacting with the open-re API.
+
+This client provides access to all open-re functionality including:
+- Project and file management
+- Binary analysis operations
+- AI-powered code analysis
+- Plugin management
+- AI Security Analyst features (explain, remediate, correlate, prioritize, summarize, query, compare)
 """
 
 import os
@@ -497,3 +504,284 @@ class OpenREClient:
         """Configure a plugin."""
         response = await self._request("PUT", f"/api/plugins/{plugin_id}/configure", json={"config": config})
         return response.json()
+
+    # AI Security Analyst
+    async def explain_finding(
+        self,
+        scan_id: str,
+        finding_id: str,
+    ) -> Dict[str, Any]:
+        """Explain a security finding."""
+        response = await self._request(
+            "POST",
+            "/api/analyst/explain",
+            json={"scan_id": scan_id, "finding_id": finding_id},
+        )
+        return response.json()
+
+    async def stream_explain_finding(
+        self,
+        scan_id: str,
+        finding_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream explanation of a security finding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/explain/stream"
+            params = {"scan_id": scan_id, "finding_id": finding_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def generate_remediation(
+        self,
+        scan_id: str,
+        finding_id: str,
+    ) -> Dict[str, Any]:
+        """Generate remediation plan for a security finding."""
+        response = await self._request(
+            "POST",
+            "/api/analyst/remediate",
+            json={"scan_id": scan_id, "finding_id": finding_id},
+        )
+        return response.json()
+
+    async def stream_generate_remediation(
+        self,
+        scan_id: str,
+        finding_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream generation of remediation plan for a security finding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/remediate/stream"
+            params = {"scan_id": scan_id, "finding_id": finding_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def correlate_findings(
+        self,
+        scan_id: str,
+        filter: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Correlate findings to identify relationships."""
+        response = await self._request(
+            "POST",
+            "/api/analyst/correlate",
+            json={"scan_id": scan_id, "filter": filter},
+        )
+        return response.json()
+
+    async def stream_correlate_findings(
+        self,
+        scan_id: str,
+        filter: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream correlation of findings to identify relationships."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/correlate/stream"
+            params = {"scan_id": scan_id}
+            if filter:
+                params["filter"] = json.dumps(filter)
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def prioritize_findings(
+        self,
+        scan_id: str,
+    ) -> Dict[str, Any]:
+        """Prioritize findings for remediation."""
+        response = await self._request(
+            "POST",
+            "/api/analyst/prioritize",
+            json={"scan_id": scan_id},
+        )
+        return response.json()
+
+    async def stream_prioritize_findings(
+        self,
+        scan_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream prioritization of findings for remediation."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/prioritize/stream"
+            params = {"scan_id": scan_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def executive_summary(
+        self,
+        scan_id: str,
+        audience: str,  # "developer", "security_engineer", "manager", "executive"
+    ) -> Dict[str, Any]:
+        """Generate executive summary for different audiences."""
+        response = await self._request(
+            "POST",
+            "/api/analyst/summarize",
+            json={"scan_id": scan_id, "audience": audience},
+        )
+        return response.json()
+
+    async def stream_executive_summary(
+        self,
+        scan_id: str,
+        audience: str,  # "developer", "security_engineer", "manager", "executive"
+    ) -> AsyncIterator[str]:
+        """Stream generation of executive summary for different audiences."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/summarize/stream"
+            params = {"scan_id": scan_id, "audience": audience}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def query_findings(
+        self,
+        scan_id: str,
+        question: str,
+    ) -> Dict[str, Any]:
+        """Query findings with natural language."""
+        response = await self._request(
+            "POST",
+            "/api/analyst/query",
+            json={"scan_id": scan_id, "question": question},
+        )
+        return response.json()
+
+    async def stream_query_findings(
+        self,
+        scan_id: str,
+        question: str,
+    ) -> AsyncIterator[str]:
+        """Stream querying of findings with natural language."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/query/stream"
+            params = {"scan_id": scan_id, "question": question}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def compare_scans(
+        self,
+        base_scan_id: str,
+        target_scan_id: str,
+    ) -> Dict[str, Any]:
+        """Compare two scans for changes."""
+        response = await self._request(
+            "POST",
+            "/api/analyst/compare",
+            json={"base_scan_id": base_scan_id, "target_scan_id": target_scan_id},
+        )
+        return response.json()
+
+    async def stream_compare_scans(
+        self,
+        base_scan_id: str,
+        target_scan_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream comparison of two scans for changes."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/compare/stream"
+            params = {"base_scan_id": base_scan_id, "target_scan_id": target_scan_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
