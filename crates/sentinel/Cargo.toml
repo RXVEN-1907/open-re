@@ -1,0 +1,19 @@
+[package]
+name = "sentinel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Lightweight TUI security scanner"
+categories = ["security", "command-line-utilities"]
+keywords = ["security", "scanner", "vulnerability", "cli", "tui"]
+
+[[bin]]
+name = "sentinel"
+path = "src/main.rs"
+
+[dependencies]
+# External dependencies
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
