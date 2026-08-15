@@ -8,6 +8,10 @@ description = "Lightweight standalone security scanner"
 categories = ["security", "command-line-utilities"]
 keywords = ["security", "scanner", "vulnerability", "cli", "tui"]
 
+[lib]
+name = "openre_scan"
+path = "src/main.rs"
+
 [[bin]]
 name = "openre-scan"
 path = "src/main.rs"

@@ -173,6 +173,18 @@ Scan ID: 5c56afdb-c9a0-4cb0-aad8-9f09ee9da45c | Duration: 0.26s | Checks: 15 | F
 - Rust 1.78+ (for building from source)
 - No runtime dependencies for the binary
 
+### Download Release Binary (Recommended)
+Download the latest release from [GitHub Releases](https://github.com/RXVEN-1907/open-re/releases):
+```bash
+# Linux x86_64
+curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64
+chmod +x openre-scan
+
+# macOS x86_64
+curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-macos-x86_64
+chmod +x openre-scan
+```
+
 ### Build from Source
 ```bash
 git clone https://github.com/RXVEN-1907/open-re.git
@@ -189,6 +201,7 @@ cargo build --release --package openre-scan --no-default-features
 ### With TUI (Experimental)
 ```bash
 cargo build --release --package openre-scan --features tui
+./target/release/openre-scan tui
 ```
 
 ## Configuration
@@ -262,6 +275,33 @@ openre-scan is the standalone CLI component of the larger **open-re** platform. 
 - **openre-plugins** - WASM plugin system (planned)
 - **openre-api** - REST/gRPC API server (planned)
 - **Frontend** - Web UI (planned)
+
+## Contributing
+
+## Current Status (v0.1.0)
+
+### ✅ Working Features
+- **CLI Scanner**: Fully functional with quick/standard/full profiles
+- **18 Security Checks**: HTTP headers, TLS, cookies, security headers, CSP, CORS, info disclosure, tech fingerprint, robots.txt, sitemap, directory listing, sensitive files, forms, links, scripts, meta tags, HTTP methods, SSL/TLS config
+- **Output Formats**: Table (human-readable), JSON (machine-readable), SARIF 2.1.0 (CI/CD)
+- **Filtering**: `--checks` and `--exclude` for selective scanning
+- **Custom Headers**: `--header` for authentication and custom requests
+- **File Output**: `--output` to save results
+- **Clean Installation**: Single ~7 MB binary, no runtime dependencies
+
+### ⚠️ Experimental Features
+- **TUI Mode**: Interactive terminal UI (`--features tui`, then `openre-scan tui`) - functional but not extensively tested
+
+### 🚧 Known Limitations
+- No configuration file support yet (planned for v0.2.0)
+- No authentication handling beyond custom headers
+- No recursive crawling/spidering
+- No JavaScript rendering/analysis
+- AI-enhanced analysis not included in standalone binary (part of open-re platform)
+- Some dependency vulnerabilities in transitive dependencies (documented in SECURITY.md)
+
+### 🔒 Security Notice
+**Authorization Required**: Only scan targets you own or have explicit written permission to test. Unauthorized scanning may violate laws and terms of service.
 
 ## Contributing
 

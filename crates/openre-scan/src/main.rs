@@ -6,20 +6,17 @@ use clap::{Parser, Subcommand, ValueEnum};
 use colored::Colorize;
 use dashmap::DashMap;
 use indicatif::{ProgressBar, ProgressStyle};
-use openre_core::{
-    ids::{FindingId, ScanId},
-    result::{
-        Category, Confidence, Evidence, EvidenceType, Finding, FindingFilter, FindingSort,
-        Reference, ReferenceType, RemediationGuidance, RemediationEffort, RemediationPriority,
-        Severity,
-    },
+use openre_core::ids::{FindingId, ScanId};
+
+// Re-export core types for public API
+pub use openre_core::result::{
+    Category, Confidence, Evidence, EvidenceType, Finding, FindingFilter, FindingSort,
+    RemediationEffort, RemediationGuidance, RemediationPriority, Severity,
 };
-use openre_config::TracingConfig;
 use regex::Regex;
 use reqwest::Client;
 use select::document::Document;
 use select::predicate::{Name};
-use sha2::{Sha256};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -28,24 +25,10 @@ use tabled::{Table, Tabled};
 use tracing::{Level};
 use tracing_subscriber::{fmt, EnvFilter};
 use url::Url;
-use x509_parser::prelude::*;
 
 // TUI module (experimental)
 #[cfg(feature = "tui")]
-mod tui;
-
-// Simple in-memory storage for scan results
-struct MemoryScanStorage {
-    findings: Arc<DashMap<FindingId, Finding>>,
-}
-
-impl MemoryScanStorage {
-    fn new() -> Self {
-        Self {
-            findings: Arc::new(DashMap::new()),
-        }
-    }
-}
+pub mod tui;
 
 #[derive(Parser, Debug)]
 #[command(name = "openre-scan")]
@@ -81,14 +64,14 @@ struct Cli {
 }
 
 #[derive(Debug, Clone, ValueEnum)]
-enum OutputFormat {
+pub enum OutputFormat {
     Table,
     Json,
     Sarif,
 }
 
 #[derive(Subcommand, Debug)]
-enum Commands {
+pub enum Commands {
     /// Scan a target
     Scan {
         /// Target to scan (URL)
@@ -182,7 +165,7 @@ async fn main() -> anyhow::Result<()> {
 pub async fn run_scan_internal(
     target_str: String,
     profile: ScanProfile,
-    format: OutputFormat,
+    _format: OutputFormat,
     timeout: u64,
     max_redirects: usize,
     user_agent: String,
@@ -198,7 +181,7 @@ pub async fn run_scan_internal(
     let all_checks = get_all_checks(&profile);
     let checks_to_run: Vec<Check> = all_checks
         .into_iter()
-        .filter(|c| c.name().to_string() != "sensitive-files")
+        .filter(|c| c.name() != "sensitive-files")
         .collect();
 
     let mut all_findings = Vec::new();
@@ -219,7 +202,7 @@ async fn run_scan(
     format: OutputFormat,
     checks: Option<Vec<String>>,
     exclude: Option<Vec<String>>,
-    max_duration: u64,
+    _max_duration: u64,
     output: Option<PathBuf>,
     no_progress: bool,
     follow_redirects: bool,
@@ -309,7 +292,7 @@ async fn run_scan(
     Ok(())
 }
 
-fn build_client(
+pub fn build_client(
     timeout: u64,
     max_redirects: usize,
     follow_redirects: bool,
@@ -387,7 +370,7 @@ impl Check {
         }
     }
 
-    async fn run(&self, client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
+    pub async fn run(&self, client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
         match self {
             Check::HttpHeaders => check_http_headers(client, target).await,
             Check::TlsCertificate => check_tls_certificate(client, target).await,
@@ -1305,7 +1288,7 @@ async fn check_links(client: &Client, target: &Url) -> anyhow::Result<Vec<Findin
     let document = Document::from(body.as_str());
     let links = document.find(Name("a")).filter_map(|n| n.attr("href")).collect::<Vec<_>>();
     
-    let mut external_links = 0;
+    let mut _external_links = 0;
     let mut http_links = 0;
     let mut mailto_links = 0;
     
@@ -1314,7 +1297,7 @@ async fn check_links(client: &Client, target: &Url) -> anyhow::Result<Vec<Findin
             http_links += 1;
         } else if link.starts_with("https://") {
             if !link.contains(target.host_str().unwrap_or("")) {
-                external_links += 1;
+                _external_links += 1;
             }
         } else if link.starts_with("mailto:") {
             mailto_links += 1;
@@ -1491,43 +1474,40 @@ async fn check_http_methods(client: &Client, target: &Url) -> anyhow::Result<Vec
     
     for method in methods {
         let req = client.request(method.parse().unwrap(), target.as_str());
-        match req.send().await {
-            Ok(response) => {
-                if response.status().is_success() || response.status().as_u16() == 204 {
-                    let severity = match method {
-                        "TRACE" | "TRACK" => Severity::Medium,
-                        "PUT" | "DELETE" => Severity::High,
-                        _ => Severity::Low,
-                    };
-                    
-                    let finding = Finding::new(
-                        format!("HTTP {} Method Enabled", method),
-                        format!("Server accepts {} requests", method),
-                        severity,
-                        Confidence::High,
-                        Category::SecurityMisconfiguration,
-                        target.to_string(),
-                        "web".to_string(),
-                        "http-methods".to_string(),
-                        "1.0".to_string(),
-                        scan_id(),
-                    );
-                    let evidence = Evidence::new(
-                        EvidenceType::HttpResponse,
-                        format!("{} method allowed", method),
-                    ).with_data(serde_json::json!({"method": method, "status": response.status().as_u16()}))
-                    .with_location(target.to_string());
-                    findings.push(finding.with_evidence(evidence));
-                }
+        if let Ok(response) = req.send().await {
+            if response.status().is_success() || response.status().as_u16() == 204 {
+                let severity = match method {
+                    "TRACE" | "TRACK" => Severity::Medium,
+                    "PUT" | "DELETE" => Severity::High,
+                    _ => Severity::Low,
+                };
+                
+                let finding = Finding::new(
+                    format!("HTTP {} Method Enabled", method),
+                    format!("Server accepts {} requests", method),
+                    severity,
+                    Confidence::High,
+                    Category::SecurityMisconfiguration,
+                    target.to_string(),
+                    "web".to_string(),
+                    "http-methods".to_string(),
+                    "1.0".to_string(),
+                    scan_id(),
+                );
+                let evidence = Evidence::new(
+                    EvidenceType::HttpResponse,
+                    format!("{} method allowed", method),
+                ).with_data(serde_json::json!({"method": method, "status": response.status().as_u16()}))
+                .with_location(target.to_string());
+                findings.push(finding.with_evidence(evidence));
             }
-            Err(_) => {}
         }
     }
 
     Ok(findings)
 }
 
-async fn check_ssl_config(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
+async fn check_ssl_config(_client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
     let mut findings = Vec::new();
     
     if target.scheme() == "https" {
@@ -1570,7 +1550,7 @@ async fn display_results(
     Ok(())
 }
 
-fn print_table_results(findings: &[Finding], target: &Url, duration: Duration, checks_run: usize) {
+fn print_table_results(findings: &[Finding], _target: &Url, _duration: Duration, _checks_run: usize) {
     #[derive(Tabled)]
     struct FindingRow {
         #[tabled(rename = "Severity")]
@@ -1665,8 +1645,8 @@ async fn print_json_results(
 async fn print_sarif_results(
     findings: &[Finding],
     target: &Url,
-    duration: Duration,
-    checks_run: usize,
+    _duration: Duration,
+    _checks_run: usize,
     output: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     use serde_json::json;

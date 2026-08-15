@@ -18,11 +18,11 @@ use ratatui::{
 #[cfg(feature = "tui")]
 use std::{
     io,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
 #[cfg(feature = "tui")]
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 
 #[cfg(feature = "tui")]
 use crate::{run_scan_internal, Check, ScanProfile};
@@ -150,14 +150,15 @@ impl App {
         let tx_clone = tx.clone();
         
         let handle = tokio::spawn(async move {
-            match run_scan_with_progress(target, profile, format, tx_clone).await {
+            let tx_for_progress = tx_clone.clone();
+            match run_scan_with_progress(target, profile, format, tx_for_progress).await {
                 Ok(result) => {
-                    let mut s = status_clone.lock().unwrap();
+                    let mut s = status_clone.lock().await;
                     *s = ScanStatus::Completed;
                     let _ = tx_clone.send(ScanMsg::Done(result)).await;
                 }
                 Err(e) => {
-                    let mut s = status_clone.lock().unwrap();
+                    let mut s = status_clone.lock().await;
                     *s = ScanStatus::Error(e.to_string());
                 }
             }
