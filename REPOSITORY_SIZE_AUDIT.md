@@ -2,68 +2,163 @@
 
 ## Summary
 
-The repository was originally over 20GB in size, but after cleanup it has been reduced to approximately 1.1GB.
+**Current repository size: 13 MB** (after cleanup of build artifacts)
 
-## Original Issues
+- Source code: ~3.4 MB (crates/)
+- Git history: 6.7 MB (.git/)
+- Documentation: ~684 KB (docs/)
+- Frontend: ~632 KB (frontend/)
+- Plugins: ~224 KB (plugins/)
+- Python bindings: ~120 KB (python/)
+- Tests: ~36 KB (tests/)
+- Configuration & scripts: ~1 MB (Cargo.lock, docker, scripts, docs)
 
-### 1. Build Artifacts (19GB)
-- `target/` directory contained 19GB of build artifacts
-- This included debug builds, incremental compilation data, and dependencies
-- The directory was already in `.gitignore` but had been committed previously
+## Historical Issues (Now Resolved)
 
-### 2. Node Modules (289MB)
-- Multiple `node_modules/` directories throughout the frontend codebase
-- These are development dependencies that should not be committed
+### 1. Build Artifacts (Previously 7.4 GB → Now Cleaned)
+- `target/` directory contained 7.4 GB of build artifacts (debug + release)
+- `.claude/worktrees/agent-*/target/` contained 1.1 GB of build artifacts from previous agent sessions
+- Both have been removed
 
-### 3. Python Virtual Environment (43MB)
-- `python/.venv/` directory containing Python dependencies
-- Virtual environments should not be committed to repositories
-
-### 4. Git Bundle File (957KB)
-- `repo.bundle` file that was not tracked but present in the repository
-
-## Cleanup Actions Taken
-
-1. **Removed target directory** - Eliminated 19GB of build artifacts
-2. **Removed node_modules directories** - Cleaned up frontend dependencies
-3. **Removed Python virtual environment** - Removed development-only files
-4. **Removed repo.bundle file** - Cleaned up unnecessary Git bundle
+### 2. Previously Committed Artifacts (Now in .gitignore)
+- `target/` - Rust build artifacts
+- `node_modules/` - JavaScript dependencies
+- `*.venv/` - Python virtual environments
+- `*.log` - Log files
+- `*.tmp` - Temporary files
 
 ## Current Repository Structure
 
 ```
-1.1G    . (total)
-├── 3.3M crates/
-├── 684K docs/
-├── 632K frontend/
-├── 224K plugins/
-├── 184K Cargo.lock
-├── 176K python/
-├── 36K  tests/
-└── 24K  phase7-security-ai-changes.tar.gz
+13 MB total repository size
+├── 6.7 MB .git/ (Git history)
+├── 3.4 MB crates/ (Rust source code)
+│   ├── 852 KB openre-plugins
+│   ├── 428 KB openre-intelligence
+│   ├── 332 KB openre-scanner
+│   ├── 296 KB openre-api
+│   ├── 220 KB openre-core
+│   ├── 208 KB openre-security-ai
+│   ├── 180 KB openre-analysis
+│   ├── 180 KB openre-ai
+│   ├── 164 KB openre-recon
+│   ├── 140 KB openre-storage
+│   ├── 140 KB openre-cli
+│   ├── 120 KB openre-queue
+│   ├──  52 KB openre-telemetry
+│   ├──  48 KB openre-config
+│   └──  20 KB sentinel
+├── 684 KB docs/ (Documentation)
+├── 632 KB frontend/ (Web interface code)
+├── 224 KB plugins/ (Security plugin modules)
+├── 184 KB Cargo.lock (Dependency lock file)
+├── 120 KB python/ (Python bindings)
+└── Remaining: configs, scripts, tests, docker files
 ```
 
-## Current Crate Sizes
+## Source Code Breakdown
 
-```
-852K crates/openre-plugins
-428K crates/openre-intelligence
-332K crates/openre-scanner
-296K crates/openre-api
-220K crates/openre-core
-208K crates/openre-security-ai
-180K crates/openre-analysis
-180K crates/openre-ai
-164K crates/openre-recon
-140K crates/openre-storage
-140K crates/openre-cli
-120K crates/openre-queue
-52K  crates/openre-telemetry
-48K  crates/openre-config
-```
+### Core Crates (Required for Scanner)
+| Crate | Size | Purpose |
+|-------|------|---------|
+| openre-core | 220 KB | Core types, errors, finding model, deduplication |
+| openre-config | 48 KB | Configuration management |
+| openre-telemetry | 52 KB | Tracing, metrics, OpenTelemetry |
+| openre-storage | 140 KB | PostgreSQL, SQLite, Redis abstractions |
+| openre-queue | 120 KB | Job queue management |
+| openre-plugins | 852 KB | Plugin system (WASM, native, registry) |
+| openre-scanner | 332 KB | Scan engine, TUI, target management |
+| **Subtotal** | **1.76 MB** | **Minimal scanner core** |
 
-## Analysis
+### Optional/Advanced Crates
+| Crate | Size | Purpose | Optional? |
+|-------|------|---------|-----------|
+| openre-recon | 164 KB | Reconnaissance plugins | Yes |
+| openre-analysis | 180 KB | Binary analysis pipeline | Yes |
+| openre-api | 296 KB | REST/gRPC API server | Yes |
+| openre-cli | 140 KB | Full platform CLI | Yes |
+| openre-intelligence | 428 KB | CVE matching, correlation | Yes |
+| openre-ai | 180 KB | AI provider abstraction | **Yes** |
+| openre-security-ai | 208 KB | AI Security Analyst | **Yes** |
+| sentinel | 20 KB | Demo standalone scanner | Demo only |
 
-The repository now contains only source code and necessary development assets. All build artifacts, dependencies, and temporary files have been removed. The remaining size is appropriate for a project of this scope with multiple language ecosystems (Rust, JavaScript/TypeScript, Python).
+### Total Optional: ~1.6 MB
 
-The intelligence layer and security AI components represent the largest portions of the codebase, which is expected given their comprehensive feature sets including CVE matching, dependency analysis, correlation engines, and knowledge bases.
+## Build Artifacts (Excluded via .gitignore)
+
+| Directory | Previous Size | Status |
+|-----------|--------------|--------|
+| target/debug | 5.7 GB | Cleaned |
+| target/release | 1.8 GB | Cleaned |
+| .claude/worktrees/agent-*/target | 1.1 GB | Cleaned |
+| **Total** | **8.6 GB** | **Removed** |
+
+## Dependency Analysis
+
+### Workspace Dependencies (Cargo.toml)
+
+#### Core Runtime (Required)
+- tokio, anyhow, thiserror, serde, uuid, chrono, tracing, dashmap, bytes, async-trait
+- **Estimated compile-time cost: Low-Medium**
+
+#### Web/Network (Required for Scanner)
+- reqwest, hyper, rustls, tower, axum, utoipa
+- **Estimated compile-time cost: Medium**
+
+#### Database (Required for Persistence)
+- sqlx, redis, rusqlite
+- **Estimated compile-time cost: Medium-High**
+
+#### Binary Parsing (Required for Analysis)
+- goblin, object, scroll, xmas-elf
+- **Estimated compile-time cost: Low**
+
+#### Plugin System (Required)
+- wasmtime, wasmparser, libloading
+- **Estimated compile-time cost: High (wasmtime is large)**
+
+#### AI/ML (COMMENTED OUT - Optional)
+- ort, llama-cpp-2, tokenizers, candle-* - All commented out
+- **Status: Not compiled by default ✓**
+
+#### Heavy Dependencies (Only in Specific Crates)
+- wasmtime: Only in openre-plugins, openre-scanner, openre-recon
+- sqlx: Only in openre-core, openre-storage, openre-plugins
+- axum/tower: Only in openre-api, openre-scanner
+
+## Recommendations
+
+### ✅ Already Done
+1. Removed all build artifacts (8.6 GB saved)
+2. .gitignore properly excludes target/, node_modules/, venv/, logs, tmp
+3. AI/ML dependencies commented out in workspace
+4. Heavy dependencies (wasmtime, sqlx, axum) are crate-scoped
+
+### 🔧 To Do
+1. **Make wasmtime optional** - Feature-gate WASM plugin support
+2. **Make sqlx optional** - Feature-gate database persistence
+3. **Create minimal "scanner" profile** - Only compile core scanner crates
+4. **Split workspace** - Consider separate Cargo.toml for minimal scanner
+5. **Add .dockerignore** - Exclude target, .git, .claude, docs, tests from Docker builds
+
+## Expected Minimal Installation Size
+
+| Component | Estimated Size |
+|-----------|---------------|
+| Statically linked binary (release) | 8-15 MB |
+| Configuration files | < 100 KB |
+| Plugin directory (WASM plugins) | 1-5 MB (optional) |
+| **Total minimal install** | **~10-20 MB** |
+
+## Build Time Estimates
+
+| Profile | Crates | Est. Build Time |
+|---------|--------|-----------------|
+| Full workspace | 18 crates | 5-10 min |
+| Scanner core only | 7 crates | 2-3 min |
+| Minimal (no WASM, no DB) | 5 crates | 1-2 min |
+
+---
+
+*Last updated: 2026-08-15*
+*Audit performed by: Phase 9 productionization*

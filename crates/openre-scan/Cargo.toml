@@ -1,0 +1,67 @@
+[package]
+name = "openre-scan"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "Lightweight standalone security scanner"
+categories = ["security", "command-line-utilities"]
+keywords = ["security", "scanner", "vulnerability", "cli", "tui"]
+
+[[bin]]
+name = "openre-scan"
+path = "src/main.rs"
+
+[dependencies]
+# Working core crates
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+openre-telemetry = { path = "../openre-telemetry" }
+openre-storage = { path = "../openre-storage", default-features = false }
+
+# Direct dependencies (avoiding broken crates)
+clap = { workspace = true, features = ["derive", "env"] }
+clap_complete = { workspace = true }
+colored = { workspace = true }
+indicatif = { workspace = true }
+tabled = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+url = { workspace = true }
+reqwest = { workspace = true, features = ["json", "rustls-tls", "gzip", "brotli", "deflate"] }
+dashmap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sha2 = { workspace = true }
+base64 = { workspace = true }
+regex = "1.10"
+html5ever = "0.26"
+select = "0.6"
+markup5ever_rcdom = "0.1"
+cookie = "0.16"
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+webpki-roots = { workspace = true }
+x509-parser = "0.16"
+pem = "1.0"
+
+# TUI (optional)
+ratatui = { workspace = true, optional = true }
+crossterm = { workspace = true, optional = true }
+
+[features]
+default = []  # No TUI by default - CLI only
+tui = ["dep:ratatui", "dep:crossterm"]  # Experimental TUI (not yet fully implemented)
+minimal = []  # No TUI - just CLI
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

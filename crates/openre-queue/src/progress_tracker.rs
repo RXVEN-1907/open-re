@@ -84,7 +84,9 @@ impl ProgressTracker {
             // Estimate remaining time
             if progress.overall_progress > 0.0 && progress.started_at.is_some() {
                 let elapsed = chrono::Utc::now() - progress.started_at.unwrap();
-                let estimated_total = elapsed / progress.overall_progress;
+                let elapsed_seconds = elapsed.num_seconds() as f64;
+                let estimated_total_seconds = elapsed_seconds / progress.overall_progress as f64;
+                let estimated_total = chrono::Duration::seconds(estimated_total_seconds as i64);
                 progress.estimated_remaining = Some(estimated_total - elapsed);
             }
             
@@ -111,34 +113,38 @@ impl ProgressTracker {
         status: crate::StageStatus,
         details: Option<String>,
     ) -> Result<()> {
-        let mut stage_cache = self.stage_progress_cache.write().await;
-        let stages = stage_cache.entry(job_id).or_default();
-        
-        let stage_prog = StageProgress {
-            stage_name: stage_name.to_string(),
-            progress: stage_progress.clamp(0.0, 1.0),
-            status,
-            details,
-            started_at: None,
-            completed_at: None,
+        // First, update the stage cache
+        let (stages_clone, stages_completed) = {
+            let mut stage_cache = self.stage_progress_cache.write().await;
+            let stages = stage_cache.entry(job_id).or_default();
+            
+            let stage_prog = StageProgress {
+                stage_name: stage_name.to_string(),
+                progress: stage_progress.clamp(0.0, 1.0),
+                status,
+                details,
+                started_at: None,
+                completed_at: None,
+            };
+            
+            // Find or insert stage
+            if let Some(existing) = stages.iter_mut().find(|s| s.stage_name == stage_name) {
+                *existing = stage_prog.clone();
+            } else {
+                stages.push(stage_prog.clone());
+            }
+            
+            let completed = stages.iter().filter(|s| s.status == crate::StageStatus::Completed).count() as u32;
+            (stages.clone(), completed)
         };
         
-        // Find or insert stage
-        if let Some(existing) = stages.iter_mut().find(|s| s.stage_name == stage_name) {
-            *existing = stage_prog.clone();
-        } else {
-            stages.push(stage_prog.clone());
-        }
-        
-        // Update job's current stage
+        // Then update job's current stage
         if let Some(job_progress) = self.progress_cache.write().await.get_mut(&job_id) {
             job_progress.current_stage = Some(stage_name.to_string());
-            job_progress.stages_completed = stages.iter().filter(|s| s.status == crate::StageStatus::Completed).count() as u32;
+            job_progress.stages_completed = stages_completed;
         }
         
-        drop(stage_cache);
-        
-        self.persist_stage_progress(job_id, &stages).await?;
+        self.persist_stage_progress(job_id, &stages_clone).await?;
         self.broadcast_update(ProgressUpdate {
             job_id,
             progress: self.progress_cache.read().await.get(&job_id).cloned().unwrap_or_default(),

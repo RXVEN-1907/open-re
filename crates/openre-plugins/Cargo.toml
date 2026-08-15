@@ -8,15 +8,21 @@ description = "Plugin system (registry, runtime, SDK) for open-re"
 categories = { workspace = true }
 keywords = { workspace = true }
 
+[features]
+default = ["wasm", "database", "native-plugins"]
+wasm = ["dep:wasmtime", "dep:wasmtime-wasi", "dep:wasmparser"]
+database = ["dep:sqlx", "openre-storage/postgres", "openre-storage/redis", "openre-storage/sqlite"]
+native-plugins = ["dep:libloading"]
+
 [dependencies]
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
-openre-storage = { path = "../openre-storage" }
-wasmtime = { workspace = true }
-wasmtime-wasi = { version = "20.0", features = ["preview1"] }
-wasmparser = { workspace = true }
-libloading = "0.8"
+openre-storage = { path = "../openre-storage", default-features = false }
+wasmtime = { workspace = true, optional = true }
+wasmtime-wasi = { version = "20.0", features = ["preview1"], optional = true }
+wasmparser = { workspace = true, optional = true }
+libloading = { version = "0.8", optional = true }
 toml = "0.8"
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -28,7 +34,7 @@ notify = "6.1"
 ring = { workspace = true }
 base64 = "0.21"
 chrono = { workspace = true }
-sqlx = { workspace = true }
+sqlx = { workspace = true, default-features = false, optional = true }
 async-trait = { workspace = true }
 uuid = { workspace = true }
 semver = "1.0"

@@ -134,7 +134,8 @@ impl AutoScaler {
         let last = *self.last_scale_action.read().await;
         if let Some(last) = last {
             let elapsed = chrono::Utc::now() - last;
-            elapsed.num_seconds() >= self.config.cooldown_seconds as i64
+            // Use scale_up_cooldown_secs as general cooldown
+            elapsed.num_seconds() >= self.config.scale_up_cooldown_secs as i64
         } else {
             true
         }

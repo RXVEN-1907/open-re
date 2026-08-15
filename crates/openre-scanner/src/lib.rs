@@ -20,7 +20,7 @@ pub use scan::{ScanManager, ScanSession, ScanStatus, ScanProgress};
 pub use plugin::{PluginManager, PluginInfo, PluginCapability};
 pub use result::{Finding, FindingId, Severity, Confidence, Category, Evidence, Reference};
 pub use context::{ScanContext, SharedHttpClient, AuthState, ScanCache};
-pub use storage::{ScanStorage, ScanRecord, FindingRecord, PluginExecutionRecord};
+pub use storage::{ScanStorage, MemoryScanStorage, SqliteScanStorage, ScanRecord, FindingRecord, PluginExecutionRecord};
 
 /// Re-export commonly used types
 pub mod prelude {

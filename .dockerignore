@@ -1,20 +1,10 @@
 # Build artifacts
 target/
 **/target/
-**/*.rs.bk
 
-# Frontend dependencies
-frontend/node_modules/
-frontend/**/node_modules/
-
-# Python virtual environments
-python/.venv/
-python/**/.venv/
-python/__pycache__/
-python/**/__pycache__/
-
-# Claude/opencode worktrees
-.claude/worktrees/
+# Git
+.git/
+.gitignore
 
 # IDE / Editors
 .vscode/
@@ -23,7 +13,6 @@ python/**/__pycache__/
 *.swo
 *~
 .DS_Store
-Thumbs.db
 
 # OS
 .DS_Store
@@ -108,15 +97,6 @@ public/
 release/
 dist-packages/
 
-# IDE specific
-*.iml
-*.ipr
-*.iws
-.idea/
-.vscode/settings.json
-.vscode/launch.json
-.vscode/tasks.json
-
 # Language servers
 .rust-analyzer/
 .rake/
@@ -132,3 +112,41 @@ junit.xml
 *.rej
 .patch
 .diff
+
+# Frontend dependencies
+frontend/node_modules/
+frontend/**/node_modules/
+
+# Python virtual environments
+python/.venv/
+python/**/.venv/
+python/__pycache__/
+python/**/__pycache__/
+
+# Claude/opencode worktrees
+.claude/worktrees/
+
+# Phase documentation (not needed in container)
+PHASE*.md
+FINAL_*.md
+PRODUCTION_*.md
+INSTALLATION_*.md
+SCANNER_*.md
+REPOSITORY_*.md
+CHANGELOG.md
+CONTRIBUTING.md
+CONTRIBUTORS.md
+CODE_OF_CONDUCT.md
+LICENSE
+README.md
+CLAUDE.md
+
+# Docker compose files (not needed in container)
+docker-compose*.yml
+
+# Tarballs and archives
+*.tar.gz
+*.zip
+
+# Cargo registry cache (not needed in container)
+**/Cargo.lock

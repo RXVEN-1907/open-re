@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{RwLock, broadcast};
 use tracing::{debug, info, warn};
+use anyhow;
 
 /// Cancellation manager
 pub struct CancellationManager {
@@ -77,13 +78,13 @@ impl CancellationManager {
             let info = CancellationInfo {
                 job_id,
                 requested_at: chrono::Utc::now(),
-                requested_by,
+                requested_by: requested_by.clone(),
                 reason,
                 status: CancellationStatus::Completed,
             };
             
             self.cancelled_jobs.write().await.insert(job_id, info);
-            self.metrics.jobs_cancelled.increment(1);
+            self.metrics.cancellations_completed.increment(1);
             
             // Broadcast cancellation
             let _ = self.cancel_tx.send(job_id);
@@ -95,7 +96,7 @@ impl CancellationManager {
             let info = CancellationInfo {
                 job_id,
                 requested_at: chrono::Utc::now(),
-                requested_by,
+                requested_by: requested_by.clone(),
                 reason,
                 status: CancellationStatus::Pending,
             };
@@ -105,7 +106,7 @@ impl CancellationManager {
             // Signal worker via Redis
             self.signal_worker(job_id).await?;
             
-            self.metrics.cancellation_requests.increment(1);
+            self.metrics.cancellations_requested.increment(1);
             
             Ok(CancellationResult::Signalled)
         }
@@ -146,7 +147,7 @@ impl CancellationManager {
                     return Ok(());
                 }
                 Ok(_) => continue, // Different job
-                Err(_) => return Err(openre_core::Error::Internal("Cancellation channel closed".into())),
+                Err(_) => return Err(openre_core::Error::Internal(anyhow::anyhow!("Cancellation channel closed"))),
             }
         }
     }
@@ -169,7 +170,7 @@ impl CancellationManager {
         let info = CancellationInfo {
             job_id,
             requested_at: chrono::Utc::now(),
-            requested_by,
+            requested_by: requested_by.clone(),
             reason: Some("Force cancelled".to_string()),
             status: CancellationStatus::Completed,
         };
@@ -185,7 +186,7 @@ impl CancellationManager {
         // Broadcast
         let _ = self.cancel_tx.send(job_id);
         
-        self.metrics.jobs_force_cancelled.increment(1);
+        self.metrics.cancellations_completed.increment(1);
         
         warn!("Job {} force cancelled by {}", job_id, requested_by);
         
@@ -239,16 +240,14 @@ impl CancellationHandler {
     pub async fn poll_redis(&self, job_id: JobId) -> Result<bool> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         
-        // Check cancellation stream
-        let options = redis::streams::StreamReadOptions::default()
-            .count(10)
-            .block(100);
-        
-        let entries: Vec<redis::streams::StreamReadReply> = conn
-            .xread_options(
-                &[("openre:cancellation:signals".to_string(), "0-0".to_string())],
-                &options,
-            )
+        // Check cancellation stream using XREAD
+        let entries: Vec<redis::streams::StreamReadReply> = redis::cmd("XREAD")
+            .arg("COUNT").arg(10)
+            .arg("BLOCK").arg(100)
+            .arg("STREAMS")
+            .arg("openre:cancellation:signals")
+            .arg("0-0")
+            .query_async(&mut conn)
             .await?;
         
         for reply in entries {

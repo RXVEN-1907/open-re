@@ -8,12 +8,19 @@ description = "Storage abstractions (PostgreSQL, SQLite, S3) for open-re"
 categories = { workspace = true }
 keywords = { workspace = true }
 
+[features]
+default = ["postgres", "redis", "sqlite"]
+postgres = ["sqlx/postgres", "sqlx/runtime-tokio-rustls", "sqlx/chrono", "sqlx/uuid", "sqlx/migrate", "sqlx/macros"]
+redis = ["redis/tokio-comp", "redis/streams", "redis/script", "redis/connection-manager"]
+sqlite = ["rusqlite/bundled", "rusqlite/serde_json", "rusqlite/chrono", "rusqlite/uuid"]
+s3 = []  # For future AWS S3 support
+
 [dependencies]
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
-sqlx = { workspace = true }
-redis = { workspace = true }
+sqlx = { workspace = true, default-features = false }
+redis = { workspace = true, default-features = false }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
@@ -23,7 +30,7 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 bytes = { workspace = true }
 base64 = { workspace = true }
-rusqlite = { version = "0.31", features = ["bundled", "serde_json", "chrono", "uuid"] }
+rusqlite = { version = "0.31", default-features = false, features = ["bundled", "serde_json", "chrono", "uuid"] }
 goblin = { workspace = true }
 object = { workspace = true }
 scroll = { workspace = true }
