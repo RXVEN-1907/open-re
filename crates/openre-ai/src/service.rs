@@ -1,18 +1,22 @@
 //! AI service for open-re - main entry point
 
 use crate::{
-    providers::{ProviderRegistry, ModelProvider, CompletionRequest, CompletionResponse, StreamingResponse, ProviderId},
-    prompt_compiler::PromptCompiler,
-    tools::{ToolRegistry, ToolContext, ToolPermissions},
-    router::ModelRouter,
     cache::AiCache,
     privacy::PrivacyController,
+    prompt_compiler::PromptCompiler,
+    providers::{
+        CompletionRequest, CompletionResponse, ModelProvider, ProviderId, ProviderRegistry,
+        StreamingResponse,
+    },
+    router::ModelRouter,
+    tools::{ToolContext, ToolPermissions, ToolRegistry},
 };
-use openre_core::error::OpenreResult as Result;
+use anyhow::anyhow;
 use openre_config::AiConfig;
-use openre_storage::{GlobalStore, ProjectStore, ObjectStore};
+use openre_core::error::OpenreResult as Result;
+use openre_storage::{GlobalStore, ObjectStore, ProjectStore};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tracing;
 
 /// Main AI service
 pub struct AiService {
@@ -34,14 +38,15 @@ impl AiService {
         object_store: Arc<ObjectStore>,
     ) -> Result<Self> {
         // Initialize provider registry
-        let provider_registry = Arc::new(ProviderRegistry::new());
-        Self::register_providers(&provider_registry, &config).await?;
+        let mut provider_registry = ProviderRegistry::new();
+        Self::register_providers(&mut provider_registry, &config).await?;
+        let provider_registry = Arc::new(provider_registry);
 
         // Initialize components
         let prompt_compiler = Arc::new(PromptCompiler::new());
         let tool_registry = Arc::new(ToolRegistry::new());
         let router = Arc::new(ModelRouter::new(provider_registry.clone(), config.clone()));
-        let cache = Arc::new(AiCache::new(config.cache.clone())?);
+        let cache = Arc::new(AiCache::new(config.cache.clone()).await?);
         let privacy = Arc::new(PrivacyController::new(config.privacy.clone())?);
 
         Ok(Self {
@@ -57,39 +62,57 @@ impl AiService {
         })
     }
 
-    async fn register_providers(registry: &ProviderRegistry, config: &AiConfig) -> Result<()> {
-        // Register ONNX providers
-        for onnx_config in &config.onnx_models {
-            let provider = crate::providers::onnx::OnnxProvider::new(
-                &onnx_config.model_path,
-                onnx_config.clone(),
-            )?;
-            registry.register(Box::new(provider));
-        }
+    async fn register_providers(registry: &mut ProviderRegistry, config: &AiConfig) -> Result<()> {
+        // Register ONNX providers (disabled - requires ort dependency)
+        // for onnx_config in &config.onnx_models {
+        //     let provider = crate::providers::onnx::OnnxProvider::new(
+        //         &onnx_config.model_path,
+        //         onnx_config.clone(),
+        //     )?;
+        //     registry.register(Box::new(provider));
+        // }
 
-        // Register llama.cpp providers
-        for llama_config in &config.llama_cpp_models {
-            let provider = crate::providers::llama_cpp::LlamaCppProvider::new(
-                &llama_config.model_path,
-                llama_config.clone(),
-            )?;
-            registry.register(Box::new(provider));
-        }
+        // Register llama.cpp providers (disabled - requires llama_cpp_2 dependency)
+        // for llama_config in &config.llama_cpp_models {
+        //     let provider = crate::providers::llama_cpp::LlamaCppProvider::new(
+        //         &llama_config.model_path,
+        //         llama_config.clone(),
+        //     )?;
+        //     registry.register(Box::new(provider));
+        // }
 
-        // Register remote providers
-        if let Some(openai_key) = &config.openai_api_key {
-            registry.register(Box::new(crate::providers::remote::RemoteProvider::openai(openai_key.clone())));
-        }
-
-        if let Some(vllm_url) = &config.vllm_base_url {
-            registry.register(Box::new(crate::providers::remote::RemoteProvider::vllm(
-                vllm_url.clone(),
-                config.vllm_api_key.clone(),
-            )));
-        }
-
-        if let Some(anthropic_key) = &config.anthropic_api_key {
-            registry.register(Box::new(crate::providers::remote::RemoteProvider::anthropic(anthropic_key.clone())));
+        // Register remote providers from config
+        // Note: Remote provider API keys should be configured via environment variables
+        // or a separate secrets management system. The config only specifies which
+        // providers are allowed via `allowed_remote_providers`.
+        for provider_name in &config.allowed_remote_providers {
+            match provider_name.as_str() {
+                "openai" => {
+                    if let Ok(api_key) = std::env::var("OPENAI_API_KEY") {
+                        registry.register(Box::new(
+                            crate::providers::remote::RemoteProvider::openai(api_key),
+                        ));
+                    }
+                }
+                "vllm" => {
+                    if let Ok(base_url) = std::env::var("VLLM_BASE_URL") {
+                        let api_key = std::env::var("VLLM_API_KEY").ok();
+                        registry.register(Box::new(
+                            crate::providers::remote::RemoteProvider::vllm(base_url, api_key),
+                        ));
+                    }
+                }
+                "anthropic" => {
+                    if let Ok(api_key) = std::env::var("ANTHROPIC_API_KEY") {
+                        registry.register(Box::new(
+                            crate::providers::remote::RemoteProvider::anthropic(api_key),
+                        ));
+                    }
+                }
+                _ => {
+                    tracing::warn!("Unknown remote provider: {}", provider_name);
+                }
+            }
         }
 
         Ok(())
@@ -101,7 +124,7 @@ impl AiService {
         let decision = self.privacy.check_request_allowed(&request)?;
         match decision {
             crate::privacy::PrivacyDecision::Denied(reason) => {
-                return Err(openre_core::Error::PermissionDenied(reason));
+                return Err(openre_core::Error::Forbidden(reason));
             }
             crate::privacy::PrivacyDecision::Redacted(_) => {
                 // Will be handled by sanitize
@@ -121,8 +144,10 @@ impl AiService {
 
         // Select provider
         let provider_id = self.router.select_provider(&sanitized_request).await?;
-        let provider = self.provider_registry.get(&provider_id)
-            .ok_or_else(|| openre_core::Error::Internal("Provider not found".into()))?;
+        let provider = self
+            .provider_registry
+            .get(&provider_id)
+            .ok_or_else(|| openre_core::Error::Internal(anyhow::anyhow!("Provider not found")))?;
 
         // Execute request
         let start = std::time::Instant::now();
@@ -137,17 +162,26 @@ impl AiService {
         self.cache.put(&cache_key, sanitized_response.clone()).await;
 
         // Record usage
-        self.router.record_usage(&provider_id, latency, sanitized_response.usage.total_tokens, true).await;
+        self.router
+            .record_usage(
+                &provider_id,
+                latency,
+                sanitized_response.usage.total_tokens,
+                true,
+            )
+            .await;
 
         // Audit
-        self.privacy.audit(crate::privacy::PrivacyAuditEntry {
-            timestamp: chrono::Utc::now(),
-            action: crate::privacy::PrivacyAction::RequestAllowed,
-            provider: Some(provider_id.to_string()),
-            classification: crate::privacy::DataClassification::Internal,
-            details: "Completion request completed".to_string(),
-            user_id: None,
-        }).await;
+        self.privacy
+            .audit(crate::privacy::PrivacyAuditEntry {
+                timestamp: chrono::Utc::now(),
+                action: crate::privacy::PrivacyAction::RequestAllowed,
+                provider: Some(provider_id.to_string()),
+                classification: crate::privacy::DataClassification::Internal,
+                details: "Completion request completed".to_string(),
+                user_id: None,
+            })
+            .await;
 
         Ok(sanitized_response)
     }
@@ -158,7 +192,7 @@ impl AiService {
         let decision = self.privacy.check_request_allowed(&request)?;
         match decision {
             crate::privacy::PrivacyDecision::Denied(reason) => {
-                return Err(openre_core::Error::PermissionDenied(reason));
+                return Err(openre_core::Error::Forbidden(reason));
             }
             _ => {}
         }
@@ -169,8 +203,10 @@ impl AiService {
 
         // Select provider
         let provider_id = self.router.select_provider(&sanitized_request).await?;
-        let provider = self.provider_registry.get(&provider_id)
-            .ok_or_else(|| openre_core::Error::Internal("Provider not found".into()))?;
+        let provider = self
+            .provider_registry
+            .get(&provider_id)
+            .ok_or_else(|| openre_core::Error::Internal(anyhow::anyhow!("Provider not found")))?;
 
         // Execute streaming request
         let response = provider.stream(sanitized_request).await?;
@@ -204,16 +240,20 @@ impl AiService {
             }
 
             let latency = start.elapsed().as_millis() as u64;
-            router.record_usage(&provider_id_clone, latency, total_tokens, true).await;
-            
-            privacy.audit(crate::privacy::PrivacyAuditEntry {
-                timestamp: chrono::Utc::now(),
-                action: crate::privacy::PrivacyAction::RequestAllowed,
-                provider: Some(provider_id_clone.to_string()),
-                classification: crate::privacy::DataClassification::Internal,
-                details: "Streaming request completed".to_string(),
-                user_id: None,
-            }).await;
+            router
+                .record_usage(&provider_id_clone, latency, total_tokens, true)
+                .await;
+
+            privacy
+                .audit(crate::privacy::PrivacyAuditEntry {
+                    timestamp: chrono::Utc::now(),
+                    action: crate::privacy::PrivacyAction::RequestAllowed,
+                    provider: Some(provider_id_clone.to_string()),
+                    classification: crate::privacy::DataClassification::Internal,
+                    details: "Streaming request completed".to_string(),
+                    user_id: None,
+                })
+                .await;
         });
 
         Ok(StreamingResponse { stream: rx })
@@ -228,7 +268,9 @@ impl AiService {
         function_id: Option<openre_core::ids::FunctionId>,
     ) -> Result<CompletionResponse> {
         let compiled = if let (Some(store), Some(fid)) = (project_store, function_id) {
-            self.prompt_compiler.compile_with_context(template_name, variables, &store, fid).await?
+            self.prompt_compiler
+                .compile_with_context(template_name, variables, &store, fid)
+                .await?
         } else {
             self.prompt_compiler.compile(template_name, variables)?
         };
@@ -246,7 +288,9 @@ impl AiService {
         function_id: Option<openre_core::ids::FunctionId>,
     ) -> Result<StreamingResponse> {
         let compiled = if let (Some(store), Some(fid)) = (project_store, function_id) {
-            self.prompt_compiler.compile_with_context(template_name, variables, &store, fid).await?
+            self.prompt_compiler
+                .compile_with_context(template_name, variables, &store, fid)
+                .await?
         } else {
             self.prompt_compiler.compile(template_name, variables)?
         };
@@ -272,14 +316,16 @@ impl AiService {
         const MAX_ITERATIONS: usize = 10;
 
         loop {
-            let response = self.complete(current_request).await?;
-            
+            // Clone the request for the completion call since complete() takes ownership
+            let request_for_completion = current_request.clone();
+            let response = self.complete(request_for_completion).await?;
+
             // Check for tool calls
             if let Some(choice) = response.choices.first() {
                 if let Some(tool_calls) = &choice.message.tool_calls {
                     if !tool_calls.is_empty() && iterations < MAX_ITERATIONS {
                         iterations += 1;
-                        
+
                         // Execute tools
                         let mut tool_results = Vec::new();
                         for tool_call in tool_calls {
@@ -294,17 +340,20 @@ impl AiService {
                                     permissions: permissions.clone(),
                                 };
 
-                                let result = tool.execute(tool_call.arguments.clone(), &context).await?;
+                                let result =
+                                    tool.execute(tool_call.arguments.clone(), &context).await?;
                                 tool_results.push((tool_call.id.clone(), result));
                             }
                         }
 
                         // Add tool results to conversation
                         for (tool_call_id, result) in tool_results {
-                            current_request.messages.push(crate::providers::Message::tool_result(
-                                tool_call_id,
-                                serde_json::to_string(&result.output)?,
-                            ));
+                            current_request
+                                .messages
+                                .push(crate::providers::Message::tool_result(
+                                    tool_call_id,
+                                    serde_json::to_string(&result.output)?,
+                                ));
                         }
 
                         continue; // Continue loop for next iteration
@@ -337,7 +386,9 @@ impl AiService {
     }
 
     /// Get router stats
-    pub async fn router_stats(&self) -> std::collections::HashMap<ProviderId, crate::router::ProviderStats> {
+    pub async fn router_stats(
+        &self,
+    ) -> std::collections::HashMap<ProviderId, crate::router::ProviderStats> {
         self.router.get_all_stats().await
     }
 
@@ -352,7 +403,9 @@ impl AiService {
     }
 
     /// Health check all providers
-    pub async fn health_check(&self) -> std::collections::HashMap<ProviderId, crate::providers::HealthStatus> {
+    pub async fn health_check(
+        &self,
+    ) -> std::collections::HashMap<ProviderId, crate::providers::HealthStatus> {
         let mut results = std::collections::HashMap::new();
         for provider in self.provider_registry.all() {
             if let Ok(status) = provider.health_check().await {

@@ -1,12 +1,12 @@
 //! CVE Intelligence - Match software versions against vulnerability databases
 
-use crate::{types::*, error::IntelligenceError, IntelligenceResult};
-use openre_core::result::{Finding, Evidence};
+use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use async_trait::async_trait;
+use openre_core::result::{Evidence, Finding};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 
 /// Trait for CVE data providers
 #[async_trait]
@@ -15,7 +15,11 @@ pub trait CveProvider: Send + Sync {
     async fn get_cve(&self, cve_id: &str) -> IntelligenceResult<Option<CveInfo>>;
 
     /// Search for CVEs affecting a specific software version
-    async fn search_cves_for_software(&self, software_name: &str, version: &str) -> IntelligenceResult<Vec<CveInfo>>;
+    async fn search_cves_for_software(
+        &self,
+        software_name: &str,
+        version: &str,
+    ) -> IntelligenceResult<Vec<CveInfo>>;
 
     /// Get provider name for logging/debugging
     fn provider_name(&self) -> &str;
@@ -85,10 +89,13 @@ impl CveCache {
     }
 
     fn insert(&mut self, key: String, cve_info: CveInfo) {
-        self.entries.insert(key, CachedCveEntry {
-            cve_info,
-            cached_at: std::time::SystemTime::now(),
-        });
+        self.entries.insert(
+            key,
+            CachedCveEntry {
+                cve_info,
+                cached_at: std::time::SystemTime::now(),
+            },
+        );
     }
 
     fn clear_expired(&mut self) {
@@ -125,7 +132,10 @@ impl CveIntelligence {
     }
 
     /// Match findings against known CVEs based on evidence
-    pub async fn match_findings_against_cves(&self, findings: &[Finding]) -> IntelligenceResult<Vec<(Finding, Vec<CveInfo>)>> {
+    pub async fn match_findings_against_cves(
+        &self,
+        findings: &[Finding],
+    ) -> IntelligenceResult<Vec<(Finding, Vec<CveInfo>)>> {
         let mut results = Vec::new();
 
         // Clear expired cache entries periodically
@@ -144,7 +154,10 @@ impl CveIntelligence {
     }
 
     /// Match a single finding against known CVEs
-    async fn match_finding_against_cves(&self, finding: &Finding) -> IntelligenceResult<Vec<CveInfo>> {
+    async fn match_finding_against_cves(
+        &self,
+        finding: &Finding,
+    ) -> IntelligenceResult<Vec<CveInfo>> {
         let mut all_cves = Vec::new();
 
         // Extract software/version information from evidence
@@ -162,19 +175,29 @@ impl CveIntelligence {
 
             // Try each provider to find CVEs for this software/version
             for provider in &self.providers {
-                match provider.search_cves_for_software(&software_name, &version).await {
+                match provider
+                    .search_cves_for_software(&software_name, &version)
+                    .await
+                {
                     Ok(mut cves) => {
                         if !cves.is_empty() {
-                            info!("Found {} CVEs for {} {} from {}",
-                                cves.len(), software_name, version, provider.provider_name());
+                            info!(
+                                "Found {} CVEs for {} {} from {}",
+                                cves.len(),
+                                software_name,
+                                version,
+                                provider.provider_name()
+                            );
 
                             // Cache the results
                             if let Some(cache) = &mut self.cache {
                                 for cve in &cves {
                                     cache.insert(format!("{}:{}", cve.cve_id, "info"), cve.clone());
                                 }
-                                cache.insert(format!("{}:{}", software_name, version),
-                                    cves.first().unwrap().clone()); // Cache first result as indicator
+                                cache.insert(
+                                    format!("{}:{}", software_name, version),
+                                    cves.first().unwrap().clone(),
+                                ); // Cache first result as indicator
                             }
 
                             all_cves.append(&mut cves);
@@ -182,8 +205,13 @@ impl CveIntelligence {
                         }
                     }
                     Err(e) => {
-                        warn!("Error searching CVEs for {} {} from {}: {}",
-                            software_name, version, provider.provider_name(), e);
+                        warn!(
+                            "Error searching CVEs for {} {} from {}: {}",
+                            software_name,
+                            version,
+                            provider.provider_name(),
+                            e
+                        );
                     }
                 }
             }
@@ -223,7 +251,9 @@ impl CveIntelligence {
                 // Look for specific technology detection fields
                 if let Some(framework) = data.get("framework") {
                     if let Some(version) = data.get("version") {
-                        if let (Some(fw_str), Some(ver_str)) = (framework.as_str(), version.as_str()) {
+                        if let (Some(fw_str), Some(ver_str)) =
+                            (framework.as_str(), version.as_str())
+                        {
                             software_versions.push((fw_str.to_string(), ver_str.to_string()));
                         }
                     }
@@ -296,7 +326,12 @@ impl CveIntelligence {
                 }
                 Ok(None) => continue,
                 Err(e) => {
-                    warn!("Error getting CVE {} from {}: {}", cve_id, provider.provider_name(), e);
+                    warn!(
+                        "Error getting CVE {} from {}: {}",
+                        cve_id,
+                        provider.provider_name(),
+                        e
+                    );
                 }
             }
         }
@@ -305,7 +340,10 @@ impl CveIntelligence {
     }
 
     /// Enrich findings with CVE information
-    pub async fn enrich_findings_with_cve_data(&self, findings: &mut [Finding]) -> IntelligenceResult<()> {
+    pub async fn enrich_findings_with_cve_data(
+        &self,
+        findings: &mut [Finding],
+    ) -> IntelligenceResult<()> {
         for finding in findings {
             let cves = self.match_finding_against_cves(finding).await?;
 
@@ -351,11 +389,11 @@ impl CveIntelligence {
                 // Add metadata about CVE matching
                 finding.metadata.insert(
                     "cve_intelligence_matched".to_string(),
-                    serde_json::Value::Bool(true)
+                    serde_json::Value::Bool(true),
                 );
                 finding.metadata.insert(
                     "cve_intelligence_count".to_string(),
-                    serde_json::Value::Number(serde_json::Number::from(cves.len()))
+                    serde_json::Value::Number(serde_json::Number::from(cves.len())),
                 );
             }
         }
@@ -375,26 +413,31 @@ impl MockCveProvider {
         let mut database = HashMap::new();
 
         // Add some test CVEs
-        database.insert("CVE-2023-12345".to_string(), CveInfo {
-            cve_id: "CVE-2023-12345".to_string(),
-            severity: openre_core::result::Severity::High,
-            cvss_score: Some(7.5),
-            cvss_vector: Some("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N".to_string()),
-            description: "Apache HTTP Server 2.4.52 and earlier has a denial of service vulnerability.".to_string(),
-            affected_versions: vec![VersionRange {
-                start_version: Some("0.0.0".to_string()),
-                end_version: Some("2.4.53".to_string()),
-                is_vulnerable: true,
-            }],
-            fixed_versions: vec!["2.4.53".to_string()],
-            references: vec![CveReference {
-                url: "https://httpd.apache.org/security/vulnerabilities_24.html".to_string(),
-                description: Some("Apache HTTP Server Security Vulnerabilities".to_string()),
-            }],
-            cwe_ids: vec!["CWE-400".to_string()],
-            published_date: chrono::Utc::now(),
-            last_modified_date: chrono::Utc::now(),
-        });
+        database.insert(
+            "CVE-2023-12345".to_string(),
+            CveInfo {
+                cve_id: "CVE-2023-12345".to_string(),
+                severity: openre_core::result::Severity::High,
+                cvss_score: Some(7.5),
+                cvss_vector: Some("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N".to_string()),
+                description:
+                    "Apache HTTP Server 2.4.52 and earlier has a denial of service vulnerability."
+                        .to_string(),
+                affected_versions: vec![VersionRange {
+                    start_version: Some("0.0.0".to_string()),
+                    end_version: Some("2.4.53".to_string()),
+                    is_vulnerable: true,
+                }],
+                fixed_versions: vec!["2.4.53".to_string()],
+                references: vec![CveReference {
+                    url: "https://httpd.apache.org/security/vulnerabilities_24.html".to_string(),
+                    description: Some("Apache HTTP Server Security Vulnerabilities".to_string()),
+                }],
+                cwe_ids: vec!["CWE-400".to_string()],
+                published_date: chrono::Utc::now(),
+                last_modified_date: chrono::Utc::now(),
+            },
+        );
 
         Self {
             cve_database: database,
@@ -412,7 +455,11 @@ impl CveProvider for MockCveProvider {
         Ok(self.cve_database.get(cve_id).cloned())
     }
 
-    async fn search_cves_for_software(&self, software_name: &str, version: &str) -> IntelligenceResult<Vec<CveInfo>> {
+    async fn search_cves_for_software(
+        &self,
+        software_name: &str,
+        version: &str,
+    ) -> IntelligenceResult<Vec<CveInfo>> {
         let mut results = Vec::new();
 
         // Simple mock matching - in reality this would be more sophisticated
@@ -437,9 +484,9 @@ impl CveProvider for MockCveProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openre_core::result::{Finding, Category, Severity, Confidence, Evidence, EvidenceType};
-    use openre_core::ids::{FindingId, ScanId};
     use chrono::Utc;
+    use openre_core::ids::{FindingId, ScanId};
+    use openre_core::result::{Category, Confidence, Evidence, EvidenceType, Finding, Severity};
     use std::collections::HashMap;
 
     #[tokio::test]
@@ -449,7 +496,10 @@ mod tests {
 
         // Create a finding with Apache evidence
         let mut metadata = HashMap::new();
-        metadata.insert("technology".to_string(), serde_json::Value::String("Apache/2.4.50".to_string()));
+        metadata.insert(
+            "technology".to_string(),
+            serde_json::Value::String("Apache/2.4.50".to_string()),
+        );
 
         let evidence = Evidence {
             evidence_type: EvidenceType::HttpRequest,
@@ -501,7 +551,10 @@ mod tests {
             business_impact: None,
         };
 
-        let results = cve_intel.match_findings_against_cves(&[finding]).await.unwrap();
+        let results = cve_intel
+            .match_findings_against_cves(&[finding])
+            .await
+            .unwrap();
         assert_eq!(results.len(), 1);
 
         let (_, cves) = &results[0];

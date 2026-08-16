@@ -1,7 +1,7 @@
 //! Scan Context - Shared context passed to every plugin
 
 use crate::error::{ScannerError, ScannerResult};
-use crate::target::{Target, TargetMetadata, ScanConfig};
+use crate::target::{ScanConfig, Target, TargetMetadata};
 use openre_core::ids::{ScanId, TargetId};
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
@@ -54,7 +54,8 @@ impl RateLimiter {
             let elapsed = now.duration_since(*last_refill).as_secs_f64();
 
             // Refill tokens
-            *tokens = (*tokens + elapsed * self.max_per_second as f64).min(self.max_per_second as f64);
+            *tokens =
+                (*tokens + elapsed * self.max_per_second as f64).min(self.max_per_second as f64);
             *last_refill = now;
 
             if *tokens >= 1.0 {
@@ -92,7 +93,9 @@ impl SharedHttpClient {
 
         // Add cookies
         if !target_metadata.cookies.is_empty() {
-            let cookie_header = target_metadata.cookies.iter()
+            let cookie_header = target_metadata
+                .cookies
+                .iter()
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect::<Vec<_>>()
                 .join("; ");
@@ -103,11 +106,15 @@ impl SharedHttpClient {
         if let Some(auth) = &target_metadata.auth {
             match auth {
                 crate::target::AuthConfig::BearerToken { token } => {
-                    default_headers.insert("Authorization".to_string(), format!("Bearer {}", token));
+                    default_headers
+                        .insert("Authorization".to_string(), format!("Bearer {}", token));
                 }
                 crate::target::AuthConfig::Basic { username, password } => {
                     let credentials = base64::encode(format!("{}:{}", username, password));
-                    default_headers.insert("Authorization".to_string(), format!("Basic {}", credentials));
+                    default_headers.insert(
+                        "Authorization".to_string(),
+                        format!("Basic {}", credentials),
+                    );
                 }
                 crate::target::AuthConfig::ApiKey { header, key } => {
                     default_headers.insert(header.clone(), key.clone());
@@ -115,7 +122,8 @@ impl SharedHttpClient {
                 crate::target::AuthConfig::Cookie { name, value } => {
                     let cookie = format!("{}={}", name, value);
                     if let Some(existing) = default_headers.get("Cookie") {
-                        default_headers.insert("Cookie".to_string(), format!("{}; {}", existing, cookie));
+                        default_headers
+                            .insert("Cookie".to_string(), format!("{}; {}", existing, cookie));
                     } else {
                         default_headers.insert("Cookie".to_string(), cookie);
                     }
@@ -150,9 +158,10 @@ impl SharedHttpClient {
         let client = builder.build()?;
 
         // Create rate limiter if configured
-        let rate_limiter = target_metadata.rate_limit.as_ref().map(|rl| {
-            Arc::new(RateLimiter::new(rl.requests_per_second))
-        });
+        let rate_limiter = target_metadata
+            .rate_limit
+            .as_ref()
+            .map(|rl| Arc::new(RateLimiter::new(rl.requests_per_second)));
 
         Ok(Self {
             client,
@@ -265,7 +274,11 @@ impl AuthState {
     }
 
     /// Update tokens
-    pub fn update_tokens(&mut self, tokens: HashMap<String, String>, expiry: Option<chrono::DateTime<chrono::Utc>>) {
+    pub fn update_tokens(
+        &mut self,
+        tokens: HashMap<String, String>,
+        expiry: Option<chrono::DateTime<chrono::Utc>>,
+    ) {
         self.tokens = tokens;
         self.token_expiry = expiry;
         self.valid = true;
@@ -335,7 +348,9 @@ impl ScanCache {
 
     /// Set a value in cache
     pub fn set(&self, key: String, value: serde_json::Value, ttl: Option<Duration>) {
-        let expires_at = ttl.or(Some(self.default_ttl)).map(|ttl| chrono::Utc::now() + ttl);
+        let expires_at = ttl
+            .or(Some(self.default_ttl))
+            .map(|ttl| chrono::Utc::now() + ttl);
         self.cache.insert(key, CacheEntry { value, expires_at });
     }
 
@@ -492,7 +507,11 @@ impl ScanContext {
     /// Add discovered parameter
     pub async fn add_parameter(&self, endpoint_url: &str, parameter: DiscoveredParameter) {
         let mut metadata = self.metadata.write().await;
-        metadata.parameters.entry(endpoint_url.to_string()).or_default().push(parameter);
+        metadata
+            .parameters
+            .entry(endpoint_url.to_string())
+            .or_default()
+            .push(parameter);
     }
 
     /// Add technology fingerprint
@@ -547,7 +566,7 @@ mod tests {
 
         auth.update_tokens(
             [("access_token".to_string(), "token123".to_string())].into(),
-            Some(chrono::Utc::now() + chrono::Duration::hours(1))
+            Some(chrono::Utc::now() + chrono::Duration::hours(1)),
         );
         assert!(auth.valid);
         assert!(!auth.is_expired());
@@ -558,7 +577,11 @@ mod tests {
         let cache = ScanCache::new(Duration::from_secs(60));
         assert!(cache.is_empty());
 
-        cache.set("key1".to_string(), serde_json::json!({"test": "value"}), None);
+        cache.set(
+            "key1".to_string(),
+            serde_json::json!({"test": "value"}),
+            None,
+        );
         assert_eq!(cache.len(), 1);
 
         let value = cache.get("key1").unwrap();

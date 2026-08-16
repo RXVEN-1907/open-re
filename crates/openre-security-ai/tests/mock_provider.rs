@@ -1,9 +1,9 @@
 //! Mock FindingProvider for testing
 
-use openre_security_ai::{FindingProvider, ScanMetadata, AiResult};
-use openre_core::result::{Finding, FindingFilter};
-use openre_core::ids::{ScanId, FindingId};
 use async_trait::async_trait;
+use openre_core::ids::{FindingId, ScanId};
+use openre_core::result::{Finding, FindingFilter};
+use openre_security_ai::{AiResult, FindingProvider, ScanMetadata};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -25,7 +25,10 @@ impl MockFindingProvider {
 
     /// Add a finding to the mock provider
     pub async fn add_finding(&self, scan_id: ScanId, finding: Finding) {
-        self.findings.write().await.insert((scan_id, finding.id), finding);
+        self.findings
+            .write()
+            .await
+            .insert((scan_id, finding.id), finding);
     }
 
     /// Add scan metadata to the mock provider
@@ -36,26 +39,48 @@ impl MockFindingProvider {
 
 #[async_trait]
 impl FindingProvider for MockFindingProvider {
-    async fn get_finding(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<Option<Finding>> {
-        Ok(self.findings.read().await.get(&(scan_id, finding_id)).cloned())
+    async fn get_finding(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<Option<Finding>> {
+        Ok(self
+            .findings
+            .read()
+            .await
+            .get(&(scan_id, finding_id))
+            .cloned())
     }
 
-    async fn list_findings(&self, scan_id: ScanId, filter: Option<&FindingFilter>) -> AiResult<Vec<Finding>> {
-        let findings: Vec<Finding> = self.findings.read().await
+    async fn list_findings(
+        &self,
+        scan_id: ScanId,
+        filter: Option<&FindingFilter>,
+    ) -> AiResult<Vec<Finding>> {
+        let findings: Vec<Finding> = self
+            .findings
+            .read()
+            .await
             .iter()
             .filter(|((s_id, _), _)| *s_id == scan_id)
             .map(|(_, finding)| finding.clone())
             .collect();
 
         if let Some(filter) = filter {
-            Ok(findings.into_iter().filter(|f| matches_filter(f, filter)).collect())
+            Ok(findings
+                .into_iter()
+                .filter(|f| matches_filter(f, filter))
+                .collect())
         } else {
             Ok(findings)
         }
     }
 
     async fn get_scan_metadata(&self, scan_id: ScanId) -> AiResult<ScanMetadata> {
-        self.scans.read().await.get(&scan_id)
+        self.scans
+            .read()
+            .await
+            .get(&scan_id)
             .cloned()
             .ok_or(openre_security_ai::AiAnalystError::ScanNotFound(scan_id))
     }

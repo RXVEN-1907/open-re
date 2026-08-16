@@ -35,12 +35,6 @@ pub enum Error {
     #[error("Tracing error: {0}")]
     Tracing(#[from] opentelemetry::trace::TraceError),
 
-    #[error("SQLx error: {0}")]
-    Sqlx(#[from] sqlx::Error),
-
-    #[error("Redis error: {0}")]
-    Redis(#[from] redis::RedisError),
-
     #[error("Internal error: {0}")]
     Internal(#[from] anyhow::Error),
 
@@ -87,12 +81,10 @@ impl Error {
             Error::Config(_) => "CONFIG_ERROR",
             Error::InvalidInput(_) => "INVALID_INPUT",
             Error::Database(_) => "DATABASE_ERROR",
-            Error::Redis(_) => "REDIS_ERROR",
             Error::Serialization(_) => "SERIALIZATION_ERROR",
             Error::Io(_) => "IO_ERROR",
             Error::Notify(_) => "NOTIFY_ERROR",
             Error::Tracing(_) => "TRACING_ERROR",
-            Error::Sqlx(_) => "SQLX_ERROR",
             Error::Internal(_) => "INTERNAL_ERROR",
             Error::Cancelled => "CANCELLED",
             Error::Timeout(_) => "TIMEOUT",
@@ -112,7 +104,14 @@ impl Error {
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
-            Error::Database(_) | Error::Redis(_) | Error::Timeout(_) | Error::ServiceUnavailable(_) | Error::Notify(_) | Error::Tracing(_) | Error::Sqlx(_) | Error::Rusqlite(_) | Error::ConnectionError(_) | Error::ResourceExhausted(_)
+            Error::Database(_)
+                | Error::Timeout(_)
+                | Error::ServiceUnavailable(_)
+                | Error::Notify(_)
+                | Error::Tracing(_)
+                | Error::Rusqlite(_)
+                | Error::ConnectionError(_)
+                | Error::ResourceExhausted(_)
         )
     }
 
@@ -120,7 +119,15 @@ impl Error {
     pub fn is_user_facing(&self) -> bool {
         !matches!(
             self,
-            Error::Internal(_) | Error::Database(_) | Error::Redis(_) | Error::Serialization(_) | Error::Io(_) | Error::Notify(_) | Error::Tracing(_) | Error::Sqlx(_) | Error::Rusqlite(_) | Error::ConnectionError(_) | Error::ResourceExhausted(_)
+            Error::Internal(_)
+                | Error::Database(_)
+                | Error::Serialization(_)
+                | Error::Io(_)
+                | Error::Notify(_)
+                | Error::Tracing(_)
+                | Error::Rusqlite(_)
+                | Error::ConnectionError(_)
+                | Error::ResourceExhausted(_)
         )
     }
 }

@@ -4,33 +4,34 @@
 //! through a plugin architecture. It supports scanning local web applications,
 //! remote web applications, REST APIs, and future target types through extensible plugins.
 
-pub mod target;
-pub mod scan;
+pub mod api;
+pub mod context;
+pub mod error;
 pub mod plugin;
 pub mod result;
-pub mod context;
+pub mod scan;
 pub mod storage;
-pub mod api;
+pub mod target;
 pub mod tui;
-pub mod error;
 
+pub use context::{AuthState, ScanCache, ScanContext, SharedHttpClient};
 pub use error::{ScannerError, ScannerResult};
-pub use target::{Target, TargetType, TargetMetadata, ScanConfig};
-pub use scan::{ScanManager, ScanSession, ScanStatus, ScanProgress};
-pub use plugin::{PluginManager, PluginInfo, PluginCapability};
-pub use result::{Finding, FindingId, Severity, Confidence, Category, Evidence, Reference};
-pub use context::{ScanContext, SharedHttpClient, AuthState, ScanCache};
-pub use storage::{ScanStorage, MemoryScanStorage, SqliteScanStorage, ScanRecord, FindingRecord, PluginExecutionRecord};
+pub use plugin::{PluginCapability, PluginInfo, PluginManager};
+pub use result::{Category, Confidence, Evidence, Finding, FindingId, Reference, Severity};
+pub use scan::{ScanManager, ScanProgress, ScanSession, ScanStatus};
+pub use storage::{
+    FindingRecord, MemoryScanStorage, PluginExecutionRecord, ScanRecord, ScanStorage,
+    SqliteScanStorage,
+};
+pub use target::{ScanConfig, Target, TargetMetadata, TargetType};
 
 /// Re-export commonly used types
 pub mod prelude {
     pub use crate::{
-        ScannerError, ScannerResult,
-        Target, TargetType, TargetMetadata, ScanConfig,
-        ScanManager, ScanSession, ScanStatus, ScanProgress,
-        PluginManager, PluginInfo, PluginCapability,
-        Finding, FindingId, Severity, Confidence, Category, Evidence, Reference,
-        ScanContext, SharedHttpClient, AuthState, ScanCache,
-        ScanStorage, ScanRecord, FindingRecord, PluginExecutionRecord,
+        AuthState, Category, Confidence, Evidence, Finding, FindingId, FindingRecord,
+        PluginCapability, PluginExecutionRecord, PluginInfo, PluginManager, Reference, ScanCache,
+        ScanConfig, ScanContext, ScanManager, ScanProgress, ScanRecord, ScanSession, ScanStatus,
+        ScanStorage, ScannerError, ScannerResult, Severity, SharedHttpClient, Target,
+        TargetMetadata, TargetType,
     };
 }

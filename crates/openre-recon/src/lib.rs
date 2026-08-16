@@ -3,29 +3,31 @@
 //! This crate provides reconnaissance plugins that can be loaded by the scanner
 //! to perform target intelligence gathering before vulnerability testing.
 
+pub mod auth_discovery;
+pub mod cookie_analysis;
+pub mod endpoint_discovery;
+pub mod header_analysis;
 pub mod http_fingerprint;
+pub mod robots_sitemap;
 pub mod tech_detection;
 pub mod tls_analysis;
-pub mod robots_sitemap;
-pub mod endpoint_discovery;
-pub mod cookie_analysis;
-pub mod header_analysis;
-pub mod auth_discovery;
 
-use openre_plugins::sdk::{Plugin, CapabilityRequest, CapabilityResponse, Capability, AnalysisContext};
 use openre_core::error::OpenreResult as Result;
+use openre_plugins::sdk::{
+    AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // Re-export plugin types
+pub use auth_discovery::AuthDiscoveryPlugin;
+pub use cookie_analysis::CookieAnalysisPlugin;
+pub use endpoint_discovery::EndpointDiscoveryPlugin;
+pub use header_analysis::HeaderAnalysisPlugin;
 pub use http_fingerprint::HttpFingerprintPlugin;
+pub use robots_sitemap::RobotsSitemapPlugin;
 pub use tech_detection::TechDetectionPlugin;
 pub use tls_analysis::TlsAnalysisPlugin;
-pub use robots_sitemap::RobotsSitemapPlugin;
-pub use endpoint_discovery::EndpointDiscoveryPlugin;
-pub use cookie_analysis::CookieAnalysisPlugin;
-pub use header_analysis::HeaderAnalysisPlugin;
-pub use auth_discovery::AuthDiscoveryPlugin;
 
 /// Plugin configuration
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -54,12 +56,15 @@ impl ReconPluginConfig {
 pub trait ReconPlugin: Plugin {
     /// Get the reconnaissance type this plugin performs
     fn recon_type(&self) -> ReconType;
-    
+
     /// Get the target types this plugin supports
     fn supported_target_types(&self) -> Vec<openre_scanner::target::TargetType>;
-    
+
     /// Perform reconnaissance
-    async fn recon(&mut self, context: &openre_scanner::context::ScanContext) -> Result<Vec<openre_scanner::result::Finding>>;
+    async fn recon(
+        &mut self,
+        context: &openre_scanner::context::ScanContext,
+    ) -> Result<Vec<openre_scanner::result::Finding>>;
 }
 
 /// Types of reconnaissance

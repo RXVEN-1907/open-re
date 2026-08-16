@@ -1,17 +1,19 @@
 //! Configuration structures for open-re
 
-use figment::{Figment, providers::{Toml, Env, Json, Serialized, Format}};
+use figment::{
+    providers::{Env, Format, Json, Serialized, Toml},
+    Figment,
+};
 use once_cell::sync::Lazy;
 use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::RwLock;
-use std::time::Duration;
 
 static CONFIG: Lazy<RwLock<Option<Config>>> = Lazy::new(|| RwLock::new(None));
 
 /// Main configuration structure
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
@@ -40,7 +42,9 @@ impl Config {
             .merge(Env::prefixed("OPENRE_").split("__"))
             .merge(Json::file("config.local.json"));
 
-        let config: Config = figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        let config: Config = figment
+            .extract()
+            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
         config.validate()?;
         Ok(config)
     }
@@ -55,7 +59,12 @@ impl Config {
 
     /// Get global config (must be loaded first)
     pub fn global() -> Config {
-        CONFIG.read().unwrap().as_ref().expect("Config not loaded. Call Config::load_global() first.").clone()
+        CONFIG
+            .read()
+            .unwrap()
+            .as_ref()
+            .expect("Config not loaded. Call Config::load_global() first.")
+            .clone()
     }
 
     /// Validate configuration
@@ -71,23 +80,6 @@ impl Config {
         self.security.validate()?;
         self.auth.validate()?;
         Ok(())
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            database: DatabaseConfig::default(),
-            redis: RedisConfig::default(),
-            storage: StorageConfig::default(),
-            plugins: PluginConfig::default(),
-            ai: AiConfig::default(),
-            queue: QueueConfig::default(),
-            telemetry: TelemetryConfig::default(),
-            security: SecurityConfig::default(),
-            auth: AuthConfig::default(),
-        }
     }
 }
 
@@ -110,7 +102,9 @@ impl ServerConfig {
             return Err(openre_core::Error::Config("Server port cannot be 0".into()));
         }
         if self.workers == 0 {
-            return Err(openre_core::Error::Config("Server workers cannot be 0".into()));
+            return Err(openre_core::Error::Config(
+                "Server workers cannot be 0".into(),
+            ));
         }
         Ok(())
     }
@@ -125,7 +119,10 @@ impl Default for ServerConfig {
             request_timeout_secs: 30,
             body_limit_mb: 100,
             enable_cors: true,
-            cors_origins: vec!["http://localhost:3000".into(), "http://localhost:5173".into()],
+            cors_origins: vec![
+                "http://localhost:3000".into(),
+                "http://localhost:5173".into(),
+            ],
             tls: None,
         }
     }
@@ -156,10 +153,14 @@ pub struct DatabaseConfig {
 impl DatabaseConfig {
     fn validate(&self) -> Result<()> {
         if self.url.is_empty() {
-            return Err(openre_core::Error::Config("Database URL cannot be empty".into()));
+            return Err(openre_core::Error::Config(
+                "Database URL cannot be empty".into(),
+            ));
         }
         if self.max_connections == 0 {
-            return Err(openre_core::Error::Config("Max connections cannot be 0".into()));
+            return Err(openre_core::Error::Config(
+                "Max connections cannot be 0".into(),
+            ));
         }
         Ok(())
     }
@@ -192,7 +193,9 @@ pub struct RedisConfig {
 impl RedisConfig {
     fn validate(&self) -> Result<()> {
         if self.url.is_empty() {
-            return Err(openre_core::Error::Config("Redis URL cannot be empty".into()));
+            return Err(openre_core::Error::Config(
+                "Redis URL cannot be empty".into(),
+            ));
         }
         Ok(())
     }
@@ -240,7 +243,9 @@ pub struct S3Config {
 impl StorageConfig {
     fn validate(&self) -> Result<()> {
         if self.max_file_size_mb == 0 {
-            return Err(openre_core::Error::Config("Max file size cannot be 0".into()));
+            return Err(openre_core::Error::Config(
+                "Max file size cannot be 0".into(),
+            ));
         }
         Ok(())
     }
@@ -278,10 +283,40 @@ pub struct RemoteRegistryConfig {
     pub priority: i32,
 }
 
+/// Remote AI provider configuration
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RemoteConfig {
+    pub base_url: String,
+    pub api_key: Option<String>,
+    pub model: String,
+    pub timeout_secs: u64,
+    pub max_retries: u32,
+    pub supports_vision: bool,
+    pub max_context_tokens: usize,
+    pub embedding_model: String,
+}
+
+impl Default for RemoteConfig {
+    fn default() -> Self {
+        Self {
+            base_url: "".into(),
+            api_key: None,
+            model: "gpt-3.5-turbo".into(),
+            timeout_secs: 30,
+            max_retries: 3,
+            supports_vision: false,
+            max_context_tokens: 4096,
+            embedding_model: "text-embedding-ada-002".into(),
+        }
+    }
+}
+
 impl PluginConfig {
     fn validate(&self) -> Result<()> {
         if self.max_memory_mb == 0 {
-            return Err(openre_core::Error::Config("Plugin max memory cannot be 0".into()));
+            return Err(openre_core::Error::Config(
+                "Plugin max memory cannot be 0".into(),
+            ));
         }
         Ok(())
     }
@@ -341,15 +376,19 @@ pub struct CacheConfig {
 pub struct PrivacyConfig {
     pub redact_sensitive: bool,
     pub sensitive_patterns: Vec<String>,
+    pub custom_redaction_patterns: Vec<String>,
     pub max_context_tokens: usize,
     pub audit_log: bool,
     pub local_only_mode: bool,
+    pub allow_restricted_data: bool,
 }
 
 impl AiConfig {
     fn validate(&self) -> Result<()> {
         if self.onnx.threads == 0 {
-            return Err(openre_core::Error::Config("ONNX threads cannot be 0".into()));
+            return Err(openre_core::Error::Config(
+                "ONNX threads cannot be 0".into(),
+            ));
         }
         Ok(())
     }
@@ -386,9 +425,11 @@ impl Default for AiConfig {
                     r"[A-Za-z0-9+/]{40,}".into(),
                     r"[0-9a-f]{32,}".into(),
                 ],
+                custom_redaction_patterns: vec![],
                 max_context_tokens: 8192,
                 audit_log: true,
                 local_only_mode: false,
+                allow_restricted_data: false,
             },
         }
     }
@@ -464,7 +505,9 @@ pub struct SchedulerConfig {
 impl QueueConfig {
     fn validate(&self) -> Result<()> {
         if self.worker.min_workers > self.worker.max_workers {
-            return Err(openre_core::Error::Config("Min workers cannot exceed max workers".into()));
+            return Err(openre_core::Error::Config(
+                "Min workers cannot exceed max workers".into(),
+            ));
         }
         Ok(())
     }
@@ -584,7 +627,9 @@ pub struct AuditConfig {
 impl TelemetryConfig {
     fn validate(&self) -> Result<()> {
         if self.metrics.enabled && self.metrics.port == 0 {
-            return Err(openre_core::Error::Config("Metrics port cannot be 0".into()));
+            return Err(openre_core::Error::Config(
+                "Metrics port cannot be 0".into(),
+            ));
         }
         Ok(())
     }
@@ -737,7 +782,9 @@ pub struct SessionConfig {
 impl AuthConfig {
     fn validate(&self) -> Result<()> {
         if self.jwt.algorithm != "RS256" {
-            return Err(openre_core::Error::Config("JWT algorithm must be RS256".into()));
+            return Err(openre_core::Error::Config(
+                "JWT algorithm must be RS256".into(),
+            ));
         }
         Ok(())
     }
@@ -750,7 +797,7 @@ impl Default for AuthConfig {
                 algorithm: "RS256".into(),
                 private_key_path: PathBuf::from("./keys/private.pem"),
                 public_key_path: PathBuf::from("./keys/public.pem"),
-                access_token_ttl_secs: 86400, // 24 hours
+                access_token_ttl_secs: 86400,   // 24 hours
                 refresh_token_ttl_secs: 604800, // 7 days
                 issuer: "openre".into(),
                 audience: "openre-api".into(),

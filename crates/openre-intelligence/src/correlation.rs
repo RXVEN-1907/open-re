@@ -1,8 +1,8 @@
 //! Enhanced finding correlation engine
 
-use crate::{types::*, error::IntelligenceError, IntelligenceResult};
-use openre_core::result::{Finding, Category, Severity};
+use crate::{error::IntelligenceError, types::*, IntelligenceResult};
 use openre_core::ids::FindingId;
+use openre_core::result::{Category, Finding, Severity};
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
@@ -60,7 +60,10 @@ impl CorrelationEngine {
     }
 
     /// Correlate findings to identify relationships and enhance risk confidence
-    pub fn correlate_findings(&self, findings: &[Finding]) -> IntelligenceResult<Vec<EnhancedCorrelation>> {
+    pub fn correlate_findings(
+        &self,
+        findings: &[Finding],
+    ) -> IntelligenceResult<Vec<EnhancedCorrelation>> {
         let mut correlations = Vec::new();
 
         // Apply different correlation strategies based on configuration
@@ -86,20 +89,26 @@ impl CorrelationEngine {
     }
 
     /// Correlate missing CSP with reflected XSS findings
-    fn correlate_csp_xss(&self, findings: &[Finding]) -> IntelligenceResult<Vec<EnhancedCorrelation>> {
+    fn correlate_csp_xss(
+        &self,
+        findings: &[Finding],
+    ) -> IntelligenceResult<Vec<EnhancedCorrelation>> {
         let mut correlations = Vec::new();
 
         // Find CSP missing findings
-        let csp_findings: Vec<&Finding> = findings.iter()
-            .filter(|f| f.category == Category::SecurityMisconfiguration
-                && f.title.to_lowercase().contains("csp")
-                && f.title.to_lowercase().contains("missing"))
+        let csp_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| {
+                f.category == Category::SecurityMisconfiguration
+                    && f.title.to_lowercase().contains("csp")
+                    && f.title.to_lowercase().contains("missing")
+            })
             .collect();
 
         // Find reflected XSS findings
-        let xss_findings: Vec<&Finding> = findings.iter()
-            .filter(|f| f.category == Category::Xss
-                && f.title.to_lowercase().contains("reflected"))
+        let xss_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| f.category == Category::Xss && f.title.to_lowercase().contains("reflected"))
             .collect();
 
         // Create correlations between CSP and XSS findings on the same target
@@ -135,22 +144,31 @@ impl CorrelationEngine {
     }
 
     /// Correlate directory listing with Git metadata exposure
-    fn correlate_directory_git(&self, findings: &[Finding]) -> IntelligenceResult<Vec<EnhancedCorrelation>> {
+    fn correlate_directory_git(
+        &self,
+        findings: &[Finding],
+    ) -> IntelligenceResult<Vec<EnhancedCorrelation>> {
         let mut correlations = Vec::new();
 
         // Find directory listing findings
-        let dir_findings: Vec<&Finding> = findings.iter()
-            .filter(|f| (f.category == Category::InformationDisclosure
-                && f.title.to_lowercase().contains("directory"))
-                || (f.category == Category::Configuration
-                && f.title.to_lowercase().contains("listing")))
+        let dir_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| {
+                (f.category == Category::InformationDisclosure
+                    && f.title.to_lowercase().contains("directory"))
+                    || (f.category == Category::Configuration
+                        && f.title.to_lowercase().contains("listing"))
+            })
             .collect();
 
         // Find Git metadata exposure findings
-        let git_findings: Vec<&Finding> = findings.iter()
-            .filter(|f| f.category == Category::InformationDisclosure
-                && (f.title.to_lowercase().contains("git")
-                || f.description.to_lowercase().contains(".git")))
+        let git_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| {
+                f.category == Category::InformationDisclosure
+                    && (f.title.to_lowercase().contains("git")
+                        || f.description.to_lowercase().contains(".git"))
+            })
             .collect();
 
         // Create correlations between directory listing and Git metadata on the same target
@@ -186,13 +204,19 @@ impl CorrelationEngine {
     }
 
     /// Correlate findings that strengthen or weaken each other
-    fn correlate_strengthening_weakening(&self, findings: &[Finding]) -> IntelligenceResult<Vec<EnhancedCorrelation>> {
+    fn correlate_strengthening_weakening(
+        &self,
+        findings: &[Finding],
+    ) -> IntelligenceResult<Vec<EnhancedCorrelation>> {
         let mut correlations = Vec::new();
 
         // Group findings by target for more efficient correlation
         let mut findings_by_target: HashMap<&str, Vec<&Finding>> = HashMap::new();
         for finding in findings {
-            findings_by_target.entry(&finding.target).or_default().push(finding);
+            findings_by_target
+                .entry(&finding.target)
+                .or_default()
+                .push(finding);
         }
 
         // For each target, look for strengthening/weakening patterns
@@ -200,13 +224,17 @@ impl CorrelationEngine {
             // Look for multiple findings of the same category that might strengthen each other
             let mut category_count: HashMap<Category, Vec<&Finding>> = HashMap::new();
             for finding in &target_findings {
-                category_count.entry(finding.category).or_default().push(finding);
+                category_count
+                    .entry(finding.category)
+                    .or_default()
+                    .push(finding);
             }
 
             // Create strengthening correlations for categories with multiple findings
             for (category, category_findings) in category_count {
                 if category_findings.len() > 1 {
-                    let finding_ids: Vec<FindingId> = category_findings.iter().map(|f| f.id).collect();
+                    let finding_ids: Vec<FindingId> =
+                        category_findings.iter().map(|f| f.id).collect();
 
                     // Calculate average confidence based on number of findings
                     let confidence = (0.5 + (category_findings.len() as f32 * 0.1)).min(0.9);
@@ -271,7 +299,10 @@ impl CorrelationEngine {
     }
 
     /// Limit the number of correlations per finding to prevent explosion
-    fn limit_correlations_per_finding(&self, correlations: &mut Vec<EnhancedCorrelation>) -> IntelligenceResult<()> {
+    fn limit_correlations_per_finding(
+        &self,
+        correlations: &mut Vec<EnhancedCorrelation>,
+    ) -> IntelligenceResult<()> {
         if self.config.max_correlations_per_finding == 0 {
             return Ok(());
         }
@@ -315,12 +346,17 @@ impl CorrelationEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openre_core::result::{Finding, Category, Severity, Confidence};
-    use openre_core::ids::{FindingId, ScanId};
     use chrono::Utc;
+    use openre_core::ids::{FindingId, ScanId};
+    use openre_core::result::{Category, Confidence, Finding, Severity};
     use uuid::Uuid;
 
-    fn create_test_finding(title: &str, category: Category, target: &str, risk_score: Option<u8>) -> Finding {
+    fn create_test_finding(
+        title: &str,
+        category: Category,
+        target: &str,
+        risk_score: Option<u8>,
+    ) -> Finding {
         Finding {
             id: FindingId::new_v4(),
             title: title.to_string(),
@@ -363,14 +399,14 @@ mod tests {
             "Missing Content-Security-Policy header",
             Category::SecurityMisconfiguration,
             "https://example.com",
-            Some(30)
+            Some(30),
         );
 
         let xss_finding = create_test_finding(
             "Reflected XSS in search parameter",
             Category::Xss,
             "https://example.com",
-            Some(70)
+            Some(70),
         );
 
         let findings = vec![csp_finding.clone(), xss_finding.clone()];
@@ -393,14 +429,14 @@ mod tests {
             "Directory listing enabled",
             Category::Configuration,
             "https://example.com",
-            Some(40)
+            Some(40),
         );
 
         let git_finding = create_test_finding(
             "Exposed .git directory",
             Category::InformationDisclosure,
             "https://example.com",
-            Some(75)
+            Some(75),
         );
 
         let findings = vec![dir_finding.clone(), git_finding.clone()];
@@ -408,7 +444,10 @@ mod tests {
 
         assert_eq!(correlations.len(), 1);
         let correlation = &correlations[0];
-        assert_eq!(correlation.correlation_type, CorrelationType::InfoDisclosureChain);
+        assert_eq!(
+            correlation.correlation_type,
+            CorrelationType::InfoDisclosureChain
+        );
         assert_eq!(correlation.finding_ids.len(), 2);
         assert!(correlation.finding_ids.contains(&dir_finding.id));
         assert!(correlation.finding_ids.contains(&git_finding.id));
@@ -423,14 +462,14 @@ mod tests {
             "SQL Injection in login form",
             Category::Injection,
             "https://example.com",
-            Some(80)
+            Some(80),
         );
 
         let finding2 = create_test_finding(
             "SQL Injection in search parameter",
             Category::Injection,
             "https://example.com",
-            Some(75)
+            Some(75),
         );
 
         let findings = vec![finding1.clone(), finding2.clone()];

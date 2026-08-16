@@ -1,11 +1,11 @@
 //! Plugin registry for open-re
 
-use crate::{manifest::*, capability::*};
+use crate::{capability::*, manifest::*};
+use notify::Watcher;
 use openre_config::{PluginConfig as ConfigPluginConfig, RemoteRegistryConfig};
 use openre_core::error::OpenreResult as Result;
-use openre_core::ids::{PluginId, PluginType, Capability};
+use openre_core::ids::{Capability, PluginId, PluginType};
 use openre_storage::GlobalStore;
-use notify::Watcher;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -69,7 +69,10 @@ impl PluginRegistry {
     async fn scan_local(&self) -> Result<()> {
         let local_dir = &self.config.local_plugin_dir;
         if !local_dir.exists() {
-            info!("Local plugin directory does not exist: {}", local_dir.display());
+            info!(
+                "Local plugin directory does not exist: {}",
+                local_dir.display()
+            );
             return Ok(());
         }
 
@@ -109,7 +112,12 @@ impl PluginRegistry {
         let (tx, mut rx) = tokio::sync::mpsc::channel(32);
         let watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
             if let Ok(event) = res {
-                if matches!(event.kind, notify::EventKind::Modify(_) | notify::EventKind::Create(_) | notify::EventKind::Remove(_)) {
+                if matches!(
+                    event.kind,
+                    notify::EventKind::Modify(_)
+                        | notify::EventKind::Create(_)
+                        | notify::EventKind::Remove(_)
+                ) {
                     let _ = tx.try_send(event);
                 }
             }
@@ -160,7 +168,13 @@ impl PluginRegistry {
         let id = metadata.id;
         let plugin_type = metadata.manifest.plugin.r#type;
         let capabilities = metadata.manifest.plugin.capabilities.clone();
-        let tags = metadata.manifest.plugin.capabilities.iter().map(|c| format!("{:?}", c)).collect::<Vec<_>>();
+        let tags = metadata
+            .manifest
+            .plugin
+            .capabilities
+            .iter()
+            .map(|c| format!("{:?}", c))
+            .collect::<Vec<_>>();
 
         index.by_id.insert(id, metadata);
         index.by_type.entry(plugin_type).or_default().push(id);
@@ -187,7 +201,10 @@ impl PluginRegistry {
         // Persist to database
         self.persist(&metadata).await?;
 
-        info!("Registered plugin: {} v{}", metadata.manifest.name, metadata.manifest.version);
+        info!(
+            "Registered plugin: {} v{}",
+            metadata.manifest.name, metadata.manifest.version
+        );
         Ok(())
     }
 
@@ -216,7 +233,9 @@ impl PluginRegistry {
     /// Get plugin manifest by ID
     pub async fn get_manifest(&self, plugin_id: &PluginId) -> Result<PluginManifest> {
         let index = self.index.read().await;
-        index.by_id.get(plugin_id)
+        index
+            .by_id
+            .get(plugin_id)
             .map(|m| m.manifest.clone())
             .ok_or_else(|| openre_core::Error::NotFound(format!("Plugin not found: {}", plugin_id)))
     }
@@ -224,7 +243,9 @@ impl PluginRegistry {
     /// Get plugin metadata by ID
     pub async fn get_metadata(&self, plugin_id: &PluginId) -> Result<PluginMetadata> {
         let index = self.index.read().await;
-        index.by_id.get(plugin_id)
+        index
+            .by_id
+            .get(plugin_id)
             .cloned()
             .ok_or_else(|| openre_core::Error::NotFound(format!("Plugin not found: {}", plugin_id)))
     }
@@ -232,27 +253,47 @@ impl PluginRegistry {
     /// Find plugins by capability
     pub async fn find_by_capability(&self, capability: Capability) -> Vec<PluginMetadata> {
         let index = self.index.read().await;
-        index.by_capability.get(&capability)
-            .map(|ids| ids.iter().filter_map(|id| index.by_id.get(id)).cloned().collect())
+        index
+            .by_capability
+            .get(&capability)
+            .map(|ids| {
+                ids.iter()
+                    .filter_map(|id| index.by_id.get(id))
+                    .cloned()
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
     /// Find plugins by type
     pub async fn find_by_type(&self, plugin_type: PluginType) -> Vec<PluginMetadata> {
         let index = self.index.read().await;
-        index.by_type.get(&plugin_type)
-            .map(|ids| ids.iter().filter_map(|id| index.by_id.get(id)).cloned().collect())
+        index
+            .by_type
+            .get(&plugin_type)
+            .map(|ids| {
+                ids.iter()
+                    .filter_map(|id| index.by_id.get(id))
+                    .cloned()
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
     /// Search plugins by query
     pub async fn search(&self, query: &str) -> Vec<PluginMetadata> {
         let index = self.index.read().await;
-        index.by_id.values()
+        index
+            .by_id
+            .values()
             .filter(|m| {
-                m.manifest.name.contains(query) ||
-                m.manifest.description.contains(query) ||
-                m.manifest.plugin.capabilities.iter().any(|c| format!("{:?}", c).contains(query))
+                m.manifest.name.contains(query)
+                    || m.manifest.description.contains(query)
+                    || m.manifest
+                        .plugin
+                        .capabilities
+                        .iter()
+                        .any(|c| format!("{:?}", c).contains(query))
             })
             .cloned()
             .collect()
@@ -266,12 +307,17 @@ impl PluginRegistry {
 
     /// Check version compatibility
     fn check_version_compatibility(&self, manifest: &PluginManifest) -> Result<()> {
-        let min_version = semver::Version::parse(&manifest.plugin.min_core_version)
-            .map_err(|e| openre_core::Error::Validation(format!("Invalid min_core_version: {}", e)))?;
-        let max_version = semver::Version::parse(&manifest.plugin.max_core_version)
-            .map_err(|e| openre_core::Error::Validation(format!("Invalid max_core_version: {}", e)))?;
-        let current_version = semver::Version::parse(env!("CARGO_PKG_VERSION"))
-            .map_err(|e| openre_core::Error::Validation(format!("Invalid current version: {}", e)))?;
+        let min_version =
+            semver::Version::parse(&manifest.plugin.min_core_version).map_err(|e| {
+                openre_core::Error::Validation(format!("Invalid min_core_version: {}", e))
+            })?;
+        let max_version =
+            semver::Version::parse(&manifest.plugin.max_core_version).map_err(|e| {
+                openre_core::Error::Validation(format!("Invalid max_core_version: {}", e))
+            })?;
+        let current_version = semver::Version::parse(env!("CARGO_PKG_VERSION")).map_err(|e| {
+            openre_core::Error::Validation(format!("Invalid current version: {}", e))
+        })?;
 
         if current_version < min_version || current_version >= max_version {
             return Err(openre_core::Error::Validation(format!(
@@ -289,7 +335,7 @@ impl PluginRegistry {
         let source_str = format!("{:?}", metadata.source).to_lowercase();
         let status_str = format!("{:?}", metadata.status).to_lowercase();
         let signature = metadata.manifest.dependencies.get("signature").cloned();
-        
+
         sqlx::query(
             r#"
             INSERT INTO plugins (id, name, version, type, description, author, license, repository, manifest, source, source_url, signature, status, created_at, updated_at)
@@ -337,7 +383,7 @@ impl PluginRegistry {
     pub async fn hot_reload(&self, plugin_id: &PluginId) -> Result<()> {
         // Get the plugin metadata
         let metadata = self.get_metadata(plugin_id).await?;
-        
+
         // Re-scan the plugin directory
         if let PluginSource::Local = metadata.source {
             if let Ok(manifest) = PluginManifest::from_dir(&metadata.path) {
@@ -365,7 +411,7 @@ impl PluginRegistry {
                 Self::add_to_index(&mut index, new_metadata);
             }
         }
-        
+
         Ok(())
     }
 }

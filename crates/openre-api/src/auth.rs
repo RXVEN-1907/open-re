@@ -1,31 +1,31 @@
 //! Authentication for open-re API
 
-use crate::{AppState, ApiError, ApiResult};
+use crate::{ApiError, ApiResult, AppState};
 use axum::{
-    extract::{State, Extension},
+    extract::{Extension, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     Json,
 };
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation, Algorithm};
+use bcrypt::{hash, verify, DEFAULT_COST};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use uuid::Uuid;
-use bcrypt::{hash, verify, DEFAULT_COST};
 use tracing::{debug, warn};
+use uuid::Uuid;
 
 /// JWT claims
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,        // User ID
+    pub sub: String, // User ID
     pub email: String,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
     pub project_id: Option<String>,
-    pub exp: usize,         // Expiration time
-    pub iat: usize,         // Issued at
-    pub jti: String,        // JWT ID
+    pub exp: usize,  // Expiration time
+    pub iat: usize,  // Issued at
+    pub jti: String, // JWT ID
     pub token_type: TokenType,
 }
 
@@ -79,7 +79,7 @@ impl AuthService {
         validation.set_issuer(&[config.jwt_issuer.clone()]);
         validation.set_audience(&[config.jwt_audience.clone()]);
         validation.validate_exp = true;
-        
+
         Self {
             config,
             encoding_key,
@@ -97,9 +97,12 @@ impl AuthService {
         permissions: Vec<String>,
         project_id: Option<String>,
     ) -> ApiResult<String> {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as usize;
         let exp = now + self.config.access_token_ttl_seconds as usize;
-        
+
         let claims = Claims {
             sub: user_id.to_string(),
             email: email.to_string(),
@@ -111,16 +114,19 @@ impl AuthService {
             jti: Uuid::new_v4().to_string(),
             token_type: TokenType::Access,
         };
-        
+
         encode(&Header::default(), &claims, &self.encoding_key)
             .map_err(|e| ApiError::Internal(format!("Failed to create token: {}", e)))
     }
 
     /// Create refresh token
     pub fn create_refresh_token(&self, user_id: &str) -> ApiResult<String> {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as usize;
         let exp = now + self.config.refresh_token_ttl_seconds as usize;
-        
+
         let claims = Claims {
             sub: user_id.to_string(),
             email: String::new(),
@@ -132,20 +138,28 @@ impl AuthService {
             jti: Uuid::new_v4().to_string(),
             token_type: TokenType::Refresh,
         };
-        
+
         encode(&Header::default(), &claims, &self.encoding_key)
             .map_err(|e| ApiError::Internal(format!("Failed to create refresh token: {}", e)))
     }
 
     /// Create API key
-    pub fn create_api_key(&self, user_id: &str, name: &str, scopes: Vec<String>) -> ApiResult<String> {
+    pub fn create_api_key(
+        &self,
+        user_id: &str,
+        name: &str,
+        scopes: Vec<String>,
+    ) -> ApiResult<String> {
         let key_id = Uuid::new_v4().to_string();
         let secret = Uuid::new_v4().to_string().replace("-", "");
         let api_key = format!("{}{}_{}", self.config.api_key_prefix, key_id, secret);
-        
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize;
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as usize;
         let exp = now + 365 * 24 * 60 * 60; // 1 year
-        
+
         let claims = Claims {
             sub: user_id.to_string(),
             email: String::new(),
@@ -157,10 +171,10 @@ impl AuthService {
             jti: key_id,
             token_type: TokenType::ApiKey,
         };
-        
+
         // Store the hashed secret for verification
         // In a real implementation, store in database
-        
+
         encode(&Header::default(), &claims, &self.encoding_key)
             .map_err(|e| ApiError::Internal(format!("Failed to create API key: {}", e)))
     }
@@ -169,40 +183,40 @@ impl AuthService {
     pub fn validate_token(&self, token: &str) -> ApiResult<Claims> {
         let token_data = decode::<Claims>(token, &self.decoding_key, &self.validation)
             .map_err(|e| ApiError::Unauthorized(format!("Invalid token: {}", e)))?;
-        
+
         Ok(token_data.claims)
     }
 
     /// Validate access token
     pub fn validate_access_token(&self, token: &str) -> ApiResult<Claims> {
         let claims = self.validate_token(token)?;
-        
+
         if claims.token_type != TokenType::Access {
             return Err(ApiError::Unauthorized("Invalid token type".into()));
         }
-        
+
         Ok(claims)
     }
 
     /// Validate refresh token
     pub fn validate_refresh_token(&self, token: &str) -> ApiResult<Claims> {
         let claims = self.validate_token(token)?;
-        
+
         if claims.token_type != TokenType::Refresh {
             return Err(ApiError::Unauthorized("Invalid token type".into()));
         }
-        
+
         Ok(claims)
     }
 
     /// Validate API key
     pub fn validate_api_key(&self, token: &str) -> ApiResult<Claims> {
         let claims = self.validate_token(token)?;
-        
+
         if claims.token_type != TokenType::ApiKey {
             return Err(ApiError::Unauthorized("Invalid token type".into()));
         }
-        
+
         Ok(claims)
     }
 
@@ -220,7 +234,8 @@ impl AuthService {
 
     /// Extract token from Authorization header
     pub fn extract_token(headers: &HeaderMap) -> Option<String> {
-        headers.get("authorization")
+        headers
+            .get("authorization")
             .and_then(|h| h.to_str().ok())
             .and_then(|s| s.strip_prefix("Bearer "))
             .map(|s| s.to_string())
@@ -228,7 +243,8 @@ impl AuthService {
 
     /// Extract API key from header
     pub fn extract_api_key(headers: &HeaderMap) -> Option<String> {
-        headers.get("x-api-key")
+        headers
+            .get("x-api-key")
             .and_then(|h| h.to_str().ok())
             .map(|s| s.to_string())
     }
@@ -247,14 +263,14 @@ pub async fn auth_middleware(
         request.extensions_mut().insert(claims);
         return Ok(next.run(request).await);
     }
-    
+
     // Try API key
     if let Some(api_key) = AuthService::extract_api_key(&headers) {
         let claims = state.auth_service.validate_api_key(&api_key)?;
         request.extensions_mut().insert(claims);
         return Ok(next.run(request).await);
     }
-    
+
     // Try cookie
     if let Some(cookie_header) = headers.get("cookie") {
         if let Ok(cookie_str) = cookie_header.to_str() {
@@ -268,7 +284,7 @@ pub async fn auth_middleware(
             }
         }
     }
-    
+
     Err(ApiError::Unauthorized("Authentication required".into()))
 }
 
@@ -288,7 +304,7 @@ pub async fn optional_auth_middleware(
             request.extensions_mut().insert(claims);
         }
     }
-    
+
     next.run(request).await
 }
 
@@ -299,7 +315,10 @@ pub fn require_permission(permission: &str) -> impl Fn(Extension<Claims>) -> Api
         if claims.permissions.contains(&perm) || claims.roles.contains(&"admin".to_string()) {
             Ok(())
         } else {
-            Err(ApiError::Forbidden(format!("Permission required: {}", perm)))
+            Err(ApiError::Forbidden(format!(
+                "Permission required: {}",
+                perm
+            )))
         }
     }
 }

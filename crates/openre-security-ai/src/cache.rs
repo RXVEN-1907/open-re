@@ -1,12 +1,12 @@
 //! Analysis cache for caching AI analysis results with fingerprint-based invalidation
 
-use crate::{AiResult, AiAnalystError};
-use openre_core::ids::{ScanId, FindingId};
+use crate::{AiAnalystError, AiResult};
+use dashmap::DashMap;
+use openre_core::ids::{FindingId, ScanId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use dashmap::DashMap;
-use std::time::{SystemTime, Duration};
+use std::time::{Duration, SystemTime};
 
 /// Task type for caching
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -103,7 +103,12 @@ impl AnalysisCache {
     }
 
     /// Store a new result in cache
-    pub async fn put(&self, key: AnalysisKey, data: String, model_info: Option<String>) -> AiResult<()> {
+    pub async fn put(
+        &self,
+        key: AnalysisKey,
+        data: String,
+        model_info: Option<String>,
+    ) -> AiResult<()> {
         // Check if we need to evict entries
         if self.entries.len() >= self.max_entries {
             self.evict_lru();
@@ -122,7 +127,8 @@ impl AnalysisCache {
 
     /// Invalidate cache entries for a specific finding
     pub async fn invalidate_finding(&self, scan_id: ScanId, finding_id: FindingId) {
-        let keys_to_remove: Vec<AnalysisKey> = self.entries
+        let keys_to_remove: Vec<AnalysisKey> = self
+            .entries
             .iter()
             .filter(|entry| {
                 let key = entry.key();
@@ -138,7 +144,8 @@ impl AnalysisCache {
 
     /// Invalidate all cache entries for a specific scan
     pub async fn invalidate_scan(&self, scan_id: ScanId) {
-        let keys_to_remove: Vec<AnalysisKey> = self.entries
+        let keys_to_remove: Vec<AnalysisKey> = self
+            .entries
             .iter()
             .filter(|entry| entry.key().scan_id == scan_id)
             .map(|entry| entry.key().clone())
@@ -152,9 +159,11 @@ impl AnalysisCache {
     /// Evict least recently used entries when cache is full
     fn evict_lru(&self) {
         // Simple approach: remove oldest entries
-        let mut entries: Vec<_> = self.entries.iter().map(|entry| {
-            (entry.key().clone(), entry.cached_at)
-        }).collect();
+        let mut entries: Vec<_> = self
+            .entries
+            .iter()
+            .map(|entry| (entry.key().clone(), entry.cached_at))
+            .collect();
 
         // Sort by timestamp (oldest first)
         entries.sort_by_key(|(_, timestamp)| *timestamp);
@@ -192,14 +201,12 @@ impl AnalysisCache {
 
     /// Get entry metadata without the data
     pub async fn get_metadata(&self, key: &AnalysisKey) -> Option<CacheEntryMetadata> {
-        self.entries.get(key).map(|entry| {
-            CacheEntryMetadata {
-                cached_at: entry.cached_at,
-                ttl: entry.ttl,
-                remaining_ttl: entry.remaining_ttl(),
-                is_valid: entry.is_valid(),
-                model_info: entry.model_info.clone(),
-            }
+        self.entries.get(key).map(|entry| CacheEntryMetadata {
+            cached_at: entry.cached_at,
+            ttl: entry.ttl,
+            remaining_ttl: entry.remaining_ttl(),
+            is_valid: entry.is_valid(),
+            model_info: entry.model_info.clone(),
         })
     }
 }

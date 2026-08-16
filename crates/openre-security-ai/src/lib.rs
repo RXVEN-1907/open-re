@@ -4,37 +4,28 @@
 //! explains, prioritizes, and assists with security scan findings. It never invents
 //! findings — it only augments the deterministic results from the scanner engine.
 
-pub mod errors;
-pub mod types;
-pub mod finding_provider;
-pub mod scan_storage_provider;
-pub mod context;
-pub mod prompts;
-pub mod cache;
-pub mod safety;
 pub mod analyst;
+pub mod cache;
+pub mod context;
+pub mod errors;
+pub mod finding_provider;
+pub mod prompts;
+pub mod safety;
+pub mod scan_storage_provider;
+pub mod types;
 
+pub use analyst::SecurityAnalyst;
 pub use errors::{AiAnalystError, AiResult};
-pub use types::*;
 pub use finding_provider::{FindingProvider, ScanMetadata};
 pub use scan_storage_provider::ScanStorageFindingProvider;
-pub use analyst::SecurityAnalyst;
+pub use types::*;
 
 /// Re-export commonly used types
 pub mod prelude {
     pub use crate::{
-        SecurityAnalyst,
-        FindingProvider,
-        ScanMetadata,
-        AiResult,
-        AiAnalystError,
-        FindingExplanation,
-        RemediationPlan,
-        CorrelationReport,
-        PrioritizedFindings,
-        ExecutiveSummary,
-        QueryResponse,
-        ScanComparison,
+        AiAnalystError, AiResult, CorrelationReport, ExecutiveSummary, FindingExplanation,
+        FindingProvider, PrioritizedFindings, QueryResponse, RemediationPlan, ScanComparison,
+        ScanMetadata, SecurityAnalyst,
     };
 }
 

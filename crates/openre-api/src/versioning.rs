@@ -7,8 +7,8 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use std::sync::Arc;
 use std::str::FromStr;
+use std::sync::Arc;
 use tracing::{debug, warn};
 
 /// API version
@@ -46,7 +46,10 @@ impl FromStr for ApiVersion {
         match s.to_lowercase().as_str() {
             "v1" | "1" => Ok(ApiVersion::V1),
             "v2" | "2" => Ok(ApiVersion::V2),
-            _ => Err(ApiError::BadRequest(format!("Unsupported API version: {}", s))),
+            _ => Err(ApiError::BadRequest(format!(
+                "Unsupported API version: {}",
+                s
+            ))),
         }
     }
 }
@@ -68,7 +71,10 @@ where
 {
     type Rejection = ApiError;
 
-    async fn from_request_parts(parts: &mut axum::http::request::Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
         // Check Accept header for version
         if let Some(accept) = parts.headers.get(header::ACCEPT) {
             if let Ok(accept_str) = accept.to_str() {
@@ -118,12 +124,9 @@ fn parse_accept_version(accept: &str) -> Option<ApiVersion> {
 }
 
 /// Version middleware - adds version headers to responses
-pub async fn version_middleware(
-    request: Request,
-    next: Next,
-) -> Response {
+pub async fn version_middleware(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
-    
+
     // Add API version headers
     response.headers_mut().insert(
         "x-api-version",
@@ -133,21 +136,17 @@ pub async fn version_middleware(
         "x-api-supported-versions",
         HeaderValue::from_static("v1, v2"),
     );
-    response.headers_mut().insert(
-        "x-api-deprecated-versions",
-        HeaderValue::from_static(""),
-    );
-    
+    response
+        .headers_mut()
+        .insert("x-api-deprecated-versions", HeaderValue::from_static(""));
+
     response
 }
 
 /// Version negotiation middleware
-pub async fn version_negotiation(
-    request: Request,
-    next: Next,
-) -> Result<Response, ApiError> {
+pub async fn version_negotiation(request: Request, next: Next) -> Result<Response, ApiError> {
     let version = extract_version(&request)?;
-    
+
     // Check if version is supported
     if !is_version_supported(version) {
         return Err(ApiError::NotAcceptable(format!(
@@ -155,17 +154,17 @@ pub async fn version_negotiation(
             version
         )));
     }
-    
+
     // Check if version is deprecated
     if is_version_deprecated(version) {
         warn!("Deprecated API version {} requested", version);
         // Could add deprecation warning header
     }
-    
+
     // Add version to request extensions for handlers
     let mut request = request;
     request.extensions_mut().insert(version);
-    
+
     Ok(next.run(request).await)
 }
 

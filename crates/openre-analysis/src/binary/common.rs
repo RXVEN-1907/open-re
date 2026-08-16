@@ -1,11 +1,11 @@
 //! Common types for binary analysis
 
-use openre_core::ids::*;
+use chrono::{DateTime, Utc};
 use openre_core::error::OpenreResult as Result;
+use openre_core::ids::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use chrono::{DateTime, Utc};
 
 /// Binary file format
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -23,7 +23,9 @@ impl BinaryFormat {
             BinaryFormat::Elf
         } else if bytes.len() >= 2 && &bytes[0..2] == b"MZ" {
             BinaryFormat::Pe
-        } else if bytes.len() >= 4 && (&bytes[0..4] == b"\xfe\xed\xfa\xce" || &bytes[0..4] == b"\xce\xfa\xed\xfe") {
+        } else if bytes.len() >= 4
+            && (&bytes[0..4] == b"\xfe\xed\xfa\xce" || &bytes[0..4] == b"\xce\xfa\xed\xfe")
+        {
             BinaryFormat::MachO
         } else {
             BinaryFormat::Unknown

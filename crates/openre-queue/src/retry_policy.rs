@@ -1,10 +1,9 @@
 //! Retry policy for job processing
 
 use crate::{Job, JobRetryPolicy};
-use openre_core::error::OpenreResult as Result;
 use openre_config::RetryConfig;
 use std::time::Duration;
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Retry policy engine
 pub struct RetryPolicy {
@@ -21,9 +20,9 @@ impl RetryPolicy {
         let base = self.config.base_delay_secs * 1000;
         let max = self.config.max_delay_secs * 1000;
         let multiplier = self.config.exponential_base;
-        
+
         let delay_ms = (base as f64 * multiplier.powi(attempt as i32 - 1)).min(max as f64) as u64;
-        
+
         // Add jitter
         let jitter = if self.config.jitter {
             let jitter_range = (delay_ms as f64 * 0.1) as u64;
@@ -31,7 +30,7 @@ impl RetryPolicy {
         } else {
             0
         };
-        
+
         Duration::from_millis(delay_ms + jitter)
     }
 
@@ -39,7 +38,10 @@ impl RetryPolicy {
     pub fn should_retry(&self, job: &Job, error: &openre_core::Error) -> bool {
         // Check max retries
         if job.retry_count >= self.config.max_attempts {
-            debug!("Job {} exceeded max retries ({})", job.id, self.config.max_attempts);
+            debug!(
+                "Job {} exceeded max retries ({})",
+                job.id, self.config.max_attempts
+            );
             return false;
         }
 
@@ -64,7 +66,11 @@ impl RetryPolicy {
         match error {
             openre_core::Error::Timeout(_) => true,
             openre_core::Error::ConnectionError(_) => true,
-            openre_core::Error::Internal(e) if self.is_transient_internal(e.to_string().as_str()) => true,
+            openre_core::Error::Internal(e)
+                if self.is_transient_internal(e.to_string().as_str()) =>
+            {
+                true
+            }
             openre_core::Error::ResourceExhausted(_) => true,
             openre_core::Error::RateLimited { .. } => true,
             _ => false,
@@ -82,7 +88,7 @@ impl RetryPolicy {
             "deadlock",
             "lock timeout",
         ];
-        
+
         let lower = msg.to_lowercase();
         transient_patterns.iter().any(|p| lower.contains(p))
     }
@@ -132,16 +138,16 @@ impl ExponentialBackoff {
     pub fn calculate(&self, attempt: u32) -> Duration {
         let base_ms = self.base.as_millis() as f64;
         let max_ms = self.max.as_millis() as f64;
-        
+
         let delay_ms = (base_ms * self.multiplier.powi(attempt as i32 - 1)).min(max_ms) as u64;
-        
+
         let jitter = if self.jitter {
             let jitter_range = (delay_ms as f64 * self.jitter_factor) as u64;
             fastrand::u64(0..=jitter_range)
         } else {
             0
         };
-        
+
         Duration::from_millis(delay_ms + jitter)
     }
 }

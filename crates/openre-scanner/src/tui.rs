@@ -1,12 +1,12 @@
 //! TUI Foundation - Command structure for the scanner CLI
 
 use crate::error::{ScannerError, ScannerResult};
-use crate::scan::{ScanManager, ScanSession, ScanStatus, ScanProgress, ScanId};
-use crate::target::{Target, TargetId, TargetType, TargetMetadata, ScanConfig};
-use crate::result::{Finding, FindingId, FindingFilter, FindingSort, FindingStats};
-use crate::plugin::{PluginManager, PluginInfo, PluginId};
-use crate::storage::{ScanStorage, MemoryScanStorage};
-use clap::{Parser, Subcommand, Args};
+use crate::plugin::{PluginId, PluginInfo, PluginManager};
+use crate::result::{Finding, FindingFilter, FindingId, FindingSort, FindingStats};
+use crate::scan::{ScanId, ScanManager, ScanProgress, ScanSession, ScanStatus};
+use crate::storage::{MemoryScanStorage, ScanStorage};
+use crate::target::{ScanConfig, Target, TargetId, TargetMetadata, TargetType};
+use clap::{Args, Parser, Subcommand};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
@@ -1483,7 +1483,8 @@ impl TuiApp {
     async fn cmd_scan_list(&self, args: ScanListArgs) -> ScannerResult<()> {
         info!("Listing scans");
         let scans = self.scan_manager.list_scans();
-        let scans: Vec<_> = scans.into_iter()
+        let scans: Vec<_> = scans
+            .into_iter()
             .skip(args.offset)
             .take(args.limit)
             .collect();
@@ -1525,13 +1526,22 @@ impl TuiApp {
     async fn cmd_scan_findings(&self, args: ScanFindingsArgs) -> ScannerResult<()> {
         info!("Getting findings for scan: {}", args.id);
         let filter = FindingFilter {
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
-            confidence: args.confidence.map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
-            category: args.category.map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            confidence: args
+                .confidence
+                .map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: args
+                .category
+                .map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
             scan_id: Some(args.id),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, args.sort, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, args.sort, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
@@ -1539,7 +1549,11 @@ impl TuiApp {
     async fn cmd_scan_logs(&self, args: ScanLogsArgs) -> ScannerResult<()> {
         info!("Getting logs for scan: {}", args.id);
         let logs = self.scan_manager.get_logs(&args.id);
-        let logs: Vec<_> = logs.into_iter().skip(args.offset).take(args.limit).collect();
+        let logs: Vec<_> = logs
+            .into_iter()
+            .skip(args.offset)
+            .take(args.limit)
+            .collect();
         self.output_logs(&logs)?;
         Ok(())
     }
@@ -1611,14 +1625,20 @@ impl TuiApp {
         if let Some(tag) = args.tag {
             targets.retain(|t| t.metadata.tags.contains(&tag));
         }
-        let targets: Vec<_> = targets.into_iter().skip(args.offset).take(args.limit).collect();
+        let targets: Vec<_> = targets
+            .into_iter()
+            .skip(args.offset)
+            .take(args.limit)
+            .collect();
         self.output_targets(&targets)?;
         Ok(())
     }
 
     async fn cmd_target_update(&self, args: TargetUpdateArgs) -> ScannerResult<()> {
         info!("Updating target: {}", args.id);
-        let mut target = self.target_manager.get(&args.id)
+        let mut target = self
+            .target_manager
+            .get(&args.id)
             .ok_or_else(|| ScannerError::TargetNotFound(args.id.to_string()))?;
         if let Some(name) = args.name {
             target.metadata.name = name;
@@ -1641,7 +1661,10 @@ impl TuiApp {
     async fn cmd_target_delete(&self, args: TargetDeleteArgs) -> ScannerResult<()> {
         info!("Deleting target: {}", args.id);
         if !args.force {
-            print!("Are you sure you want to delete target {}? (y/N): ", args.id);
+            print!(
+                "Are you sure you want to delete target {}? (y/N): ",
+                args.id
+            );
             use std::io::{self, Write};
             io::stdout().flush()?;
             let mut input = String::new();
@@ -1753,15 +1776,24 @@ impl TuiApp {
         info!("Listing findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
-            confidence: args.confidence.map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
-            category: args.category.map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            confidence: args
+                .confidence
+                .map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            category: args
+                .category
+                .map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
             target: args.target,
             plugin_source: args.plugin,
             search: args.search,
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, args.sort, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, args.sort, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
@@ -1794,8 +1826,11 @@ impl TuiApp {
             plugin_source: args.plugin,
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, 1000, 0).await?;
-        
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, 1000, 0)
+            .await?;
+
         // Calculate summary
         let total = findings.len();
         let mut by_severity = std::collections::HashMap::new();
@@ -1806,57 +1841,78 @@ impl TuiApp {
         let mut false_positives = 0;
         let mut total_risk = 0u32;
         let mut risk_count = 0;
-        
+
         for finding in &findings {
             *by_severity.entry(finding.severity).or_insert(0) += 1;
             *by_confidence.entry(finding.confidence).or_insert(0) += 1;
             *by_category.entry(finding.category.clone()).or_insert(0) += 1;
             *by_plugin.entry(finding.plugin_source.clone()).or_insert(0) += 1;
-            if finding.verified { verified += 1; }
-            if finding.false_positive { false_positives += 1; }
+            if finding.verified {
+                verified += 1;
+            }
+            if finding.false_positive {
+                false_positives += 1;
+            }
             if let Some(score) = finding.risk_score {
                 total_risk += score as u32;
                 risk_count += 1;
             }
         }
-        
+
         println!("Finding Summary");
         println!("===============");
         println!("Total Findings: {}", total);
         println!("Verified: {}", verified);
         println!("False Positives: {}", false_positives);
-        println!("Average Risk Score: {:.1}", if risk_count > 0 { total_risk as f32 / risk_count as f32 } else { 0.0 });
+        println!(
+            "Average Risk Score: {:.1}",
+            if risk_count > 0 {
+                total_risk as f32 / risk_count as f32
+            } else {
+                0.0
+            }
+        );
         println!();
-        
+
         println!("By Severity:");
         for (sev, count) in &by_severity {
             println!("  {}: {}", sev, count);
         }
         println!();
-        
+
         println!("By Confidence:");
         for (conf, count) in &by_confidence {
             println!("  {}: {}", conf, count);
         }
         println!();
-        
+
         println!("By Category:");
         for (cat, count) in &by_category {
             println!("  {}: {}", cat, count);
         }
         println!();
-        
+
         println!("By Plugin:");
         for (plugin, count) in &by_plugin {
             println!("  {}: {}", plugin, count);
         }
-        
+
         if args.show_dedup {
-            use openre_core::deduplication::{DeduplicationEngine, DeduplicationConfig};
-            let mut findings = self.storage.get_findings_filtered(
-                FindingFilter { scan_id: args.scan_id, target: args.target.clone(), plugin_source: args.plugin.clone(), ..Default::default() },
-                FindingSort::SeverityDesc, 10000, 0
-            ).await?;
+            use openre_core::deduplication::{DeduplicationConfig, DeduplicationEngine};
+            let mut findings = self
+                .storage
+                .get_findings_filtered(
+                    FindingFilter {
+                        scan_id: args.scan_id,
+                        target: args.target.clone(),
+                        plugin_source: args.plugin.clone(),
+                        ..Default::default()
+                    },
+                    FindingSort::SeverityDesc,
+                    10000,
+                    0,
+                )
+                .await?;
             let engine = DeduplicationEngine::new(DeduplicationConfig::default());
             let original_count = findings.len();
             let result = engine.deduplicate(&mut findings);
@@ -1868,12 +1924,16 @@ impl TuiApp {
             if !result.duplicate_groups.is_empty() {
                 println!("  Duplicate groups ({}):", result.duplicate_groups.len());
                 for group in &result.duplicate_groups {
-                    println!("    - {} -> {} duplicates merged ({})",
-                        group.primary.title, group.duplicates.len(), group.reason);
+                    println!(
+                        "    - {} -> {} duplicates merged ({})",
+                        group.primary.title,
+                        group.duplicates.len(),
+                        group.reason
+                    );
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -1885,11 +1945,14 @@ impl TuiApp {
             max_risk_score: args.max_score,
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::RiskScoreDesc, 1000, 0).await?;
-        
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::RiskScoreDesc, 1000, 0)
+            .await?;
+
         println!("Risk Score Breakdown");
         println!("====================");
-        
+
         let mut score_ranges = std::collections::HashMap::new();
         for finding in &findings {
             let score = finding.risk_score.unwrap_or(0);
@@ -1903,29 +1966,42 @@ impl TuiApp {
             };
             *score_ranges.entry(range).or_insert(0) += 1;
         }
-        
+
         println!("Risk Score Distribution:");
         for (range, count) in &score_ranges {
             println!("  {}: {}", range, count);
         }
         println!();
-        
+
         println!("Top 10 Highest Risk Findings:");
         for (i, finding) in findings.iter().take(10).enumerate() {
             let score = finding.risk_score.unwrap_or(0);
-            println!("  {}. [{}] {} - {} (Score: {})", 
-                i + 1, finding.severity, finding.title, finding.target, score);
+            println!(
+                "  {}. [{}] {} - {} (Score: {})",
+                i + 1,
+                finding.severity,
+                finding.title,
+                finding.target,
+                score
+            );
         }
-        
+
         if args.show_factors {
             println!();
             println!("Advanced Risk Factors (for findings with exploitability/impact data):");
-            for finding in findings.iter().filter(|f| f.exploitability.is_some() || f.business_impact.is_some()).take(5) {
+            for finding in findings
+                .iter()
+                .filter(|f| f.exploitability.is_some() || f.business_impact.is_some())
+                .take(5)
+            {
                 println!("  Finding: {}", finding.title);
                 if let Some(exp) = &finding.exploitability {
                     println!("    Exploitability: {:.1}/10 (Vector: {:?}, Complexity: {:?}, Privileges: {:?})", 
                         exp.score, exp.attack_vector, exp.attack_complexity, exp.privileges_required);
-                    println!("    Exploit Available: {}, Exploited in Wild: {}", exp.exploit_available, exp.exploited_in_wild);
+                    println!(
+                        "    Exploit Available: {}, Exploited in Wild: {}",
+                        exp.exploit_available, exp.exploited_in_wild
+                    );
                 }
                 if let Some(impact) = &finding.business_impact {
                     println!("    Business Impact: {:.1}/10 (Conf: {:?}, Integ: {:?}, Avail: {:?}, Asset: {:?})", 
@@ -1933,7 +2009,7 @@ impl TuiApp {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -1944,16 +2020,21 @@ impl TuiApp {
             severity: args.min_severity.map(|s| vec![s]),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, 10000, 0).await?;
-        
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, 10000, 0)
+            .await?;
+
         // Use the reporting engine's comparison logic via ScanComparison-compatible types
-        use openre_core::reporting::{SeverityChange};
+        use openre_core::reporting::SeverityChange;
 
         // Build fingerprint maps for comparison (matching ReportGenerator pattern)
-        let baseline_map: std::collections::HashMap<String, &Finding> = baseline_findings.iter()
+        let baseline_map: std::collections::HashMap<String, &Finding> = baseline_findings
+            .iter()
             .filter_map(|f| f.fingerprint.as_ref().map(|fp| (fp.clone(), f)))
             .collect();
-        let current_map: std::collections::HashMap<String, &Finding> = current_findings.iter()
+        let current_map: std::collections::HashMap<String, &Finding> = current_findings
+            .iter()
             .filter_map(|f| f.fingerprint.as_ref().map(|fp| (fp.clone(), f)))
             .collect();
 
@@ -1990,7 +2071,10 @@ impl TuiApp {
             }
         }
 
-        println!("Scan Comparison: {} vs {}", args.baseline_scan, args.current_scan);
+        println!(
+            "Scan Comparison: {} vs {}",
+            args.baseline_scan, args.current_scan
+        );
         println!("==========================================");
         println!("New Findings: {}", new_findings.len());
         println!("Fixed Findings: {}", fixed_findings.len());
@@ -2001,7 +2085,13 @@ impl TuiApp {
         if args.new_only || (!args.fixed_only && !args.regressed_only && !args.severity_changes) {
             println!("New Findings:");
             for f in &new_findings {
-                println!("  [{}] {} - {} ({})", f.severity, f.title, f.target, f.risk_score.unwrap_or(0));
+                println!(
+                    "  [{}] {} - {} ({})",
+                    f.severity,
+                    f.title,
+                    f.target,
+                    f.risk_score.unwrap_or(0)
+                );
             }
             println!();
         }
@@ -2009,7 +2099,13 @@ impl TuiApp {
         if args.fixed_only || (!args.new_only && !args.regressed_only && !args.severity_changes) {
             println!("Fixed Findings:");
             for f in &fixed_findings {
-                println!("  [{}] {} - {} ({})", f.severity, f.title, f.target, f.risk_score.unwrap_or(0));
+                println!(
+                    "  [{}] {} - {} ({})",
+                    f.severity,
+                    f.title,
+                    f.target,
+                    f.risk_score.unwrap_or(0)
+                );
             }
             println!();
         }
@@ -2017,7 +2113,13 @@ impl TuiApp {
         if args.regressed_only || (!args.new_only && !args.fixed_only && !args.severity_changes) {
             println!("Regressed Findings:");
             for f in &regressed_findings {
-                println!("  [{}] {} - {} ({})", f.severity, f.title, f.target, f.risk_score.unwrap_or(0));
+                println!(
+                    "  [{}] {} - {} ({})",
+                    f.severity,
+                    f.title,
+                    f.target,
+                    f.risk_score.unwrap_or(0)
+                );
             }
             println!();
         }
@@ -2025,7 +2127,13 @@ impl TuiApp {
         if args.severity_changes || (!args.new_only && !args.fixed_only && !args.regressed_only) {
             println!("Severity Changes:");
             for change in &severity_changes {
-                println!("  {}: {:?} -> {:?} ({})", change.title, change.previous_severity, change.current_severity, change.fingerprint);
+                println!(
+                    "  {}: {:?} -> {:?} ({})",
+                    change.title,
+                    change.previous_severity,
+                    change.current_severity,
+                    change.fingerprint
+                );
             }
         }
 
@@ -2034,37 +2142,47 @@ impl TuiApp {
 
     async fn cmd_finding_evidence(&self, args: FindingEvidenceArgs) -> ScannerResult<()> {
         info!("Showing evidence for finding: {}", args.id);
-        
+
         // Search across all scans for the finding
-        let all_findings = self.storage.get_findings_filtered(
-            FindingFilter { ..Default::default() },
-            FindingSort::TimestampDesc, 10000, 0
-        ).await?;
-        
+        let all_findings = self
+            .storage
+            .get_findings_filtered(
+                FindingFilter {
+                    ..Default::default()
+                },
+                FindingSort::TimestampDesc,
+                10000,
+                0,
+            )
+            .await?;
+
         let finding = all_findings.iter().find(|f| f.id == args.id);
-        
+
         if let Some(finding) = finding {
             println!("Evidence for Finding: {}", finding.title);
             println!("=====================================");
             println!("ID: {}", finding.id);
             println!("Severity: {}", finding.severity);
             println!("Target: {}", finding.target);
-            println!("Plugin: {} v{}", finding.plugin_source, finding.plugin_version);
+            println!(
+                "Plugin: {} v{}",
+                finding.plugin_source, finding.plugin_version
+            );
             println!("Timestamp: {}", finding.timestamp);
             println!();
-            
+
             if finding.evidence.is_empty() {
                 println!("No evidence available.");
                 return Ok(());
             }
-            
+
             for (i, evidence) in finding.evidence.iter().enumerate() {
                 println!("Evidence #{}: {}", i + 1, evidence.evidence_type);
                 println!("  Description: {}", evidence.description);
                 if let Some(loc) = &evidence.location {
                     println!("  Location: {}", loc);
                 }
-                
+
                 if args.show_request {
                     if let Some(req) = &evidence.http_request {
                         println!("  HTTP Request:");
@@ -2075,7 +2193,7 @@ impl TuiApp {
                         }
                     }
                 }
-                
+
                 if args.show_response {
                     if let Some(resp) = &evidence.http_response {
                         println!("  HTTP Response:");
@@ -2086,29 +2204,41 @@ impl TuiApp {
                         }
                     }
                 }
-                
+
                 if args.show_timing {
                     if let Some(timing) = &evidence.timing {
                         println!("  Timing:");
                         println!("    Total: {}ms", timing.total_ms);
-                        if let Some(dns) = timing.dns_ms { println!("    DNS: {}ms", dns); }
-                        if let Some(conn) = timing.connect_ms { println!("    Connect: {}ms", conn); }
-                        if let Some(tls) = timing.tls_handshake_ms { println!("    TLS: {}ms", tls); }
-                        if let Some(ttfb) = timing.ttfb_ms { println!("    TTFB: {}ms", ttfb); }
-                        if let Some(dl) = timing.download_ms { println!("    Download: {}ms", dl); }
+                        if let Some(dns) = timing.dns_ms {
+                            println!("    DNS: {}ms", dns);
+                        }
+                        if let Some(conn) = timing.connect_ms {
+                            println!("    Connect: {}ms", conn);
+                        }
+                        if let Some(tls) = timing.tls_handshake_ms {
+                            println!("    TLS: {}ms", tls);
+                        }
+                        if let Some(ttfb) = timing.ttfb_ms {
+                            println!("    TTFB: {}ms", ttfb);
+                        }
+                        if let Some(dl) = timing.download_ms {
+                            println!("    Download: {}ms", dl);
+                        }
                     }
                 }
-                
+
                 if args.show_payload {
                     if let Some(payload) = &evidence.payload {
                         println!("  Payload:");
                         println!("    Type: {}", payload.payload_type);
                         println!("    Value: {}", payload.payload);
-                        if let Some(enc) = &payload.encoding { println!("    Encoding: {}", enc); }
+                        if let Some(enc) = &payload.encoding {
+                            println!("    Encoding: {}", enc);
+                        }
                         println!("    Injection Point: {}", payload.injection_point);
                     }
                 }
-                
+
                 if args.show_reproduction {
                     if let Some(repro) = &evidence.reproduction_steps {
                         println!("  Reproduction Steps:");
@@ -2121,44 +2251,87 @@ impl TuiApp {
                         println!("    Verified: {}", repro.verified);
                     }
                 }
-                
+
                 println!();
             }
         } else {
             println!("Finding not found: {}", args.id);
         }
-        
+
         Ok(())
     }
 
     // Security finding command implementations
-    async fn run_security_finding_command(&self, command: SecurityFindingCommands) -> ScannerResult<()> {
+    async fn run_security_finding_command(
+        &self,
+        command: SecurityFindingCommands,
+    ) -> ScannerResult<()> {
         match command {
             SecurityFindingCommands::Auth(args) => self.cmd_security_auth_findings(args).await,
-            SecurityFindingCommands::Session(args) => self.cmd_security_session_findings(args).await,
+            SecurityFindingCommands::Session(args) => {
+                self.cmd_security_session_findings(args).await
+            }
             SecurityFindingCommands::Cookie(args) => self.cmd_security_cookie_findings(args).await,
-            SecurityFindingCommands::Headers(args) => self.cmd_security_headers_findings(args).await,
+            SecurityFindingCommands::Headers(args) => {
+                self.cmd_security_headers_findings(args).await
+            }
             SecurityFindingCommands::Cors(args) => self.cmd_security_cors_findings(args).await,
-            SecurityFindingCommands::RateLimit(args) => self.cmd_security_rate_limit_findings(args).await,
-            SecurityFindingCommands::InfoDisclosure(args) => self.cmd_security_info_disclosure_findings(args).await,
-            SecurityFindingCommands::Injection(args) => self.cmd_security_injection_findings(args).await,
-            SecurityFindingCommands::InjectionStats(args) => self.cmd_security_injection_stats(args).await,
-            SecurityFindingCommands::InjectionCategories => self.cmd_security_injection_categories().await,
-            SecurityFindingCommands::DetectionMethods => self.cmd_security_detection_methods().await,
+            SecurityFindingCommands::RateLimit(args) => {
+                self.cmd_security_rate_limit_findings(args).await
+            }
+            SecurityFindingCommands::InfoDisclosure(args) => {
+                self.cmd_security_info_disclosure_findings(args).await
+            }
+            SecurityFindingCommands::Injection(args) => {
+                self.cmd_security_injection_findings(args).await
+            }
+            SecurityFindingCommands::InjectionStats(args) => {
+                self.cmd_security_injection_stats(args).await
+            }
+            SecurityFindingCommands::InjectionCategories => {
+                self.cmd_security_injection_categories().await
+            }
+            SecurityFindingCommands::DetectionMethods => {
+                self.cmd_security_detection_methods().await
+            }
             SecurityFindingCommands::Api(args) => self.cmd_security_api_findings(args).await,
             SecurityFindingCommands::ApiStats(args) => self.cmd_security_api_stats(args).await,
-            SecurityFindingCommands::Graphql(args) => self.cmd_security_graphql_findings(args).await,
-            SecurityFindingCommands::GraphqlStats(args) => self.cmd_security_graphql_stats(args).await,
-            SecurityFindingCommands::RateLimiting(args) => self.cmd_security_rate_limiting_findings(args).await,
-            SecurityFindingCommands::RateLimitingStats(args) => self.cmd_security_rate_limiting_stats(args).await,
-            SecurityFindingCommands::AccessControl(args) => self.cmd_security_access_control_findings(args).await,
-            SecurityFindingCommands::AccessControlStats(args) => self.cmd_security_access_control_stats(args).await,
-            SecurityFindingCommands::FileUpload(args) => self.cmd_security_file_upload_findings(args).await,
-            SecurityFindingCommands::FileUploadStats(args) => self.cmd_security_file_upload_stats(args).await,
-            SecurityFindingCommands::PathTraversal(args) => self.cmd_security_path_traversal_findings(args).await,
-            SecurityFindingCommands::PathTraversalStats(args) => self.cmd_security_path_traversal_stats(args).await,
-            SecurityFindingCommands::SensitiveInfo(args) => self.cmd_security_sensitive_info_findings(args).await,
-            SecurityFindingCommands::SensitiveInfoStats(args) => self.cmd_security_sensitive_info_stats(args).await,
+            SecurityFindingCommands::Graphql(args) => {
+                self.cmd_security_graphql_findings(args).await
+            }
+            SecurityFindingCommands::GraphqlStats(args) => {
+                self.cmd_security_graphql_stats(args).await
+            }
+            SecurityFindingCommands::RateLimiting(args) => {
+                self.cmd_security_rate_limiting_findings(args).await
+            }
+            SecurityFindingCommands::RateLimitingStats(args) => {
+                self.cmd_security_rate_limiting_stats(args).await
+            }
+            SecurityFindingCommands::AccessControl(args) => {
+                self.cmd_security_access_control_findings(args).await
+            }
+            SecurityFindingCommands::AccessControlStats(args) => {
+                self.cmd_security_access_control_stats(args).await
+            }
+            SecurityFindingCommands::FileUpload(args) => {
+                self.cmd_security_file_upload_findings(args).await
+            }
+            SecurityFindingCommands::FileUploadStats(args) => {
+                self.cmd_security_file_upload_stats(args).await
+            }
+            SecurityFindingCommands::PathTraversal(args) => {
+                self.cmd_security_path_traversal_findings(args).await
+            }
+            SecurityFindingCommands::PathTraversalStats(args) => {
+                self.cmd_security_path_traversal_stats(args).await
+            }
+            SecurityFindingCommands::SensitiveInfo(args) => {
+                self.cmd_security_sensitive_info_findings(args).await
+            }
+            SecurityFindingCommands::SensitiveInfoStats(args) => {
+                self.cmd_security_sensitive_info_stats(args).await
+            }
             SecurityFindingCommands::Summary(args) => self.cmd_security_summary(args).await,
         }
     }
@@ -2167,12 +2340,17 @@ impl TuiApp {
         info!("Listing authentication findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             category: Some(vec![Category::BrokenAuthentication]),
             plugin_source: Some("auth_discovery".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
@@ -2181,12 +2359,17 @@ impl TuiApp {
         info!("Listing session management findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             category: Some(vec![Category::BrokenAuthentication]),
             plugin_source: Some("session_management".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
@@ -2195,12 +2378,17 @@ impl TuiApp {
         info!("Listing cookie security findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             category: Some(vec![Category::SecurityMisconfiguration]),
             plugin_source: Some("cookie_security".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
@@ -2209,12 +2397,17 @@ impl TuiApp {
         info!("Listing security header findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             category: Some(vec![Category::SecurityMisconfiguration]),
             plugin_source: Some("security_headers".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
@@ -2223,54 +2416,83 @@ impl TuiApp {
         info!("Listing CORS findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             category: Some(vec![Category::SecurityMisconfiguration]),
             plugin_source: Some("cors_analysis".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
 
-    async fn cmd_security_rate_limit_findings(&self, args: RateLimitFindingArgs) -> ScannerResult<()> {
+    async fn cmd_security_rate_limit_findings(
+        &self,
+        args: RateLimitFindingArgs,
+    ) -> ScannerResult<()> {
         info!("Listing rate limiting findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             category: Some(vec![Category::SecurityMisconfiguration]),
             plugin_source: Some("rate_limiting".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
 
-    async fn cmd_security_info_disclosure_findings(&self, args: InfoDisclosureFindingArgs) -> ScannerResult<()> {
+    async fn cmd_security_info_disclosure_findings(
+        &self,
+        args: InfoDisclosureFindingArgs,
+    ) -> ScannerResult<()> {
         info!("Listing information disclosure findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             category: Some(vec![Category::InformationDisclosure]),
             plugin_source: Some("information_disclosure".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
 
-    async fn cmd_security_injection_findings(&self, args: InjectionFindingArgs) -> ScannerResult<()> {
+    async fn cmd_security_injection_findings(
+        &self,
+        args: InjectionFindingArgs,
+    ) -> ScannerResult<()> {
         info!("Listing injection findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             category: Some(vec![Category::Injection]),
             plugin_source: Some("injection_framework".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
@@ -2279,13 +2501,15 @@ impl TuiApp {
         info!("Getting injection statistics");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             category: Some(vec![Category::Injection]),
             plugin_source: Some("injection_framework".to_string()),
             ..Default::default()
         };
         let stats = self.storage.get_finding_stats(filter).await?;
-        
+
         println!("Injection Findings Statistics");
         println!("=============================");
         println!("Total: {}", stats.total);
@@ -2318,11 +2542,16 @@ impl TuiApp {
         info!("Listing REST API findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("rest_api_security".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
@@ -2331,12 +2560,14 @@ impl TuiApp {
         info!("Getting REST API statistics");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("rest_api_security".to_string()),
             ..Default::default()
         };
         let stats = self.storage.get_finding_stats(filter).await?;
-        
+
         println!("REST API Security Statistics");
         println!("==============================");
         println!("Total: {}", stats.total);
@@ -2364,11 +2595,16 @@ impl TuiApp {
         info!("Listing GraphQL findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("graphql_security".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
@@ -2377,12 +2613,14 @@ impl TuiApp {
         info!("Getting GraphQL statistics");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("graphql_security".to_string()),
             ..Default::default()
         };
         let stats = self.storage.get_finding_stats(filter).await?;
-        
+
         println!("GraphQL Security Statistics");
         println!("===========================");
         println!("Total: {}", stats.total);
@@ -2406,29 +2644,42 @@ impl TuiApp {
         Ok(())
     }
 
-    async fn cmd_security_rate_limiting_findings(&self, args: RateLimitingFindingArgs) -> ScannerResult<()> {
+    async fn cmd_security_rate_limiting_findings(
+        &self,
+        args: RateLimitingFindingArgs,
+    ) -> ScannerResult<()> {
         info!("Listing rate limiting findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("api_rate_limiting".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
 
-    async fn cmd_security_rate_limiting_stats(&self, args: RateLimitingStatsArgs) -> ScannerResult<()> {
+    async fn cmd_security_rate_limiting_stats(
+        &self,
+        args: RateLimitingStatsArgs,
+    ) -> ScannerResult<()> {
         info!("Getting rate limiting statistics");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("api_rate_limiting".to_string()),
             ..Default::default()
         };
         let stats = self.storage.get_finding_stats(filter).await?;
-        
+
         println!("Rate Limiting Statistics");
         println!("========================");
         println!("Total: {}", stats.total);
@@ -2452,29 +2703,42 @@ impl TuiApp {
         Ok(())
     }
 
-    async fn cmd_security_access_control_findings(&self, args: AccessControlFindingArgs) -> ScannerResult<()> {
+    async fn cmd_security_access_control_findings(
+        &self,
+        args: AccessControlFindingArgs,
+    ) -> ScannerResult<()> {
         info!("Listing access control findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("access_control".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
 
-    async fn cmd_security_access_control_stats(&self, args: AccessControlStatsArgs) -> ScannerResult<()> {
+    async fn cmd_security_access_control_stats(
+        &self,
+        args: AccessControlStatsArgs,
+    ) -> ScannerResult<()> {
         info!("Getting access control statistics");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("access_control".to_string()),
             ..Default::default()
         };
         let stats = self.storage.get_finding_stats(filter).await?;
-        
+
         println!("Access Control Statistics");
         println!("=========================");
         println!("Total: {}", stats.total);
@@ -2498,15 +2762,23 @@ impl TuiApp {
         Ok(())
     }
 
-    async fn cmd_security_file_upload_findings(&self, args: FileUploadFindingArgs) -> ScannerResult<()> {
+    async fn cmd_security_file_upload_findings(
+        &self,
+        args: FileUploadFindingArgs,
+    ) -> ScannerResult<()> {
         info!("Listing file upload findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("file_upload".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
@@ -2515,12 +2787,14 @@ impl TuiApp {
         info!("Getting file upload statistics");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("file_upload".to_string()),
             ..Default::default()
         };
         let stats = self.storage.get_finding_stats(filter).await?;
-        
+
         println!("File Upload Statistics");
         println!("======================");
         println!("Total: {}", stats.total);
@@ -2544,29 +2818,42 @@ impl TuiApp {
         Ok(())
     }
 
-    async fn cmd_security_path_traversal_findings(&self, args: PathTraversalFindingArgs) -> ScannerResult<()> {
+    async fn cmd_security_path_traversal_findings(
+        &self,
+        args: PathTraversalFindingArgs,
+    ) -> ScannerResult<()> {
         info!("Listing path traversal findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("path_traversal".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
 
-    async fn cmd_security_path_traversal_stats(&self, args: PathTraversalStatsArgs) -> ScannerResult<()> {
+    async fn cmd_security_path_traversal_stats(
+        &self,
+        args: PathTraversalStatsArgs,
+    ) -> ScannerResult<()> {
         info!("Getting path traversal statistics");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("path_traversal".to_string()),
             ..Default::default()
         };
         let stats = self.storage.get_finding_stats(filter).await?;
-        
+
         println!("Path Traversal Statistics");
         println!("=========================");
         println!("Total: {}", stats.total);
@@ -2590,29 +2877,42 @@ impl TuiApp {
         Ok(())
     }
 
-    async fn cmd_security_sensitive_info_findings(&self, args: SensitiveInfoFindingArgs) -> ScannerResult<()> {
+    async fn cmd_security_sensitive_info_findings(
+        &self,
+        args: SensitiveInfoFindingArgs,
+    ) -> ScannerResult<()> {
         info!("Listing sensitive info findings");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("sensitive_info".to_string()),
             ..Default::default()
         };
-        let findings = self.storage.get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset).await?;
+        let findings = self
+            .storage
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, args.limit, args.offset)
+            .await?;
         self.output_findings(&findings)?;
         Ok(())
     }
 
-    async fn cmd_security_sensitive_info_stats(&self, args: SensitiveInfoStatsArgs) -> ScannerResult<()> {
+    async fn cmd_security_sensitive_info_stats(
+        &self,
+        args: SensitiveInfoStatsArgs,
+    ) -> ScannerResult<()> {
         info!("Getting sensitive info statistics");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            severity: args.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+            severity: args
+                .severity
+                .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
             plugin_source: Some("sensitive_info".to_string()),
             ..Default::default()
         };
         let stats = self.storage.get_finding_stats(filter).await?;
-        
+
         println!("Sensitive Information Statistics");
         println!("================================");
         println!("Total: {}", stats.total);
@@ -2674,7 +2974,7 @@ impl TuiApp {
             ..Default::default()
         };
         let stats = self.storage.get_finding_stats(filter).await?;
-        
+
         println!("Security Findings Summary");
         println!("=========================");
         println!("Total Findings: {}", stats.total);
@@ -2755,10 +3055,14 @@ impl TuiApp {
             OutputFormat::Json => self.output_json(scans),
             OutputFormat::Yaml => self.output_yaml(scans),
             OutputFormat::Table => {
-                println!("{:<36} {:<30} {:<15} {:<10} {:<10}", "ID", "NAME", "STATUS", "PROGRESS", "FINDINGS");
+                println!(
+                    "{:<36} {:<30} {:<15} {:<10} {:<10}",
+                    "ID", "NAME", "STATUS", "PROGRESS", "FINDINGS"
+                );
                 println!("{}", "-".repeat(101));
                 for scan in scans {
-                    println!("{:<36} {:<30} {:<15} {:<10.1} {:<10}",
+                    println!(
+                        "{:<36} {:<30} {:<15} {:<10.1} {:<10}",
                         scan.id.to_string(),
                         truncate(&scan.config.name, 30),
                         format!("{}", scan.status),
@@ -2778,8 +3082,14 @@ impl TuiApp {
             OutputFormat::Table => {
                 println!("Scan Progress: {}", progress.scan_id);
                 println!("  Status: {}", progress.status);
-                println!("  Plugins: {}/{}", progress.completed_plugins, progress.total_plugins);
-                println!("  Current: {}", progress.current_plugin.as_deref().unwrap_or("none"));
+                println!(
+                    "  Plugins: {}/{}",
+                    progress.completed_plugins, progress.total_plugins
+                );
+                println!(
+                    "  Current: {}",
+                    progress.current_plugin.as_deref().unwrap_or("none")
+                );
                 println!("  Findings: {}", progress.total_findings);
                 println!("  Progress: {:.1}%", progress.progress_percent);
                 println!("  Elapsed: {:?}", progress.elapsed);
@@ -2812,7 +3122,8 @@ impl TuiApp {
                 println!("{:<36} {:<30} {:<20} {:<40}", "ID", "NAME", "TYPE", "URL");
                 println!("{}", "-".repeat(126));
                 for target in targets {
-                    println!("{:<36} {:<30} {:<20} {:<40}",
+                    println!(
+                        "{:<36} {:<30} {:<20} {:<40}",
                         target.id.to_string(),
                         truncate(&target.metadata.name, 30),
                         format!("{}", target.target_type),
@@ -2845,10 +3156,14 @@ impl TuiApp {
             OutputFormat::Json => self.output_json(plugins),
             OutputFormat::Yaml => self.output_yaml(plugins),
             OutputFormat::Table => {
-                println!("{:<36} {:<30} {:<15} {:<15} {:<10}", "ID", "NAME", "VERSION", "STATUS", "CAPS");
+                println!(
+                    "{:<36} {:<30} {:<15} {:<15} {:<10}",
+                    "ID", "NAME", "VERSION", "STATUS", "CAPS"
+                );
                 println!("{}", "-".repeat(106));
                 for plugin in plugins {
-                    println!("{:<36} {:<30} {:<15} {:<15} {:<10}",
+                    println!(
+                        "{:<36} {:<30} {:<15} {:<15} {:<10}",
                         plugin.id.to_string(),
                         truncate(&plugin.name, 30),
                         truncate(&plugin.version, 15),
@@ -2866,10 +3181,14 @@ impl TuiApp {
             OutputFormat::Json => self.output_json(findings),
             OutputFormat::Yaml => self.output_yaml(findings),
             OutputFormat::Table => {
-                println!("{:<36} {:<10} {:<10} {:<20} {:<40}", "ID", "SEVERITY", "CONFIDENCE", "CATEGORY", "TITLE");
+                println!(
+                    "{:<36} {:<10} {:<10} {:<20} {:<40}",
+                    "ID", "SEVERITY", "CONFIDENCE", "CATEGORY", "TITLE"
+                );
                 println!("{}", "-".repeat(116));
                 for finding in findings {
-                    println!("{:<36} {:<10} {:<10} {:<20} {:<40}",
+                    println!(
+                        "{:<36} {:<10} {:<10} {:<20} {:<40}",
                         finding.id.to_string(),
                         format!("{}", finding.severity),
                         format!("{}", finding.confidence),
@@ -2888,7 +3207,13 @@ impl TuiApp {
             OutputFormat::Yaml => self.output_yaml(logs),
             OutputFormat::Table => {
                 for log in logs {
-                    println!("[{}] {} [{}] {}", log.timestamp.format("%H:%M:%S"), log.level, log.plugin.as_deref().unwrap_or("-"), log.message);
+                    println!(
+                        "[{}] {} [{}] {}",
+                        log.timestamp.format("%H:%M:%S"),
+                        log.level,
+                        log.plugin.as_deref().unwrap_or("-"),
+                        log.message
+                    );
                 }
                 Ok(())
             }
@@ -2961,8 +3286,14 @@ mod tests {
 
     #[test]
     fn test_parse_key_value() {
-        assert_eq!(parse_key_value("key=value").unwrap(), ("key".to_string(), "value".to_string()));
-        assert_eq!(parse_key_value("key=value=with=equals").unwrap(), ("key".to_string(), "value=with=equals".to_string()));
+        assert_eq!(
+            parse_key_value("key=value").unwrap(),
+            ("key".to_string(), "value".to_string())
+        );
+        assert_eq!(
+            parse_key_value("key=value=with=equals").unwrap(),
+            ("key".to_string(), "value=with=equals".to_string())
+        );
         assert!(parse_key_value("novalue").is_err());
     }
 

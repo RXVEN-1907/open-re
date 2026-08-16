@@ -1,8 +1,9 @@
 //! Model router for open-re AI
 
 use crate::providers::*;
-use openre_core::error::OpenreResult as Result;
+use anyhow::anyhow;
 use openre_config::AiConfig;
+use openre_core::error::OpenreResult as Result;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -26,25 +27,25 @@ impl ModelRouter {
     /// Select the best provider for a request
     pub async fn select_provider(&self, request: &CompletionRequest) -> Result<ProviderId> {
         let candidates = self.get_candidates(request).await?;
-        
+
         if candidates.is_empty() {
-            return Err(openre_core::Error::Internal("No suitable provider found".into()));
+            return Err(openre_core::Error::Internal(anyhow!(
+                "No suitable provider found"
+            )));
         }
 
         // Apply routing strategy
-        match self.config.routing_strategy.as_str() {
-            "local_first" => self.select_local_first(&candidates).await,
-            "cost_optimized" => self.select_cost_optimized(&candidates).await,
-            "performance_optimized" => self.select_performance_optimized(&candidates).await,
-            "round_robin" => self.select_round_robin(&candidates).await,
-            _ => self.select_local_first(&candidates).await,
+        if self.config.local_first {
+            self.select_local_first(&candidates).await
+        } else {
+            self.select_cost_optimized(&candidates).await
         }
     }
 
     /// Get candidate providers that can handle the request
     async fn get_candidates(&self, request: &CompletionRequest) -> Result<Vec<ProviderId>> {
         let mut candidates = Vec::new();
-        
+
         for provider in self.registry.all() {
             if self.can_handle(provider, request) {
                 candidates.push(provider.id());
@@ -57,12 +58,12 @@ impl ModelRouter {
     /// Check if provider can handle the request
     fn can_handle(&self, provider: &dyn ModelProvider, request: &CompletionRequest) -> bool {
         let caps = provider.capabilities();
-        
+
         // Check basic capabilities
         if request.tools.is_some() && !caps.tools {
             return false;
         }
-        
+
         if request.stream && !provider.supports_streaming() {
             return false;
         }
@@ -74,7 +75,7 @@ impl ModelRouter {
         }
 
         // Check privacy requirements
-        if self.config.privacy.local_only && !self.is_local_provider(provider) {
+        if self.config.privacy.local_only_mode && !self.is_local_provider(provider) {
             return false;
         }
 
@@ -86,10 +87,13 @@ impl ModelRouter {
     }
 
     fn estimate_tokens(&self, request: &CompletionRequest) -> usize {
-        request.messages.iter()
+        request
+            .messages
+            .iter()
             .filter_map(|m| m.content.as_ref())
             .map(|c| c.len() / 4)
-            .sum::<usize>() + request.max_tokens.unwrap_or(2048) as usize
+            .sum::<usize>()
+            + request.max_tokens.unwrap_or(2048) as usize
     }
 
     /// Local-first selection (prefer local providers)
@@ -104,7 +108,7 @@ impl ModelRouter {
         }
 
         // Fallback to remote if allowed
-        if !self.config.privacy.local_only {
+        if !self.config.privacy.local_only_mode {
             for id in candidates {
                 if let Some(provider) = self.registry.get(id) {
                     if !self.is_local_provider(provider) {
@@ -114,13 +118,15 @@ impl ModelRouter {
             }
         }
 
-        Err(openre_core::Error::Internal("No local provider available and remote not allowed".into()))
+        Err(openre_core::Error::Internal(anyhow!(
+            "No local provider available and remote not allowed"
+        )))
     }
 
     /// Cost-optimized selection
     async fn select_cost_optimized(&self, candidates: &[ProviderId]) -> Result<ProviderId> {
         let stats = self.usage_stats.read().await;
-        
+
         // Prefer local (free) providers
         for id in candidates {
             if let Some(provider) = self.registry.get(id) {
@@ -146,15 +152,19 @@ impl ModelRouter {
             }
         }
 
-        best.ok_or_else(|| openre_core::Error::Internal("No provider available".into()))
+        best.ok_or_else(|| openre_core::Error::Internal(anyhow!("No provider available")))
     }
 
-    fn estimate_cost(&self, provider: &dyn ModelProvider, stats: &HashMap<ProviderId, ProviderStats>) -> f64 {
+    fn estimate_cost(
+        &self,
+        provider: &dyn ModelProvider,
+        stats: &HashMap<ProviderId, ProviderStats>,
+    ) -> f64 {
         // Simple cost estimation based on provider type and usage
         match provider.id().provider_type.as_str() {
-            "openai" => 0.03,  // per 1k tokens
+            "openai" => 0.03, // per 1k tokens
             "anthropic" => 0.015,
-            "vllm" => 0.001,   // self-hosted
+            "vllm" => 0.001, // self-hosted
             _ => 0.01,
         }
     }
@@ -162,7 +172,7 @@ impl ModelRouter {
     /// Performance-optimized selection
     async fn select_performance_optimized(&self, candidates: &[ProviderId]) -> Result<ProviderId> {
         let stats = self.usage_stats.read().await;
-        
+
         let mut best: Option<ProviderId> = None;
         let mut best_latency = u64::MAX;
 
@@ -176,13 +186,13 @@ impl ModelRouter {
             }
         }
 
-        best.ok_or_else(|| openre_core::Error::Internal("No provider available".into()))
+        best.ok_or_else(|| openre_core::Error::Internal(anyhow!("No provider available")))
     }
 
     /// Round-robin selection
     async fn select_round_robin(&self, candidates: &[ProviderId]) -> Result<ProviderId> {
         let mut stats = self.usage_stats.write().await;
-        
+
         // Find least used
         let mut best: Option<ProviderId> = None;
         let mut min_uses = u64::MAX;
@@ -195,19 +205,27 @@ impl ModelRouter {
             }
         }
 
-        best.ok_or_else(|| openre_core::Error::Internal("No provider available".into()))
+        best.ok_or_else(|| openre_core::Error::Internal(anyhow!("No provider available")))
     }
 
     /// Record usage statistics
-    pub async fn record_usage(&self, provider_id: &ProviderId, latency_ms: u64, tokens: u32, success: bool) {
+    pub async fn record_usage(
+        &self,
+        provider_id: &ProviderId,
+        latency_ms: u64,
+        tokens: u32,
+        success: bool,
+    ) {
         let mut stats = self.usage_stats.write().await;
-        let entry = stats.entry(provider_id.clone()).or_insert_with(ProviderStats::default);
-        
+        let entry = stats
+            .entry(provider_id.clone())
+            .or_insert_with(ProviderStats::default);
+
         entry.total_requests += 1;
-        entry.total_tokens += tokens;
+        entry.total_tokens += tokens as u64;
         entry.total_latency_ms += latency_ms;
         entry.avg_latency_ms = entry.total_latency_ms / entry.total_requests;
-        
+
         if success {
             entry.successful_requests += 1;
         } else {

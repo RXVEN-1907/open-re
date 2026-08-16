@@ -1,20 +1,20 @@
 //! Core types, errors, and traits for open-re
 
-pub mod error;
-pub mod ids;
-pub mod traits;
-pub mod result;
 pub mod deduplication;
-pub mod reporting;
+pub mod error;
 pub mod history;
+pub mod ids;
+pub mod reporting;
+pub mod result;
+pub mod traits;
 
-pub use error::*;
-pub use ids::*;
-pub use traits::*;
-pub use result::*;
 pub use deduplication::*;
-pub use reporting::*;
+pub use error::*;
 pub use history::*;
+pub use ids::*;
+pub use reporting::*;
+pub use result::*;
+pub use traits::*;
 
 // Re-export commonly used types
-pub use ids::{PluginType, Capability, RiskLevel, FileFormat, Architecture, JobStatus, Priority};
+pub use ids::{Architecture, Capability, FileFormat, JobStatus, PluginType, Priority, RiskLevel};

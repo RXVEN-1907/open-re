@@ -15,40 +15,40 @@ use validator::ValidationErrors;
 pub enum ApiError {
     #[error("Bad request: {0}")]
     BadRequest(String),
-    
+
     #[error("Unauthorized: {0}")]
     Unauthorized(String),
-    
+
     #[error("Forbidden: {0}")]
     Forbidden(String),
-    
+
     #[error("Not found: {0}")]
     NotFound(String),
-    
+
     #[error("Conflict: {0}")]
     Conflict(String),
-    
+
     #[error("Payload too large: {0}")]
     PayloadTooLarge(String),
-    
+
     #[error("Rate limited: {0}")]
     RateLimited(String),
-    
+
     #[error("Not acceptable: {0}")]
     NotAcceptable(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
-    
+
     #[error("Not implemented: {0}")]
     NotImplemented(String),
-    
+
     #[error("Service unavailable: {0}")]
     ServiceUnavailable(String),
-    
+
     #[error("Validation error: {0}")]
     ValidationError(ValidationErrors),
-    
+
     #[error("Core error: {0}")]
     Core(#[from] CoreError),
 }
@@ -73,20 +73,42 @@ impl IntoResponse for ApiError {
             ApiError::Forbidden(msg) => (StatusCode::FORBIDDEN, "forbidden", msg.clone()),
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, "not_found", msg.clone()),
             ApiError::Conflict(msg) => (StatusCode::CONFLICT, "conflict", msg.clone()),
-            ApiError::PayloadTooLarge(msg) => (StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large", msg.clone()),
-            ApiError::RateLimited(msg) => (StatusCode::TOO_MANY_REQUESTS, "rate_limited", msg.clone()),
-            ApiError::NotAcceptable(msg) => (StatusCode::NOT_ACCEPTABLE, "not_acceptable", msg.clone()),
-            ApiError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error", msg.clone()),
-            ApiError::NotImplemented(msg) => (StatusCode::NOT_IMPLEMENTED, "not_implemented", msg.clone()),
-            ApiError::ServiceUnavailable(msg) => (StatusCode::SERVICE_UNAVAILABLE, "service_unavailable", msg.clone()),
+            ApiError::PayloadTooLarge(msg) => (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "payload_too_large",
+                msg.clone(),
+            ),
+            ApiError::RateLimited(msg) => {
+                (StatusCode::TOO_MANY_REQUESTS, "rate_limited", msg.clone())
+            }
+            ApiError::NotAcceptable(msg) => {
+                (StatusCode::NOT_ACCEPTABLE, "not_acceptable", msg.clone())
+            }
+            ApiError::Internal(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                msg.clone(),
+            ),
+            ApiError::NotImplemented(msg) => {
+                (StatusCode::NOT_IMPLEMENTED, "not_implemented", msg.clone())
+            }
+            ApiError::ServiceUnavailable(msg) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "service_unavailable",
+                msg.clone(),
+            ),
             ApiError::ValidationError(errors) => {
                 let details = serde_json::to_value(errors).ok();
-                return (StatusCode::UNPROCESSABLE_ENTITY, Json(ApiErrorResponse {
-                    error: "validation_failed".to_string(),
-                    message: "Request validation failed".to_string(),
-                    details,
-                    request_id: None,
-                })).into_response();
+                return (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(ApiErrorResponse {
+                        error: "validation_failed".to_string(),
+                        message: "Request validation failed".to_string(),
+                        details,
+                        request_id: None,
+                    }),
+                )
+                    .into_response();
             }
             ApiError::Core(e) => {
                 return ApiError::Internal(e.to_string()).into_response();

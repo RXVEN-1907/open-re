@@ -1,9 +1,9 @@
 //! Standardized finding model for all plugins
 
 use crate::ids::{FindingId, ScanId};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 /// Severity levels for findings
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -186,15 +186,21 @@ impl Category {
     pub fn owasp_category(&self) -> Option<&'static str> {
         match self {
             Category::Injection => Some("A03:2021 - Injection"),
-            Category::BrokenAuthentication => Some("A07:2021 - Identification and Authentication Failures"),
+            Category::BrokenAuthentication => {
+                Some("A07:2021 - Identification and Authentication Failures")
+            }
             Category::SensitiveDataExposure => Some("A02:2021 - Cryptographic Failures"),
             Category::Xxe => Some("A05:2021 - Security Misconfiguration"),
             Category::BrokenAccessControl => Some("A01:2021 - Broken Access Control"),
             Category::SecurityMisconfiguration => Some("A05:2021 - Security Misconfiguration"),
             Category::Xss => Some("A03:2021 - Injection"),
-            Category::InsecureDeserialization => Some("A08:2021 - Software and Data Integrity Failures"),
+            Category::InsecureDeserialization => {
+                Some("A08:2021 - Software and Data Integrity Failures")
+            }
             Category::VulnerableComponents => Some("A06:2021 - Vulnerable and Outdated Components"),
-            Category::InsufficientLogging => Some("A09:2021 - Security Logging and Monitoring Failures"),
+            Category::InsufficientLogging => {
+                Some("A09:2021 - Security Logging and Monitoring Failures")
+            }
             Category::Ssrf => Some("A10:2021 - Server-Side Request Forgery"),
             _ => None,
         }
@@ -264,6 +270,26 @@ pub struct Evidence {
     pub plugin_source: Option<String>,
     /// Timestamp when evidence was captured
     pub timestamp: DateTime<Utc>,
+}
+
+impl Evidence {
+    /// Create new evidence with minimal required fields
+    pub fn new(evidence_type: EvidenceType, description: String) -> Self {
+        Self {
+            evidence_type,
+            description,
+            data: None,
+            location: None,
+            metadata: HashMap::new(),
+            http_request: None,
+            http_response: None,
+            timing: None,
+            payload: None,
+            reproduction_steps: None,
+            plugin_source: None,
+            timestamp: Utc::now(),
+        }
+    }
 }
 
 /// HTTP request evidence details
@@ -717,6 +743,31 @@ pub enum AssetCriticality {
     Critical,
 }
 
+/// Configuration for creating a new Finding
+#[derive(Debug, Clone)]
+pub struct FindingConfig {
+    /// Finding title
+    pub title: String,
+    /// Finding description
+    pub description: String,
+    /// Finding severity
+    pub severity: Severity,
+    /// Finding confidence
+    pub confidence: Confidence,
+    /// Finding category
+    pub category: Category,
+    /// Target of the finding
+    pub target: String,
+    /// Type of the target
+    pub target_type: String,
+    /// Source plugin name
+    pub plugin_source: String,
+    /// Source plugin version
+    pub plugin_version: String,
+    /// Scan ID this finding belongs to
+    pub scan_id: ScanId,
+}
+
 /// Regulatory impact
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegulatoryImpact {
@@ -729,35 +780,24 @@ pub struct RegulatoryImpact {
 }
 
 impl Finding {
-    /// Create a new finding
-    pub fn new(
-        title: String,
-        description: String,
-        severity: Severity,
-        confidence: Confidence,
-        category: Category,
-        target: String,
-        target_type: String,
-        plugin_source: String,
-        plugin_version: String,
-        scan_id: ScanId,
-    ) -> Self {
-        let owasp_category = category.owasp_category().map(|s| s.to_string());
+    /// Create a new finding from configuration
+    pub fn new(config: FindingConfig) -> Self {
+        let owasp_category = config.category.owasp_category().map(|s| s.to_string());
         Self {
             id: FindingId::new(),
-            title,
-            description,
-            severity,
-            confidence,
-            category,
-            target,
-            target_type,
+            title: config.title,
+            description: config.description,
+            severity: config.severity,
+            confidence: config.confidence,
+            category: config.category,
+            target: config.target,
+            target_type: config.target_type,
             evidence: Vec::new(),
             references: Vec::new(),
-            plugin_source,
-            plugin_version,
+            plugin_source: config.plugin_source,
+            plugin_version: config.plugin_version,
             timestamp: Utc::now(),
-            scan_id,
+            scan_id: config.scan_id,
             metadata: HashMap::new(),
             tags: Vec::new(),
             verified: false,
@@ -884,41 +924,55 @@ impl Finding {
     /// Calculate advanced risk score considering exploitability and business impact
     pub fn calculate_advanced_risk_score(&self) -> u8 {
         let base_score = self.calculate_risk_score() as f32;
-        
+
         // Adjust based on exploitability
-        let exploitability_multiplier = self.exploitability.as_ref().map(|e| {
-            // Higher exploitability = higher risk
-            1.0 + (e.score / 10.0) * 0.3 // Up to 30% increase
-        }).unwrap_or(1.0);
-        
+        let exploitability_multiplier = self
+            .exploitability
+            .as_ref()
+            .map(|e| {
+                // Higher exploitability = higher risk
+                1.0 + (e.score / 10.0) * 0.3 // Up to 30% increase
+            })
+            .unwrap_or(1.0);
+
         // Adjust based on business impact
-        let impact_multiplier = self.business_impact.as_ref().map(|b| {
-            // Higher business impact = higher risk
-            1.0 + (b.score / 10.0) * 0.2 // Up to 20% increase
-        }).unwrap_or(1.0);
-        
+        let impact_multiplier = self
+            .business_impact
+            .as_ref()
+            .map(|b| {
+                // Higher business impact = higher risk
+                1.0 + (b.score / 10.0) * 0.2 // Up to 20% increase
+            })
+            .unwrap_or(1.0);
+
         // Adjust based on asset criticality
-        let asset_multiplier = self.business_impact.as_ref().map(|b| {
-            match b.asset_criticality {
+        let asset_multiplier = self
+            .business_impact
+            .as_ref()
+            .map(|b| match b.asset_criticality {
                 AssetCriticality::Critical => 1.25,
                 AssetCriticality::High => 1.15,
                 AssetCriticality::Medium => 1.05,
                 AssetCriticality::Low => 1.0,
-            }
-        }).unwrap_or(1.0);
-        
-        let adjusted = base_score * exploitability_multiplier * impact_multiplier * asset_multiplier;
+            })
+            .unwrap_or(1.0);
+
+        let adjusted =
+            base_score * exploitability_multiplier * impact_multiplier * asset_multiplier;
         adjusted.min(100.0) as u8
     }
 
     /// Get a short summary of the finding
     pub fn summary(&self) -> String {
-        format!("[{}] {} - {} ({})", self.severity, self.title, self.target, self.plugin_source)
+        format!(
+            "[{}] {} - {} ({})",
+            self.severity, self.title, self.target, self.plugin_source
+        )
     }
 
     /// Generate a fingerprint for deduplication
     pub fn generate_fingerprint(&self) -> String {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(self.title.as_bytes());
         hasher.update(self.target.as_bytes());

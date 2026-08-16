@@ -2,17 +2,17 @@
 
 use openre_config::LoggingConfig;
 use openre_core::error::OpenreResult as Result;
-use tracing_subscriber::{fmt, EnvFilter, Layer, Registry};
+use std::fs::File;
+use std::io;
+use std::path::PathBuf;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use std::io;
-use std::fs::File;
-use std::path::PathBuf;
+use tracing_subscriber::{fmt, EnvFilter, Registry};
 
 /// Initialize logging
 pub fn init_logging(config: &LoggingConfig) -> Result<()> {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&config.level));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.level));
 
     let registry = Registry::default().with(env_filter);
 
@@ -62,7 +62,9 @@ pub fn init_logging(config: &LoggingConfig) -> Result<()> {
 }
 
 fn create_log_file(path: &Option<PathBuf>) -> Result<File> {
-    let path = path.clone().unwrap_or_else(|| PathBuf::from("./logs/openre.log"));
+    let path = path
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("./logs/openre.log"));
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }

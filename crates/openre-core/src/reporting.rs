@@ -1,10 +1,10 @@
 //! Reporting engine for generating security reports in multiple formats
 
+use crate::ids::{ProjectId, ScanId};
 use crate::result::*;
-use crate::ids::{ScanId, ProjectId};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 /// Report generator
 pub struct ReportGenerator {
@@ -394,7 +394,12 @@ impl ReportGenerator {
     }
 
     /// Generate a report from findings
-    pub fn generate(&self, findings: &[Finding], scans: &[ScanInfo], targets: &[TargetInfo]) -> Report {
+    pub fn generate(
+        &self,
+        findings: &[Finding],
+        scans: &[ScanInfo],
+        targets: &[TargetInfo],
+    ) -> Report {
         let metadata = self.build_metadata(findings, scans, targets);
         let executive_summary = if self.config.include_executive_summary {
             Some(self.build_executive_summary(findings, scans))
@@ -423,11 +428,19 @@ impl ReportGenerator {
         baseline_scan: &ScanInfo,
         current_scan: &ScanInfo,
     ) -> Report {
-        let comparison = self.compare_scans(baseline_findings, current_findings, baseline_scan, current_scan);
-        
+        let comparison = self.compare_scans(
+            baseline_findings,
+            current_findings,
+            baseline_scan,
+            current_scan,
+        );
+
         let metadata = ReportMetadata {
             id: uuid::Uuid::new_v4().to_string(),
-            title: format!("Scan Comparison: {} vs {}", baseline_scan.name, current_scan.name),
+            title: format!(
+                "Scan Comparison: {} vs {}",
+                baseline_scan.name, current_scan.name
+            ),
             generated_at: Utc::now(),
             generator_version: env!("CARGO_PKG_VERSION").to_string(),
             scan_ids: vec![baseline_scan.id, current_scan.id],
@@ -453,16 +466,23 @@ impl ReportGenerator {
     }
 
     /// Build report metadata
-    fn build_metadata(&self, findings: &[Finding], scans: &[ScanInfo], targets: &[TargetInfo]) -> ReportMetadata {
+    fn build_metadata(
+        &self,
+        _findings: &[Finding],
+        scans: &[ScanInfo],
+        targets: &[TargetInfo],
+    ) -> ReportMetadata {
         let scan_ids: Vec<ScanId> = scans.iter().map(|s| s.id).collect();
         let project_id = scans.first().and_then(|s| s.project_id);
 
         let date_range = if !scans.is_empty() {
-            let from = scans.iter()
+            let from = scans
+                .iter()
                 .filter_map(|s| s.started_at)
                 .min()
                 .unwrap_or_else(Utc::now);
-            let to = scans.iter()
+            let to = scans
+                .iter()
                 .filter_map(|s| s.completed_at)
                 .max()
                 .unwrap_or_else(Utc::now);
@@ -473,7 +493,10 @@ impl ReportGenerator {
 
         ReportMetadata {
             id: uuid::Uuid::new_v4().to_string(),
-            title: self.config.branding.as_ref()
+            title: self
+                .config
+                .branding
+                .as_ref()
                 .and_then(|b| b.title_prefix.clone())
                 .unwrap_or_else(|| "Security Assessment Report".to_string()),
             generated_at: Utc::now(),
@@ -488,7 +511,11 @@ impl ReportGenerator {
     }
 
     /// Build executive summary
-    fn build_executive_summary(&self, findings: &[Finding], scans: &[ScanInfo]) -> ExecutiveSummary {
+    fn build_executive_summary(
+        &self,
+        findings: &[Finding],
+        scans: &[ScanInfo],
+    ) -> ExecutiveSummary {
         let mut by_severity = HashMap::new();
         let mut total_risk = 0u32;
         let mut risk_count = 0;
@@ -508,7 +535,9 @@ impl ReportGenerator {
         // Get top 5 findings by risk score
         let mut sorted_findings = findings.to_vec();
         sorted_findings.sort_by(|a, b| {
-            b.risk_score.unwrap_or(0).cmp(&a.risk_score.unwrap_or(0))
+            b.risk_score
+                .unwrap_or(0)
+                .cmp(&a.risk_score.unwrap_or(0))
                 .then_with(|| b.severity.cmp(&a.severity))
         });
 
@@ -524,14 +553,23 @@ impl ReportGenerator {
             });
         }
 
-        let overall_risk_score = if risk_count > 0 { (total_risk.checked_div(risk_count).unwrap_or(0)) as u8 } else { 0 };
+        let overall_risk_score = if risk_count > 0 {
+            (total_risk.checked_div(risk_count).unwrap_or(0)) as u8
+        } else {
+            0
+        };
         let risk_level = Self::calculate_risk_level(overall_risk_score, critical_count, high_count);
 
         let scan_coverage = ScanCoverage {
-            targets_scanned: scans.iter().map(|s| s.target_id.to_string()).collect::<std::collections::HashSet<_>>().len(),
+            targets_scanned: scans
+                .iter()
+                .map(|s| s.target_id.to_string())
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
             endpoints_tested: scans.iter().map(|s| s.progress.endpoints_scanned).sum(),
             plugins_executed: scans.iter().map(|s| s.plugin_executions.len()).sum(),
-            scan_duration_seconds: scans.iter()
+            scan_duration_seconds: scans
+                .iter()
                 .filter_map(|s| s.duration)
                 .map(|d| d.as_secs())
                 .sum(),
@@ -556,7 +594,7 @@ impl ReportGenerator {
     /// Build comparison executive summary
     fn build_comparison_executive_summary(&self, comparison: &ScanComparison) -> ExecutiveSummary {
         let mut by_severity = HashMap::new();
-        
+
         for finding in &comparison.new_findings {
             *by_severity.entry(finding.severity).or_insert(0) += 1;
         }
@@ -606,26 +644,42 @@ impl ReportGenerator {
     }
 
     /// Generate recommendations
-    fn generate_recommendations(&self, findings: &[Finding], by_severity: &HashMap<Severity, usize>) -> Vec<String> {
+    fn generate_recommendations(
+        &self,
+        findings: &[Finding],
+        by_severity: &HashMap<Severity, usize>,
+    ) -> Vec<String> {
         let mut recommendations = Vec::new();
 
         if *by_severity.get(&Severity::Critical).unwrap_or(&0) > 0 {
-            recommendations.push("Immediately address critical findings - they pose imminent risk".to_string());
+            recommendations.push(
+                "Immediately address critical findings - they pose imminent risk".to_string(),
+            );
         }
         if *by_severity.get(&Severity::High).unwrap_or(&0) > 0 {
-            recommendations.push("Prioritize high-severity findings for remediation within 7 days".to_string());
+            recommendations.push(
+                "Prioritize high-severity findings for remediation within 7 days".to_string(),
+            );
         }
         if *by_severity.get(&Severity::Medium).unwrap_or(&0) > 5 {
-            recommendations.push("Address medium-severity findings in next sprint cycle".to_string());
+            recommendations
+                .push("Address medium-severity findings in next sprint cycle".to_string());
         }
 
         // Category-specific recommendations
-        let categories: std::collections::HashSet<Category> = findings.iter().map(|f| f.category.clone()).collect();
+        let categories: std::collections::HashSet<Category> =
+            findings.iter().map(|f| f.category.clone()).collect();
         if categories.contains(&Category::Injection) {
-            recommendations.push("Implement input validation and parameterized queries to prevent injection".to_string());
+            recommendations.push(
+                "Implement input validation and parameterized queries to prevent injection"
+                    .to_string(),
+            );
         }
         if categories.contains(&Category::Xss) {
-            recommendations.push("Implement Content Security Policy and output encoding for XSS prevention".to_string());
+            recommendations.push(
+                "Implement Content Security Policy and output encoding for XSS prevention"
+                    .to_string(),
+            );
         }
         if categories.contains(&Category::BrokenAuthentication) {
             recommendations.push("Review authentication mechanisms and implement MFA".to_string());
@@ -638,7 +692,9 @@ impl ReportGenerator {
         }
 
         if recommendations.is_empty() {
-            recommendations.push("No critical issues found. Continue regular security assessments.".to_string());
+            recommendations.push(
+                "No critical issues found. Continue regular security assessments.".to_string(),
+            );
         }
 
         recommendations
@@ -661,17 +717,23 @@ impl ReportGenerator {
                 GroupBy::Category => finding.category.to_string(),
                 GroupBy::Target => finding.target.clone(),
                 GroupBy::Plugin => finding.plugin_source.clone(),
-                GroupBy::OwaspCategory => finding.owasp_category.clone().unwrap_or_else(|| "Uncategorized".to_string()),
+                GroupBy::OwaspCategory => finding
+                    .owasp_category
+                    .clone()
+                    .unwrap_or_else(|| "Uncategorized".to_string()),
                 GroupBy::None => "All Findings".to_string(),
             };
 
-            groups.entry(group_key).or_insert_with(Vec::new).push(finding.clone());
+            groups
+                .entry(group_key)
+                .or_insert_with(Vec::new)
+                .push(finding.clone());
         }
 
         // Sort within each group
         for findings in groups.values_mut() {
             self.sort_findings(findings);
-            
+
             // Apply max findings per category limit
             if let Some(max) = self.config.max_findings_per_category {
                 if findings.len() > max {
@@ -688,10 +750,14 @@ impl ReportGenerator {
         match self.config.sort_by {
             FindingSort::SeverityDesc => findings.sort_by_key(|b| std::cmp::Reverse(b.severity)),
             FindingSort::SeverityAsc => findings.sort_by_key(|a| a.severity),
-            FindingSort::ConfidenceDesc => findings.sort_by_key(|b| std::cmp::Reverse(b.confidence)),
+            FindingSort::ConfidenceDesc => {
+                findings.sort_by_key(|b| std::cmp::Reverse(b.confidence))
+            }
             FindingSort::TimestampDesc => findings.sort_by_key(|b| std::cmp::Reverse(b.timestamp)),
             FindingSort::TimestampAsc => findings.sort_by_key(|a| a.timestamp),
-            FindingSort::RiskScoreDesc => findings.sort_by_key(|b| std::cmp::Reverse(b.risk_score.unwrap_or(0))),
+            FindingSort::RiskScoreDesc => {
+                findings.sort_by_key(|b| std::cmp::Reverse(b.risk_score.unwrap_or(0)))
+            }
             FindingSort::TargetAsc => findings.sort_by_key(|a| a.target.clone()),
         }
     }
@@ -730,11 +796,17 @@ impl ReportGenerator {
             }
 
             if let Some(remediation) = &finding.remediation {
-                *by_remediation_priority.entry(remediation.priority).or_insert(0) += 1;
+                *by_remediation_priority
+                    .entry(remediation.priority)
+                    .or_insert(0) += 1;
             }
 
-            if finding.verified { verified += 1; }
-            if finding.false_positive { false_positives += 1; }
+            if finding.verified {
+                verified += 1;
+            }
+            if finding.false_positive {
+                false_positives += 1;
+            }
 
             if let Some(score) = finding.risk_score {
                 total_risk_score += score as u32;
@@ -747,8 +819,12 @@ impl ReportGenerator {
             max_advanced_risk_score = max_advanced_risk_score.max(advanced_score);
 
             if let Some(exploitability) = &finding.exploitability {
-                if exploitability.exploit_available { exploit_available_count += 1; }
-                if exploitability.exploited_in_wild { exploited_in_wild_count += 1; }
+                if exploitability.exploit_available {
+                    exploit_available_count += 1;
+                }
+                if exploitability.exploited_in_wild {
+                    exploited_in_wild_count += 1;
+                }
             }
         }
 
@@ -760,11 +836,19 @@ impl ReportGenerator {
             by_plugin,
             verified,
             false_positives,
-            avg_risk_score: if risk_score_count > 0 { total_risk_score as f32 / risk_score_count as f32 } else { 0.0 },
+            avg_risk_score: if risk_score_count > 0 {
+                total_risk_score as f32 / risk_score_count as f32
+            } else {
+                0.0
+            },
             max_risk_score,
             by_owasp_category,
             by_cwe,
-            avg_advanced_risk_score: if risk_score_count > 0 { total_advanced_risk_score as f32 / risk_score_count as f32 } else { 0.0 },
+            avg_advanced_risk_score: if risk_score_count > 0 {
+                total_advanced_risk_score as f32 / risk_score_count as f32
+            } else {
+                0.0
+            },
             max_advanced_risk_score,
             by_remediation_priority,
             exploit_available_count,
@@ -779,12 +863,14 @@ impl ReportGenerator {
         // Methodology
         appendices.push(Appendix {
             title: "Methodology".to_string(),
-            content: "This assessment was performed using automated security scanning tools...".to_string(),
+            content: "This assessment was performed using automated security scanning tools..."
+                .to_string(),
             appendix_type: AppendixType::Methodology,
         });
 
         // Tool versions
-        let tool_versions = scans.iter()
+        let tool_versions = scans
+            .iter()
             .flat_map(|s| &s.plugin_executions)
             .map(|p| format!("{} v{}", p.plugin_name, p.plugin_version))
             .collect::<std::collections::HashSet<_>>()
@@ -798,7 +884,8 @@ impl ReportGenerator {
         });
 
         // Scope
-        let targets: Vec<String> = findings.iter()
+        let targets: Vec<String> = findings
+            .iter()
             .map(|f| f.target.clone())
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
@@ -843,7 +930,8 @@ impl ReportGenerator {
 **CWE:** Common Weakness Enumeration - standardized vulnerability classification.
 
 **CVSS:** Common Vulnerability Scoring System - standardized severity scoring.
-        "#.to_string()
+        "#
+        .to_string()
     }
 
     /// Compare two scans
@@ -855,10 +943,12 @@ impl ReportGenerator {
         current_scan: &ScanInfo,
     ) -> ScanComparison {
         // Build fingerprint maps
-        let baseline_map: HashMap<String, &Finding> = baseline.iter()
+        let baseline_map: HashMap<String, &Finding> = baseline
+            .iter()
             .filter_map(|f| f.fingerprint.as_ref().map(|fp| (fp.clone(), f)))
             .collect();
-        let current_map: HashMap<String, &Finding> = current.iter()
+        let current_map: HashMap<String, &Finding> = current
+            .iter()
             .filter_map(|f| f.fingerprint.as_ref().map(|fp| (fp.clone(), f)))
             .collect();
 
@@ -886,13 +976,18 @@ impl ReportGenerator {
                 if current_finding.evidence.len() != baseline_finding.evidence.len() {
                     evidence_changes.push(EvidenceChange {
                         fingerprint: fp.clone(),
-                        change_type: if current_finding.evidence.len() > baseline_finding.evidence.len() {
+                        change_type: if current_finding.evidence.len()
+                            > baseline_finding.evidence.len()
+                        {
                             EvidenceChangeType::Added
                         } else {
                             EvidenceChangeType::Removed
                         },
-                        description: format!("Evidence count changed from {} to {}", 
-                            baseline_finding.evidence.len(), current_finding.evidence.len()),
+                        description: format!(
+                            "Evidence count changed from {} to {}",
+                            baseline_finding.evidence.len(),
+                            current_finding.evidence.len()
+                        ),
                         title: current_finding.title.clone(),
                         target: current_finding.target.clone(),
                     });
@@ -919,8 +1014,14 @@ impl ReportGenerator {
             new_count: new_findings.len(),
             fixed_count: fixed_findings.len(),
             regressed_count: regressed_findings.len(),
-            severity_increased: severity_changes.iter().filter(|c| c.current_severity > c.previous_severity).count(),
-            severity_decreased: severity_changes.iter().filter(|c| c.current_severity < c.previous_severity).count(),
+            severity_increased: severity_changes
+                .iter()
+                .filter(|c| c.current_severity > c.previous_severity)
+                .count(),
+            severity_decreased: severity_changes
+                .iter()
+                .filter(|c| c.current_severity < c.previous_severity)
+                .count(),
             risk_change: 0, // Would need more complex calculation
             compared_at: Utc::now(),
         };
@@ -954,44 +1055,65 @@ impl ReportGenerator {
 
         // Title
         md.push_str(&format!("# {}\n\n", report.metadata.title));
-        
+
         // Metadata
         md.push_str("## Report Information\n\n");
         md.push_str(&format!("- **Report ID**: {}\n", report.metadata.id));
-        md.push_str(&format!("- **Generated**: {}\n", report.metadata.generated_at.format("%Y-%m-%d %H:%M:%S UTC")));
-        md.push_str(&format!("- **Generator Version**: {}\n", report.metadata.generator_version));
-        md.push_str(&format!("- **Scans**: {}\n", report.metadata.scan_ids.len()));
+        md.push_str(&format!(
+            "- **Generated**: {}\n",
+            report.metadata.generated_at.format("%Y-%m-%d %H:%M:%S UTC")
+        ));
+        md.push_str(&format!(
+            "- **Generator Version**: {}\n",
+            report.metadata.generator_version
+        ));
+        md.push_str(&format!(
+            "- **Scans**: {}\n",
+            report.metadata.scan_ids.len()
+        ));
         if let Some(project_id) = report.metadata.project_id {
             md.push_str(&format!("- **Project**: {}\n", project_id));
         }
         if let Some(range) = &report.metadata.date_range {
-            md.push_str(&format!("- **Period**: {} to {}\n", 
-                range.from.format("%Y-%m-%d"), range.to.format("%Y-%m-%d")));
+            md.push_str(&format!(
+                "- **Period**: {} to {}\n",
+                range.from.format("%Y-%m-%d"),
+                range.to.format("%Y-%m-%d")
+            ));
         }
-        md.push_str("\n");
+        md.push('\n');
 
         // Executive Summary
         if let Some(summary) = &report.executive_summary {
             md.push_str("## Executive Summary\n\n");
-            md.push_str(&format!("- **Total Findings**: {}\n", summary.total_findings));
-            md.push_str(&format!("- **Overall Risk Score**: {}/100\n", summary.overall_risk_score));
+            md.push_str(&format!(
+                "- **Total Findings**: {}\n",
+                summary.total_findings
+            ));
+            md.push_str(&format!(
+                "- **Overall Risk Score**: {}/100\n",
+                summary.overall_risk_score
+            ));
             md.push_str(&format!("- **Risk Level**: {:?}\n", summary.risk_level));
             md.push_str(&format!("- **Critical**: {}\n", summary.critical_count));
             md.push_str(&format!("- **High**: {}\n", summary.high_count));
-            md.push_str("\n");
+            md.push('\n');
 
             md.push_str("### Findings by Severity\n\n");
             for (sev, count) in &summary.by_severity {
                 md.push_str(&format!("- **{:?}**: {}\n", sev, count));
             }
-            md.push_str("\n");
+            md.push('\n');
 
             if !summary.key_findings.is_empty() {
                 md.push_str("### Key Findings\n\n");
                 for kf in &summary.key_findings {
-                    md.push_str(&format!("- **[{} {}]** {} ({})\n", kf.severity, kf.risk_score, kf.title, kf.target));
+                    md.push_str(&format!(
+                        "- **[{} {}]** {} ({})\n",
+                        kf.severity, kf.risk_score, kf.title, kf.target
+                    ));
                 }
-                md.push_str("\n");
+                md.push('\n');
             }
 
             if !summary.recommendations.is_empty() {
@@ -999,7 +1121,7 @@ impl ReportGenerator {
                 for rec in &summary.recommendations {
                     md.push_str(&format!("- {}\n", rec));
                 }
-                md.push_str("\n");
+                md.push('\n');
             }
         }
 
@@ -1034,26 +1156,42 @@ impl ReportGenerator {
     /// Render a single finding as Markdown
     fn render_finding_markdown(&self, finding: &Finding) -> String {
         let mut md = String::new();
-        
-        md.push_str(&format!("#### {} [{}]\n\n", finding.title, finding.severity));
+
+        md.push_str(&format!(
+            "#### {} [{}]\n\n",
+            finding.title, finding.severity
+        ));
         md.push_str(&format!("**Target**: {}  \n", finding.target));
         md.push_str(&format!("**Category**: {}  \n", finding.category));
         md.push_str(&format!("**Severity**: {}  \n", finding.severity));
         md.push_str(&format!("**Confidence**: {}  \n", finding.confidence));
-        md.push_str(&format!("**Risk Score**: {}/100  \n", finding.risk_score.unwrap_or(0)));
-        md.push_str(&format!("**Plugin**: {} v{}  \n", finding.plugin_source, finding.plugin_version));
-        md.push_str(&format!("**Discovered**: {}  \n", finding.timestamp.format("%Y-%m-%d %H:%M:%S UTC")));
-        
+        md.push_str(&format!(
+            "**Risk Score**: {}/100  \n",
+            finding.risk_score.unwrap_or(0)
+        ));
+        md.push_str(&format!(
+            "**Plugin**: {} v{}  \n",
+            finding.plugin_source, finding.plugin_version
+        ));
+        md.push_str(&format!(
+            "**Discovered**: {}  \n",
+            finding.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+        ));
+
         if let Some(owasp) = &finding.owasp_category {
             md.push_str(&format!("**OWASP**: {}  \n", owasp));
         }
-        
+
         if !finding.cwe_ids.is_empty() {
             md.push_str(&format!("**CWE**: {}  \n", finding.cwe_ids.join(", ")));
         }
-        
-        if !finding.cvss_vector.is_none() {
-            md.push_str(&format!("**CVSS**: {} ({})  \n", finding.cvss_vector.as_ref().unwrap(), finding.cvss_score.unwrap_or(0.0)));
+
+        if let Some(cvss_vector) = &finding.cvss_vector {
+            md.push_str(&format!(
+                "**CVSS**: {} ({})  \n",
+                cvss_vector,
+                finding.cvss_score.unwrap_or(0.0)
+            ));
         }
 
         md.push_str("\n**Description**:\n\n");
@@ -1062,7 +1200,10 @@ impl ReportGenerator {
         if self.config.include_evidence && !finding.evidence.is_empty() {
             md.push_str("**Evidence**:\n\n");
             for evidence in &finding.evidence {
-                md.push_str(&format!("- **{}**: {}\n", evidence.evidence_type, evidence.description));
+                md.push_str(&format!(
+                    "- **{}**: {}\n",
+                    evidence.evidence_type, evidence.description
+                ));
                 if let Some(loc) = &evidence.location {
                     md.push_str(&format!("  - Location: {}\n", loc));
                 }
@@ -1070,13 +1211,20 @@ impl ReportGenerator {
                     md.push_str(&format!("  - Request: {} {}\n", req.method, req.url));
                 }
                 if let Some(resp) = &evidence.http_response {
-                    md.push_str(&format!("  - Response: {} ({}) bytes\n", resp.status_code, resp.size_bytes.unwrap_or(0)));
+                    md.push_str(&format!(
+                        "  - Response: {} ({}) bytes\n",
+                        resp.status_code,
+                        resp.size_bytes.unwrap_or(0)
+                    ));
                 }
                 if let Some(payload) = &evidence.payload {
-                    md.push_str(&format!("  - Payload: {} ({})\n", payload.payload, payload.payload_type));
+                    md.push_str(&format!(
+                        "  - Payload: {} ({})\n",
+                        payload.payload, payload.payload_type
+                    ));
                 }
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         if self.config.include_remediation {
@@ -1090,13 +1238,19 @@ impl ReportGenerator {
                     for (i, step) in remediation.steps.iter().enumerate() {
                         md.push_str(&format!("{}. {}\n", i + 1, step));
                     }
-                    md.push_str("\n");
+                    md.push('\n');
                 }
                 if !remediation.code_examples.is_empty() {
                     md.push_str("**Code Examples**:\n\n");
                     for example in &remediation.code_examples {
-                        md.push_str(&format!("**{}** (Vulnerable):\n```{}\n{}\n```\n\n", example.language, example.language, example.vulnerable));
-                        md.push_str(&format!("**{}** (Fixed):\n```{}\n{}\n```\n\n", example.language, example.language, example.fixed));
+                        md.push_str(&format!(
+                            "**{}** (Vulnerable):\n```{}\n{}\n```\n\n",
+                            example.language, example.language, example.vulnerable
+                        ));
+                        md.push_str(&format!(
+                            "**{}** (Fixed):\n```{}\n{}\n```\n\n",
+                            example.language, example.language, example.fixed
+                        ));
                         md.push_str(&format!("*{}*\n\n", example.explanation));
                     }
                 }
@@ -1119,9 +1273,14 @@ impl ReportGenerator {
         if !finding.references.is_empty() {
             md.push_str("**References**:\n\n");
             for ref_ in &finding.references {
-                md.push_str(&format!("- [{}]({}) - {}\n", ref_.title, ref_.url, ref_.description.as_deref().unwrap_or("")));
+                md.push_str(&format!(
+                    "- [{}]({}) - {}\n",
+                    ref_.title,
+                    ref_.url,
+                    ref_.description.as_deref().unwrap_or("")
+                ));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         md.push_str("---\n\n");
@@ -1131,36 +1290,54 @@ impl ReportGenerator {
     /// Render statistics as Markdown
     fn render_statistics_markdown(&self, stats: &FindingStats) -> String {
         let mut md = String::new();
-        
+
         md.push_str(&format!("- **Total Findings**: {}\n", stats.total));
         md.push_str(&format!("- **Verified**: {}\n", stats.verified));
-        md.push_str(&format!("- **False Positives**: {}\n", stats.false_positives));
-        md.push_str(&format!("- **Average Risk Score**: {:.1}\n", stats.avg_risk_score));
+        md.push_str(&format!(
+            "- **False Positives**: {}\n",
+            stats.false_positives
+        ));
+        md.push_str(&format!(
+            "- **Average Risk Score**: {:.1}\n",
+            stats.avg_risk_score
+        ));
         md.push_str(&format!("- **Max Risk Score**: {}\n", stats.max_risk_score));
-        md.push_str(&format!("- **Average Advanced Risk Score**: {:.1}\n", stats.avg_advanced_risk_score));
-        md.push_str(&format!("- **Max Advanced Risk Score**: {}\n", stats.max_advanced_risk_score));
-        md.push_str(&format!("- **Exploit Available**: {}\n", stats.exploit_available_count));
-        md.push_str(&format!("- **Exploited in Wild**: {}\n", stats.exploited_in_wild_count));
-        md.push_str("\n");
+        md.push_str(&format!(
+            "- **Average Advanced Risk Score**: {:.1}\n",
+            stats.avg_advanced_risk_score
+        ));
+        md.push_str(&format!(
+            "- **Max Advanced Risk Score**: {}\n",
+            stats.max_advanced_risk_score
+        ));
+        md.push_str(&format!(
+            "- **Exploit Available**: {}\n",
+            stats.exploit_available_count
+        ));
+        md.push_str(&format!(
+            "- **Exploited in Wild**: {}\n",
+            stats.exploited_in_wild_count
+        ));
+        md.push('\n');
 
         md.push_str("### By Severity\n\n");
         for (sev, count) in &stats.by_severity {
             md.push_str(&format!("- **{:?}**: {}\n", sev, count));
         }
-        md.push_str("\n");
+        md.push('\n');
 
         md.push_str("### By Category\n\n");
         for (cat, count) in &stats.by_category {
             md.push_str(&format!("- **{}**: {}\n", cat, count));
         }
-        md.push_str("\n");
+        md.push('\n');
 
         if !stats.by_owasp_category.is_empty() {
             md.push_str("### By OWASP Category\n\n");
             for (owasp, count) in &stats.by_owasp_category {
                 md.push_str(&format!("- **{}**: {}\n", owasp, count));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         if !stats.by_cwe.is_empty() {
@@ -1170,7 +1347,7 @@ impl ReportGenerator {
             for (cwe, count) in cwes.iter().take(10) {
                 md.push_str(&format!("- **{}**: {}\n", cwe, count));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         md
@@ -1179,50 +1356,98 @@ impl ReportGenerator {
     /// Render comparison as Markdown
     fn render_comparison_markdown(&self, comparison: &ScanComparison) -> String {
         let mut md = String::new();
-        
-        md.push_str(&format!("- **Baseline Scan**: {}\n", comparison.baseline_scan_id));
-        md.push_str(&format!("- **Current Scan**: {}\n", comparison.current_scan_id));
-        md.push_str(&format!("- **Compared**: {}\n", comparison.summary.compared_at.format("%Y-%m-%d %H:%M:%S UTC")));
-        md.push_str("\n");
+
+        md.push_str(&format!(
+            "- **Baseline Scan**: {}\n",
+            comparison.baseline_scan_id
+        ));
+        md.push_str(&format!(
+            "- **Current Scan**: {}\n",
+            comparison.current_scan_id
+        ));
+        md.push_str(&format!(
+            "- **Compared**: {}\n",
+            comparison
+                .summary
+                .compared_at
+                .format("%Y-%m-%d %H:%M:%S UTC")
+        ));
+        md.push('\n');
 
         md.push_str("### Summary\n\n");
-        md.push_str(&format!("- **New Findings**: {}\n", comparison.summary.new_count));
-        md.push_str(&format!("- **Fixed Findings**: {}\n", comparison.summary.fixed_count));
-        md.push_str(&format!("- **Regressed Findings**: {}\n", comparison.summary.regressed_count));
-        md.push_str(&format!("- **Severity Increased**: {}\n", comparison.summary.severity_increased));
-        md.push_str(&format!("- **Severity Decreased**: {}\n", comparison.summary.severity_decreased));
-        md.push_str("\n");
+        md.push_str(&format!(
+            "- **New Findings**: {}\n",
+            comparison.summary.new_count
+        ));
+        md.push_str(&format!(
+            "- **Fixed Findings**: {}\n",
+            comparison.summary.fixed_count
+        ));
+        md.push_str(&format!(
+            "- **Regressed Findings**: {}\n",
+            comparison.summary.regressed_count
+        ));
+        md.push_str(&format!(
+            "- **Severity Increased**: {}\n",
+            comparison.summary.severity_increased
+        ));
+        md.push_str(&format!(
+            "- **Severity Decreased**: {}\n",
+            comparison.summary.severity_decreased
+        ));
+        md.push('\n');
 
         if !comparison.new_findings.is_empty() {
             md.push_str("### New Findings\n\n");
             for finding in &comparison.new_findings {
-                md.push_str(&format!("- **[{} {}]** {} ({})\n", finding.severity, finding.risk_score.unwrap_or(0), finding.title, finding.target));
+                md.push_str(&format!(
+                    "- **[{} {}]** {} ({})\n",
+                    finding.severity,
+                    finding.risk_score.unwrap_or(0),
+                    finding.title,
+                    finding.target
+                ));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         if !comparison.fixed_findings.is_empty() {
             md.push_str("### Fixed Findings\n\n");
             for finding in &comparison.fixed_findings {
-                md.push_str(&format!("- **[{} {}]** {} ({})\n", finding.severity, finding.risk_score.unwrap_or(0), finding.title, finding.target));
+                md.push_str(&format!(
+                    "- **[{} {}]** {} ({})\n",
+                    finding.severity,
+                    finding.risk_score.unwrap_or(0),
+                    finding.title,
+                    finding.target
+                ));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         if !comparison.regressed_findings.is_empty() {
             md.push_str("### Regressed Findings\n\n");
             for finding in &comparison.regressed_findings {
-                md.push_str(&format!("- **[{} {}]** {} ({})\n", finding.severity, finding.risk_score.unwrap_or(0), finding.title, finding.target));
+                md.push_str(&format!(
+                    "- **[{} {}]** {} ({})\n",
+                    finding.severity,
+                    finding.risk_score.unwrap_or(0),
+                    finding.title,
+                    finding.target
+                ));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         if !comparison.severity_changes.is_empty() {
             md.push_str("### Severity Changes\n\n");
             for change in &comparison.severity_changes {
-                md.push_str(&format!("- **{}**: {:?} → {:?} ({})\n", change.title, change.previous_severity, change.current_severity, change.target));
+                md.push_str(&format!(
+                    "- **{}**: {:?} → {:?} ({})\n",
+                    change.title, change.previous_severity, change.current_severity, change.target
+                ));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         md
@@ -1241,8 +1466,9 @@ impl ReportGenerator {
             .replace("**", "<strong>")
             .replace("* ", "<li>")
             .replace("\n", "</li>\n");
-        
-        format!(r#"<!DOCTYPE html>
+
+        format!(
+            r#"<!DOCTYPE html>
 <html>
 <head>
     <title>{}</title>
@@ -1267,7 +1493,9 @@ impl ReportGenerator {
 <body>
 {}
 </body>
-</html>"#, report.metadata.title, html)
+</html>"#,
+            report.metadata.title, html
+        )
     }
 
     /// Render as JSON
@@ -1321,7 +1549,10 @@ impl ReportGenerator {
                         "riskScore": finding.risk_score.unwrap_or(0)
                     }
                 });
-                sarif["runs"][0]["tool"]["driver"]["rules"].as_array_mut().unwrap().push(rule);
+                sarif["runs"][0]["tool"]["driver"]["rules"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(rule);
             }
 
             // Add result
@@ -1347,7 +1578,10 @@ impl ReportGenerator {
                     "timestamp": finding.timestamp.to_rfc3339()
                 }
             });
-            sarif["runs"][0]["results"].as_array_mut().unwrap().push(result);
+            sarif["runs"][0]["results"]
+                .as_array_mut()
+                .unwrap()
+                .push(result);
         }
 
         serde_json::to_string_pretty(&sarif).unwrap_or_else(|_| "{}".to_string())
@@ -1437,23 +1671,23 @@ impl Default for ScanProgress {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ids::{ScanId, ProjectId, TargetId};
+    use crate::ids::{ProjectId, ScanId, TargetId};
     use chrono::Utc;
 
     fn create_test_finding() -> Finding {
         let scan_id = ScanId::new();
-        Finding::new(
-            "SQL Injection".to_string(),
-            "SQL injection in login form".to_string(),
-            Severity::High,
-            Confidence::High,
-            Category::Injection,
-            "https://example.com/login".to_string(),
-            "rest_api".to_string(),
-            "sql-injection-scanner".to_string(),
-            "1.0.0".to_string(),
+        Finding::new(FindingConfig {
+            title: "SQL Injection".to_string(),
+            description: "SQL injection in login form".to_string(),
+            severity: Severity::High,
+            confidence: Confidence::High,
+            category: Category::Injection,
+            target: "https://example.com/login".to_string(),
+            target_type: "rest_api".to_string(),
+            plugin_source: "sql-injection-scanner".to_string(),
+            plugin_version: "1.0.0".to_string(),
             scan_id,
-        )
+        })
     }
 
     fn create_test_scan() -> ScanInfo {
@@ -1475,13 +1709,13 @@ mod tests {
     fn test_report_generation() {
         let config = ReportConfig::default();
         let generator = ReportGenerator::new(config);
-        
+
         let findings = vec![create_test_finding()];
         let scans = vec![create_test_scan()];
         let targets = vec![];
-        
+
         let report = generator.generate(&findings, &scans, &targets);
-        
+
         assert_eq!(report.all_findings.len(), 1);
         assert!(report.executive_summary.is_some());
         assert!(!report.findings_by_group.is_empty());
@@ -1491,14 +1725,14 @@ mod tests {
     fn test_markdown_rendering() {
         let config = ReportConfig::default();
         let generator = ReportGenerator::new(config);
-        
+
         let findings = vec![create_test_finding()];
         let scans = vec![create_test_scan()];
         let targets = vec![];
-        
+
         let report = generator.generate(&findings, &scans, &targets);
         let markdown = generator.render(&report, ReportFormat::Markdown);
-        
+
         assert!(markdown.contains("SQL Injection"));
         assert!(markdown.contains("High"));
         assert!(markdown.contains("example.com"));
@@ -1508,14 +1742,14 @@ mod tests {
     fn test_json_rendering() {
         let config = ReportConfig::default();
         let generator = ReportGenerator::new(config);
-        
+
         let findings = vec![create_test_finding()];
         let scans = vec![create_test_scan()];
         let targets = vec![];
-        
+
         let report = generator.generate(&findings, &scans, &targets);
         let json = generator.render(&report, ReportFormat::Json);
-        
+
         assert!(json.contains("SQL Injection"));
         assert!(json.contains("findings"));
     }
@@ -1524,14 +1758,14 @@ mod tests {
     fn test_sarif_rendering() {
         let config = ReportConfig::default();
         let generator = ReportGenerator::new(config);
-        
+
         let findings = vec![create_test_finding()];
         let scans = vec![create_test_scan()];
         let targets = vec![];
-        
+
         let report = generator.generate(&findings, &scans, &targets);
         let sarif = generator.render(&report, ReportFormat::Sarif);
-        
+
         assert!(sarif.contains("sarif"));
         assert!(sarif.contains("runs"));
         assert!(sarif.contains("results"));
@@ -1541,22 +1775,23 @@ mod tests {
     fn test_comparison_report() {
         let config = ReportConfig::default();
         let generator = ReportGenerator::new(config);
-        
+
         let mut baseline = create_test_finding();
         baseline.fingerprint = Some("fp1".to_string());
         baseline.false_positive = true;
-        
+
         let mut current = create_test_finding();
         current.fingerprint = Some("fp1".to_string());
         current.false_positive = false;
         current.severity = Severity::Critical;
-        
+
         let baseline_scan = create_test_scan();
         let mut current_scan = create_test_scan();
         current_scan.id = ScanId::new();
-        
-        let report = generator.generate_comparison(&[baseline], &[current], &baseline_scan, &current_scan);
-        
+
+        let report =
+            generator.generate_comparison(&[baseline], &[current], &baseline_scan, &current_scan);
+
         assert!(report.scan_comparison.is_some());
         let comparison = report.scan_comparison.unwrap();
         assert_eq!(comparison.regressed_findings.len(), 1);

@@ -1,6 +1,6 @@
 //! Auto-scaler for worker pool
 
-use crate::{QueueManager, WorkerPool, QueueStats};
+use crate::{QueueManager, QueueStats, WorkerPool};
 use openre_config::AutoscalerConfig;
 use openre_core::error::OpenreResult as Result;
 use openre_telemetry::metrics::AutoScalerMetrics;
@@ -42,7 +42,9 @@ impl AutoScaler {
     pub async fn start(&self) {
         let scaler = self.clone();
         tokio::spawn(async move {
-            let mut interval = interval(Duration::from_secs(scaler.config.evaluation_interval_seconds));
+            let mut interval = interval(Duration::from_secs(
+                scaler.config.evaluation_interval_seconds,
+            ));
             loop {
                 interval.tick().await;
                 if let Err(e) = scaler.evaluate_and_scale().await {
@@ -55,21 +57,23 @@ impl AutoScaler {
     async fn evaluate_and_scale(&self) -> Result<()> {
         let stats = self.queue_manager.get_stats().await?;
         let pool = self.worker_pool.read().await;
-        
+
         let Some(pool) = pool.as_ref() else {
             return Ok(()); // Pool not set yet
         };
 
         let current_workers = pool.active_workers();
         let desired_workers = self.calculate_desired_workers(&stats, current_workers);
-        
+
         if desired_workers != current_workers {
             // Check cooldown
             let can_scale = self.check_cooldown().await;
             if can_scale {
-                info!("Auto-scaler: scaling from {} to {} workers (queued: {}, running: {})",
-                    current_workers, desired_workers, stats.total_queued, stats.jobs_running);
-                
+                info!(
+                    "Auto-scaler: scaling from {} to {} workers (queued: {}, running: {})",
+                    current_workers, desired_workers, stats.total_queued, stats.jobs_running
+                );
+
                 // We need mutable access to scale
                 // In a real implementation, we'd use a different pattern
                 // For now, just record the decision
@@ -81,10 +85,10 @@ impl AutoScaler {
         }
 
         // Record metrics
-        self.metrics.current_workers.set(current_workers as i64);
-        self.metrics.desired_workers.set(desired_workers as i64);
-        self.metrics.queue_depth.set(stats.total_queued as i64);
-        self.metrics.jobs_running.set(stats.jobs_running as i64);
+        self.metrics.current_workers.set(current_workers as f64);
+        self.metrics.desired_workers.set(desired_workers as f64);
+        self.metrics.queue_depth.set(stats.total_queued as f64);
+        self.metrics.jobs_running.set(stats.jobs_running as f64);
 
         Ok(())
     }
@@ -92,25 +96,28 @@ impl AutoScaler {
     fn calculate_desired_workers(&self, stats: &QueueStats, current: usize) -> usize {
         let queued = stats.total_queued;
         let running = stats.jobs_running;
-        
+
         // Base calculation: target queue depth per worker
         let target_queue_per_worker = self.config.target_queue_depth_per_worker as f64;
         let min_workers = self.config.min_workers;
         let max_workers = self.config.max_workers;
-        
+
         // Calculate based on queue depth
         let queue_based = ((queued as f64) / target_queue_per_worker).ceil() as usize;
-        
+
         // Consider running jobs
-        let running_based = running + (queued as f64 / (target_queue_per_worker * 2.0)).max(1.0) as usize;
-        
+        let running_based =
+            running + (queued as f64 / (target_queue_per_worker * 2.0)).max(1.0) as usize;
+
         // Use the maximum of both calculations
-        let desired = queue_based.max(running_based).clamp(min_workers, max_workers);
-        
+        let desired = queue_based
+            .max(running_based)
+            .clamp(min_workers, max_workers);
+
         // Apply hysteresis to prevent thrashing
         let scale_up_threshold = self.config.scale_up_threshold;
         let scale_down_threshold = self.config.scale_down_threshold;
-        
+
         if desired > current {
             // Scale up: require queue to be significantly above threshold
             if queued > (current as f64 * scale_up_threshold) as usize {

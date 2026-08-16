@@ -1,13 +1,13 @@
 //! Plugin SDK for open-re
 
-use openre_core::ids::{FunctionId, BlockId, InstructionId};
+use openre_core::ids::{BlockId, FunctionId, InstructionId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-/// Re-export commonly used types for plugin authors
-pub use openre_core::ids::{PluginId, Capability};
 pub use openre_core::error::OpenreResult as Result;
+/// Re-export commonly used types for plugin authors
+pub use openre_core::ids::{Capability, PluginId};
 
 /// Plugin instance trait for lifecycle management
 #[async_trait::async_trait]
@@ -26,24 +26,37 @@ pub trait Plugin: Send + Sync {
     fn new(config: Self::Config) -> Self;
     fn capabilities(&self) -> Vec<Capability>;
     async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse>;
-    async fn initialize(&self) -> Result<()> { Ok(()) }
+    async fn initialize(&self) -> Result<()> {
+        Ok(())
+    }
 }
 
 /// Dyn-compatible plugin trait for lifecycle management
 pub trait DynPlugin: Send + Sync {
     fn capabilities(&self) -> Vec<Capability>;
-    fn execute(&self, request: CapabilityRequest) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<CapabilityResponse>> + Send + '_>>;
-    fn initialize(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>>;
+    fn execute(
+        &self,
+        request: CapabilityRequest,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<CapabilityResponse>> + Send + '_>>;
+    fn initialize(
+        &self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>>;
 }
 
 impl<T: Plugin> DynPlugin for T {
     fn capabilities(&self) -> Vec<Capability> {
         self.capabilities()
     }
-    fn execute(&self, request: CapabilityRequest) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<CapabilityResponse>> + Send + '_>> {
+    fn execute(
+        &self,
+        request: CapabilityRequest,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<CapabilityResponse>> + Send + '_>>
+    {
         Box::pin(self.execute(request))
     }
-    fn initialize(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+    fn initialize(
+        &self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
         Box::pin(self.initialize())
     }
 }
@@ -66,11 +79,19 @@ pub struct CapabilityResponse {
 
 impl CapabilityResponse {
     pub fn success(output: Value) -> Self {
-        Self { success: true, output: Some(output), error: None }
+        Self {
+            success: true,
+            output: Some(output),
+            error: None,
+        }
     }
 
     pub fn error(error: String) -> Self {
-        Self { success: false, output: None, error: Some(error) }
+        Self {
+            success: false,
+            output: None,
+            error: Some(error),
+        }
     }
 }
 
@@ -159,8 +180,8 @@ pub enum LogLevel {
 #[macro_export]
 macro_rules! plugin_entry {
     ($plugin_type:ty) => {
-        use $crate::sdk::Plugin;
         use std::sync::Mutex;
+        use $crate::sdk::Plugin;
 
         static PLUGIN: Mutex<Option<$plugin_type>> = Mutex::new(None);
 
@@ -170,25 +191,36 @@ macro_rules! plugin_entry {
                 return -1;
             }
             let config_slice = unsafe { std::slice::from_raw_parts(config_ptr, config_len) };
-            let config: <$plugin_type as Plugin>::Config = match serde_json::from_slice(config_slice) {
-                Ok(c) => c,
-                Err(_) => return -1,
-            };
+            let config: <$plugin_type as Plugin>::Config =
+                match serde_json::from_slice(config_slice) {
+                    Ok(c) => c,
+                    Err(_) => return -1,
+                };
             let plugin = <$plugin_type as Plugin>::new(config);
             *PLUGIN.lock().unwrap() = Some(plugin);
             0
         }
 
         #[no_mangle]
-        pub extern "C" fn plugin_execute(request_ptr: *const u8, request_len: usize, response_ptr: *mut u8, response_len: *mut usize) -> i32 {
-            if request_ptr.is_null() || request_len == 0 || response_ptr.is_null() || response_len.is_null() {
+        pub extern "C" fn plugin_execute(
+            request_ptr: *const u8,
+            request_len: usize,
+            response_ptr: *mut u8,
+            response_len: *mut usize,
+        ) -> i32 {
+            if request_ptr.is_null()
+                || request_len == 0
+                || response_ptr.is_null()
+                || response_len.is_null()
+            {
                 return -1;
             }
             let request_slice = unsafe { std::slice::from_raw_parts(request_ptr, request_len) };
-            let request: $crate::sdk::CapabilityRequest = match serde_json::from_slice(request_slice) {
-                Ok(r) => r,
-                Err(_) => return -1,
-            };
+            let request: $crate::sdk::CapabilityRequest =
+                match serde_json::from_slice(request_slice) {
+                    Ok(r) => r,
+                    Err(_) => return -1,
+                };
 
             let mut plugin_guard = PLUGIN.lock().unwrap();
             let plugin = match plugin_guard.as_mut() {
@@ -203,7 +235,10 @@ macro_rules! plugin_entry {
                 Ok(r) => r,
                 Err(e) => {
                     let plugin_error: $crate::sdk::PluginError = e.into();
-                    CapabilityResponse::error(serde_json::to_string(&plugin_error).unwrap_or_else(|_| "Unknown error".to_string()))
+                    CapabilityResponse::error(
+                        serde_json::to_string(&plugin_error)
+                            .unwrap_or_else(|_| "Unknown error".to_string()),
+                    )
                 }
             };
 
@@ -217,7 +252,11 @@ macro_rules! plugin_entry {
             }
 
             unsafe {
-                std::ptr::copy_nonoverlapping(response_json.as_ptr(), response_ptr, response_json.len());
+                std::ptr::copy_nonoverlapping(
+                    response_json.as_ptr(),
+                    response_ptr,
+                    response_json.len(),
+                );
                 *response_len = response_json.len();
             }
 

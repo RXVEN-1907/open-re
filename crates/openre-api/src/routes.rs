@@ -1,18 +1,18 @@
 //! API routes for open-re
 
-pub mod projects;
-pub mod files;
-pub mod analysis;
-pub mod functions;
 pub mod ai;
-pub mod plugins;
+pub mod analysis;
 pub mod auth;
-pub mod users;
 pub mod exports;
+pub mod files;
+pub mod functions;
+pub mod plugins;
+pub mod projects;
 pub mod security;
 pub mod security_ai;
+pub mod users;
 
-use crate::{AppState, ApiResult};
+use crate::{ApiResult, AppState};
 use axum::Router;
 
 /// Create all API routes

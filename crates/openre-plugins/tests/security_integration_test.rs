@@ -1,18 +1,17 @@
 //! Integration tests for security plugins using mock HTTP server
 
-use openre_plugins::security::{
-    AuthDiscoveryPlugin, SessionManagementPlugin, CookieSecurityPlugin,
-    SecurityHeadersPlugin, CorsAnalysisPlugin, RateLimitingPlugin,
-    InformationDisclosurePlugin, SecurityPluginConfig,
-};
-use openre_plugins::sdk::{Plugin, CapabilityRequest, AnalysisContext};
 use openre_core::ids::{JobId, ScanId};
-use openre_core::result::{Finding, Severity, Confidence, Category};
+use openre_core::result::{Category, Confidence, Finding, Severity};
+use openre_plugins::sdk::{AnalysisContext, CapabilityRequest, Plugin};
+use openre_plugins::security::{
+    AuthDiscoveryPlugin, CookieSecurityPlugin, CorsAnalysisPlugin, InformationDisclosurePlugin,
+    RateLimitingPlugin, SecurityHeadersPlugin, SecurityPluginConfig, SessionManagementPlugin,
+};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use wiremock::{MockServer, Mock, ResponseTemplate};
-use wiremock::matchers::{method, path, header};
+use wiremock::matchers::{header, method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 // Helper to create a test scan context
 fn create_test_context(target_url: &str) -> AnalysisContext {
@@ -33,7 +32,7 @@ fn create_test_context(target_url: &str) -> AnalysisContext {
 #[tokio::test]
 async fn test_auth_discovery_plugin_finds_login_form() {
     let mock_server = MockServer::start().await;
-    
+
     // Mock login page
     Mock::given(method("GET"))
         .and(path("/login"))
@@ -42,7 +41,7 @@ async fn test_auth_discovery_plugin_finds_login_form() {
             .insert_header("content-type", "text/html"))
         .mount(&mock_server)
         .await;
-    
+
     // Mock register page
     Mock::given(method("GET"))
         .and(path("/register"))
@@ -51,48 +50,54 @@ async fn test_auth_discovery_plugin_finds_login_form() {
             .insert_header("content-type", "text/html"))
         .mount(&mock_server)
         .await;
-    
+
     // Mock password reset page
     Mock::given(method("GET"))
         .and(path("/password/reset"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("Forgot your password? Enter your email to reset.")
-            .insert_header("content-type", "text/html"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("Forgot your password? Enter your email to reset.")
+                .insert_header("content-type", "text/html"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = AuthDiscoveryPlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find at least the login, register, and password reset pages
     assert!(findings.len() >= 3);
-    
+
     // Check for login form finding
-    let login_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("login"));
+    let login_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("login"));
     assert!(login_finding.is_some());
-    
+
     // Check for registration form finding
-    let register_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("register"));
+    let register_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("register"));
     assert!(register_finding.is_some());
 }
 
 #[tokio::test]
 async fn test_auth_discovery_plugin_detects_sso() {
     let mock_server = MockServer::start().await;
-    
+
     Mock::given(method("GET"))
         .and(path("/login"))
         .respond_with(ResponseTemplate::new(200)
@@ -100,23 +105,23 @@ async fn test_auth_discovery_plugin_detects_sso() {
             .insert_header("content-type", "text/html"))
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = AuthDiscoveryPlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find SSO providers
     let sso_finding = findings.iter().find(|f| {
         let title = f["title"].as_str().unwrap();
@@ -128,139 +133,167 @@ async fn test_auth_discovery_plugin_detects_sso() {
 #[tokio::test]
 async fn test_session_management_plugin_analyzes_cookies() {
     let mock_server = MockServer::start().await;
-    
+
     Mock::given(method("GET"))
         .and(path("/"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("<html>Home</html>")
-            .insert_header("content-type", "text/html")
-            .insert_header("set-cookie", "sessionid=abc123; Secure; HttpOnly; SameSite=Lax; Path=/"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("<html>Home</html>")
+                .insert_header("content-type", "text/html")
+                .insert_header(
+                    "set-cookie",
+                    "sessionid=abc123; Secure; HttpOnly; SameSite=Lax; Path=/",
+                ),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = SessionManagementPlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find session cookie
-    let session_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Session Cookie"));
+    let session_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("Session Cookie"));
     assert!(session_finding.is_some());
 }
 
 #[tokio::test]
 async fn test_cookie_security_plugin_checks_flags() {
     let mock_server = MockServer::start().await;
-    
+
     // Cookie missing Secure flag
     Mock::given(method("GET"))
         .and(path("/"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("<html>Home</html>")
-            .insert_header("content-type", "text/html")
-            .insert_header("set-cookie", "sessionid=abc123; HttpOnly; SameSite=Lax; Path=/"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("<html>Home</html>")
+                .insert_header("content-type", "text/html")
+                .insert_header(
+                    "set-cookie",
+                    "sessionid=abc123; HttpOnly; SameSite=Lax; Path=/",
+                ),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = CookieSecurityPlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find missing Secure flag
-    let secure_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Missing Secure Flag"));
+    let secure_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("Missing Secure Flag"));
     assert!(secure_finding.is_some());
-    
+
     // Should find missing HttpOnly flag (cookie has it, so this shouldn't be found)
-    let httponly_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Missing HttpOnly Flag"));
+    let httponly_finding = findings.iter().find(|f| {
+        f["title"]
+            .as_str()
+            .unwrap()
+            .contains("Missing HttpOnly Flag")
+    });
     assert!(httponly_finding.is_none());
 }
 
 #[tokio::test]
 async fn test_security_headers_plugin_checks_csp() {
     let mock_server = MockServer::start().await;
-    
+
     // No CSP header
     Mock::given(method("GET"))
         .and(path("/"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("<html>Home</html>")
-            .insert_header("content-type", "text/html"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("<html>Home</html>")
+                .insert_header("content-type", "text/html"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = SecurityHeadersPlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find missing CSP
-    let csp_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Content-Security-Policy"));
+    let csp_finding = findings.iter().find(|f| {
+        f["title"]
+            .as_str()
+            .unwrap()
+            .contains("Content-Security-Policy")
+    });
     assert!(csp_finding.is_some());
 }
 
 #[tokio::test]
 async fn test_security_headers_plugin_checks_hsts() {
     let mock_server = MockServer::start().await;
-    
+
     // HTTPS without HSTS
     Mock::given(method("GET"))
         .and(path("/"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("<html>Home</html>")
-            .insert_header("content-type", "text/html"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("<html>Home</html>")
+                .insert_header("content-type", "text/html"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = SecurityHeadersPlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find missing HSTS (since mock server uses HTTP, this might not trigger)
     // The plugin checks if URL starts with https://
     // For this test, we'd need an HTTPS mock server
@@ -269,199 +302,223 @@ async fn test_security_headers_plugin_checks_hsts() {
 #[tokio::test]
 async fn test_cors_analysis_plugin_detects_wildcard() {
     let mock_server = MockServer::start().await;
-    
+
     // CORS with wildcard
     Mock::given(method("GET"))
         .and(path("/api/data"))
         .and(header("origin", "https://evil.com"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("{}")
-            .insert_header("content-type", "application/json")
-            .insert_header("access-control-allow-origin", "*"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("{}")
+                .insert_header("content-type", "application/json")
+                .insert_header("access-control-allow-origin", "*"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = CorsAnalysisPlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find wildcard origin issue
-    let wildcard_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Wildcard Origin"));
+    let wildcard_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("Wildcard Origin"));
     assert!(wildcard_finding.is_some());
 }
 
 #[tokio::test]
 async fn test_cors_analysis_plugin_detects_origin_reflection() {
     let mock_server = MockServer::start().await;
-    
+
     // CORS with origin reflection
     Mock::given(method("GET"))
         .and(path("/api/data"))
         .and(header("origin", "https://evil.com"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("{}")
-            .insert_header("content-type", "application/json")
-            .insert_header("access-control-allow-origin", "https://evil.com"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("{}")
+                .insert_header("content-type", "application/json")
+                .insert_header("access-control-allow-origin", "https://evil.com"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = CorsAnalysisPlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find origin reflection
-    let reflection_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Origin Reflection"));
+    let reflection_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("Origin Reflection"));
     assert!(reflection_finding.is_some());
 }
 
 #[tokio::test]
 async fn test_rate_limiting_plugin_detects_no_limit() {
     let mock_server = MockServer::start().await;
-    
+
     // No rate limiting - all requests succeed
     Mock::given(method("GET"))
         .and(path("/"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("<html>Home</html>")
-            .insert_header("content-type", "text/html"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("<html>Home</html>")
+                .insert_header("content-type", "text/html"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = RateLimitingPlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find no rate limiting
-    let no_limit_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("No Rate Limiting"));
+    let no_limit_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("No Rate Limiting"));
     assert!(no_limit_finding.is_some());
 }
 
 #[tokio::test]
 async fn test_rate_limiting_plugin_detects_limit() {
     let mock_server = MockServer::start().await;
-    
+
     // Rate limiting after 5 requests
     let mut request_count = 0;
     Mock::given(method("GET"))
         .and(path("/"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("<html>Home</html>")
-            .insert_header("content-type", "text/html")
-            .insert_header("x-ratelimit-limit", "5")
-            .insert_header("x-ratelimit-remaining", "4"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("<html>Home</html>")
+                .insert_header("content-type", "text/html")
+                .insert_header("x-ratelimit-limit", "5")
+                .insert_header("x-ratelimit-remaining", "4"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     // After 5 requests, return 429
     Mock::given(method("GET"))
         .and(path("/"))
-        .respond_with(ResponseTemplate::new(429)
-            .set_body_string("Rate limited")
-            .insert_header("content-type", "text/plain")
-            .insert_header("retry-after", "60"))
+        .respond_with(
+            ResponseTemplate::new(429)
+                .set_body_string("Rate limited")
+                .insert_header("content-type", "text/plain")
+                .insert_header("retry-after", "60"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = RateLimitingPlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should detect rate limiting
-    let rate_limit_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Rate Limit"));
+    let rate_limit_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("Rate Limit"));
     assert!(rate_limit_finding.is_some());
 }
 
 #[tokio::test]
 async fn test_information_disclosure_plugin_detects_server_header() {
     let mock_server = MockServer::start().await;
-    
+
     Mock::given(method("GET"))
         .and(path("/"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("<html>Home</html>")
-            .insert_header("content-type", "text/html")
-            .insert_header("server", "nginx/1.18.0 (Ubuntu)")
-            .insert_header("x-powered-by", "PHP/8.1.0"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string("<html>Home</html>")
+                .insert_header("content-type", "text/html")
+                .insert_header("server", "nginx/1.18.0 (Ubuntu)")
+                .insert_header("x-powered-by", "PHP/8.1.0"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = InformationDisclosurePlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find server header disclosure
-    let server_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Server Header"));
+    let server_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("Server Header"));
     assert!(server_finding.is_some());
-    
+
     // Should find X-Powered-By disclosure
-    let powered_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("X-Powered-By"));
+    let powered_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("X-Powered-By"));
     assert!(powered_finding.is_some());
 }
 
 #[tokio::test]
 async fn test_information_disclosure_plugin_detects_debug_page() {
     let mock_server = MockServer::start().await;
-    
+
     Mock::given(method("GET"))
         .and(path("/debug"))
         .respond_with(ResponseTemplate::new(200)
@@ -469,92 +526,107 @@ async fn test_information_disclosure_plugin_detects_debug_page() {
             .insert_header("content-type", "text/html"))
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = InformationDisclosurePlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find debug page
-    let debug_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Debug"));
+    let debug_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("Debug"));
     assert!(debug_finding.is_some());
 }
 
 #[tokio::test]
 async fn test_information_disclosure_plugin_detects_stack_trace() {
     let mock_server = MockServer::start().await;
-    
+
     Mock::given(method("GET"))
         .and(path("/error"))
-        .respond_with(ResponseTemplate::new(500)
-            .set_body_string(r#"Error: Something went wrong
+        .respond_with(
+            ResponseTemplate::new(500)
+                .set_body_string(
+                    r#"Error: Something went wrong
     at com.example.MyClass.myMethod(MyClass.java:42)
-    at com.example.AnotherClass.anotherMethod(AnotherClass.java:100)"#)
-            .insert_header("content-type", "text/plain"))
+    at com.example.AnotherClass.anotherMethod(AnotherClass.java:100)"#,
+                )
+                .insert_header("content-type", "text/plain"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = InformationDisclosurePlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find stack trace
-    let stack_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Stack Trace"));
+    let stack_finding = findings
+        .iter()
+        .find(|f| f["title"].as_str().unwrap().contains("Stack Trace"));
     assert!(stack_finding.is_some());
 }
 
 #[tokio::test]
 async fn test_information_disclosure_plugin_detects_sensitive_files() {
     let mock_server = MockServer::start().await;
-    
+
     Mock::given(method("GET"))
         .and(path("/.env"))
-        .respond_with(ResponseTemplate::new(200)
-            .set_body_string("DATABASE_URL=postgres://user:pass@localhost/db\nAPI_KEY=secret123")
-            .insert_header("content-type", "text/plain"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(
+                    "DATABASE_URL=postgres://user:pass@localhost/db\nAPI_KEY=secret123",
+                )
+                .insert_header("content-type", "text/plain"),
+        )
         .mount(&mock_server)
         .await;
-    
+
     let config = SecurityPluginConfig::default();
     let plugin = InformationDisclosurePlugin::new(config);
-    
+
     let context = create_test_context(&mock_server.uri());
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
         input: serde_json::json!({"target_url": mock_server.uri()}),
     };
-    
+
     let response = plugin.execute(request).await.unwrap();
     assert!(response.success);
-    
+
     let output = response.output.unwrap();
     let findings = output["findings"].as_array().unwrap();
-    
+
     // Should find sensitive file exposure
-    let sensitive_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Sensitive") || f["title"].as_str().unwrap().contains("Exposed"));
+    let sensitive_finding = findings.iter().find(|f| {
+        f["title"].as_str().unwrap().contains("Sensitive")
+            || f["title"].as_str().unwrap().contains("Exposed")
+    });
     assert!(sensitive_finding.is_some());
 }

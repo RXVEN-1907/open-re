@@ -11,7 +11,8 @@ use crate::injection::{
 };
 use crate::sdk::{Plugin, AnalysisContext, Result, Capability};
 use openre_core::ids::PluginId;
-use openre_core::result::{Finding, Severity, Confidence, Category, Evidence, EvidenceType, Reference, ReferenceType};
+use openre_core::result::{Finding, FindingConfig, Severity, Confidence, Category, Evidence, EvidenceType, Reference, ReferenceType};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -206,6 +207,13 @@ impl BaseInjectionPlugin {
                 })),
                 location: Some(target_url.to_string()),
                 metadata: HashMap::new(),
+                http_request: None,
+                http_response: None,
+                timing: None,
+                payload: None,
+                reproduction_steps: None,
+                plugin_source: Some(self.plugin_source().to_string()),
+                timestamp: Utc::now(),
             });
             
             // Add references

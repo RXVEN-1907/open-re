@@ -20,28 +20,37 @@ impl StaticAnalysisService {
     }
 
     /// Run static analysis on a binary
-    pub async fn analyze(&self, file_id: FileId, metadata: &BinaryMetadata) -> Result<StaticAnalysisResult> {
+    pub async fn analyze(
+        &self,
+        file_id: FileId,
+        metadata: &BinaryMetadata,
+    ) -> Result<StaticAnalysisResult> {
         let start = std::time::Instant::now();
-        
+
         // Calculate entropy for each section
         let section_entropies = self.calculate_section_entropies(metadata).await?;
-        
+
         // Find functions
         let functions = self.find_functions(metadata).await?;
-        
+
         // Analyze control flow
         let control_flow = self.analyze_control_flow(metadata).await?;
-        
+
         // Analyze data flow
         let data_flow = self.analyze_data_flow(metadata).await?;
-        
+
         // Store results
-        self.global_store.store_static_analysis(file_id, &StaticAnalysisResult {
-            section_entropies,
-            functions,
-            control_flow,
-            data_flow,
-        }).await?;
+        self.global_store
+            .store_static_analysis(
+                file_id,
+                &StaticAnalysisResult {
+                    section_entropies,
+                    functions,
+                    control_flow,
+                    data_flow,
+                },
+            )
+            .await?;
 
         metrics::record_http_request("POST", 200, start.elapsed());
 
@@ -54,9 +63,12 @@ impl StaticAnalysisService {
     }
 
     /// Calculate entropy for each section
-    async fn calculate_section_entropies(&self, metadata: &BinaryMetadata) -> Result<Vec<SectionEntropy>> {
+    async fn calculate_section_entropies(
+        &self,
+        metadata: &BinaryMetadata,
+    ) -> Result<Vec<SectionEntropy>> {
         let mut entropies = Vec::new();
-        
+
         for section in &metadata.sections {
             if section.raw_size > 0 {
                 // In a real implementation, we'd fetch the section data from object storage
@@ -68,14 +80,14 @@ impl StaticAnalysisService {
                 });
             }
         }
-        
+
         Ok(entropies)
     }
 
     /// Find functions in the binary
     async fn find_functions(&self, metadata: &BinaryMetadata) -> Result<Vec<FunctionInfo>> {
         let mut functions = Vec::new();
-        
+
         // Use symbols as function candidates
         for symbol in &metadata.symbols {
             if symbol.symbol_type == SymbolType::Function {
@@ -84,7 +96,8 @@ impl StaticAnalysisService {
                     size: symbol.size,
                     name: Some(symbol.name.clone()),
                     is_thunk: false,
-                    is_import: symbol.binding == SymbolBinding::Global && symbol.visibility == SymbolVisibility::Default,
+                    is_import: symbol.binding == SymbolBinding::Global
+                        && symbol.visibility == SymbolVisibility::Default,
                     basic_blocks: Vec::new(), // Would need disassembly
                     calls: Vec::new(),
                     called_by: Vec::new(),
@@ -92,7 +105,7 @@ impl StaticAnalysisService {
                 });
             }
         }
-        
+
         // Also check exports
         for export in &metadata.exports {
             functions.push(FunctionInfo {
@@ -107,20 +120,20 @@ impl StaticAnalysisService {
                 complexity: 0,
             });
         }
-        
+
         Ok(functions)
     }
 
     /// Analyze control flow
     async fn analyze_control_flow(&self, metadata: &BinaryMetadata) -> Result<ControlFlowInfo> {
         let functions = self.find_functions(metadata).await?;
-        
+
         // Build call graph from imports/exports
         let mut call_graph = CallGraph {
             nodes: Vec::new(),
             edges: Vec::new(),
         };
-        
+
         // Add function nodes
         for func in &functions {
             call_graph.nodes.push(CallGraphNode {
@@ -129,7 +142,7 @@ impl StaticAnalysisService {
                 is_external: func.is_import,
             });
         }
-        
+
         // Add import edges
         for import in &metadata.imports {
             for func in &import.functions {
@@ -140,13 +153,13 @@ impl StaticAnalysisService {
                 });
             }
         }
-        
+
         // Build CFG (simplified)
         let cfg = ControlFlowGraph {
             nodes: Vec::new(),
             edges: Vec::new(),
         };
-        
+
         Ok(ControlFlowInfo {
             functions,
             call_graph,

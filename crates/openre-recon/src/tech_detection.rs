@@ -3,10 +3,18 @@
 //! Identifies web frameworks, CMS platforms, JavaScript frameworks,
 //! reverse proxies, load balancers, and common libraries.
 
-use crate::{ReconPlugin, ReconPluginConfig, ReconType, ReconMetadata};
-use openre_plugins::sdk::{Plugin, CapabilityRequest, CapabilityResponse, Capability, AnalysisContext};
+use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use openre_core::error::OpenreResult as Result;
-use openre_scanner::{target::TargetType, context::ScanContext, result::{Finding, Severity, Confidence, Category, Evidence, EvidenceType, Reference, ReferenceType}};
+use openre_plugins::sdk::{
+    AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
+};
+use openre_scanner::{
+    context::ScanContext,
+    result::{
+        Category, Confidence, Evidence, EvidenceType, Finding, Reference, ReferenceType, Severity,
+    },
+    target::TargetType,
+};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -29,8 +37,8 @@ impl TechDetectionPlugin {
             .danger_accept_invalid_certs(!config.verify_tls)
             .build()?;
 
-        Ok(Self { 
-            config, 
+        Ok(Self {
+            config,
             client,
             fingerprints: TechnologyFingerprints::default(),
         })
@@ -39,46 +47,51 @@ impl TechDetectionPlugin {
     /// Detect technologies from response
     async fn detect_technologies(&self, url: &str) -> Result<TechnologyDetectionResult> {
         let mut result = TechnologyDetectionResult::default();
-        
+
         let response = self.client.get(url).send().await?;
-        let headers: HashMap<String, String> = response.headers()
+        let headers: HashMap<String, String> = response
+            .headers()
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
             .collect();
-        
+
         let body = response.text().await.unwrap_or_default();
-        
+
         // Detect from headers
         self.detect_from_headers(&headers, &mut result);
-        
+
         // Detect from body content
         self.detect_from_body(&body, &mut result);
-        
+
         // Detect from cookies
         self.detect_from_cookies(&headers, &mut result);
-        
+
         Ok(result)
     }
 
-    fn detect_from_headers(&self, headers: &HashMap<String, String>, result: &mut TechnologyDetectionResult) {
+    fn detect_from_headers(
+        &self,
+        headers: &HashMap<String, String>,
+        result: &mut TechnologyDetectionResult,
+    ) {
         // Server header
         if let Some(server) = headers.get("server") {
             result.web_server = Some(server.clone());
             self.match_server(server, result);
         }
-        
+
         // X-Powered-By
         if let Some(powered) = headers.get("x-powered-by") {
             result.powered_by = Some(powered.clone());
             self.match_powered_by(powered, result);
         }
-        
+
         // Via header (proxies)
         if let Some(via) = headers.get("via") {
             result.proxy = Some(via.clone());
             self.match_proxy(via, result);
         }
-        
+
         // X-AspNet-Version
         if let Some(aspnet) = headers.get("x-aspnet-version") {
             result.technologies.push(Technology {
@@ -88,7 +101,7 @@ impl TechDetectionPlugin {
                 confidence: Confidence::High,
             });
         }
-        
+
         // X-Runtime (Rails)
         if let Some(runtime) = headers.get("x-runtime") {
             result.technologies.push(Technology {
@@ -98,7 +111,7 @@ impl TechDetectionPlugin {
                 confidence: Confidence::Medium,
             });
         }
-        
+
         // X-Drupal-Cache, X-Generator (Drupal)
         if headers.contains_key("x-drupal-cache") || headers.contains_key("x-generator") {
             result.technologies.push(Technology {
@@ -108,9 +121,11 @@ impl TechDetectionPlugin {
                 confidence: Confidence::High,
             });
         }
-        
+
         // WP-Super-Cache, X-Pingback (WordPress)
-        if headers.contains_key("x-pingback") || headers.get("server").map_or(false, |s| s.contains("wp")) {
+        if headers.contains_key("x-pingback")
+            || headers.get("server").map_or(false, |s| s.contains("wp"))
+        {
             result.technologies.push(Technology {
                 name: "WordPress".to_string(),
                 version: None,
@@ -122,19 +137,33 @@ impl TechDetectionPlugin {
 
     fn detect_from_body(&self, body: &str, result: &mut TechnologyDetectionResult) {
         let body_lower = body.to_lowercase();
-        
+
         // JavaScript frameworks
         let js_frameworks = [
-            ("React", vec!["react", "react-dom", "__react", "data-reactroot"]),
+            (
+                "React",
+                vec!["react", "react-dom", "__react", "data-reactroot"],
+            ),
             ("Vue.js", vec!["vue.js", "vue.min.js", "__vue__", "data-v-"]),
-            ("Angular", vec!["angular", "ng-app", "ng-controller", "ng-version"]),
+            (
+                "Angular",
+                vec!["angular", "ng-app", "ng-controller", "ng-version"],
+            ),
             ("jQuery", vec!["jquery", "jquery.min.js", "$(", "jQuery"]),
-            ("Bootstrap", vec!["bootstrap", "bootstrap.min.css", "btn-primary", "container-fluid"]),
+            (
+                "Bootstrap",
+                vec![
+                    "bootstrap",
+                    "bootstrap.min.css",
+                    "btn-primary",
+                    "container-fluid",
+                ],
+            ),
             ("Next.js", vec!["__next", "next.js", "_next/static"]),
             ("Nuxt.js", vec!["nuxt", "__nuxt", "_nuxt/"]),
             ("Svelte", vec!["svelte", "__svelte"]),
         ];
-        
+
         for (name, patterns) in js_frameworks {
             if patterns.iter().any(|p| body_lower.contains(p)) {
                 result.technologies.push(Technology {
@@ -145,16 +174,28 @@ impl TechDetectionPlugin {
                 });
             }
         }
-        
+
         // CMS detection
         let cms_patterns = [
-            ("WordPress", vec!["wp-content", "wp-includes", "wp-json", "wordpress"]),
-            ("Drupal", vec!["drupal", "sites/default/files", "drupal.settings"]),
+            (
+                "WordPress",
+                vec!["wp-content", "wp-includes", "wp-json", "wordpress"],
+            ),
+            (
+                "Drupal",
+                vec!["drupal", "sites/default/files", "drupal.settings"],
+            ),
             ("Joomla", vec!["joomla", "com_content", "option=com_"]),
-            ("Magento", vec!["magento", "mage/cookies", "mage/translation"]),
-            ("Shopify", vec!["shopify", "cdn.shopify.com", "shopify.theme"]),
+            (
+                "Magento",
+                vec!["magento", "mage/cookies", "mage/translation"],
+            ),
+            (
+                "Shopify",
+                vec!["shopify", "cdn.shopify.com", "shopify.theme"],
+            ),
         ];
-        
+
         for (name, patterns) in cms_patterns {
             if patterns.iter().any(|p| body_lower.contains(p)) {
                 result.technologies.push(Technology {
@@ -165,17 +206,23 @@ impl TechDetectionPlugin {
                 });
             }
         }
-        
+
         // Framework detection
         let framework_patterns = [
             ("Laravel", vec!["laravel", "laravel_session", "csrf_token"]),
-            ("Django", vec!["csrfmiddlewaretoken", "django", "__admin_media_prefix__"]),
+            (
+                "Django",
+                vec!["csrfmiddlewaretoken", "django", "__admin_media_prefix__"],
+            ),
             ("Express", vec!["express", "x-powered-by: express"]),
             ("Spring", vec!["spring", "jsessionid", "_spring_"]),
-            ("ASP.NET Core", vec!["asp.net", "__requestverificationtoken"]),
+            (
+                "ASP.NET Core",
+                vec!["asp.net", "__requestverificationtoken"],
+            ),
             ("Flask", vec!["flask", "werkzeug", "jinja2"]),
         ];
-        
+
         for (name, patterns) in framework_patterns {
             if patterns.iter().any(|p| body_lower.contains(p)) {
                 result.technologies.push(Technology {
@@ -188,10 +235,14 @@ impl TechDetectionPlugin {
         }
     }
 
-    fn detect_from_cookies(&self, headers: &HashMap<String, String>, result: &mut TechnologyDetectionResult) {
+    fn detect_from_cookies(
+        &self,
+        headers: &HashMap<String, String>,
+        result: &mut TechnologyDetectionResult,
+    ) {
         if let Some(set_cookie) = headers.get("set-cookie") {
             let cookie_lower = set_cookie.to_lowercase();
-            
+
             if cookie_lower.contains("phpsessid") {
                 result.technologies.push(Technology {
                     name: "PHP".to_string(),
@@ -200,7 +251,7 @@ impl TechDetectionPlugin {
                     confidence: Confidence::High,
                 });
             }
-            
+
             if cookie_lower.contains("jsessionid") {
                 result.technologies.push(Technology {
                     name: "Java/JSP".to_string(),
@@ -209,7 +260,7 @@ impl TechDetectionPlugin {
                     confidence: Confidence::High,
                 });
             }
-            
+
             if cookie_lower.contains("asp.net_sessionid") {
                 result.technologies.push(Technology {
                     name: "ASP.NET".to_string(),
@@ -223,7 +274,7 @@ impl TechDetectionPlugin {
 
     fn match_server(&self, server: &str, result: &mut TechnologyDetectionResult) {
         let server_lower = server.to_lowercase();
-        
+
         if server_lower.contains("nginx") {
             result.technologies.push(Technology {
                 name: "Nginx".to_string(),
@@ -232,7 +283,7 @@ impl TechDetectionPlugin {
                 confidence: Confidence::High,
             });
         }
-        
+
         if server_lower.contains("apache") {
             result.technologies.push(Technology {
                 name: "Apache".to_string(),
@@ -241,7 +292,7 @@ impl TechDetectionPlugin {
                 confidence: Confidence::High,
             });
         }
-        
+
         if server_lower.contains("iis") {
             result.technologies.push(Technology {
                 name: "Microsoft IIS".to_string(),
@@ -250,7 +301,7 @@ impl TechDetectionPlugin {
                 confidence: Confidence::High,
             });
         }
-        
+
         if server_lower.contains("cloudflare") {
             result.technologies.push(Technology {
                 name: "Cloudflare".to_string(),
@@ -259,7 +310,7 @@ impl TechDetectionPlugin {
                 confidence: Confidence::High,
             });
         }
-        
+
         if server_lower.contains("aws") || server_lower.contains("amazon") {
             result.technologies.push(Technology {
                 name: "AWS".to_string(),
@@ -272,7 +323,7 @@ impl TechDetectionPlugin {
 
     fn match_powered_by(&self, powered: &str, result: &mut TechnologyDetectionResult) {
         let powered_lower = powered.to_lowercase();
-        
+
         if powered_lower.contains("php") {
             result.technologies.push(Technology {
                 name: "PHP".to_string(),
@@ -281,7 +332,7 @@ impl TechDetectionPlugin {
                 confidence: Confidence::High,
             });
         }
-        
+
         if powered_lower.contains("express") {
             result.technologies.push(Technology {
                 name: "Express.js".to_string(),
@@ -294,7 +345,7 @@ impl TechDetectionPlugin {
 
     fn match_proxy(&self, via: &str, result: &mut TechnologyDetectionResult) {
         let via_lower = via.to_lowercase();
-        
+
         if via_lower.contains("varnish") {
             result.technologies.push(Technology {
                 name: "Varnish".to_string(),
@@ -303,7 +354,7 @@ impl TechDetectionPlugin {
                 confidence: Confidence::High,
             });
         }
-        
+
         if via_lower.contains("squid") {
             result.technologies.push(Technology {
                 name: "Squid".to_string(),
@@ -312,7 +363,7 @@ impl TechDetectionPlugin {
                 confidence: Confidence::High,
             });
         }
-        
+
         if via_lower.contains("haproxy") {
             result.technologies.push(Technology {
                 name: "HAProxy".to_string(),
@@ -326,7 +377,8 @@ impl TechDetectionPlugin {
     fn extract_version(&self, haystack: &str, needle: &str) -> Option<String> {
         if let Some(pos) = haystack.find(needle) {
             let start = pos + needle.len();
-            let end = haystack[start..].find(|c: char| !c.is_ascii_digit() && c != '.')
+            let end = haystack[start..]
+                .find(|c: char| !c.is_ascii_digit() && c != '.')
                 .map(|i| start + i)
                 .unwrap_or(haystack.len());
             Some(haystack[start..end].to_string())
@@ -376,16 +428,13 @@ impl Plugin for TechDetectionPlugin {
     }
 
     fn capabilities(&self) -> Vec<Capability> {
-        vec![
-            Capability::NetworkAccess,
-            Capability::ReadConfig,
-        ]
+        vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
     async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
         let context = request.context;
         let findings = self.recon(&context).await?;
-        
+
         Ok(CapabilityResponse::success(serde_json::json!({
             "findings": findings,
             "recon_type": ReconType::TechnologyDetection,
@@ -411,45 +460,57 @@ impl ReconPlugin for TechDetectionPlugin {
     async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
         let target_url = context.target.to_string();
-        
+
         info!("Starting technology detection for: {}", target_url);
-        
+
         let detection = self.detect_technologies(&target_url).await?;
-        
+
         // Create findings for each detected technology
         for tech in detection.technologies {
             let severity = match tech.category {
                 TechnologyCategory::Framework | TechnologyCategory::CMS => Severity::Info,
-                TechnologyCategory::WebServer | TechnologyCategory::Proxy | TechnologyCategory::LoadBalancer => Severity::Info,
+                TechnologyCategory::WebServer
+                | TechnologyCategory::Proxy
+                | TechnologyCategory::LoadBalancer => Severity::Info,
                 _ => Severity::Info,
             };
-            
-            findings.push(Finding::new(
-                format!("Technology Detected: {}", tech.name),
-                format!("Detected {} ({:?}) with {:?} confidence", tech.name, tech.category, tech.confidence),
-                severity,
-                tech.confidence,
-                Category::InformationDisclosure,
-                target_url.clone(),
-                "web_application".to_string(),
-                "tech_detection".to_string(),
-                "0.1.0".to_string(),
-                context.scan_id,
-            ).with_evidence(Evidence {
-                evidence_type: EvidenceType::HttpResponse,
-                description: format!("Detected technology: {}", tech.name),
-                data: Some(serde_json::json!({
-                    "technology": tech.name,
-                    "version": tech.version,
-                    "category": format!("{:?}", tech.category),
-                    "confidence": format!("{:?}", tech.confidence),
-                })),
-                location: Some(target_url.clone()),
-                metadata: HashMap::new(),
-            }));
+
+            findings.push(
+                Finding::new(
+                    format!("Technology Detected: {}", tech.name),
+                    format!(
+                        "Detected {} ({:?}) with {:?} confidence",
+                        tech.name, tech.category, tech.confidence
+                    ),
+                    severity,
+                    tech.confidence,
+                    Category::InformationDisclosure,
+                    target_url.clone(),
+                    "web_application".to_string(),
+                    "tech_detection".to_string(),
+                    "0.1.0".to_string(),
+                    context.scan_id,
+                )
+                .with_evidence(Evidence {
+                    evidence_type: EvidenceType::HttpResponse,
+                    description: format!("Detected technology: {}", tech.name),
+                    data: Some(serde_json::json!({
+                        "technology": tech.name,
+                        "version": tech.version,
+                        "category": format!("{:?}", tech.category),
+                        "confidence": format!("{:?}", tech.confidence),
+                    })),
+                    location: Some(target_url.clone()),
+                    metadata: HashMap::new(),
+                }),
+            );
         }
-        
-        info!("Technology detection completed for: {} - {} technologies found", target_url, findings.len());
+
+        info!(
+            "Technology detection completed for: {} - {} technologies found",
+            target_url,
+            findings.len()
+        );
         Ok(findings)
     }
 }
@@ -470,7 +531,12 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
 }
 
 #[no_mangle]
-pub extern "C" fn plugin_execute(request_ptr: *const u8, request_len: usize, response_ptr: *mut u8, response_len: *mut usize) -> i32 {
+pub extern "C" fn plugin_execute(
+    request_ptr: *const u8,
+    request_len: usize,
+    response_ptr: *mut u8,
+    response_len: *mut usize,
+) -> i32 {
     0
 }
 

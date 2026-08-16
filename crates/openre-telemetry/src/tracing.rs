@@ -2,11 +2,10 @@
 
 use openre_config::TracingConfig;
 use openre_core::error::OpenreResult as Result;
-use opentelemetry::{global, KeyValue, trace::TracerProvider as _};
+use opentelemetry::{global, trace::TracerProvider as _, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::trace::{Sampler, TracerProvider};
 use opentelemetry_sdk::Resource;
-use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Registry;
 
@@ -40,7 +39,7 @@ pub fn init_tracing(config: &TracingConfig) -> Result<TracingGuard> {
     };
 
     let _tracer = tracer_provider.tracer("openre");
-    
+
     // Use a simple tracing layer instead of OpenTelemetryLayer for now
     let registry = Registry::default();
     registry.try_init().ok();

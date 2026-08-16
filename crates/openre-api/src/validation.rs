@@ -8,8 +8,8 @@ use axum::{
     Json,
 };
 use serde::de::DeserializeOwned;
-use validator::{Validate, ValidationErrors};
 use std::fmt;
+use validator::{Validate, ValidationErrors};
 
 /// Validated JSON extractor
 pub struct ValidatedJson<T>(pub T);
@@ -23,12 +23,12 @@ where
     type Rejection = ApiError;
 
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
-        let Json(value) = Json::<T>::from_request(req, state).await
+        let Json(value) = Json::<T>::from_request(req, state)
+            .await
             .map_err(|e| ApiError::BadRequest(format!("Invalid JSON: {}", e)))?;
-        
-        value.validate()
-            .map_err(|e| ApiError::ValidationError(e))?;
-        
+
+        value.validate().map_err(|e| ApiError::ValidationError(e))?;
+
         Ok(ValidatedJson(value))
     }
 }
@@ -36,23 +36,28 @@ where
 /// Validation error response
 impl IntoResponse for ValidationErrors {
     fn into_response(self) -> Response {
-        let errors: Vec<ValidationErrorResponse> = self.field_errors()
+        let errors: Vec<ValidationErrorResponse> = self
+            .field_errors()
             .iter()
             .flat_map(|(field, errors)| {
                 errors.iter().map(move |error| ValidationErrorResponse {
                     field: field.to_string(),
-                    message: error.message.as_ref().map(|m| m.to_string()).unwrap_or_else(|| "Invalid value".to_string()),
+                    message: error
+                        .message
+                        .as_ref()
+                        .map(|m| m.to_string())
+                        .unwrap_or_else(|| "Invalid value".to_string()),
                     code: error.code.to_string(),
                 })
             })
             .collect();
-        
+
         let body = serde_json::json!({
             "error": "validation_failed",
             "message": "Request validation failed",
             "details": errors,
         });
-        
+
         (StatusCode::UNPROCESSABLE_ENTITY, Json(body)).into_response()
     }
 }
@@ -67,7 +72,7 @@ struct ValidationErrorResponse {
 /// Common validation rules
 pub mod rules {
     use validator::ValidationError;
-    
+
     /// Validate UUID format
     pub fn validate_uuid(uuid: &str) -> Result<(), ValidationError> {
         if uuid::Uuid::parse_str(uuid).is_ok() {
@@ -76,7 +81,7 @@ pub mod rules {
             Err(ValidationError::new("invalid_uuid"))
         }
     }
-    
+
     /// Validate non-empty string
     pub fn validate_not_empty(s: &str) -> Result<(), ValidationError> {
         if !s.trim().is_empty() {
@@ -85,7 +90,7 @@ pub mod rules {
             Err(ValidationError::new("not_empty"))
         }
     }
-    
+
     /// Validate hex string
     pub fn validate_hex(s: &str) -> Result<(), ValidationError> {
         if s.chars().all(|c| c.is_ascii_hexdigit()) {
@@ -94,7 +99,7 @@ pub mod rules {
             Err(ValidationError::new("invalid_hex"))
         }
     }
-    
+
     /// Validate base64 string
     pub fn validate_base64(s: &str) -> Result<(), ValidationError> {
         if base64::decode(s).is_ok() {
@@ -103,7 +108,7 @@ pub mod rules {
             Err(ValidationError::new("invalid_base64"))
         }
     }
-    
+
     /// Validate file size (in bytes)
     pub fn validate_file_size(size: &u64) -> Result<(), ValidationError> {
         const MAX_FILE_SIZE: u64 = 1024 * 1024 * 1024; // 1GB
@@ -113,7 +118,7 @@ pub mod rules {
             Err(ValidationError::new("file_too_large"))
         }
     }
-    
+
     /// Validate priority
     pub fn validate_priority(priority: &str) -> Result<(), ValidationError> {
         matches!(priority.to_lowercase().as_str(), "high" | "default" | "low")
@@ -127,10 +132,10 @@ pub mod rules {
 pub struct PaginationParams {
     #[validate(range(min = 1, max = 1000))]
     pub page: Option<u32>,
-    
+
     #[validate(range(min = 1, max = 100))]
     pub per_page: Option<u32>,
-    
+
     pub sort_by: Option<String>,
     pub sort_order: Option<SortOrder>,
 }
@@ -150,15 +155,15 @@ impl PaginationParams {
     pub fn page(&self) -> u32 {
         self.page.unwrap_or(1)
     }
-    
+
     pub fn per_page(&self) -> u32 {
         self.per_page.unwrap_or(50).min(100)
     }
-    
+
     pub fn offset(&self) -> u32 {
         (self.page() - 1) * self.per_page()
     }
-    
+
     pub fn limit(&self) -> u32 {
         self.per_page()
     }
@@ -214,10 +219,10 @@ pub struct IdsParam {
 pub struct FileUploadParams {
     #[validate(length(min = 1, max = 255))]
     pub filename: String,
-    
+
     #[validate(custom(function = "rules::validate_file_size"))]
     pub size: u64,
-    
+
     pub content_type: Option<String>,
     pub project_id: Option<String>,
 }
@@ -227,14 +232,14 @@ pub struct FileUploadParams {
 pub struct AnalysisRequestParams {
     #[validate(custom(function = "rules::validate_uuid"))]
     pub file_id: String,
-    
+
     pub project_id: Option<String>,
-    
+
     #[validate(length(min = 1, max = 50))]
     pub stages: Option<Vec<String>>,
-    
+
     pub priority: Option<String>,
-    
+
     pub config: Option<serde_json::Value>,
 }
 
@@ -243,17 +248,17 @@ pub struct AnalysisRequestParams {
 pub struct AiRequestParams {
     #[validate(length(min = 1, max = 4096))]
     pub prompt: String,
-    
+
     pub model: Option<String>,
-    
+
     #[validate(range(min = 0.0, max = 2.0))]
     pub temperature: Option<f32>,
-    
+
     #[validate(range(min = 1, max = 8192))]
     pub max_tokens: Option<u32>,
-    
+
     pub stream: Option<bool>,
-    
+
     pub tools: Option<Vec<String>>,
 }
 
@@ -262,9 +267,9 @@ pub struct AiRequestParams {
 pub struct PluginInstallParams {
     #[validate(length(min = 1, max = 100))]
     pub plugin_id: String,
-    
+
     pub version: Option<String>,
-    
+
     pub source: PluginSource,
 }
 
@@ -281,12 +286,12 @@ pub enum PluginSource {
 pub struct CreateProjectParams {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
-    
+
     #[validate(length(max = 500))]
     pub description: Option<String>,
-    
+
     pub is_public: Option<bool>,
-    
+
     pub settings: Option<serde_json::Value>,
 }
 
@@ -295,12 +300,12 @@ pub struct CreateProjectParams {
 pub struct UpdateProjectParams {
     #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,
-    
+
     #[validate(length(max = 500))]
     pub description: Option<String>,
-    
+
     pub is_public: Option<bool>,
-    
+
     pub settings: Option<serde_json::Value>,
 }
 
@@ -309,13 +314,13 @@ pub struct UpdateProjectParams {
 pub struct RegisterParams {
     #[validate(email)]
     pub email: String,
-    
+
     #[validate(length(min = 8, max = 128))]
     pub password: String,
-    
+
     #[validate(length(min = 1, max = 50))]
     pub username: String,
-    
+
     pub full_name: Option<String>,
 }
 
@@ -324,10 +329,10 @@ pub struct RegisterParams {
 pub struct LoginParams {
     #[validate(email)]
     pub email: String,
-    
+
     #[validate(length(min = 1))]
     pub password: String,
-    
+
     pub remember_me: Option<bool>,
 }
 
@@ -336,7 +341,7 @@ pub struct LoginParams {
 pub struct ChangePasswordParams {
     #[validate(length(min = 1))]
     pub current_password: String,
-    
+
     #[validate(length(min = 8, max = 128))]
     pub new_password: String,
 }
@@ -346,9 +351,9 @@ pub struct ChangePasswordParams {
 pub struct CreateApiKeyParams {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
-    
+
     #[validate(length(min = 1))]
     pub scopes: Vec<String>,
-    
+
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }

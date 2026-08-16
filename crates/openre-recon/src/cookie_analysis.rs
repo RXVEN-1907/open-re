@@ -2,12 +2,20 @@
 //!
 //! Inspects cookies for Secure flag, HttpOnly, SameSite, Expiration, and Scope.
 
-use crate::{ReconPlugin, ReconPluginConfig, ReconType, ReconMetadata};
-use openre_plugins::sdk::{Plugin, CapabilityRequest, CapabilityResponse, Capability, AnalysisContext};
-use openre_core::error::OpenreResult as Result;
-use openre_scanner::{target::TargetType, context::ScanContext, result::{Finding, Severity, Confidence, Category, Evidence, EvidenceType, Reference, ReferenceType}};
-use reqwest::Client;
+use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use cookie::Cookie;
+use openre_core::error::OpenreResult as Result;
+use openre_plugins::sdk::{
+    AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
+};
+use openre_scanner::{
+    context::ScanContext,
+    result::{
+        Category, Confidence, Evidence, EvidenceType, Finding, Reference, ReferenceType, Severity,
+    },
+    target::TargetType,
+};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -35,9 +43,9 @@ impl CookieAnalysisPlugin {
     /// Analyze cookies from response
     async fn analyze_cookies(&self, url: &str) -> Result<CookieAnalysisResult> {
         let mut result = CookieAnalysisResult::default();
-        
+
         let response = self.client.get(url).send().await?;
-        
+
         // Extract cookies from Set-Cookie headers
         for header in response.headers().get_all("set-cookie") {
             if let Ok(header_str) = header.to_str() {
@@ -47,12 +55,12 @@ impl CookieAnalysisPlugin {
                 }
             }
         }
-        
+
         // Also check for cookies in response body (JavaScript-set cookies)
         let body = response.text().await.unwrap_or_default();
         let js_cookies = self.extract_js_cookies(&body);
         result.js_cookies = js_cookies;
-        
+
         Ok(result)
     }
 
@@ -69,50 +77,63 @@ impl CookieAnalysisPlugin {
             max_age: cookie.max_age().map(|m| m.to_string()),
             issues: Vec::new(),
         };
-        
+
         // Check for security issues
         if !analysis.secure {
-            analysis.issues.push("Missing Secure flag - cookie transmitted over HTTP".to_string());
+            analysis
+                .issues
+                .push("Missing Secure flag - cookie transmitted over HTTP".to_string());
         }
-        
+
         if !analysis.http_only {
-            analysis.issues.push("Missing HttpOnly flag - accessible via JavaScript".to_string());
+            analysis
+                .issues
+                .push("Missing HttpOnly flag - accessible via JavaScript".to_string());
         }
-        
-        if analysis.same_site.is_none() || analysis.same_site.as_ref().map_or(true, |s| s == "None") {
-            analysis.issues.push("Missing or weak SameSite attribute".to_string());
+
+        if analysis.same_site.is_none() || analysis.same_site.as_ref().map_or(true, |s| s == "None")
+        {
+            analysis
+                .issues
+                .push("Missing or weak SameSite attribute".to_string());
         }
-        
+
         if analysis.expires.is_none() && analysis.max_age.is_none() {
-            analysis.issues.push("Session cookie - no expiration set".to_string());
+            analysis
+                .issues
+                .push("Session cookie - no expiration set".to_string());
         }
-        
+
         // Check for overly broad domain
         if let Some(domain) = &analysis.domain {
             if domain.starts_with('.') && domain.matches('.').count() <= 1 {
-                analysis.issues.push("Overly broad domain scope".to_string());
+                analysis
+                    .issues
+                    .push("Overly broad domain scope".to_string());
             }
         }
-        
+
         // Check for overly broad path
         if let Some(path) = &analysis.path {
             if path == "/" {
-                analysis.issues.push("Cookie path is root - accessible to entire domain".to_string());
+                analysis
+                    .issues
+                    .push("Cookie path is root - accessible to entire domain".to_string());
             }
         }
-        
+
         analysis
     }
 
     fn extract_js_cookies(&self, body: &str) -> Vec<JsCookie> {
         let mut cookies = Vec::new();
-        
+
         // Look for document.cookie assignments
         let patterns = [
             r#"document\.cookie\s*=\s*["']([^"']+)["']"#,
             r#"cookie\s*=\s*["']([^"']+)["']"#,
         ];
-        
+
         for pattern in patterns {
             if let Ok(re) = regex::Regex::new(pattern) {
                 for cap in re.captures_iter(body) {
@@ -125,7 +146,7 @@ impl CookieAnalysisPlugin {
                 }
             }
         }
-        
+
         cookies
     }
 }
@@ -165,16 +186,13 @@ impl Plugin for CookieAnalysisPlugin {
     }
 
     fn capabilities(&self) -> Vec<Capability> {
-        vec![
-            Capability::NetworkAccess,
-            Capability::ReadConfig,
-        ]
+        vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
     async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
         let context = request.context;
         let findings = self.recon(&context).await?;
-        
+
         Ok(CapabilityResponse::success(serde_json::json!({
             "findings": findings,
             "recon_type": ReconType::CookieAnalysis,
@@ -200,11 +218,11 @@ impl ReconPlugin for CookieAnalysisPlugin {
     async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
         let target_url = context.target.to_string();
-        
+
         info!("Starting cookie analysis for: {}", target_url);
-        
+
         let analysis = self.analyze_cookies(&target_url).await?;
-        
+
         // Create findings for each cookie
         for cookie in analysis.cookies {
             for issue in &cookie.issues {
@@ -217,90 +235,106 @@ impl ReconPlugin for CookieAnalysisPlugin {
                     "Cookie path is root - accessible to entire domain" => Severity::Info,
                     _ => Severity::Info,
                 };
-                
-                findings.push(Finding::new(
-                    format!("Cookie Issue: {}", cookie.name),
-                    format!("{}: {}", cookie.name, issue),
-                    severity,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "cookie_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                ).with_evidence(Evidence {
-                    evidence_type: EvidenceType::HttpResponse,
-                    description: format!("Cookie security issue: {}", issue),
-                    data: Some(serde_json::json!({
-                        "cookie_name": cookie.name,
-                        "domain": cookie.domain,
-                        "path": cookie.path,
-                        "secure": cookie.secure,
-                        "http_only": cookie.http_only,
-                        "same_site": cookie.same_site,
-                        "expires": cookie.expires,
-                        "max_age": cookie.max_age,
-                        "issue": issue,
-                    })),
-                    location: Some(target_url.clone()),
-                    metadata: HashMap::new(),
-                }));
+
+                findings.push(
+                    Finding::new(
+                        format!("Cookie Issue: {}", cookie.name),
+                        format!("{}: {}", cookie.name, issue),
+                        severity,
+                        Confidence::High,
+                        Category::SecurityMisconfiguration,
+                        target_url.clone(),
+                        "web_application".to_string(),
+                        "cookie_analysis".to_string(),
+                        "0.1.0".to_string(),
+                        context.scan_id,
+                    )
+                    .with_evidence(Evidence {
+                        evidence_type: EvidenceType::HttpResponse,
+                        description: format!("Cookie security issue: {}", issue),
+                        data: Some(serde_json::json!({
+                            "cookie_name": cookie.name,
+                            "domain": cookie.domain,
+                            "path": cookie.path,
+                            "secure": cookie.secure,
+                            "http_only": cookie.http_only,
+                            "same_site": cookie.same_site,
+                            "expires": cookie.expires,
+                            "max_age": cookie.max_age,
+                            "issue": issue,
+                        })),
+                        location: Some(target_url.clone()),
+                        metadata: HashMap::new(),
+                    }),
+                );
             }
-            
+
             // Also create a general finding for the cookie
             if cookie.issues.is_empty() {
-                findings.push(Finding::new(
-                    format!("Cookie Analyzed: {}", cookie.name),
-                    format!("Cookie {} appears to have proper security attributes", cookie.name),
+                findings.push(
+                    Finding::new(
+                        format!("Cookie Analyzed: {}", cookie.name),
+                        format!(
+                            "Cookie {} appears to have proper security attributes",
+                            cookie.name
+                        ),
+                        Severity::Info,
+                        Confidence::Medium,
+                        Category::Configuration,
+                        target_url.clone(),
+                        "web_application".to_string(),
+                        "cookie_analysis".to_string(),
+                        "0.1.0".to_string(),
+                        context.scan_id,
+                    )
+                    .with_evidence(Evidence {
+                        evidence_type: EvidenceType::HttpResponse,
+                        description: "Cookie security analysis".to_string(),
+                        data: Some(serde_json::json!({
+                            "cookie_name": cookie.name,
+                            "secure": cookie.secure,
+                            "http_only": cookie.http_only,
+                            "same_site": cookie.same_site,
+                        })),
+                        location: Some(target_url.clone()),
+                        metadata: HashMap::new(),
+                    }),
+                );
+            }
+        }
+
+        // JavaScript-set cookies
+        for js_cookie in analysis.js_cookies {
+            findings.push(
+                Finding::new(
+                    "JavaScript-Set Cookie Detected".to_string(),
+                    "Cookie set via JavaScript (document.cookie)".to_string(),
                     Severity::Info,
                     Confidence::Medium,
-                    Category::Configuration,
+                    Category::InformationDisclosure,
                     target_url.clone(),
                     "web_application".to_string(),
                     "cookie_analysis".to_string(),
                     "0.1.0".to_string(),
                     context.scan_id,
-                ).with_evidence(Evidence {
+                )
+                .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
-                    description: "Cookie security analysis".to_string(),
+                    description: "JavaScript-set cookie".to_string(),
                     data: Some(serde_json::json!({
-                        "cookie_name": cookie.name,
-                        "secure": cookie.secure,
-                        "http_only": cookie.http_only,
-                        "same_site": cookie.same_site,
+                        "raw": js_cookie.raw,
                     })),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
-                }));
-            }
+                }),
+            );
         }
-        
-        // JavaScript-set cookies
-        for js_cookie in analysis.js_cookies {
-            findings.push(Finding::new(
-                "JavaScript-Set Cookie Detected".to_string(),
-                "Cookie set via JavaScript (document.cookie)".to_string(),
-                Severity::Info,
-                Confidence::Medium,
-                Category::InformationDisclosure,
-                target_url.clone(),
-                "web_application".to_string(),
-                "cookie_analysis".to_string(),
-                "0.1.0".to_string(),
-                context.scan_id,
-            ).with_evidence(Evidence {
-                evidence_type: EvidenceType::HttpResponse,
-                description: "JavaScript-set cookie".to_string(),
-                data: Some(serde_json::json!({
-                    "raw": js_cookie.raw,
-                })),
-                location: Some(target_url.clone()),
-                metadata: HashMap::new(),
-            }));
-        }
-        
-        info!("Cookie analysis completed for: {} - {} findings", target_url, findings.len());
+
+        info!(
+            "Cookie analysis completed for: {} - {} findings",
+            target_url,
+            findings.len()
+        );
         Ok(findings)
     }
 }
@@ -321,7 +355,12 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
 }
 
 #[no_mangle]
-pub extern "C" fn plugin_execute(request_ptr: *const u8, request_len: usize, response_ptr: *mut u8, response_len: *mut usize) -> i32 {
+pub extern "C" fn plugin_execute(
+    request_ptr: *const u8,
+    request_len: usize,
+    response_ptr: *mut u8,
+    response_len: *mut usize,
+) -> i32 {
     0
 }
 

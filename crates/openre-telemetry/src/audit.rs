@@ -1,5 +1,6 @@
 //! Immutable audit logging for open-re
 
+use chrono::{DateTime, Utc};
 use openre_config::AuditConfig;
 use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
@@ -10,9 +11,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, Mutex};
-use tracing::{info, warn};
+use tracing::warn;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Audit event types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,13 +114,15 @@ impl ImmutableAuditWriter {
         let mut offset = data.len();
         let mut last_hash = Vec::new();
 
-        while offset >= 36 { // 4 bytes length + 32 bytes hash minimum
+        while offset >= 36 {
+            // 4 bytes length + 32 bytes hash minimum
             if offset < 4 {
                 break;
             }
             let len_bytes = &data[offset - 4..offset];
-            let len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
-            
+            let len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]])
+                as usize;
+
             if offset < 4 + len + 32 {
                 break;
             }
@@ -160,7 +162,7 @@ impl ImmutableAuditWriter {
 
         // Check if rotation needed
         let metadata = writer.get_ref().metadata()?;
-        if metadata.len() > self.config.max_file_size_mb as u64 * 1024 * 1024 {
+        if metadata.len() > self.config.max_file_size_mb * 1024 * 1024 {
             drop(writer);
             self.rotate().await?;
         }
@@ -182,6 +184,7 @@ impl ImmutableAuditWriter {
 pub struct AuditLogger {
     writer: Arc<ImmutableAuditWriter>,
     buffer: Arc<Mutex<Vec<AuditEntry>>>,
+    #[allow(dead_code)]
     flush_interval: Duration,
     tx: mpsc::UnboundedSender<AuditEntry>,
     _handle: tokio::task::JoinHandle<()>,
@@ -242,7 +245,9 @@ impl AuditLogger {
 
     /// Log an audit entry
     pub fn log(&self, entry: AuditEntry) -> Result<()> {
-        self.tx.send(entry).map_err(|e| openre_core::Error::Internal(e.into()))
+        self.tx
+            .send(entry)
+            .map_err(|e| openre_core::Error::Internal(e.into()))
     }
 
     /// Flush the buffer

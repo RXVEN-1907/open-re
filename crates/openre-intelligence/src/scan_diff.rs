@@ -1,12 +1,12 @@
 //! Scan Diff Intelligence - Compare scans for changes and identify significant differences
 
-use crate::{types::*, error::IntelligenceError, IntelligenceResult};
-use openre_core::result::{Finding, ScanMetadata};
+use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use chrono::{DateTime, Utc};
 use openre_core::ids::{FindingId, ScanId};
+use openre_core::result::{Finding, ScanMetadata};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, info, warn};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 
 /// Configuration for scan diff analysis
 #[derive(Debug, Clone)]
@@ -62,28 +62,39 @@ impl ScanDiffAnalyzer {
     }
 
     /// Compare two scans and analyze the differences
-    pub fn compare_scans(&self, previous_scan: &ScanData, current_scan: &ScanData) -> IntelligenceResult<ScanDiffAnalysis> {
+    pub fn compare_scans(
+        &self,
+        previous_scan: &ScanData,
+        current_scan: &ScanData,
+    ) -> IntelligenceResult<ScanDiffAnalysis> {
         let previous_findings = &previous_scan.findings;
         let current_findings = &current_scan.findings;
 
         // Create maps for easier lookup
-        let previous_map: HashMap<FindingId, &Finding> = previous_findings.iter().map(|f| (f.id, f)).collect();
-        let current_map: HashMap<FindingId, &Finding> = current_findings.iter().map(|f| (f.id, f)).collect();
+        let previous_map: HashMap<FindingId, &Finding> =
+            previous_findings.iter().map(|f| (f.id, f)).collect();
+        let current_map: HashMap<FindingId, &Finding> =
+            current_findings.iter().map(|f| (f.id, f)).collect();
 
         // Identify new findings
-        let new_findings: Vec<&Finding> = current_findings.iter()
+        let new_findings: Vec<&Finding> = current_findings
+            .iter()
             .filter(|f| !previous_map.contains_key(&f.id))
             .collect();
 
         // Identify resolved findings
-        let resolved_findings: Vec<&Finding> = previous_findings.iter()
+        let resolved_findings: Vec<&Finding> = previous_findings
+            .iter()
             .filter(|f| !current_map.contains_key(&f.id))
             .collect();
 
         // Identify persistent findings (in both scans)
-        let persistent_findings: Vec<(&Finding, &Finding)> = current_findings.iter()
+        let persistent_findings: Vec<(&Finding, &Finding)> = current_findings
+            .iter()
             .filter_map(|current_finding| {
-                previous_map.get(&current_finding.id).map(|prev_finding| (*prev_finding, *current_finding))
+                previous_map
+                    .get(&current_finding.id)
+                    .map(|prev_finding| (*prev_finding, *current_finding))
             })
             .collect();
 
@@ -120,13 +131,15 @@ impl ScanDiffAnalyzer {
         }
 
         // Identify significant new findings based on severity
-        let significant_new_findings: Vec<&Finding> = new_findings.iter()
+        let significant_new_findings: Vec<&Finding> = new_findings
+            .iter()
             .filter(|f| f.severity >= self.config.min_severity_for_significant_change.into())
             .copied()
             .collect();
 
         // Identify critical new findings regardless of threshold
-        let critical_new_findings: Vec<&Finding> = new_findings.iter()
+        let critical_new_findings: Vec<&Finding> = new_findings
+            .iter()
             .filter(|f| f.severity == crate::SeverityLevel::Critical.into())
             .copied()
             .collect();
@@ -141,11 +154,11 @@ impl ScanDiffAnalyzer {
             100.0 // If previous was empty, consider any findings as 100% change
         };
 
-        let is_significant_change = change_percent >= self.config.significance_threshold_percent ||
-            !critical_new_findings.is_empty() ||
-            severity_changes.iter().any(|sc| {
-                matches!(sc.change_type, SeverityChangeType::Increased) &&
-                sc.current_severity >= self.config.min_severity_for_significant_change
+        let is_significant_change = change_percent >= self.config.significance_threshold_percent
+            || !critical_new_findings.is_empty()
+            || severity_changes.iter().any(|sc| {
+                matches!(sc.change_type, SeverityChangeType::Increased)
+                    && sc.current_severity >= self.config.min_severity_for_significant_change
             });
 
         // Create the analysis result
@@ -160,7 +173,10 @@ impl ScanDiffAnalyzer {
             is_significant_change,
             new_findings: new_findings.iter().map(|f| f.id).collect(),
             resolved_findings: resolved_findings.iter().map(|f| f.id).collect(),
-            persistent_findings: persistent_findings.iter().map(|(_, current)| current.id).collect(),
+            persistent_findings: persistent_findings
+                .iter()
+                .map(|(_, current)| current.id)
+                .collect(),
             significant_new_findings: significant_new_findings.iter().map(|f| f.id).collect(),
             critical_new_findings: critical_new_findings.iter().map(|f| f.id).collect(),
             severity_changes,
@@ -176,7 +192,11 @@ impl ScanDiffAnalyzer {
     }
 
     /// Analyze trends over multiple scans
-    fn analyze_trends(&self, previous_scan: &ScanData, current_scan: &ScanData) -> IntelligenceResult<TrendAnalysis> {
+    fn analyze_trends(
+        &self,
+        previous_scan: &ScanData,
+        current_scan: &ScanData,
+    ) -> IntelligenceResult<TrendAnalysis> {
         // For now, we'll implement a basic trend analysis
         // In a real implementation, this would look at historical scan data
 
@@ -200,9 +220,13 @@ impl ScanDiffAnalyzer {
         let mut worsening_trends = Vec::new();
 
         // Check each severity level for changes
-        for severity in &[crate::SeverityLevel::Critical, crate::SeverityLevel::High,
-                          crate::SeverityLevel::Medium, crate::SeverityLevel::Low,
-                          crate::SeverityLevel::Info] {
+        for severity in &[
+            crate::SeverityLevel::Critical,
+            crate::SeverityLevel::High,
+            crate::SeverityLevel::Medium,
+            crate::SeverityLevel::Low,
+            crate::SeverityLevel::Info,
+        ] {
             let prev_count = *prev_severity_counts.get(&(*severity).into()).unwrap_or(&0);
             let curr_count = *curr_severity_counts.get(&(*severity).into()).unwrap_or(&0);
 
@@ -223,9 +247,15 @@ impl ScanDiffAnalyzer {
             }
         }
 
-        let trend_direction = if worsening_trends.iter().any(|t| t.severity >= self.config.min_severity_for_significant_change) {
+        let trend_direction = if worsening_trends
+            .iter()
+            .any(|t| t.severity >= self.config.min_severity_for_significant_change)
+        {
             TrendDirection::Worsening
-        } else if improving_trends.iter().any(|t| t.severity >= self.config.min_severity_for_significant_change) {
+        } else if improving_trends
+            .iter()
+            .any(|t| t.severity >= self.config.min_severity_for_significant_change)
+        {
             TrendDirection::Improving
         } else {
             TrendDirection::Stable
@@ -240,15 +270,29 @@ impl ScanDiffAnalyzer {
     }
 
     /// Generate a human-readable diff report
-    pub fn generate_diff_report(&self, analysis: &ScanDiffAnalysis, previous_scan: &ScanData, current_scan: &ScanData) -> String {
+    pub fn generate_diff_report(
+        &self,
+        analysis: &ScanDiffAnalysis,
+        previous_scan: &ScanData,
+        current_scan: &ScanData,
+    ) -> String {
         let mut report = String::new();
         report.push_str("# Scan Difference Analysis Report\n\n");
 
         // Basic statistics
         report.push_str("## Summary\n");
-        report.push_str(&format!("- Previous scan findings: {}\n", analysis.total_findings_previous));
-        report.push_str(&format!("- Current scan findings: {}\n", analysis.total_findings_current));
-        report.push_str(&format!("- Net change: {:+} ({:+.1}%)\n", analysis.net_change, analysis.change_percentage));
+        report.push_str(&format!(
+            "- Previous scan findings: {}\n",
+            analysis.total_findings_previous
+        ));
+        report.push_str(&format!(
+            "- Current scan findings: {}\n",
+            analysis.total_findings_current
+        ));
+        report.push_str(&format!(
+            "- Net change: {:+} ({:+.1}%)\n",
+            analysis.net_change, analysis.change_percentage
+        ));
 
         if analysis.is_significant_change {
             report.push_str("- **SIGNIFICANT CHANGE DETECTED**\n");
@@ -260,14 +304,25 @@ impl ScanDiffAnalyzer {
 
         // New findings
         if !analysis.new_findings.is_empty() {
-            report.push_str(&format!("## New Findings ({})\n", analysis.new_findings.len()));
+            report.push_str(&format!(
+                "## New Findings ({})\n",
+                analysis.new_findings.len()
+            ));
 
             // Critical new findings
             if !analysis.critical_new_findings.is_empty() {
-                report.push_str(&format!("### Critical New Findings ({})\n", analysis.critical_new_findings.len()));
+                report.push_str(&format!(
+                    "### Critical New Findings ({})\n",
+                    analysis.critical_new_findings.len()
+                ));
                 for finding_id in &analysis.critical_new_findings {
-                    if let Some(finding) = current_scan.findings.iter().find(|f| f.id == *finding_id) {
-                        report.push_str(&format!("- **{}** - {}\n", finding.title, finding.description));
+                    if let Some(finding) =
+                        current_scan.findings.iter().find(|f| f.id == *finding_id)
+                    {
+                        report.push_str(&format!(
+                            "- **{}** - {}\n",
+                            finding.title, finding.description
+                        ));
                     }
                 }
                 report.push('\n');
@@ -275,24 +330,40 @@ impl ScanDiffAnalyzer {
 
             // Significant new findings
             if !analysis.significant_new_findings.is_empty() {
-                report.push_str(&format!("### Significant New Findings ({})\n", analysis.significant_new_findings.len()));
+                report.push_str(&format!(
+                    "### Significant New Findings ({})\n",
+                    analysis.significant_new_findings.len()
+                ));
                 for finding_id in &analysis.significant_new_findings {
-                    if let Some(finding) = current_scan.findings.iter().find(|f| f.id == *finding_id) {
-                        report.push_str(&format!("- **{}** ({:?}) - {}\n", finding.title, finding.severity, finding.description));
+                    if let Some(finding) =
+                        current_scan.findings.iter().find(|f| f.id == *finding_id)
+                    {
+                        report.push_str(&format!(
+                            "- **{}** ({:?}) - {}\n",
+                            finding.title, finding.severity, finding.description
+                        ));
                     }
                 }
                 report.push('\n');
             }
 
             // All new findings
-            if analysis.new_findings.len() > (analysis.critical_new_findings.len() + analysis.significant_new_findings.len()) {
+            if analysis.new_findings.len()
+                > (analysis.critical_new_findings.len() + analysis.significant_new_findings.len())
+            {
                 report.push_str("### Other New Findings\n");
                 for finding_id in &analysis.new_findings {
                     // Skip if already listed above
-                    if !analysis.critical_new_findings.contains(finding_id) &&
-                       !analysis.significant_new_findings.contains(finding_id) {
-                        if let Some(finding) = current_scan.findings.iter().find(|f| f.id == *finding_id) {
-                            report.push_str(&format!("- {} ({:?})\n", finding.title, finding.severity));
+                    if !analysis.critical_new_findings.contains(finding_id)
+                        && !analysis.significant_new_findings.contains(finding_id)
+                    {
+                        if let Some(finding) =
+                            current_scan.findings.iter().find(|f| f.id == *finding_id)
+                        {
+                            report.push_str(&format!(
+                                "- {} ({:?})\n",
+                                finding.title, finding.severity
+                            ));
                         }
                     }
                 }
@@ -302,11 +373,18 @@ impl ScanDiffAnalyzer {
 
         // Resolved findings
         if !analysis.resolved_findings.is_empty() {
-            report.push_str(&format!("## Resolved Findings ({})\n", analysis.resolved_findings.len()));
+            report.push_str(&format!(
+                "## Resolved Findings ({})\n",
+                analysis.resolved_findings.len()
+            ));
 
-            let critical_resolved: Vec<FindingId> = analysis.resolved_findings.iter()
+            let critical_resolved: Vec<FindingId> = analysis
+                .resolved_findings
+                .iter()
                 .filter(|id| {
-                    previous_scan.findings.iter()
+                    previous_scan
+                        .findings
+                        .iter()
                         .find(|f| &f.id == *id)
                         .map(|f| f.severity == crate::SeverityLevel::Critical.into())
                         .unwrap_or(false)
@@ -315,10 +393,16 @@ impl ScanDiffAnalyzer {
                 .collect();
 
             if !critical_resolved.is_empty() {
-                report.push_str(&format!("### Critical Issues Resolved ({})\n", critical_resolved.len()));
+                report.push_str(&format!(
+                    "### Critical Issues Resolved ({})\n",
+                    critical_resolved.len()
+                ));
                 for finding_id in &critical_resolved {
-                    if let Some(finding) = previous_scan.findings.iter().find(|f| &f.id == finding_id) {
-                        report.push_str(&format!("- {} - {}\n", finding.title, finding.description));
+                    if let Some(finding) =
+                        previous_scan.findings.iter().find(|f| &f.id == finding_id)
+                    {
+                        report
+                            .push_str(&format!("- {} - {}\n", finding.title, finding.description));
                     }
                 }
                 report.push('\n');
@@ -329,8 +413,13 @@ impl ScanDiffAnalyzer {
                 report.push_str("### Other Resolved Issues\n");
                 for finding_id in &analysis.resolved_findings {
                     if !critical_resolved.contains(finding_id) {
-                        if let Some(finding) = previous_scan.findings.iter().find(|f| &f.id == finding_id) {
-                            report.push_str(&format!("- {} ({:?})\n", finding.title, finding.severity));
+                        if let Some(finding) =
+                            previous_scan.findings.iter().find(|f| &f.id == finding_id)
+                        {
+                            report.push_str(&format!(
+                                "- {} ({:?})\n",
+                                finding.title, finding.severity
+                            ));
                         }
                     }
                 }
@@ -340,35 +429,62 @@ impl ScanDiffAnalyzer {
 
         // Severity changes
         if !analysis.severity_changes.is_empty() {
-            report.push_str(&format!("## Severity Changes ({})\n", analysis.severity_changes.len()));
+            report.push_str(&format!(
+                "## Severity Changes ({})\n",
+                analysis.severity_changes.len()
+            ));
 
-            let increased_severity: Vec<&SeverityChange> = analysis.severity_changes.iter()
+            let increased_severity: Vec<&SeverityChange> = analysis
+                .severity_changes
+                .iter()
                 .filter(|sc| matches!(sc.change_type, SeverityChangeType::Increased))
                 .collect();
 
-            let decreased_severity: Vec<&SeverityChange> = analysis.severity_changes.iter()
+            let decreased_severity: Vec<&SeverityChange> = analysis
+                .severity_changes
+                .iter()
                 .filter(|sc| matches!(sc.change_type, SeverityChangeType::Decreased))
                 .collect();
 
             if !increased_severity.is_empty() {
-                report.push_str(&format!("### Severity Increased ({})\n", increased_severity.len()));
+                report.push_str(&format!(
+                    "### Severity Increased ({})\n",
+                    increased_severity.len()
+                ));
                 for change in &increased_severity {
-                    if let Some(finding) = current_scan.findings.iter().find(|f| f.id == change.finding_id) {
-                        report.push_str(&format!("- {} - {:?} → {:?}\n", finding.title,
+                    if let Some(finding) = current_scan
+                        .findings
+                        .iter()
+                        .find(|f| f.id == change.finding_id)
+                    {
+                        report.push_str(&format!(
+                            "- {} - {:?} → {:?}\n",
+                            finding.title,
                             crate::SeverityLevel::from(change.previous_severity),
-                            crate::SeverityLevel::from(change.current_severity)));
+                            crate::SeverityLevel::from(change.current_severity)
+                        ));
                     }
                 }
                 report.push('\n');
             }
 
             if !decreased_severity.is_empty() {
-                report.push_str(&format!("### Severity Decreased ({})\n", decreased_severity.len()));
+                report.push_str(&format!(
+                    "### Severity Decreased ({})\n",
+                    decreased_severity.len()
+                ));
                 for change in &decreased_severity {
-                    if let Some(finding) = current_scan.findings.iter().find(|f| f.id == change.finding_id) {
-                        report.push_str(&format!("- {} - {:?} → {:?}\n", finding.title,
+                    if let Some(finding) = current_scan
+                        .findings
+                        .iter()
+                        .find(|f| f.id == change.finding_id)
+                    {
+                        report.push_str(&format!(
+                            "- {} - {:?} → {:?}\n",
+                            finding.title,
                             crate::SeverityLevel::from(change.previous_severity),
-                            crate::SeverityLevel::from(change.current_severity)));
+                            crate::SeverityLevel::from(change.current_severity)
+                        ));
                     }
                 }
                 report.push('\n');
@@ -379,24 +495,32 @@ impl ScanDiffAnalyzer {
         if let Some(trend) = &analysis.trend_analysis {
             report.push_str("## Trend Analysis\n");
             match trend.trend_direction {
-                TrendDirection::Improving => report.push_str("- **Overall Security Posture: IMPROVING**\n"),
-                TrendDirection::Worsening => report.push_str("- **Overall Security Posture: WORSENING**\n"),
+                TrendDirection::Improving => {
+                    report.push_str("- **Overall Security Posture: IMPROVING**\n")
+                }
+                TrendDirection::Worsening => {
+                    report.push_str("- **Overall Security Posture: WORSENING**\n")
+                }
                 TrendDirection::Stable => report.push_str("- Overall Security Posture: Stable\n"),
             }
 
             if !trend.improving_trends.is_empty() {
                 report.push_str("\n### Improvements\n");
                 for trend_item in &trend.improving_trends {
-                    report.push_str(&format!("- {:?} findings decreased: {} → {}\n",
-                        trend_item.severity, trend_item.previous_count, trend_item.current_count));
+                    report.push_str(&format!(
+                        "- {:?} findings decreased: {} → {}\n",
+                        trend_item.severity, trend_item.previous_count, trend_item.current_count
+                    ));
                 }
             }
 
             if !trend.worsening_trends.is_empty() {
                 report.push_str("\n### Deteriorations\n");
                 for trend_item in &trend.worsening_trends {
-                    report.push_str(&format!("- {:?} findings increased: {} → {}\n",
-                        trend_item.severity, trend_item.previous_count, trend_item.current_count));
+                    report.push_str(&format!(
+                        "- {:?} findings increased: {} → {}\n",
+                        trend_item.severity, trend_item.previous_count, trend_item.current_count
+                    ));
                 }
             }
 
@@ -411,27 +535,39 @@ impl ScanDiffAnalyzer {
         }
 
         if analysis.net_change > 0 {
-            report.push_str(&format!("- Investigate the {} new findings, particularly those with high severity\n", analysis.new_findings.len()));
+            report.push_str(&format!(
+                "- Investigate the {} new findings, particularly those with high severity\n",
+                analysis.new_findings.len()
+            ));
         }
 
         if !analysis.severity_changes.is_empty() {
-            let increased_count = analysis.severity_changes.iter()
+            let increased_count = analysis
+                .severity_changes
+                .iter()
                 .filter(|sc| matches!(sc.change_type, SeverityChangeType::Increased))
                 .count();
             if increased_count > 0 {
-                report.push_str(&format!("- Review {} findings with increased severity\n", increased_count));
+                report.push_str(&format!(
+                    "- Review {} findings with increased severity\n",
+                    increased_count
+                ));
             }
         }
 
         if let Some(trend) = &analysis.trend_analysis {
             match trend.trend_direction {
                 TrendDirection::Improving => {
-                    report.push_str("- Continue current security practices that are showing positive results\n");
-                },
+                    report.push_str(
+                        "- Continue current security practices that are showing positive results\n",
+                    );
+                }
                 TrendDirection::Worsening => {
-                    report.push_str("- Review recent changes that may have introduced new vulnerabilities\n");
+                    report.push_str(
+                        "- Review recent changes that may have introduced new vulnerabilities\n",
+                    );
                     report.push_str("- Consider additional security testing before deployment\n");
-                },
+                }
                 TrendDirection::Stable => {
                     report.push_str("- Maintain current security practices while monitoring for emerging threats\n");
                 }
@@ -442,7 +578,11 @@ impl ScanDiffAnalyzer {
     }
 
     /// Identify findings that require immediate attention
-    pub fn identify_priority_findings(&self, analysis: &ScanDiffAnalysis, current_scan: &ScanData) -> Vec<FindingId> {
+    pub fn identify_priority_findings(
+        &self,
+        analysis: &ScanDiffAnalysis,
+        current_scan: &ScanData,
+    ) -> Vec<FindingId> {
         let mut priority_findings = HashSet::new();
 
         // All critical new findings
@@ -453,8 +593,9 @@ impl ScanDiffAnalyzer {
 
         // Findings with increased severity to high/critical
         for change in &analysis.severity_changes {
-            if matches!(change.change_type, SeverityChangeType::Increased) &&
-               change.current_severity >= self.config.min_severity_for_significant_change {
+            if matches!(change.change_type, SeverityChangeType::Increased)
+                && change.current_severity >= self.config.min_severity_for_significant_change
+            {
                 priority_findings.insert(change.finding_id);
             }
         }
@@ -480,9 +621,9 @@ impl ScanData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openre_core::result::{Finding, Category, Severity, Confidence};
-    use openre_core::ids::{FindingId, ScanId};
     use chrono::Utc;
+    use openre_core::ids::{FindingId, ScanId};
+    use openre_core::result::{Category, Confidence, Finding, Severity};
     use std::collections::HashMap;
 
     fn create_test_finding(title: &str, severity: Severity) -> Finding {
@@ -549,7 +690,7 @@ mod tests {
         // Create current scan with 3 findings (1 new, 1 existing, 1 different)
         let mut curr_findings = vec![
             create_test_finding("SQL Injection", Severity::High), // Same as before
-            create_test_finding("CSRF", Severity::Medium),       // New finding
+            create_test_finding("CSRF", Severity::Medium),        // New finding
             create_test_finding("Path Traversal", Severity::Critical), // New critical finding
         ];
         // Add the existing finding with a different ID to simulate a new finding
@@ -557,7 +698,9 @@ mod tests {
 
         let current_scan = create_test_scan_data(curr_findings);
 
-        let analysis = analyzer.compare_scans(&previous_scan, &current_scan).unwrap();
+        let analysis = analyzer
+            .compare_scans(&previous_scan, &current_scan)
+            .unwrap();
 
         // Should have 3 new findings (CSRF, Path Traversal, Command Injection)
         assert_eq!(analysis.new_findings.len(), 3);
@@ -580,28 +723,32 @@ mod tests {
         let analyzer = ScanDiffAnalyzer::new();
 
         // Create previous scan with a medium severity finding
-        let prev_findings = vec![
-            create_test_finding("Vulnerable Component", Severity::Medium),
-        ];
+        let prev_findings = vec![create_test_finding(
+            "Vulnerable Component",
+            Severity::Medium,
+        )];
         let previous_scan = create_test_scan_data(prev_findings);
 
         // Create current scan with the same finding but higher severity
-        let mut curr_findings = vec![
-            create_test_finding("Vulnerable Component", Severity::High),
-        ];
+        let mut curr_findings = vec![create_test_finding("Vulnerable Component", Severity::High)];
         // Add another finding to avoid empty current scan
         curr_findings.push(create_test_finding("New Finding", Severity::Low));
 
         let current_scan = create_test_scan_data(curr_findings);
 
-        let analysis = analyzer.compare_scans(&previous_scan, &current_scan).unwrap();
+        let analysis = analyzer
+            .compare_scans(&previous_scan, &current_scan)
+            .unwrap();
 
         // Should detect the severity change
         assert_eq!(analysis.severity_changes.len(), 1);
 
         let severity_change = &analysis.severity_changes[0];
         assert_eq!(severity_change.change_type, SeverityChangeType::Increased);
-        assert_eq!(severity_change.previous_severity, crate::SeverityLevel::Medium);
+        assert_eq!(
+            severity_change.previous_severity,
+            crate::SeverityLevel::Medium
+        );
         assert_eq!(severity_change.current_severity, crate::SeverityLevel::High);
     }
 
@@ -622,7 +769,9 @@ mod tests {
         ];
         let current_scan = create_test_scan_data(curr_findings);
 
-        let analysis = analyzer.compare_scans(&previous_scan, &current_scan).unwrap();
+        let analysis = analyzer
+            .compare_scans(&previous_scan, &current_scan)
+            .unwrap();
 
         // Should not be a significant change (only low severity findings)
         assert!(!analysis.is_significant_change);

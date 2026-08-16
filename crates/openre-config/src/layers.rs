@@ -1,8 +1,13 @@
 //! Configuration layers and hot-reload support
 
 use crate::Config;
-use figment::{Figment, providers::{Toml, Env, Json, Serialized, Format}};
-use notify::{Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use figment::{
+    providers::{Env, Format, Serialized},
+    Figment,
+};
+use notify::{
+    Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
+};
 use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -71,7 +76,7 @@ impl ConfigWatcher {
     async fn reload_config(
         config: &Arc<RwLock<Config>>,
         tx: &broadcast::Sender<Config>,
-        paths: &[PathBuf],
+        _paths: &[PathBuf],
     ) -> Result<()> {
         let figment = Figment::new()
             .merge(Serialized::defaults(Config::default()))
@@ -80,7 +85,9 @@ impl ConfigWatcher {
             .merge(Env::prefixed("OPENRE_").split("__"))
             .merge(figment::providers::Json::file("config.local.json"));
 
-        let new_config: Config = figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        let new_config: Config = figment
+            .extract()
+            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
         new_config.validate()?;
 
         let mut guard = config.write().await;
@@ -136,12 +143,16 @@ impl ConfigBuilder {
     }
 
     pub fn toml_file(mut self, path: impl Into<PathBuf>) -> Self {
-        self.figment = self.figment.merge(figment::providers::Toml::file(path.into()));
+        self.figment = self
+            .figment
+            .merge(figment::providers::Toml::file(path.into()));
         self
     }
 
     pub fn json_file(mut self, path: impl Into<PathBuf>) -> Self {
-        self.figment = self.figment.merge(figment::providers::Json::file(path.into()));
+        self.figment = self
+            .figment
+            .merge(figment::providers::Json::file(path.into()));
         self
     }
 
@@ -151,7 +162,9 @@ impl ConfigBuilder {
     }
 
     pub fn build<T: for<'de> Deserialize<'de>>(self) -> Result<T> {
-        self.figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))
+        self.figment
+            .extract()
+            .map_err(|e| openre_core::Error::Config(e.to_string()))
     }
 }
 

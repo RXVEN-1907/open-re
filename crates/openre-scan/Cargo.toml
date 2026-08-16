@@ -20,8 +20,7 @@ path = "src/main.rs"
 # Working core crates
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
-openre-telemetry = { path = "../openre-telemetry" }
-openre-storage = { path = "../openre-storage", default-features = false }
+openre-storage = { path = "../openre-storage", default-features = false, features = ["sqlite"] }
 
 # Direct dependencies (avoiding broken crates)
 clap = { workspace = true, features = ["derive", "env"] }

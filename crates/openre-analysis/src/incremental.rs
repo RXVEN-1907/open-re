@@ -16,7 +16,10 @@ pub struct IncrementalAnalyzer {
 
 impl IncrementalAnalyzer {
     pub fn new(project_store: Arc<ProjectStore>, orchestrator: Arc<Orchestrator>) -> Self {
-        Self { project_store, orchestrator }
+        Self {
+            project_store,
+            orchestrator,
+        }
     }
 
     /// Re-analyze with only affected stages
@@ -29,7 +32,8 @@ impl IncrementalAnalyzer {
         let affected_stages = self.compute_affected_stages(&changes)?;
 
         // 2. Invalidate downstream stages
-        self.invalidate_stages(&job.project_id, &affected_stages).await?;
+        self.invalidate_stages(&job.project_id, &affected_stages)
+            .await?;
 
         // 3. Create new job with only affected stages
         let incremental_job = AnalysisJob {
@@ -42,7 +46,9 @@ impl IncrementalAnalyzer {
         };
 
         // 4. Execute
-        self.orchestrator.execute(PipelineContext::from(incremental_job)).await
+        self.orchestrator
+            .execute(PipelineContext::from(incremental_job))
+            .await
     }
 
     fn compute_affected_stages(&self, changes: &AnalysisChanges) -> Result<Vec<StageId>> {
@@ -59,10 +65,7 @@ impl IncrementalAnalyzer {
             }
             AnalysisChanges::TypeChanged { function_id } => {
                 // Decompilation and downstream
-                affected.extend([
-                    StageId::new("decompilation"),
-                    StageId::new("ai_enrichment"),
-                ]);
+                affected.extend([StageId::new("decompilation"), StageId::new("ai_enrichment")]);
             }
             AnalysisChanges::FunctionBoundaryChanged { .. } => {
                 // Disassembly and downstream
@@ -112,10 +115,21 @@ impl IncrementalAnalyzer {
 #[derive(Debug, Clone)]
 pub enum AnalysisChanges {
     BinaryModified,
-    AnnotationAdded { function_id: FunctionId, annotation_type: String },
-    TypeChanged { function_id: FunctionId },
-    FunctionBoundaryChanged { function_id: FunctionId, old_boundary: FunctionBoundary, new_boundary: FunctionBoundary },
-    PluginUpdated { plugin_type: String },
+    AnnotationAdded {
+        function_id: FunctionId,
+        annotation_type: String,
+    },
+    TypeChanged {
+        function_id: FunctionId,
+    },
+    FunctionBoundaryChanged {
+        function_id: FunctionId,
+        old_boundary: FunctionBoundary,
+        new_boundary: FunctionBoundary,
+    },
+    PluginUpdated {
+        plugin_type: String,
+    },
 }
 
 /// Stage ID utilities

@@ -31,19 +31,26 @@ impl PipelineMetrics {
     pub async fn record_stage(&self, stage_id: StageId, result: &StageResult) {
         // Record duration
         let duration = result.completed_at - result.started_at;
-        self.stage_durations.write().await
+        self.stage_durations
+            .write()
+            .await
             .entry(stage_id)
             .or_default()
             .push(duration);
 
         // Record memory
-        self.stage_memory.write().await
+        self.stage_memory
+            .write()
+            .await
             .entry(stage_id)
             .or_default()
             .push(result.metrics.memory_peak_mb);
 
         // Record success rate
-        let (success, total) = self.stage_success_rate.write().await
+        let (success, total) = self
+            .stage_success_rate
+            .write()
+            .await
             .entry(stage_id)
             .or_default();
         *total += 1;
@@ -52,19 +59,27 @@ impl PipelineMetrics {
         }
 
         // Record function count
-        self.function_counts.write().await
+        self.function_counts
+            .write()
+            .await
             .entry(stage_id)
             .or_default()
             .push(result.metrics.functions_analyzed);
 
         // Record instruction count
-        self.instruction_counts.write().await
+        self.instruction_counts
+            .write()
+            .await
             .entry(stage_id)
             .or_default()
             .push(result.metrics.instructions_processed);
 
         // Emit to global metrics
-        metrics::record_stage_completed(&stage_id.to_string(), duration, result.metrics.memory_peak_mb);
+        metrics::record_stage_completed(
+            &stage_id.to_string(),
+            duration,
+            result.metrics.memory_peak_mb,
+        );
     }
 
     pub async fn get_summary(&self) -> PipelineSummary {
@@ -75,19 +90,24 @@ impl PipelineMetrics {
         let instructions = self.instruction_counts.read().await;
 
         PipelineSummary {
-            avg_stage_duration: durations.iter()
+            avg_stage_duration: durations
+                .iter()
                 .map(|(k, v)| (*k, v.iter().sum::<Duration>() / v.len() as u32))
                 .collect(),
-            avg_memory_mb: memory.iter()
+            avg_memory_mb: memory
+                .iter()
                 .map(|(k, v)| (*k, v.iter().sum::<u64>() / v.len() as u64))
                 .collect(),
-            success_rates: success_rates.iter()
+            success_rates: success_rates
+                .iter()
                 .map(|(k, (s, t))| (*k, *s as f64 / *t as f64))
                 .collect(),
-            throughput: instructions.iter()
+            throughput: instructions
+                .iter()
                 .map(|(k, v)| {
                     let total_instructions: u64 = v.iter().sum();
-                    let total_duration: f64 = durations.get(k)
+                    let total_duration: f64 = durations
+                        .get(k)
                         .map(|d| d.iter().map(|dur| dur.as_secs_f64()).sum::<f64>())
                         .unwrap_or(1.0);
                     (*k, total_instructions as f64 / total_duration)

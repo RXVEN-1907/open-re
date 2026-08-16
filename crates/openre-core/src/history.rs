@@ -1,11 +1,11 @@
 //! History and artifacts persistence layer for scan tracking
 
+use crate::ids::{FindingId, ProjectId, ScanId, TargetId};
+use crate::reporting::{ReportConfig, ReportFormat, RiskLevel, ScanComparison};
 use crate::result::*;
-use crate::ids::{ScanId, ProjectId, TargetId};
-use crate::reporting::{ScanComparison, RiskLevel, ReportFormat, ReportConfig};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 /// History manager for persisting scan history and artifacts
@@ -20,46 +20,87 @@ pub trait HistoryStorage: Send + Sync {
     /// Save scan summary
     async fn save_scan_summary(&self, summary: &ScanSummary) -> Result<(), HistoryError>;
     /// Get scan summary
-    async fn get_scan_summary(&self, scan_id: &ScanId) -> Result<Option<ScanSummary>, HistoryError>;
+    async fn get_scan_summary(&self, scan_id: &ScanId)
+        -> Result<Option<ScanSummary>, HistoryError>;
     /// List scan summaries
-    async fn list_scan_summaries(&self, project_id: Option<ProjectId>, limit: usize, offset: usize) -> Result<Vec<ScanSummary>, HistoryError>;
+    async fn list_scan_summaries(
+        &self,
+        project_id: Option<ProjectId>,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ScanSummary>, HistoryError>;
     /// Delete scan summary
     async fn delete_scan_summary(&self, scan_id: &ScanId) -> Result<bool, HistoryError>;
 
     /// Save report artifact
     async fn save_report_artifact(&self, artifact: &ReportArtifact) -> Result<(), HistoryError>;
     /// Get report artifact
-    async fn get_report_artifact(&self, artifact_id: &str) -> Result<Option<ReportArtifact>, HistoryError>;
+    async fn get_report_artifact(
+        &self,
+        artifact_id: &str,
+    ) -> Result<Option<ReportArtifact>, HistoryError>;
     /// List report artifacts
-    async fn list_report_artifacts(&self, scan_id: Option<ScanId>, limit: usize, offset: usize) -> Result<Vec<ReportArtifact>, HistoryError>;
+    async fn list_report_artifacts(
+        &self,
+        scan_id: Option<ScanId>,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ReportArtifact>, HistoryError>;
     /// Delete report artifact
     async fn delete_report_artifact(&self, artifact_id: &str) -> Result<bool, HistoryError>;
 
     /// Save evidence object
     async fn save_evidence(&self, evidence: &StoredEvidence) -> Result<(), HistoryError>;
     /// Get evidence
-    async fn get_evidence(&self, evidence_id: &str) -> Result<Option<StoredEvidence>, HistoryError>;
+    async fn get_evidence(&self, evidence_id: &str)
+        -> Result<Option<StoredEvidence>, HistoryError>;
     /// List evidence for finding
-    async fn list_evidence_for_finding(&self, finding_id: &FindingId) -> Result<Vec<StoredEvidence>, HistoryError>;
+    async fn list_evidence_for_finding(
+        &self,
+        finding_id: &FindingId,
+    ) -> Result<Vec<StoredEvidence>, HistoryError>;
 
     /// Save deduplicated findings
-    async fn save_deduplicated_findings(&self, scan_id: &ScanId, findings: &[Finding]) -> Result<(), HistoryError>;
+    async fn save_deduplicated_findings(
+        &self,
+        scan_id: &ScanId,
+        findings: &[Finding],
+    ) -> Result<(), HistoryError>;
     /// Get deduplicated findings
-    async fn get_deduplicated_findings(&self, scan_id: &ScanId) -> Result<Vec<Finding>, HistoryError>;
+    async fn get_deduplicated_findings(
+        &self,
+        scan_id: &ScanId,
+    ) -> Result<Vec<Finding>, HistoryError>;
 
     /// Save comparison result
     async fn save_comparison(&self, comparison: &ScanComparison) -> Result<(), HistoryError>;
     /// Get comparison
-    async fn get_comparison(&self, comparison_id: &str) -> Result<Option<ScanComparison>, HistoryError>;
+    async fn get_comparison(
+        &self,
+        comparison_id: &str,
+    ) -> Result<Option<ScanComparison>, HistoryError>;
     /// List comparisons
-    async fn list_comparisons(&self, project_id: Option<ProjectId>, limit: usize, offset: usize) -> Result<Vec<ScanComparison>, HistoryError>;
+    async fn list_comparisons(
+        &self,
+        project_id: Option<ProjectId>,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ScanComparison>, HistoryError>;
 
     /// Save risk metrics
     async fn save_risk_metrics(&self, metrics: &RiskMetrics) -> Result<(), HistoryError>;
     /// Get risk metrics
-    async fn get_risk_metrics(&self, project_id: &ProjectId, date_from: Option<DateTime<Utc>>, date_to: Option<DateTime<Utc>>) -> Result<Vec<RiskMetrics>, HistoryError>;
+    async fn get_risk_metrics(
+        &self,
+        project_id: &ProjectId,
+        date_from: Option<DateTime<Utc>>,
+        date_to: Option<DateTime<Utc>>,
+    ) -> Result<Vec<RiskMetrics>, HistoryError>;
     /// Get latest risk metrics
-    async fn get_latest_risk_metrics(&self, project_id: &ProjectId) -> Result<Option<RiskMetrics>, HistoryError>;
+    async fn get_latest_risk_metrics(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<Option<RiskMetrics>, HistoryError>;
 }
 
 /// History error
@@ -357,11 +398,11 @@ impl HistoryManager {
     /// Record a completed scan
     pub async fn record_scan(&self, summary: ScanSummary) -> Result<(), HistoryError> {
         self.storage.save_scan_summary(&summary).await?;
-        
+
         // Also save risk metrics for trend tracking
         let risk_metrics = RiskMetrics {
             id: Uuid::new_v4().to_string(),
-            project_id: summary.project_id.unwrap_or_else(ProjectId::new),
+            project_id: summary.project_id.unwrap_or_default(),
             scan_id: Some(summary.scan_id),
             timestamp: Utc::now(),
             overall_risk_score: summary.risk_metrics.overall_risk_score,
@@ -379,10 +420,16 @@ impl HistoryManager {
             false_positive_count: summary.finding_stats.false_positives,
             exploit_available_count: summary.finding_stats.exploit_available_count,
             exploited_in_wild_count: summary.finding_stats.exploited_in_wild_count,
-            top_cwes: summary.finding_stats.by_cwe.iter()
+            top_cwes: summary
+                .finding_stats
+                .by_cwe
+                .iter()
                 .map(|(k, v)| (k.clone(), *v))
                 .collect(),
-            top_owasp: summary.finding_stats.by_owasp_category.iter()
+            top_owasp: summary
+                .finding_stats
+                .by_owasp_category
+                .iter()
                 .map(|(k, v)| (k.clone(), *v))
                 .collect(),
             remediation_priority: summary.finding_stats.by_remediation_priority.clone(),
@@ -396,23 +443,37 @@ impl HistoryManager {
                 trend_direction: TrendDirection::Unknown,
             },
         };
-        
+
         self.storage.save_risk_metrics(&risk_metrics).await?;
         Ok(())
     }
 
     /// Get scan history for a project
-    pub async fn get_project_history(&self, project_id: &ProjectId, limit: usize, offset: usize) -> Result<Vec<ScanSummary>, HistoryError> {
-        self.storage.list_scan_summaries(Some(*project_id), limit, offset).await
+    pub async fn get_project_history(
+        &self,
+        project_id: &ProjectId,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ScanSummary>, HistoryError> {
+        self.storage
+            .list_scan_summaries(Some(*project_id), limit, offset)
+            .await
     }
 
     /// Get all scan history
-    pub async fn get_all_history(&self, limit: usize, offset: usize) -> Result<Vec<ScanSummary>, HistoryError> {
+    pub async fn get_all_history(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ScanSummary>, HistoryError> {
         self.storage.list_scan_summaries(None, limit, offset).await
     }
 
     /// Get scan summary
-    pub async fn get_scan_summary(&self, scan_id: &ScanId) -> Result<Option<ScanSummary>, HistoryError> {
+    pub async fn get_scan_summary(
+        &self,
+        scan_id: &ScanId,
+    ) -> Result<Option<ScanSummary>, HistoryError> {
         self.storage.get_scan_summary(scan_id).await
     }
 
@@ -422,13 +483,21 @@ impl HistoryManager {
     }
 
     /// Get report artifact
-    pub async fn get_report(&self, artifact_id: &str) -> Result<Option<ReportArtifact>, HistoryError> {
+    pub async fn get_report(
+        &self,
+        artifact_id: &str,
+    ) -> Result<Option<ReportArtifact>, HistoryError> {
         self.storage.get_report_artifact(artifact_id).await
     }
 
     /// List reports for a scan
-    pub async fn list_reports_for_scan(&self, scan_id: &ScanId) -> Result<Vec<ReportArtifact>, HistoryError> {
-        self.storage.list_report_artifacts(Some(*scan_id), 100, 0).await
+    pub async fn list_reports_for_scan(
+        &self,
+        scan_id: &ScanId,
+    ) -> Result<Vec<ReportArtifact>, HistoryError> {
+        self.storage
+            .list_report_artifacts(Some(*scan_id), 100, 0)
+            .await
     }
 
     /// Store evidence
@@ -437,13 +506,22 @@ impl HistoryManager {
     }
 
     /// Get evidence for finding
-    pub async fn get_evidence_for_finding(&self, finding_id: &FindingId) -> Result<Vec<StoredEvidence>, HistoryError> {
+    pub async fn get_evidence_for_finding(
+        &self,
+        finding_id: &FindingId,
+    ) -> Result<Vec<StoredEvidence>, HistoryError> {
         self.storage.list_evidence_for_finding(finding_id).await
     }
 
     /// Save deduplicated findings
-    pub async fn save_deduplicated(&self, scan_id: &ScanId, findings: &[Finding]) -> Result<(), HistoryError> {
-        self.storage.save_deduplicated_findings(scan_id, findings).await
+    pub async fn save_deduplicated(
+        &self,
+        scan_id: &ScanId,
+        findings: &[Finding],
+    ) -> Result<(), HistoryError> {
+        self.storage
+            .save_deduplicated_findings(scan_id, findings)
+            .await
     }
 
     /// Get deduplicated findings
@@ -457,28 +535,49 @@ impl HistoryManager {
     }
 
     /// Get comparison
-    pub async fn get_comparison(&self, comparison_id: &str) -> Result<Option<ScanComparison>, HistoryError> {
+    pub async fn get_comparison(
+        &self,
+        comparison_id: &str,
+    ) -> Result<Option<ScanComparison>, HistoryError> {
         self.storage.get_comparison(comparison_id).await
     }
 
     /// List comparisons
-    pub async fn list_comparisons(&self, project_id: Option<ProjectId>, limit: usize, offset: usize) -> Result<Vec<ScanComparison>, HistoryError> {
-        self.storage.list_comparisons(project_id, limit, offset).await
+    pub async fn list_comparisons(
+        &self,
+        project_id: Option<ProjectId>,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ScanComparison>, HistoryError> {
+        self.storage
+            .list_comparisons(project_id, limit, offset)
+            .await
     }
 
     /// Get risk metrics history
-    pub async fn get_risk_history(&self, project_id: &ProjectId, date_from: Option<DateTime<Utc>>, date_to: Option<DateTime<Utc>>) -> Result<Vec<RiskMetrics>, HistoryError> {
-        self.storage.get_risk_metrics(project_id, date_from, date_to).await
+    pub async fn get_risk_history(
+        &self,
+        project_id: &ProjectId,
+        date_from: Option<DateTime<Utc>>,
+        date_to: Option<DateTime<Utc>>,
+    ) -> Result<Vec<RiskMetrics>, HistoryError> {
+        self.storage
+            .get_risk_metrics(project_id, date_from, date_to)
+            .await
     }
 
     /// Get latest risk metrics
-    pub async fn get_latest_risk(&self, project_id: &ProjectId) -> Result<Option<RiskMetrics>, HistoryError> {
+    pub async fn get_latest_risk(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<Option<RiskMetrics>, HistoryError> {
         self.storage.get_latest_risk_metrics(project_id).await
     }
 
     /// Calculate trends between two risk metrics
     pub fn calculate_trends(current: &RiskMetrics, previous: &RiskMetrics) -> RiskTrends {
-        let risk_score_change = current.overall_risk_score as i8 - previous.overall_risk_score as i8;
+        let risk_score_change =
+            current.overall_risk_score as i8 - previous.overall_risk_score as i8;
         let critical_change = current.critical_count as i32 - previous.critical_count as i32;
         let high_change = current.high_count as i32 - previous.high_count as i32;
 
@@ -509,7 +608,7 @@ impl HistoryManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ids::{ScanId, ProjectId, TargetId};
+    use crate::ids::{ProjectId, ScanId, TargetId};
     use chrono::Utc;
 
     #[allow(dead_code)]
@@ -576,7 +675,7 @@ mod tests {
 
     #[test]
     fn test_risk_trends_calculation() {
-        let mut previous = RiskMetrics {
+        let previous = RiskMetrics {
             id: "1".to_string(),
             project_id: ProjectId::new(),
             scan_id: None,

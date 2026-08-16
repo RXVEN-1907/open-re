@@ -1,4 +1,4 @@
-use openre_security_ai::{AiResult, AiAnalystError};
+use openre_security_ai::{AiAnalystError, AiResult};
 
 #[test]
 fn test_error_variants_exist() {

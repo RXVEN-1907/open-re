@@ -3,15 +3,21 @@
 //! Detects exposure of environment files, backup files, configuration files,
 //! version-control artifacts, publicly accessible secrets, and debug endpoints.
 
+use crate::sdk::{
+    AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin, PluginId, Result,
+};
 use crate::security::{SecurityPlugin, SecurityPluginConfig, SecurityReference};
-use crate::sdk::{CapabilityRequest, CapabilityResponse, AnalysisContext, Result, Capability, PluginId, Plugin};
-use openre_core::result::{Finding, Severity, Confidence, Category, Evidence, EvidenceType, Reference, ReferenceType};
+use async_trait::async_trait;
+use chrono::Utc;
+use openre_core::result::{
+    Category, Confidence, Evidence, EvidenceType, Finding, FindingConfig, Reference, ReferenceType,
+    Severity,
+};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_trait::async_trait;
 use tracing::{debug, info, warn};
-use reqwest::Client;
 
 /// Sensitive Information Disclosure Plugin
 pub struct SensitiveInfoPlugin {
@@ -25,25 +31,27 @@ impl SensitiveInfoPlugin {
         let client = Arc::new(
             reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(config.request_timeout))
-                .redirect(reqwest::redirect::Policy::limited(config.max_redirects as usize))
+                .redirect(reqwest::redirect::Policy::limited(
+                    config.max_redirects as usize,
+                ))
                 .user_agent(&config.user_agent)
                 .build()
-                .map_err(|e| format!("Failed to create HTTP client: {}", e))?
+                .map_err(|e| format!("Failed to create HTTP client: {}", e))?,
         );
-        
+
         Ok(Self { config, client })
     }
-    
+
     /// Get plugin version
     fn version(&self) -> &'static str {
         "1.0.0"
     }
-    
+
     /// Get plugin description
     fn description(&self) -> &'static str {
         "Detects exposure of environment files, backup files, configuration files, version-control artifacts, publicly accessible secrets, and debug endpoints"
     }
-    
+
     /// Get plugin references
     fn references(&self) -> Vec<SecurityReference> {
         vec![
@@ -63,7 +71,8 @@ impl SensitiveInfoPlugin {
                 ref_type: "CWE".to_string(),
                 id: "CWE-200".to_string(),
                 url: "https://cwe.mitre.org/data/definitions/200.html".to_string(),
-                description: "Exposure of Sensitive Information to an Unauthorized Actor".to_string(),
+                description: "Exposure of Sensitive Information to an Unauthorized Actor"
+                    .to_string(),
             },
             SecurityReference {
                 ref_type: "CWE".to_string(),
@@ -79,7 +88,7 @@ impl SensitiveInfoPlugin {
             },
         ]
     }
-    
+
     /// Validate configuration
     fn validate_config(&self, config: &SensitiveInfoConfig) -> std::result::Result<(), String> {
         if config.request_timeout == 0 {
@@ -90,11 +99,15 @@ impl SensitiveInfoPlugin {
         }
         Ok(())
     }
-    
+
     /// Test for sensitive file exposure
-    async fn test_sensitive_files(&self, base_url: &str) -> Vec<Finding> {
+    async fn test_sensitive_files(
+        &self,
+        base_url: &str,
+        scan_id: openre_core::ids::ScanId,
+    ) -> Vec<Finding> {
         let mut findings = Vec::new();
-        
+
         // Environment and configuration files
         let env_files = vec![
             (".env", "Environment configuration file"),
@@ -113,13 +126,16 @@ impl SensitiveInfoPlugin {
             ("secrets.env", "Secrets environment file"),
             ("credentials.env", "Credentials environment file"),
         ];
-        
+
         for (file, description) in env_files {
-            if let Some(finding) = self.test_file(base_url, file, description, "environment").await {
+            if let Some(finding) = self
+                .test_file(base_url, file, description, "environment", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Configuration files
         let config_files = vec![
             ("config.json", "JSON configuration file"),
@@ -156,13 +172,16 @@ impl SensitiveInfoPlugin {
             ("bootstrap.yaml", "Spring Cloud bootstrap"),
             ("bootstrap.properties", "Spring Cloud bootstrap"),
         ];
-        
+
         for (file, description) in config_files {
-            if let Some(finding) = self.test_file(base_url, file, description, "configuration").await {
+            if let Some(finding) = self
+                .test_file(base_url, file, description, "configuration", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Backup files
         let backup_files = vec![
             ("backup.zip", "Backup archive"),
@@ -188,13 +207,16 @@ impl SensitiveInfoPlugin {
             ("backups/", "Backups directory"),
             ("dumps/", "Database dumps directory"),
         ];
-        
+
         for (file, description) in backup_files {
-            if let Some(finding) = self.test_file(base_url, file, description, "backup").await {
+            if let Some(finding) = self
+                .test_file(base_url, file, description, "backup", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Version control artifacts
         let vcs_files = vec![
             (".git/", "Git repository"),
@@ -216,13 +238,16 @@ impl SensitiveInfoPlugin {
             (".bzr/", "Bazaar repository"),
             (".bzr/repository/", "Bazaar repository"),
         ];
-        
+
         for (file, description) in vcs_files {
-            if let Some(finding) = self.test_file(base_url, file, description, "version-control").await {
+            if let Some(finding) = self
+                .test_file(base_url, file, description, "version-control", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // IDE and editor files
         let ide_files = vec![
             (".idea/", "IntelliJ IDEA project"),
@@ -246,13 +271,16 @@ impl SensitiveInfoPlugin {
             (".DS_Store", "macOS directory metadata"),
             ("Thumbs.db", "Windows thumbnail cache"),
         ];
-        
+
         for (file, description) in ide_files {
-            if let Some(finding) = self.test_file(base_url, file, description, "ide").await {
+            if let Some(finding) = self
+                .test_file(base_url, file, description, "ide", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Log files
         let log_files = vec![
             ("access.log", "Access log"),
@@ -271,13 +299,16 @@ impl SensitiveInfoPlugin {
             ("docker.log", "Docker log"),
             ("kubernetes.log", "Kubernetes log"),
         ];
-        
+
         for (file, description) in log_files {
-            if let Some(finding) = self.test_file(base_url, file, description, "log").await {
+            if let Some(finding) = self
+                .test_file(base_url, file, description, "log", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Secret and key files
         let secret_files = vec![
             ("id_rsa", "SSH private key"),
@@ -309,13 +340,16 @@ impl SensitiveInfoPlugin {
             ("api_keys.txt", "API keys file"),
             ("tokens.txt", "Tokens file"),
         ];
-        
+
         for (file, description) in secret_files {
-            if let Some(finding) = self.test_file(base_url, file, description, "secret").await {
+            if let Some(finding) = self
+                .test_file(base_url, file, description, "secret", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Debug and diagnostic endpoints
         let debug_endpoints = vec![
             ("/debug", "Debug endpoint"),
@@ -360,13 +394,16 @@ impl SensitiveInfoPlugin {
             ("/build-info", "Build info"),
             ("/git-commit", "Git commit info"),
         ];
-        
+
         for (endpoint, description) in debug_endpoints {
-            if let Some(finding) = self.test_endpoint(base_url, endpoint, description).await {
+            if let Some(finding) = self
+                .test_endpoint(base_url, endpoint, description, scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // API documentation endpoints
         let api_docs = vec![
             ("/swagger.json", "Swagger JSON"),
@@ -389,26 +426,44 @@ impl SensitiveInfoPlugin {
             ("/api/docs", "API documentation"),
             ("/api/docs/", "API documentation"),
         ];
-        
+
         for (endpoint, description) in api_docs {
-            if let Some(finding) = self.test_endpoint(base_url, endpoint, description).await {
+            if let Some(finding) = self
+                .test_endpoint(base_url, endpoint, description, scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         findings
     }
-    
+
     /// Test a single file for exposure
-    async fn test_file(&self, base_url: &str, file: &str, description: &str, category: &str) -> Option<Finding> {
-        let url = format!("{}{}", base_url.trim_end_matches('/'), if file.starts_with('/') { file.to_string() } else { format!("/{}", file) });
-        
+    async fn test_file(
+        &self,
+        base_url: &str,
+        file: &str,
+        description: &str,
+        category: &str,
+        scan_id: openre_core::ids::ScanId,
+    ) -> Option<Finding> {
+        let url = format!(
+            "{}{}",
+            base_url.trim_end_matches('/'),
+            if file.starts_with('/') {
+                file.to_string()
+            } else {
+                format!("/{}", file)
+            }
+        );
+
         if let Ok(resp) = self.client.get(&url).send().await {
             let status = resp.status().as_u16();
-            
+
             if status == 200 {
                 let body = resp.text().await.unwrap_or_default();
-                
+
                 // Check for sensitive content patterns
                 let sensitive_patterns = match category {
                     "environment" => vec![
@@ -481,28 +536,38 @@ impl SensitiveInfoPlugin {
                     ],
                     _ => vec![],
                 };
-                
+
                 for (pattern, desc) in sensitive_patterns {
                     if body.to_lowercase().contains(&pattern.to_lowercase()) {
                         return Some(self.create_finding(
                             &format!("Exposed {} File with Sensitive Data", category),
-                            &format!("{} file {} exposes sensitive data: {}", description, file, desc),
+                            &format!(
+                                "{} file {} exposes sensitive data: {}",
+                                description, file, desc
+                            ),
                             Severity::High,
                             Confidence::High,
                             Category::InformationDisclosure,
                             &url,
                             file,
                             category,
-                            vec!["exposed-file".to_string(), category.to_string(), "sensitive-data".to_string()],
                             vec![
-                                "Remove sensitive files from web-accessible directories".to_string(),
-                                "Configure web server to deny access to sensitive files".to_string(),
-                                "Use .htaccess or equivalent to block access".to_string(),
+                                "exposed-file".to_string(),
+                                category.to_string(),
+                                "sensitive-data".to_string(),
                             ],
+                            vec![
+                                    "Remove sensitive files from web-accessible directories"
+                                        .to_string(),
+                                    "Configure web server to deny access to sensitive files"
+                                        .to_string(),
+                                    "Use .htaccess or equivalent to block access".to_string(),
+                                ],
+                            scan_id,
                         ));
                     }
                 }
-                
+
                 // Even without specific patterns, the file itself is exposed
                 return Some(self.create_finding(
                     &format!("Exposed {} File", category),
@@ -528,23 +593,30 @@ impl SensitiveInfoPlugin {
                         "Configure web server to deny access to sensitive files".to_string(),
                         "Use .htaccess or equivalent to block access".to_string(),
                     ],
+                    scan_id,
                 ));
             }
         }
-        
+
         None
     }
-    
+
     /// Test a debug/endpoint for exposure
-    async fn test_endpoint(&self, base_url: &str, endpoint: &str, description: &str) -> Option<Finding> {
+    async fn test_endpoint(
+        &self,
+        base_url: &str,
+        endpoint: &str,
+        description: &str,
+        scan_id: openre_core::ids::ScanId,
+    ) -> Option<Finding> {
         let url = format!("{}{}", base_url.trim_end_matches('/'), endpoint);
-        
+
         if let Ok(resp) = self.client.get(&url).send().await {
             let status = resp.status().as_u16();
-            
+
             if status == 200 {
                 let body = resp.text().await.unwrap_or_default();
-                
+
                 // Check for sensitive content
                 let sensitive_patterns = vec![
                     ("password", "Password"),
@@ -559,12 +631,15 @@ impl SensitiveInfoPlugin {
                     ("DEBUG", "Debug mode"),
                     ("TRACE", "Trace mode"),
                 ];
-                
+
                 for (pattern, desc) in sensitive_patterns {
                     if body.to_lowercase().contains(&pattern.to_lowercase()) {
                         return Some(self.create_finding(
                             &format!("Exposed Debug Endpoint with Sensitive Data"),
-                            &format!("Debug endpoint {} exposes sensitive data: {}", endpoint, desc),
+                            &format!(
+                                "Debug endpoint {} exposes sensitive data: {}",
+                                endpoint, desc
+                            ),
                             Severity::High,
                             Confidence::High,
                             Category::InformationDisclosure,
@@ -576,13 +651,17 @@ impl SensitiveInfoPlugin {
                                 "Disable debug endpoints in production".to_string(),
                                 "Restrict access to debug endpoints".to_string(),
                             ],
+                            scan_id,
                         ));
                     }
                 }
-                
+
                 return Some(self.create_finding(
                     &format!("Exposed Debug Endpoint"),
-                    &format!("Debug endpoint {} is publicly accessible: {}", endpoint, description),
+                    &format!(
+                        "Debug endpoint {} is publicly accessible: {}",
+                        endpoint, description
+                    ),
                     Severity::Medium,
                     Confidence::Medium,
                     Category::InformationDisclosure,
@@ -594,13 +673,14 @@ impl SensitiveInfoPlugin {
                         "Disable debug endpoints in production".to_string(),
                         "Restrict access to debug endpoints".to_string(),
                     ],
+                    scan_id,
                 ));
             }
         }
-        
+
         None
     }
-    
+
     /// Create a finding
     fn create_finding(
         &self,
@@ -614,20 +694,21 @@ impl SensitiveInfoPlugin {
         category_str: &str,
         tags: Vec<String>,
         verification_steps: Vec<String>,
+        scan_id: openre_core::ids::ScanId,
     ) -> Finding {
-        let mut finding = Finding::new(
-            title.to_string(),
-            description.to_string(),
+        let mut finding = Finding::new(FindingConfig {
+            title: title.to_string(),
+            description: description.to_string(),
             severity,
             confidence,
             category,
-            url.to_string(),
-            "web_application".to_string(),
-            "sensitive_info".to_string(),
-            self.version().to_string(),
-            openre_core::ids::ScanId::new(),
-        );
-        
+            target: url.to_string(),
+            target_type: "web_application".to_string(),
+            plugin_source: "sensitive_info".to_string(),
+            plugin_version: self.version().to_string(),
+            scan_id,
+        });
+
         finding = finding.with_evidence(Evidence {
             evidence_type: EvidenceType::HttpResponse,
             description: format!("Sensitive file exposure test for {}", file),
@@ -638,8 +719,15 @@ impl SensitiveInfoPlugin {
             })),
             location: Some(url.to_string()),
             metadata: HashMap::new(),
+            http_request: None,
+            http_response: None,
+            timing: None,
+            payload: None,
+            reproduction_steps: None,
+            plugin_source: Some("sensitive_info".to_string()),
+            timestamp: Utc::now(),
         });
-        
+
         for reference in self.references() {
             finding = finding.with_reference(Reference {
                 reference_type: match reference.ref_type.as_str() {
@@ -653,12 +741,12 @@ impl SensitiveInfoPlugin {
                 description: Some(reference.description.clone()),
             });
         }
-        
+
         for tag in tags {
             finding = finding.with_tag(tag);
         }
         finding = finding.with_tag("sensitive-info".to_string());
-        
+
         finding
     }
 }
@@ -666,31 +754,34 @@ impl SensitiveInfoPlugin {
 #[async_trait]
 impl Plugin for SensitiveInfoPlugin {
     type Config = SensitiveInfoConfig;
-    
+
     fn new(config: Self::Config) -> Self {
         Self::new(config).expect("Failed to create Sensitive Info plugin")
     }
-    
+
     fn capabilities(&self) -> Vec<Capability> {
-        vec![
-            Capability::NetworkAccess,
-            Capability::ReadConfig,
-        ]
+        vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
-    
+
     async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
         let context = request.context;
-        let target_url = request.input.get("target_url")
+        let scan_id = openre_core::ids::ScanId::from_uuid(context.job_id.as_uuid());
+        let target_url = request
+            .input
+            .get("target_url")
             .and_then(|v| v.as_str())
             .unwrap_or("http://localhost");
-        
-        info!("Starting sensitive information disclosure analysis for {}", target_url);
-        
+
+        info!(
+            "Starting sensitive information disclosure analysis for {}",
+            target_url
+        );
+
         // Test for sensitive files
-        let findings = self.test_sensitive_files(target_url).await;
-        
+        let findings = self.test_sensitive_files(target_url, scan_id).await;
+
         info!("Found {} sensitive information issues", findings.len());
-        
+
         Ok(CapabilityResponse::success(serde_json::json!({
             "findings": findings,
             "vulnerabilities_found": findings.len(),

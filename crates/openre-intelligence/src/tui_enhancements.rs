@@ -1,11 +1,11 @@
 //! TUI Enhancements - Developer experience improvements for the terminal interface
 
-use crate::{types::*, error::IntelligenceError, IntelligenceResult};
-use openre_core::result::{Finding, Severity, Category};
+use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use colored::*;
 use openre_core::ids::FindingId;
+use openre_core::result::{Category, Finding, Severity};
 use std::collections::HashMap;
 use tracing::debug;
-use colored::*;
 
 /// Configuration for TUI enhancements
 #[derive(Debug, Clone)]
@@ -110,7 +110,10 @@ impl TuiEnhancer {
                 Category::VulnerableComponents => "🧩",
                 _ => "⚠️",
             };
-            output.push_str(&format!("   {} Category: {:?}\n", category_emoji, finding.category));
+            output.push_str(&format!(
+                "   {} Category: {:?}\n",
+                category_emoji, finding.category
+            ));
         } else {
             output.push_str(&format!("   Category: {:?}\n", finding.category));
         }
@@ -142,9 +145,11 @@ impl TuiEnhancer {
                     _ => "white",
                 };
 
-                output.push_str(&format!("   ⚠️  Risk Score: {} ({})\n",
+                output.push_str(&format!(
+                    "   ⚠️  Risk Score: {} ({})\n",
                     risk_score.to_string().color(risk_color),
-                    risk_level.color(risk_color)));
+                    risk_level.color(risk_color)
+                ));
             } else {
                 output.push_str(&format!("   Risk Score: {} ({})\n", risk_score, risk_level));
             }
@@ -173,7 +178,8 @@ impl TuiEnhancer {
 
         // Remediation if available
         if let Some(remediation) = &finding.remediation {
-            let remediation_text = self.wrap_text(&remediation.description, self.config.max_width - 6);
+            let remediation_text =
+                self.wrap_text(&remediation.description, self.config.max_width - 6);
             output.push_str(&format!("   💡 Remediation:\n      {}\n", remediation_text));
 
             if !remediation.steps.is_empty() {
@@ -187,7 +193,10 @@ impl TuiEnhancer {
 
         // Related findings (if requested)
         if show_related && !finding.related_findings.is_empty() {
-            output.push_str(&format!("   🔗 Related Findings ({}):\n", finding.related_findings.len()));
+            output.push_str(&format!(
+                "   🔗 Related Findings ({}):\n",
+                finding.related_findings.len()
+            ));
             for related_id in &finding.related_findings {
                 output.push_str(&format!("      - {}\n", related_id));
             }
@@ -203,11 +212,17 @@ impl TuiEnhancer {
         }
 
         // Root cause information if available
-        if finding.metadata.contains_key("root_cause_analysis_performed") {
+        if finding
+            .metadata
+            .contains_key("root_cause_analysis_performed")
+        {
             output.push_str("   🌱 Root Cause Analysis Performed\n");
 
             if let Some(root_cause_count) = finding.metadata.get("root_cause_count") {
-                output.push_str(&format!("      Related to {} root cause(s)\n", root_cause_count));
+                output.push_str(&format!(
+                    "      Related to {} root cause(s)\n",
+                    root_cause_count
+                ));
             }
         }
 
@@ -303,7 +318,10 @@ impl TuiEnhancer {
         }
 
         output.push_str(&format!("   Type: {:?}\n", correlation.correlation_type));
-        output.push_str(&format!("   Confidence: {:.2}%\n", correlation.confidence_score * 100.0));
+        output.push_str(&format!(
+            "   Confidence: {:.2}%\n",
+            correlation.confidence_score * 100.0
+        ));
 
         if let Some(description) = &correlation.description {
             let desc_text = self.wrap_text(description, self.config.max_width - 6);
@@ -356,8 +374,10 @@ impl TuiEnhancer {
             };
 
             if self.config.enable_colors {
-                output.push_str(&format!("   CVSS Score: {}\n",
-                    cvss_score.to_string().color(severity_color)));
+                output.push_str(&format!(
+                    "   CVSS Score: {}\n",
+                    cvss_score.to_string().color(severity_color)
+                ));
             } else {
                 output.push_str(&format!("   CVSS Score: {}\n", cvss_score));
             }
@@ -371,7 +391,10 @@ impl TuiEnhancer {
         }
 
         if let Some(published_date) = &cve_info.published_date {
-            output.push_str(&format!("   Published: {}\n", published_date.format("%Y-%m-%d")));
+            output.push_str(&format!(
+                "   Published: {}\n",
+                published_date.format("%Y-%m-%d")
+            ));
         }
 
         if !cve_info.references.is_empty() {
@@ -390,18 +413,36 @@ impl TuiEnhancer {
         let mut output = String::new();
 
         if self.config.enable_emojis && self.config.enable_colors {
-            let emoji = if dep_info.is_vulnerable { "⚠️" } else { "✅" };
-            let color = if dep_info.is_vulnerable { "red" } else { "green" };
-            output.push_str(&format!("{} {} Dependency Information\n",
-                emoji, emoji.to_string().color(color).bold()));
+            let emoji = if dep_info.is_vulnerable {
+                "⚠️"
+            } else {
+                "✅"
+            };
+            let color = if dep_info.is_vulnerable {
+                "red"
+            } else {
+                "green"
+            };
+            output.push_str(&format!(
+                "{} {} Dependency Information\n",
+                emoji,
+                emoji.to_string().color(color).bold()
+            ));
         } else if self.config.enable_emojis {
-            let emoji = if dep_info.is_vulnerable { "⚠️" } else { "✅" };
+            let emoji = if dep_info.is_vulnerable {
+                "⚠️"
+            } else {
+                "✅"
+            };
             output.push_str(&format!("{} Dependency Information\n", emoji));
         } else {
             output.push_str("Dependency Information\n");
         }
 
-        output.push_str(&format!("   Package: {} ({})\n", dep_info.name, dep_info.version));
+        output.push_str(&format!(
+            "   Package: {} ({})\n",
+            dep_info.name, dep_info.version
+        ));
         output.push_str(&format!("   Ecosystem: {}\n", dep_info.ecosystem));
 
         if let Some(latest_version) = &dep_info.latest_version {
@@ -467,12 +508,19 @@ impl TuiEnhancer {
     }
 
     /// Format a summary dashboard view
-    pub fn format_dashboard(&self, findings: &[Finding], correlations: &[EnhancedCorrelation]) -> String {
+    pub fn format_dashboard(
+        &self,
+        findings: &[Finding],
+        correlations: &[EnhancedCorrelation],
+    ) -> String {
         let mut output = String::new();
 
         // Header
         if self.config.enable_colors {
-            output.push_str(&format!("{}\n", "📊 Security Intelligence Dashboard".bold().underline()));
+            output.push_str(&format!(
+                "{}\n",
+                "📊 Security Intelligence Dashboard".bold().underline()
+            ));
         } else {
             output.push_str("📊 Security Intelligence Dashboard\n");
         }
@@ -480,19 +528,49 @@ impl TuiEnhancer {
         output.push('\n');
 
         // Summary statistics
-        let critical_count = findings.iter().filter(|f| f.severity == Severity::Critical).count();
-        let high_count = findings.iter().filter(|f| f.severity == Severity::High).count();
-        let medium_count = findings.iter().filter(|f| f.severity == Severity::Medium).count();
-        let low_count = findings.iter().filter(|f| f.severity == Severity::Low).count();
-        let info_count = findings.iter().filter(|f| f.severity == Severity::Info).count();
+        let critical_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Critical)
+            .count();
+        let high_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::High)
+            .count();
+        let medium_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Medium)
+            .count();
+        let low_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Low)
+            .count();
+        let info_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Info)
+            .count();
 
         output.push_str("📈 Findings Summary:\n");
         if self.config.enable_colors {
-            output.push_str(&format!("   🔴 Critical: {}\n", critical_count.to_string().red().bold()));
-            output.push_str(&format!("   🟠 High: {}\n", high_count.to_string().yellow().bold()));
-            output.push_str(&format!("   🟡 Medium: {}\n", medium_count.to_string().blue().bold()));
-            output.push_str(&format!("   🟢 Low: {}\n", low_count.to_string().green().bold()));
-            output.push_str(&format!("   🔵 Info: {}\n", info_count.to_string().cyan().bold()));
+            output.push_str(&format!(
+                "   🔴 Critical: {}\n",
+                critical_count.to_string().red().bold()
+            ));
+            output.push_str(&format!(
+                "   🟠 High: {}\n",
+                high_count.to_string().yellow().bold()
+            ));
+            output.push_str(&format!(
+                "   🟡 Medium: {}\n",
+                medium_count.to_string().blue().bold()
+            ));
+            output.push_str(&format!(
+                "   🟢 Low: {}\n",
+                low_count.to_string().green().bold()
+            ));
+            output.push_str(&format!(
+                "   🔵 Info: {}\n",
+                info_count.to_string().cyan().bold()
+            ));
         } else {
             output.push_str(&format!("   Critical: {}\n", critical_count));
             output.push_str(&format!("   High: {}\n", high_count));
@@ -508,12 +586,19 @@ impl TuiEnhancer {
         output.push_str(&format!("   Chain Count: {}\n", correlations.len()));
 
         let avg_confidence: f64 = if !correlations.is_empty() {
-            correlations.iter().map(|c| c.confidence_score as f64).sum::<f64>() / correlations.len() as f64
+            correlations
+                .iter()
+                .map(|c| c.confidence_score as f64)
+                .sum::<f64>()
+                / correlations.len() as f64
         } else {
             0.0
         };
 
-        output.push_str(&format!("   Avg Confidence: {:.1}%\n\n", avg_confidence * 100.0));
+        output.push_str(&format!(
+            "   Avg Confidence: {:.1}%\n\n",
+            avg_confidence * 100.0
+        ));
 
         // Top categories
         let mut category_counts = HashMap::new();
@@ -532,11 +617,13 @@ impl TuiEnhancer {
         output.push('\n');
 
         // Workflow status
-        let acknowledged_count = findings.iter()
+        let acknowledged_count = findings
+            .iter()
             .filter(|f| f.metadata.contains_key("workflow_acknowledged"))
             .count();
 
-        let false_positive_count = findings.iter()
+        let false_positive_count = findings
+            .iter()
             .filter(|f| f.metadata.contains_key("workflow_false_positive"))
             .count();
 
@@ -547,7 +634,10 @@ impl TuiEnhancer {
         // Recommendations
         output.push_str("💡 Recommendations:\n");
         if critical_count > 0 {
-            output.push_str(&format!("   🔴 Address {} critical findings immediately\n", critical_count));
+            output.push_str(&format!(
+                "   🔴 Address {} critical findings immediately\n",
+                critical_count
+            ));
         }
         if !correlations.is_empty() {
             output.push_str("   🔗 Review correlation chains for systemic issues\n");
@@ -589,7 +679,8 @@ impl ProgressIndicator {
         let seconds = elapsed_secs % 60;
 
         if self.enable_colors {
-            print!("\r{} {:>3.0}% ({}/{}) - {}m {}s",
+            print!(
+                "\r{} {:>3.0}% ({}/{}) - {}m {}s",
                 self.operation.cyan().bold(),
                 progress,
                 current,
@@ -598,13 +689,9 @@ impl ProgressIndicator {
                 seconds
             );
         } else {
-            print!("\r{} {:>3.0}% ({}/{}) - {}m {}s",
-                self.operation,
-                progress,
-                current,
-                total,
-                minutes,
-                seconds
+            print!(
+                "\r{} {:>3.0}% ({}/{}) - {}m {}s",
+                self.operation, progress, current, total, minutes, seconds
             );
         }
 
@@ -618,17 +705,17 @@ impl ProgressIndicator {
         let seconds = elapsed_secs % 60;
 
         if self.enable_colors {
-            println!("\n{} {} - Completed in {}m {}s ✅",
+            println!(
+                "\n{} {} - Completed in {}m {}s ✅",
                 "✓".green().bold(),
                 self.operation.green().bold(),
                 minutes,
                 seconds
             );
         } else {
-            println!("\n{} - Completed in {}m {}s",
-                self.operation,
-                minutes,
-                seconds
+            println!(
+                "\n{} - Completed in {}m {}s",
+                self.operation, minutes, seconds
             );
         }
     }
@@ -637,9 +724,9 @@ impl ProgressIndicator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openre_core::result::{Finding, Category, Severity, Confidence};
-    use openre_core::ids::{FindingId, ScanId};
     use chrono::Utc;
+    use openre_core::ids::{FindingId, ScanId};
+    use openre_core::result::{Category, Confidence, Finding, Severity};
     use std::collections::HashMap;
 
     fn create_test_finding(title: &str, severity: Severity) -> Finding {
@@ -743,7 +830,9 @@ mod tests {
             finding_ids: vec![FindingId::new_v4(), FindingId::new_v4()],
             correlation_type: crate::CorrelationType::CspXssChain,
             confidence_score: 0.85,
-            description: Some("Content Security Policy bypass leading to XSS execution".to_string()),
+            description: Some(
+                "Content Security Policy bypass leading to XSS execution".to_string(),
+            ),
             remediation_steps: Some(vec![
                 "Implement strict CSP headers".to_string(),
                 "Sanitize all user inputs".to_string(),
@@ -796,7 +885,9 @@ mod tests {
             latest_version: Some("2.0.0".to_string()),
             is_vulnerable: true,
             vulnerabilities: vec!["CVE-2023-54321".to_string()],
-            remediation_advice: Some("Upgrade to version 2.0.0 or later to fix the vulnerability".to_string()),
+            remediation_advice: Some(
+                "Upgrade to version 2.0.0 or later to fix the vulnerability".to_string(),
+            ),
         };
 
         let formatted = enhancer.format_dependency_result(&dep_info);
@@ -845,15 +936,13 @@ mod tests {
             create_test_finding("Info Issue", Severity::Info),
         ];
 
-        let correlations = vec![
-            EnhancedCorrelation {
-                finding_ids: vec![FindingId::new_v4(), FindingId::new_v4()],
-                correlation_type: crate::CorrelationType::CspXssChain,
-                confidence_score: 0.90,
-                description: None,
-                remediation_steps: None,
-            }
-        ];
+        let correlations = vec![EnhancedCorrelation {
+            finding_ids: vec![FindingId::new_v4(), FindingId::new_v4()],
+            correlation_type: crate::CorrelationType::CspXssChain,
+            confidence_score: 0.90,
+            description: None,
+            remediation_steps: None,
+        }];
 
         let formatted = enhancer.format_dashboard(&findings, &correlations);
 

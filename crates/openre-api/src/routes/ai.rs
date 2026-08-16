@@ -1,12 +1,11 @@
 //! AI routes
 
-use crate::{AppState, ApiResult, ValidatedJson};
+use crate::{ApiResult, AppState, ValidatedJson};
 use axum::{
-    extract::{State, Extension},
-    routing::{get, post},
-    Json,
-    Router,
+    extract::{Extension, State},
     response::{sse::Event, Sse},
+    routing::{get, post},
+    Json, Router,
 };
 use futures::stream::Stream;
 use openre_core::ids::{FunctionId, ProjectId};
@@ -135,16 +134,19 @@ async fn analyze_function(
     ValidatedJson(payload): ValidatedJson<AnalyzeFunctionRequest>,
 ) -> ApiResult<Json<AnalyzeFunctionResponse>> {
     let function_id: FunctionId = payload.function_id.parse()?;
-    
+
     // Get project store
     let project_store = state.get_project_store(payload.project_id.parse()?).await?;
-    
-    let response = state.ai_service.execute_template(
-        "analyze_function",
-        HashMap::new(),
-        Some(project_store),
-        Some(function_id),
-    ).await?;
+
+    let response = state
+        .ai_service
+        .execute_template(
+            "analyze_function",
+            HashMap::new(),
+            Some(project_store),
+            Some(function_id),
+        )
+        .await?;
 
     Ok(Json(AnalyzeFunctionResponse::from(response)))
 }
@@ -156,15 +158,18 @@ async fn analyze_function_stream(
     ValidatedJson(payload): ValidatedJson<AnalyzeFunctionRequest>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     let function_id: FunctionId = payload.function_id.parse()?;
-    
+
     let project_store = state.get_project_store(payload.project_id.parse()?).await?;
-    
-    let stream = state.ai_service.execute_template_stream(
-        "analyze_function",
-        HashMap::new(),
-        Some(project_store),
-        Some(function_id),
-    ).await?;
+
+    let stream = state
+        .ai_service
+        .execute_template_stream(
+            "analyze_function",
+            HashMap::new(),
+            Some(project_store),
+            Some(function_id),
+        )
+        .await?;
 
     let event_stream = async_stream::stream! {
         let mut rx = stream.stream;
@@ -206,13 +211,16 @@ async fn list_templates(
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<TemplateListResponse>> {
     let templates = state.ai_service.prompt_compiler().list_templates();
-    
+
     Ok(Json(TemplateListResponse {
-        templates: templates.into_iter().map(|t| TemplateInfo {
-            name: t.name.clone(),
-            description: t.description.clone(),
-            variables: t.variables.clone(),
-        }).collect(),
+        templates: templates
+            .into_iter()
+            .map(|t| TemplateInfo {
+                name: t.name.clone(),
+                description: t.description.clone(),
+                variables: t.variables.clone(),
+            })
+            .collect(),
     }))
 }
 
@@ -222,9 +230,12 @@ async fn get_template(
     Extension(claims): Extension<crate::auth::Claims>,
     Path(name): Path<String>,
 ) -> ApiResult<Json<TemplateInfo>> {
-    let template = state.ai_service.prompt_compiler().get_template(&name)
+    let template = state
+        .ai_service
+        .prompt_compiler()
+        .get_template(&name)
         .ok_or_else(|| crate::error::ApiError::NotFound("Template not found".into()))?;
-    
+
     Ok(Json(TemplateInfo {
         name: template.name.clone(),
         description: template.description.clone(),
@@ -234,26 +245,26 @@ async fn get_template(
 
 // Request/Response types
 
-use std::collections::HashMap;
 use axum::extract::Path;
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ChatCompletionRequest {
     #[validate(length(min = 1))]
     pub messages: Vec<ChatMessage>,
-    
+
     pub tools: Option<Vec<ToolDefinition>>,
     pub tool_choice: Option<ToolChoice>,
-    
+
     #[validate(range(min = 0.0, max = 2.0))]
     pub temperature: Option<f32>,
-    
+
     #[validate(range(min = 1, max = 8192))]
     pub max_tokens: Option<u32>,
-    
+
     #[validate(range(min = 0.0, max = 1.0))]
     pub top_p: Option<f32>,
-    
+
     pub stop: Option<Vec<String>>,
     pub response_format: Option<ResponseFormat>,
 }
@@ -311,9 +322,13 @@ pub enum ResponseFormat {
 impl From<ChatMessage> for openre_ai::providers::Message {
     fn from(m: ChatMessage) -> Self {
         match m.role {
-            MessageRole::System => openre_ai::providers::Message::system(m.content.unwrap_or_default()),
+            MessageRole::System => {
+                openre_ai::providers::Message::system(m.content.unwrap_or_default())
+            }
             MessageRole::User => openre_ai::providers::Message::user(m.content.unwrap_or_default()),
-            MessageRole::Assistant => openre_ai::providers::Message::assistant(m.content.unwrap_or_default()),
+            MessageRole::Assistant => {
+                openre_ai::providers::Message::assistant(m.content.unwrap_or_default())
+            }
             MessageRole::Tool => openre_ai::providers::Message::tool_result(
                 m.tool_call_id.unwrap_or_default(),
                 m.content.unwrap_or_default(),
@@ -372,7 +387,9 @@ impl From<openre_ai::providers::Message> for ChatMessageResponse {
         Self {
             role: format!("{:?}", m.role).to_lowercase(),
             content: m.content,
-            tool_calls: m.tool_calls.map(|tc| tc.into_iter().map(|t| t.into()).collect()),
+            tool_calls: m
+                .tool_calls
+                .map(|tc| tc.into_iter().map(|t| t.into()).collect()),
         }
     }
 }
@@ -415,7 +432,7 @@ impl From<openre_ai::providers::Usage> for Usage {
 pub struct AnalyzeFunctionRequest {
     #[validate(custom(function = "crate::validation::rules::validate_uuid"))]
     pub function_id: String,
-    
+
     pub project_id: Option<String>,
 }
 
@@ -428,10 +445,12 @@ pub struct AnalyzeFunctionResponse {
 
 impl From<openre_ai::providers::CompletionResponse> for AnalyzeFunctionResponse {
     fn from(r: openre_ai::providers::CompletionResponse) -> Self {
-        let content = r.choices.first()
+        let content = r
+            .choices
+            .first()
             .and_then(|c| c.message.content.clone())
             .unwrap_or_default();
-        
+
         Self {
             analysis: content,
             model: r.model,

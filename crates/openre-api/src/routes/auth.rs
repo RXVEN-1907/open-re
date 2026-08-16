@@ -1,11 +1,10 @@
 //! Auth routes
 
-use crate::{AppState, ApiResult, ValidatedJson};
+use crate::{ApiResult, AppState, ValidatedJson};
 use axum::{
-    extract::{State, Extension},
-    routing::{get, post},
-    Json,
-    Router,
+    extract::{Extension, State},
+    routing::{get, post, put, delete},
+    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
@@ -41,11 +40,19 @@ async fn login(
     State(state): State<std::sync::Arc<AppState>>,
     ValidatedJson(payload): ValidatedJson<LoginRequest>,
 ) -> ApiResult<Json<LoginResponse>> {
-    let user = state.global_store.get_user_by_email(&payload.email).await?
+    let user = state
+        .global_store
+        .get_user_by_email(&payload.email)
+        .await?
         .ok_or_else(|| crate::error::ApiError::Unauthorized("Invalid credentials".into()))?;
 
-    if !state.auth_service.verify_password(&payload.password, &user.password_hash)? {
-        return Err(crate::error::ApiError::Unauthorized("Invalid credentials".into()));
+    if !state
+        .auth_service
+        .verify_password(&payload.password, &user.password_hash)?
+    {
+        return Err(crate::error::ApiError::Unauthorized(
+            "Invalid credentials".into(),
+        ));
     }
 
     let access_token = state.auth_service.create_access_token(
@@ -56,10 +63,15 @@ async fn login(
         None,
     )?;
 
-    let refresh_token = state.auth_service.create_refresh_token(&user.id.to_string())?;
+    let refresh_token = state
+        .auth_service
+        .create_refresh_token(&user.id.to_string())?;
 
     // Store refresh token
-    state.global_store.store_refresh_token(&user.id, &refresh_token).await?;
+    state
+        .global_store
+        .store_refresh_token(&user.id, &refresh_token)
+        .await?;
 
     Ok(Json(LoginResponse {
         access_token,
@@ -87,20 +99,30 @@ async fn register(
     ValidatedJson(payload): ValidatedJson<RegisterRequest>,
 ) -> ApiResult<Json<LoginResponse>> {
     // Check if email exists
-    if state.global_store.get_user_by_email(&payload.email).await?.is_some() {
-        return Err(crate::error::ApiError::Conflict("Email already registered".into()));
+    if state
+        .global_store
+        .get_user_by_email(&payload.email)
+        .await?
+        .is_some()
+    {
+        return Err(crate::error::ApiError::Conflict(
+            "Email already registered".into(),
+        ));
     }
 
     // Hash password
     let password_hash = state.auth_service.hash_password(&payload.password)?;
 
     // Create user
-    let user = state.global_store.create_user(
-        payload.email,
-        payload.username,
-        password_hash,
-        payload.full_name,
-    ).await?;
+    let user = state
+        .global_store
+        .create_user(
+            payload.email,
+            payload.username,
+            password_hash,
+            payload.full_name,
+        )
+        .await?;
 
     let access_token = state.auth_service.create_access_token(
         &user.id.to_string(),
@@ -110,9 +132,14 @@ async fn register(
         None,
     )?;
 
-    let refresh_token = state.auth_service.create_refresh_token(&user.id.to_string())?;
+    let refresh_token = state
+        .auth_service
+        .create_refresh_token(&user.id.to_string())?;
 
-    state.global_store.store_refresh_token(&user.id, &refresh_token).await?;
+    state
+        .global_store
+        .store_refresh_token(&user.id, &refresh_token)
+        .await?;
 
     Ok(Json(LoginResponse {
         access_token,
@@ -128,17 +155,24 @@ async fn refresh_token(
     State(state): State<std::sync::Arc<AppState>>,
     Json(payload): Json<RefreshTokenRequest>,
 ) -> ApiResult<Json<LoginResponse>> {
-    let claims = state.auth_service.validate_refresh_token(&payload.refresh_token)?;
+    let claims = state
+        .auth_service
+        .validate_refresh_token(&payload.refresh_token)?;
 
     // Verify refresh token exists in store
     let user_id: openre_core::ids::UserId = claims.sub.parse()?;
     let stored = state.global_store.get_refresh_token(&user_id).await?;
-    
+
     if stored != Some(payload.refresh_token.clone()) {
-        return Err(crate::error::ApiError::Unauthorized("Invalid refresh token".into()));
+        return Err(crate::error::ApiError::Unauthorized(
+            "Invalid refresh token".into(),
+        ));
     }
 
-    let user = state.global_store.get_user(user_id).await?
+    let user = state
+        .global_store
+        .get_user(user_id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::Unauthorized("User not found".into()))?;
 
     // Create new tokens
@@ -150,10 +184,15 @@ async fn refresh_token(
         None,
     )?;
 
-    let new_refresh_token = state.auth_service.create_refresh_token(&user.id.to_string())?;
+    let new_refresh_token = state
+        .auth_service
+        .create_refresh_token(&user.id.to_string())?;
 
     // Update stored refresh token
-    state.global_store.store_refresh_token(&user_id, &new_refresh_token).await?;
+    state
+        .global_store
+        .store_refresh_token(&user_id, &new_refresh_token)
+        .await?;
 
     Ok(Json(LoginResponse {
         access_token,
@@ -180,7 +219,10 @@ async fn get_current_user(
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<UserResponse>> {
     let user_id: openre_core::ids::UserId = claims.sub.parse()?;
-    let user = state.global_store.get_user(user_id).await?
+    let user = state
+        .global_store
+        .get_user(user_id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("User not found".into()))?;
 
     Ok(Json(UserResponse::from(user)))
@@ -193,15 +235,26 @@ async fn change_password(
     ValidatedJson(payload): ValidatedJson<ChangePasswordRequest>,
 ) -> ApiResult<()> {
     let user_id: openre_core::ids::UserId = claims.sub.parse()?;
-    let user = state.global_store.get_user(user_id).await?
+    let user = state
+        .global_store
+        .get_user(user_id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("User not found".into()))?;
 
-    if !state.auth_service.verify_password(&payload.current_password, &user.password_hash)? {
-        return Err(crate::error::ApiError::Unauthorized("Current password incorrect".into()));
+    if !state
+        .auth_service
+        .verify_password(&payload.current_password, &user.password_hash)?
+    {
+        return Err(crate::error::ApiError::Unauthorized(
+            "Current password incorrect".into(),
+        ));
     }
 
     let new_hash = state.auth_service.hash_password(&payload.new_password)?;
-    state.global_store.update_password(user_id, new_hash).await?;
+    state
+        .global_store
+        .update_password(user_id, new_hash)
+        .await?;
 
     // Revoke all refresh tokens
     state.global_store.revoke_refresh_token(&user_id).await?;
@@ -228,19 +281,21 @@ async fn create_api_key(
 ) -> ApiResult<Json<ApiKeyCreateResponse>> {
     let user_id: openre_core::ids::UserId = claims.sub.parse()?;
 
-    let api_key = state.auth_service.create_api_key(
-        &user_id.to_string(),
-        &payload.name,
-        payload.scopes,
-    )?;
+    let api_key =
+        state
+            .auth_service
+            .create_api_key(&user_id.to_string(), &payload.name, payload.scopes)?;
 
-    let key = state.global_store.create_api_key(
-        user_id,
-        payload.name,
-        api_key.clone(),
-        payload.scopes,
-        payload.expires_at,
-    ).await?;
+    let key = state
+        .global_store
+        .create_api_key(
+            user_id,
+            payload.name,
+            api_key.clone(),
+            payload.scopes,
+            payload.expires_at,
+        )
+        .await?;
 
     Ok(Json(ApiKeyCreateResponse {
         api_key, // Only returned once!
@@ -265,10 +320,10 @@ async fn revoke_api_key(
 pub struct LoginRequest {
     #[validate(email)]
     pub email: String,
-    
+
     #[validate(length(min = 1))]
     pub password: String,
-    
+
     pub remember_me: Option<bool>,
 }
 
@@ -276,13 +331,13 @@ pub struct LoginRequest {
 pub struct RegisterRequest {
     #[validate(email)]
     pub email: String,
-    
+
     #[validate(length(min = 8, max = 128))]
     pub password: String,
-    
+
     #[validate(length(min = 1, max = 50))]
     pub username: String,
-    
+
     pub full_name: Option<String>,
 }
 
@@ -295,7 +350,7 @@ pub struct RefreshTokenRequest {
 pub struct ChangePasswordRequest {
     #[validate(length(min = 1))]
     pub current_password: String,
-    
+
     #[validate(length(min = 8, max = 128))]
     pub new_password: String,
 }
@@ -304,10 +359,10 @@ pub struct ChangePasswordRequest {
 pub struct CreateApiKeyRequest {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
-    
+
     #[validate(length(min = 1))]
     pub scopes: Vec<String>,
-    
+
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 

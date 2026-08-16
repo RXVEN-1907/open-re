@@ -2,7 +2,7 @@
 
 use crate::sdk::{DynPlugin, PluginInstance};
 use openre_core::error::OpenreResult as Result;
-use openre_core::ids::{PluginId, Capability};
+use openre_core::ids::{Capability, PluginId};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -70,18 +70,21 @@ impl LifecycleManager {
 
     /// Initialize a plugin
     pub async fn initialize(&self, plugin_id: &PluginId, plugin: &dyn DynPlugin) -> Result<()> {
-        self.set_state(plugin_id.clone(), PluginLifecycleState::Loading).await;
-        
+        self.set_state(plugin_id.clone(), PluginLifecycleState::Loading)
+            .await;
+
         plugin.initialize().await?;
-        
-        self.set_state(plugin_id.clone(), PluginLifecycleState::Loaded).await;
+
+        self.set_state(plugin_id.clone(), PluginLifecycleState::Loaded)
+            .await;
         Ok(())
     }
 
     /// Start a plugin
     pub async fn start(&self, plugin_id: &PluginId) -> Result<()> {
         if let Some(instance) = self.get_instance(plugin_id).await {
-            self.set_state(plugin_id.clone(), PluginLifecycleState::Running).await;
+            self.set_state(plugin_id.clone(), PluginLifecycleState::Running)
+                .await;
             instance.start().await?;
         }
         Ok(())
@@ -91,19 +94,21 @@ impl LifecycleManager {
     pub async fn stop(&self, plugin_id: &PluginId) -> Result<()> {
         if let Some(instance) = self.get_instance(plugin_id).await {
             instance.stop().await?;
-            self.set_state(plugin_id.clone(), PluginLifecycleState::Stopped).await;
+            self.set_state(plugin_id.clone(), PluginLifecycleState::Stopped)
+                .await;
         }
         Ok(())
     }
 
     /// Shutdown a plugin
     pub async fn shutdown(&self, plugin_id: &PluginId) -> Result<()> {
-        self.set_state(plugin_id.clone(), PluginLifecycleState::Unloading).await;
-        
+        self.set_state(plugin_id.clone(), PluginLifecycleState::Unloading)
+            .await;
+
         if let Some(instance) = self.remove_instance(plugin_id).await {
             instance.shutdown().await?;
         }
-        
+
         self.states.write().await.remove(plugin_id);
         Ok(())
     }
@@ -192,17 +197,33 @@ mod tests {
         assert_eq!(manager.get_state(&plugin_id).await, None);
 
         // Set state
-        manager.set_state(plugin_id.clone(), PluginLifecycleState::Discovered).await;
-        assert_eq!(manager.get_state(&plugin_id).await, Some(PluginLifecycleState::Discovered));
+        manager
+            .set_state(plugin_id.clone(), PluginLifecycleState::Discovered)
+            .await;
+        assert_eq!(
+            manager.get_state(&plugin_id).await,
+            Some(PluginLifecycleState::Discovered)
+        );
 
         // Update state
-        manager.set_state(plugin_id.clone(), PluginLifecycleState::Loaded).await;
-        assert_eq!(manager.get_state(&plugin_id).await, Some(PluginLifecycleState::Loaded));
+        manager
+            .set_state(plugin_id.clone(), PluginLifecycleState::Loaded)
+            .await;
+        assert_eq!(
+            manager.get_state(&plugin_id).await,
+            Some(PluginLifecycleState::Loaded)
+        );
     }
 
     #[test]
     fn test_plugin_lifecycle_state() {
-        assert_eq!(PluginLifecycleState::Discovered, PluginLifecycleState::Discovered);
-        assert_ne!(PluginLifecycleState::Discovered, PluginLifecycleState::Loaded);
+        assert_eq!(
+            PluginLifecycleState::Discovered,
+            PluginLifecycleState::Discovered
+        );
+        assert_ne!(
+            PluginLifecycleState::Discovered,
+            PluginLifecycleState::Loaded
+        );
     }
 }

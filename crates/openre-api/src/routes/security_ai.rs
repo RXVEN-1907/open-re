@@ -3,27 +3,19 @@
 //! API endpoints for the AI-powered security analyst that interprets,
 //! correlates, explains, prioritizes, and assists with security scan findings.
 
-use crate::{AppState, ApiResult, ValidatedJson, ApiError};
+use crate::{ApiError, ApiResult, AppState, ValidatedJson};
 use axum::{
-    extract::{State, Extension, Path, Query},
-    routing::{get, post},
-    Json,
-    Router,
+    extract::{Extension, Path, Query, State},
     response::{sse::Event, Sse},
+    routing::{get, post},
+    Json, Router,
 };
 use futures::stream::Stream;
-use openre_core::ids::{ScanId, FindingId};
+use openre_core::ids::{FindingId, ScanId};
 use openre_core::result::FindingFilter;
 use openre_security_ai::{
-    SecurityAnalyst,
-    SummaryAudience as AnalystAudience,
-    FindingExplanation,
-    RemediationPlan,
-    CorrelationReport,
-    PrioritizedFindings,
-    ExecutiveSummary,
-    QueryResponse,
-    ScanComparison,
+    CorrelationReport, ExecutiveSummary, FindingExplanation, PrioritizedFindings, QueryResponse,
+    RemediationPlan, ScanComparison, SecurityAnalyst, SummaryAudience as AnalystAudience,
 };
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
@@ -37,31 +29,24 @@ pub fn routes(state: Arc<AppState>) -> Router {
         // Finding explanation endpoints
         .route("/explain", post(explain_finding))
         .route("/explain/stream", get(stream_explain_finding))
-
         // Remediation endpoints
         .route("/remediate", post(generate_remediation))
         .route("/remediate/stream", get(stream_generate_remediation))
-
         // Correlation endpoints
         .route("/correlate", post(correlate_findings))
         .route("/correlate/stream", get(stream_correlate_findings))
-
         // Prioritization endpoints
         .route("/prioritize", post(prioritize_findings))
         .route("/prioritize/stream", get(stream_prioritize_findings))
-
         // Executive summary endpoints
         .route("/summarize", post(executive_summary))
         .route("/summarize/stream", get(stream_executive_summary))
-
         // Query endpoints
         .route("/query", post(query_findings))
         .route("/query/stream", get(stream_query_findings))
-
         // Scan comparison endpoints
         .route("/compare", post(compare_scans))
         .route("/compare/stream", get(stream_compare_scans))
-
         .with_state(state)
 }
 
@@ -187,20 +172,29 @@ async fn explain_finding(
     ValidatedJson(payload): ValidatedJson<ExplainFindingRequest>,
 ) -> ApiResult<Json<FindingExplanation>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse IDs
-    let scan_id: ScanId = payload.scan_id.parse()
+    let scan_id: ScanId = payload
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
-    let finding_id: FindingId = payload.finding_id.parse()
+    let finding_id: FindingId = payload
+        .finding_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid finding ID".to_string()))?;
 
     // Execute explanation
-    let explanation = analyst.explain_finding(scan_id, finding_id).await
+    let explanation = analyst
+        .explain_finding(scan_id, finding_id)
+        .await
         .map_err(|e| match e {
-            openre_security_ai::AiAnalystError::FindingNotFound(_) =>
-                ApiError::NotFound("Finding not found".to_string()),
+            openre_security_ai::AiAnalystError::FindingNotFound(_) => {
+                ApiError::NotFound("Finding not found".to_string())
+            }
             _ => ApiError::Internal(e.to_string()),
         })?;
 
@@ -214,28 +208,35 @@ async fn stream_explain_finding(
     Query(params): Query<ExplainFindingRequest>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse IDs
-    let scan_id: ScanId = params.scan_id.parse()
+    let scan_id: ScanId = params
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
-    let finding_id: FindingId = params.finding_id.parse()
+    let finding_id: FindingId = params
+        .finding_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid finding ID".to_string()))?;
 
     // Execute streaming explanation
-    let stream = analyst.stream_explain_finding(scan_id, finding_id).await
+    let stream = analyst
+        .stream_explain_finding(scan_id, finding_id)
+        .await
         .map_err(|e| match e {
-            openre_security_ai::AiAnalystError::FindingNotFound(_) =>
-                ApiError::NotFound("Finding not found".to_string()),
+            openre_security_ai::AiAnalystError::FindingNotFound(_) => {
+                ApiError::NotFound("Finding not found".to_string())
+            }
             _ => ApiError::Internal(e.to_string()),
         })?;
 
-    let event_stream = stream.map(|result| {
-        match result {
-            Ok(content) => Ok(Event::default().data(content)),
-            Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
-        }
+    let event_stream = stream.map(|result| match result {
+        Ok(content) => Ok(Event::default().data(content)),
+        Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
     });
 
     Ok(Sse::new(event_stream))
@@ -248,28 +249,35 @@ async fn stream_generate_remediation(
     Query(params): Query<GenerateRemediationRequest>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse IDs
-    let scan_id: ScanId = params.scan_id.parse()
+    let scan_id: ScanId = params
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
-    let finding_id: FindingId = params.finding_id.parse()
+    let finding_id: FindingId = params
+        .finding_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid finding ID".to_string()))?;
 
     // Execute streaming remediation generation
-    let stream = analyst.stream_generate_remediation(scan_id, finding_id).await
+    let stream = analyst
+        .stream_generate_remediation(scan_id, finding_id)
+        .await
         .map_err(|e| match e {
-            openre_security_ai::AiAnalystError::FindingNotFound(_) =>
-                ApiError::NotFound("Finding not found".to_string()),
+            openre_security_ai::AiAnalystError::FindingNotFound(_) => {
+                ApiError::NotFound("Finding not found".to_string())
+            }
             _ => ApiError::Internal(e.to_string()),
         })?;
 
-    let event_stream = stream.map(|result| {
-        match result {
-            Ok(content) => Ok(Event::default().data(content)),
-            Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
-        }
+    let event_stream = stream.map(|result| match result {
+        Ok(content) => Ok(Event::default().data(content)),
+        Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
     });
 
     Ok(Sse::new(event_stream))
@@ -282,22 +290,26 @@ async fn stream_correlate_findings(
     Query(params): Query<CorrelateFindingsRequest>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse ID
-    let scan_id: ScanId = params.scan_id.parse()
+    let scan_id: ScanId = params
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
 
     // Execute streaming correlation
-    let stream = analyst.stream_correlate_findings(scan_id, params.filter.as_ref()).await
+    let stream = analyst
+        .stream_correlate_findings(scan_id, params.filter.as_ref())
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
-    let event_stream = stream.map(|result| {
-        match result {
-            Ok(content) => Ok(Event::default().data(content)),
-            Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
-        }
+    let event_stream = stream.map(|result| match result {
+        Ok(content) => Ok(Event::default().data(content)),
+        Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
     });
 
     Ok(Sse::new(event_stream))
@@ -310,22 +322,26 @@ async fn stream_prioritize_findings(
     Query(params): Query<PrioritizeFindingsRequest>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse ID
-    let scan_id: ScanId = params.scan_id.parse()
+    let scan_id: ScanId = params
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
 
     // Execute streaming prioritization
-    let stream = analyst.stream_prioritize_findings(scan_id).await
+    let stream = analyst
+        .stream_prioritize_findings(scan_id)
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
-    let event_stream = stream.map(|result| {
-        match result {
-            Ok(content) => Ok(Event::default().data(content)),
-            Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
-        }
+    let event_stream = stream.map(|result| match result {
+        Ok(content) => Ok(Event::default().data(content)),
+        Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
     });
 
     Ok(Sse::new(event_stream))
@@ -338,25 +354,29 @@ async fn stream_executive_summary(
     Query(params): Query<ExecutiveSummaryRequest>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse ID
-    let scan_id: ScanId = params.scan_id.parse()
+    let scan_id: ScanId = params
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
 
     // Convert audience
     let audience = AnalystAudience::from(params.audience);
 
     // Execute streaming summary generation
-    let stream = analyst.stream_executive_summary(scan_id, audience).await
+    let stream = analyst
+        .stream_executive_summary(scan_id, audience)
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
-    let event_stream = stream.map(|result| {
-        match result {
-            Ok(content) => Ok(Event::default().data(content)),
-            Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
-        }
+    let event_stream = stream.map(|result| match result {
+        Ok(content) => Ok(Event::default().data(content)),
+        Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
     });
 
     Ok(Sse::new(event_stream))
@@ -369,22 +389,26 @@ async fn stream_query_findings(
     Query(params): Query<QueryFindingsRequest>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse ID
-    let scan_id: ScanId = params.scan_id.parse()
+    let scan_id: ScanId = params
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
 
     // Execute streaming query
-    let stream = analyst.stream_query_findings(scan_id, &params.question).await
+    let stream = analyst
+        .stream_query_findings(scan_id, &params.question)
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
-    let event_stream = stream.map(|result| {
-        match result {
-            Ok(content) => Ok(Event::default().data(content)),
-            Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
-        }
+    let event_stream = stream.map(|result| match result {
+        Ok(content) => Ok(Event::default().data(content)),
+        Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
     });
 
     Ok(Sse::new(event_stream))
@@ -397,24 +421,30 @@ async fn stream_compare_scans(
     Query(params): Query<CompareScansRequest>,
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse IDs
-    let base_scan_id: ScanId = params.base_scan_id.parse()
+    let base_scan_id: ScanId = params
+        .base_scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid base scan ID".to_string()))?;
-    let target_scan_id: ScanId = params.target_scan_id.parse()
+    let target_scan_id: ScanId = params
+        .target_scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid target scan ID".to_string()))?;
 
     // Execute streaming comparison
-    let stream = analyst.stream_compare_scans(base_scan_id, target_scan_id).await
+    let stream = analyst
+        .stream_compare_scans(base_scan_id, target_scan_id)
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
-    let event_stream = stream.map(|result| {
-        match result {
-            Ok(content) => Ok(Event::default().data(content)),
-            Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
-        }
+    let event_stream = stream.map(|result| match result {
+        Ok(content) => Ok(Event::default().data(content)),
+        Err(e) => Ok(Event::default().data(format!("Error: {}", e))),
     });
 
     Ok(Sse::new(event_stream))
@@ -439,20 +469,29 @@ async fn generate_remediation(
     ValidatedJson(payload): ValidatedJson<GenerateRemediationRequest>,
 ) -> ApiResult<Json<RemediationPlan>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse IDs
-    let scan_id: ScanId = payload.scan_id.parse()
+    let scan_id: ScanId = payload
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
-    let finding_id: FindingId = payload.finding_id.parse()
+    let finding_id: FindingId = payload
+        .finding_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid finding ID".to_string()))?;
 
     // Generate remediation
-    let plan = analyst.generate_remediation(scan_id, finding_id).await
+    let plan = analyst
+        .generate_remediation(scan_id, finding_id)
+        .await
         .map_err(|e| match e {
-            openre_security_ai::AiAnalystError::FindingNotFound(_) =>
-                ApiError::NotFound("Finding not found".to_string()),
+            openre_security_ai::AiAnalystError::FindingNotFound(_) => {
+                ApiError::NotFound("Finding not found".to_string())
+            }
             _ => ApiError::Internal(e.to_string()),
         })?;
 
@@ -477,15 +516,21 @@ async fn correlate_findings(
     ValidatedJson(payload): ValidatedJson<CorrelateFindingsRequest>,
 ) -> ApiResult<Json<CorrelationReport>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse ID
-    let scan_id: ScanId = payload.scan_id.parse()
+    let scan_id: ScanId = payload
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
 
     // Correlate findings
-    let report = analyst.correlate_findings(scan_id, payload.filter.as_ref()).await
+    let report = analyst
+        .correlate_findings(scan_id, payload.filter.as_ref())
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
     Ok(Json(report))
@@ -509,15 +554,21 @@ async fn prioritize_findings(
     ValidatedJson(payload): ValidatedJson<PrioritizeFindingsRequest>,
 ) -> ApiResult<Json<PrioritizedFindings>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse ID
-    let scan_id: ScanId = payload.scan_id.parse()
+    let scan_id: ScanId = payload
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
 
     // Prioritize findings
-    let prioritized = analyst.prioritize_findings(scan_id).await
+    let prioritized = analyst
+        .prioritize_findings(scan_id)
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
     Ok(Json(prioritized))
@@ -541,18 +592,24 @@ async fn executive_summary(
     ValidatedJson(payload): ValidatedJson<ExecutiveSummaryRequest>,
 ) -> ApiResult<Json<ExecutiveSummary>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse ID
-    let scan_id: ScanId = payload.scan_id.parse()
+    let scan_id: ScanId = payload
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
 
     // Convert audience
     let audience: AnalystAudience = payload.audience.into();
 
     // Generate summary
-    let summary = analyst.executive_summary(scan_id, audience).await
+    let summary = analyst
+        .executive_summary(scan_id, audience)
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
     Ok(Json(summary))
@@ -576,15 +633,21 @@ async fn query_findings(
     ValidatedJson(payload): ValidatedJson<QueryFindingsRequest>,
 ) -> ApiResult<Json<QueryResponse>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse ID
-    let scan_id: ScanId = payload.scan_id.parse()
+    let scan_id: ScanId = payload
+        .scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid scan ID".to_string()))?;
 
     // Query findings
-    let response = analyst.query_findings(scan_id, &payload.question).await
+    let response = analyst
+        .query_findings(scan_id, &payload.question)
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
     Ok(Json(response))
@@ -608,17 +671,25 @@ async fn compare_scans(
     ValidatedJson(payload): ValidatedJson<CompareScansRequest>,
 ) -> ApiResult<Json<ScanComparison>> {
     // Check if analyst service is configured
-    let analyst = state.analyst.as_ref()
+    let analyst = state
+        .analyst
+        .as_ref()
         .ok_or_else(|| ApiError::ServiceUnavailable("AI analyst not configured".to_string()))?;
 
     // Parse IDs
-    let base_scan_id: ScanId = payload.base_scan_id.parse()
+    let base_scan_id: ScanId = payload
+        .base_scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid base scan ID".to_string()))?;
-    let target_scan_id: ScanId = payload.target_scan_id.parse()
+    let target_scan_id: ScanId = payload
+        .target_scan_id
+        .parse()
         .map_err(|_| ApiError::BadRequest("Invalid target scan ID".to_string()))?;
 
     // Compare scans
-    let comparison = analyst.compare_scans(base_scan_id, target_scan_id).await
+    let comparison = analyst
+        .compare_scans(base_scan_id, target_scan_id)
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
     Ok(Json(comparison))

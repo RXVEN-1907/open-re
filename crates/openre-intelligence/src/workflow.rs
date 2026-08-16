@@ -1,14 +1,14 @@
 //! Workflow Features - Finding acknowledgment, false positive marking, ignore rules
 
-use crate::{types::*, error::IntelligenceError, IntelligenceResult};
-use openre_core::result::{Finding, Severity};
-use openre_core::ids::{FindingId, ScanId};
-use std::collections::{HashMap, HashSet};
-use tracing::{debug, info, warn};
+use crate::{error::IntelligenceError, types::*, IntelligenceResult};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use openre_core::ids::{FindingId, ScanId};
+use openre_core::result::{Finding, Severity};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use tracing::{debug, info, warn};
 
 /// Configuration for workflow features
 #[derive(Debug, Clone)]
@@ -74,9 +74,16 @@ impl WorkflowManager {
     }
 
     /// Acknowledge a finding
-    pub fn acknowledge_finding(&mut self, finding_id: FindingId, user: &str, notes: Option<&str>) -> IntelligenceResult<()> {
+    pub fn acknowledge_finding(
+        &mut self,
+        finding_id: FindingId,
+        user: &str,
+        notes: Option<&str>,
+    ) -> IntelligenceResult<()> {
         if !self.config.enable_acknowledgment {
-            return Err(IntelligenceError::WorkflowFeatureDisabled("acknowledgment".to_string()));
+            return Err(IntelligenceError::WorkflowFeatureDisabled(
+                "acknowledgment".to_string(),
+            ));
         }
 
         let acknowledgment = Acknowledgment {
@@ -87,14 +94,22 @@ impl WorkflowManager {
             status: AcknowledgmentStatus::Acknowledged,
         };
 
-        self.acknowledged_findings.insert(finding_id, acknowledgment);
+        self.acknowledged_findings
+            .insert(finding_id, acknowledgment);
         Ok(())
     }
 
     /// Mark a finding as false positive
-    pub fn mark_false_positive(&mut self, finding_id: FindingId, user: &str, reason: &str) -> IntelligenceResult<()> {
+    pub fn mark_false_positive(
+        &mut self,
+        finding_id: FindingId,
+        user: &str,
+        reason: &str,
+    ) -> IntelligenceResult<()> {
         if !self.config.enable_false_positive {
-            return Err(IntelligenceError::WorkflowFeatureDisabled("false positive".to_string()));
+            return Err(IntelligenceError::WorkflowFeatureDisabled(
+                "false positive".to_string(),
+            ));
         }
 
         let record = FalsePositiveRecord {
@@ -116,12 +131,16 @@ impl WorkflowManager {
     /// Add an ignore rule for a specific pattern
     pub fn add_ignore_rule(&mut self, rule: IgnoreRule) -> IntelligenceResult<()> {
         if !self.config.enable_ignore_rules {
-            return Err(IntelligenceError::WorkflowFeatureDisabled("ignore rules".to_string()));
+            return Err(IntelligenceError::WorkflowFeatureDisabled(
+                "ignore rules".to_string(),
+            ));
         }
 
         // Check limit
         if self.ignore_rules.len() >= self.config.max_ignore_rules {
-            return Err(IntelligenceError::IgnoreRuleLimitExceeded(self.config.max_ignore_rules));
+            return Err(IntelligenceError::IgnoreRuleLimitExceeded(
+                self.config.max_ignore_rules,
+            ));
         }
 
         // Compile regex pattern for faster matching
@@ -135,9 +154,16 @@ impl WorkflowManager {
     }
 
     /// Temporarily ignore a finding for a specified number of days
-    pub fn temporarily_ignore_finding(&mut self, finding: &Finding, user: &str, days: Option<u32>) -> IntelligenceResult<()> {
+    pub fn temporarily_ignore_finding(
+        &mut self,
+        finding: &Finding,
+        user: &str,
+        days: Option<u32>,
+    ) -> IntelligenceResult<()> {
         if !self.config.enable_ignore_rules {
-            return Err(IntelligenceError::WorkflowFeatureDisabled("ignore rules".to_string()));
+            return Err(IntelligenceError::WorkflowFeatureDisabled(
+                "ignore rules".to_string(),
+            ));
         }
 
         let ignore_days = days.unwrap_or(self.config.default_temp_ignore_days);
@@ -205,11 +231,13 @@ impl WorkflowManager {
                 }
 
                 // Check if finding matches the ignore pattern
-                let finding_text = format!("{} {} {} {}",
+                let finding_text = format!(
+                    "{} {} {} {}",
                     finding.title,
                     finding.description,
                     finding.target,
-                    finding.fingerprint.as_deref().unwrap_or(""));
+                    finding.fingerprint.as_deref().unwrap_or("")
+                );
 
                 if regex.is_match(&finding_text) {
                     return true;
@@ -269,7 +297,10 @@ impl WorkflowManager {
     }
 
     /// Process findings through workflow filters
-    pub fn process_findings(&mut self, findings: &mut Vec<Finding>) -> IntelligenceResult<WorkflowProcessingResult> {
+    pub fn process_findings(
+        &mut self,
+        findings: &mut Vec<Finding>,
+    ) -> IntelligenceResult<WorkflowProcessingResult> {
         let mut result = WorkflowProcessingResult {
             total_findings: findings.len(),
             acknowledged_count: 0,
@@ -298,16 +329,16 @@ impl WorkflowManager {
                 let mut updated_finding = finding.clone();
                 updated_finding.metadata.insert(
                     "workflow_acknowledged".to_string(),
-                    serde_json::Value::Bool(true)
+                    serde_json::Value::Bool(true),
                 );
                 if let Some(ack) = self.acknowledged_findings.get(&finding_id) {
                     updated_finding.metadata.insert(
                         "workflow_acknowledged_by".to_string(),
-                        serde_json::Value::String(ack.acknowledged_by.clone())
+                        serde_json::Value::String(ack.acknowledged_by.clone()),
                     );
                     updated_finding.metadata.insert(
                         "workflow_acknowledged_at".to_string(),
-                        serde_json::Value::String(ack.acknowledged_at.to_rfc3339())
+                        serde_json::Value::String(ack.acknowledged_at.to_rfc3339()),
                     );
                 }
                 filtered_findings.push(updated_finding);
@@ -321,16 +352,16 @@ impl WorkflowManager {
                 let mut updated_finding = finding.clone();
                 updated_finding.metadata.insert(
                     "workflow_false_positive".to_string(),
-                    serde_json::Value::Bool(true)
+                    serde_json::Value::Bool(true),
                 );
                 if let Some(fp) = self.false_positives.get(&finding_id) {
                     updated_finding.metadata.insert(
                         "workflow_false_positive_marked_by".to_string(),
-                        serde_json::Value::String(fp.marked_by.clone())
+                        serde_json::Value::String(fp.marked_by.clone()),
                     );
                     updated_finding.metadata.insert(
                         "workflow_false_positive_reason".to_string(),
-                        serde_json::Value::String(fp.reason.clone())
+                        serde_json::Value::String(fp.reason.clone()),
                     );
                 }
                 // Don't add to filtered findings - remove from results
@@ -344,7 +375,7 @@ impl WorkflowManager {
                 let mut updated_finding = finding.clone();
                 updated_finding.metadata.insert(
                     "workflow_ignored".to_string(),
-                    serde_json::Value::Bool(true)
+                    serde_json::Value::Bool(true),
                 );
                 // Don't add to filtered findings - remove from results
                 continue;
@@ -368,18 +399,32 @@ impl WorkflowManager {
         report.push_str("# Workflow Status Report\n\n");
 
         report.push_str(&format!("## Summary\n"));
-        report.push_str(&format!("- Acknowledged findings: {}\n", self.acknowledged_findings.len()));
-        report.push_str(&format!("- False positive findings: {}\n", self.false_positives.len()));
-        report.push_str(&format!("- Active ignore rules: {}\n", self.ignore_rules.len()));
-        report.push_str(&format!("- Expired rules cleaned up: {}\n\n", self.cleanup_expired_rules()));
+        report.push_str(&format!(
+            "- Acknowledged findings: {}\n",
+            self.acknowledged_findings.len()
+        ));
+        report.push_str(&format!(
+            "- False positive findings: {}\n",
+            self.false_positives.len()
+        ));
+        report.push_str(&format!(
+            "- Active ignore rules: {}\n",
+            self.ignore_rules.len()
+        ));
+        report.push_str(&format!(
+            "- Expired rules cleaned up: {}\n\n",
+            self.cleanup_expired_rules()
+        ));
 
         if !self.acknowledged_findings.is_empty() {
             report.push_str("## Acknowledged Findings\n");
             for (finding_id, ack) in &self.acknowledged_findings {
-                report.push_str(&format!("- {} by {} at {}\n",
+                report.push_str(&format!(
+                    "- {} by {} at {}\n",
                     finding_id,
                     ack.acknowledged_by,
-                    ack.acknowledged_at.format("%Y-%m-%d %H:%M:%S")));
+                    ack.acknowledged_at.format("%Y-%m-%d %H:%M:%S")
+                ));
                 if let Some(notes) = &ack.notes {
                     report.push_str(&format!("  Notes: {}\n", notes));
                 }
@@ -390,10 +435,12 @@ impl WorkflowManager {
         if !self.false_positives.is_empty() {
             report.push_str("## False Positive Findings\n");
             for (finding_id, fp) in &self.false_positives {
-                report.push_str(&format!("- {} by {} at {}\n",
+                report.push_str(&format!(
+                    "- {} by {} at {}\n",
                     finding_id,
                     fp.marked_by,
-                    fp.marked_at.format("%Y-%m-%d %H:%M:%S")));
+                    fp.marked_at.format("%Y-%m-%d %H:%M:%S")
+                ));
                 report.push_str(&format!("  Reason: {}\n", fp.reason));
             }
             report.push('\n');
@@ -404,13 +451,17 @@ impl WorkflowManager {
             for rule in &self.ignore_rules {
                 report.push_str(&format!("- Pattern: {}\n", rule.pattern));
                 report.push_str(&format!("  Reason: {}\n", rule.reason));
-                report.push_str(&format!("  Created by: {} at {}\n",
+                report.push_str(&format!(
+                    "  Created by: {} at {}\n",
                     rule.created_by,
-                    rule.created_at.format("%Y-%m-%d %H:%M:%S")));
+                    rule.created_at.format("%Y-%m-%d %H:%M:%S")
+                ));
 
                 if let Some(expires_at) = rule.expires_at {
-                    report.push_str(&format!("  Expires at: {}\n",
-                        expires_at.format("%Y-%m-%d %H:%M:%S")));
+                    report.push_str(&format!(
+                        "  Expires at: {}\n",
+                        expires_at.format("%Y-%m-%d %H:%M:%S")
+                    ));
                 }
 
                 if let Some(threshold) = rule.severity_threshold {
@@ -439,7 +490,10 @@ impl WorkflowManager {
     }
 
     /// Import workflow data from a snapshot
-    pub fn import_workflow_data(&mut self, snapshot: WorkflowDataSnapshot) -> IntelligenceResult<()> {
+    pub fn import_workflow_data(
+        &mut self,
+        snapshot: WorkflowDataSnapshot,
+    ) -> IntelligenceResult<()> {
         self.acknowledged_findings = snapshot.acknowledged_findings;
         self.false_positives = snapshot.false_positives;
         self.ignore_rules = snapshot.ignore_rules;
@@ -461,8 +515,8 @@ impl WorkflowManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openre_core::result::{Finding, Category, Severity, Confidence};
     use openre_core::ids::FindingId;
+    use openre_core::result::{Category, Confidence, Finding, Severity};
     use std::collections::HashMap;
 
     fn create_test_finding(title: &str, severity: Severity) -> Finding {
@@ -492,7 +546,10 @@ mod tests {
             capec_ids: Vec::new(),
             mitre_attack_ids: Vec::new(),
             owasp_category: None,
-            fingerprint: Some(format!("test-fingerprint-{}", title.to_lowercase().replace(" ", "-"))),
+            fingerprint: Some(format!(
+                "test-fingerprint-{}",
+                title.to_lowercase().replace(" ", "-")
+            )),
             related_findings: Vec::new(),
             remediation: None,
             exploitability: None,
@@ -507,7 +564,9 @@ mod tests {
         let user = "test_user";
 
         // Acknowledge a finding
-        assert!(manager.acknowledge_finding(finding_id, user, Some("Test acknowledgment")).is_ok());
+        assert!(manager
+            .acknowledge_finding(finding_id, user, Some("Test acknowledgment"))
+            .is_ok());
 
         // Check acknowledgment status
         let ack_status = manager.get_acknowledgment_status(finding_id);
@@ -528,7 +587,9 @@ mod tests {
         let reason = "This is clearly not a vulnerability";
 
         // Mark as false positive
-        assert!(manager.mark_false_positive(finding_id, user, reason).is_ok());
+        assert!(manager
+            .mark_false_positive(finding_id, user, reason)
+            .is_ok());
 
         // Check false positive status
         let fp_status = manager.get_false_positive_status(finding_id);
@@ -586,10 +647,14 @@ mod tests {
         let mut finding3 = create_test_finding("Path Traversal", Severity::Critical);
 
         // Acknowledge one finding
-        manager.acknowledge_finding(finding1.id, "user1", Some("Reviewed")).unwrap();
+        manager
+            .acknowledge_finding(finding1.id, "user1", Some("Reviewed"))
+            .unwrap();
 
         // Mark another as false positive
-        manager.mark_false_positive(finding3.id, "user2", "Test environment artifact").unwrap();
+        manager
+            .mark_false_positive(finding3.id, "user2", "Test environment artifact")
+            .unwrap();
 
         let mut findings = vec![finding1.clone(), finding2.clone(), finding3.clone()];
         let result = manager.process_findings(&mut findings).unwrap();
@@ -615,7 +680,9 @@ mod tests {
         let user = "test_user";
 
         // Temporarily ignore the finding
-        assert!(manager.temporarily_ignore_finding(&finding, user, Some(7)).is_ok());
+        assert!(manager
+            .temporarily_ignore_finding(&finding, user, Some(7))
+            .is_ok());
 
         // Should now be ignored
         assert!(manager.should_ignore_finding(&finding));

@@ -1,11 +1,10 @@
 //! Export routes
 
-use crate::{AppState, ApiResult};
+use crate::{ApiResult, AppState};
 use axum::{
     extract::{Path, Query, State},
     routing::{get, post},
-    Json,
-    Router,
+    Json, Router,
 };
 use openre_core::ids::{ExportId, ProjectId};
 use serde::{Deserialize, Serialize};
@@ -37,15 +36,19 @@ async fn list_exports(
     Query(filter): Query<ExportFilterParams>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<ExportListResponse>> {
-    let exports = state.global_store.list_exports(
-        filter.project_id.as_deref().and_then(|s| s.parse().ok()),
-        pagination.offset(),
-        pagination.limit(),
-    ).await?;
+    let exports = state
+        .global_store
+        .list_exports(
+            filter.project_id.as_deref().and_then(|s| s.parse().ok()),
+            pagination.offset(),
+            pagination.limit(),
+        )
+        .await?;
 
-    let total = state.global_store.count_exports(
-        filter.project_id.as_deref().and_then(|s| s.parse().ok()),
-    ).await?;
+    let total = state
+        .global_store
+        .count_exports(filter.project_id.as_deref().and_then(|s| s.parse().ok()))
+        .await?;
 
     Ok(Json(ExportListResponse {
         exports: exports.into_iter().map(ExportResponse::from).collect(),
@@ -73,8 +76,11 @@ async fn create_export(
     Json(payload): Json<CreateExportRequest>,
 ) -> ApiResult<Json<ExportResponse>> {
     let project_id: ProjectId = payload.project_id.parse()?;
-    
-    let project = state.global_store.get_project(project_id).await?
+
+    let project = state
+        .global_store
+        .get_project(project_id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check access
@@ -84,12 +90,15 @@ async fn create_export(
         }
     }
 
-    let export = state.global_store.create_export(
-        project_id,
-        payload.format,
-        payload.include_files,
-        payload.include_analysis,
-    ).await?;
+    let export = state
+        .global_store
+        .create_export(
+            project_id,
+            payload.format,
+            payload.include_files,
+            payload.include_analysis,
+        )
+        .await?;
 
     Ok(Json(ExportResponse::from(export)))
 }
@@ -111,13 +120,18 @@ async fn get_export(
     Path(id): Path<ExportId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<ExportResponse>> {
-    let export = state.global_store.get_export(id).await?
+    let export = state
+        .global_store
+        .get_export(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Export not found".into()))?;
 
     // Check access via project
     let project = state.global_store.get_project(export.project_id).await?;
     if let Some(project) = project {
-        if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
+        if project.owner_id.to_string() != claims.sub
+            && !claims.roles.contains(&"admin".to_string())
+        {
             if !project.is_public {
                 return Err(crate::error::ApiError::Forbidden("Access denied".into()));
             }
@@ -133,17 +147,24 @@ async fn download_export(
     Path(id): Path<ExportId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<axum::response::Response> {
-    let export = state.global_store.get_export(id).await?
+    let export = state
+        .global_store
+        .get_export(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Export not found".into()))?;
 
     if export.status != "completed" {
-        return Err(crate::error::ApiError::BadRequest("Export not ready".into()));
+        return Err(crate::error::ApiError::BadRequest(
+            "Export not ready".into(),
+        ));
     }
 
     // Check access
     let project = state.global_store.get_project(export.project_id).await?;
     if let Some(project) = project {
-        if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
+        if project.owner_id.to_string() != claims.sub
+            && !claims.roles.contains(&"admin".to_string())
+        {
             if !project.is_public {
                 return Err(crate::error::ApiError::Forbidden("Access denied".into()));
             }
@@ -153,7 +174,9 @@ async fn download_export(
     if let Some(url) = export.download_url {
         Ok(axum::response::Redirect::to(&url).into_response())
     } else {
-        Err(crate::error::ApiError::NotFound("Export file not found".into()))
+        Err(crate::error::ApiError::NotFound(
+            "Export file not found".into(),
+        ))
     }
 }
 
@@ -177,12 +200,12 @@ pub struct ExportListResponse {
 pub struct CreateExportRequest {
     #[validate(custom(function = "crate::validation::rules::validate_uuid"))]
     pub project_id: String,
-    
+
     #[validate(length(min = 1))]
     pub format: String,
-    
+
     pub include_files: Option<bool>,
-    
+
     pub include_analysis: Option<bool>,
 }
 

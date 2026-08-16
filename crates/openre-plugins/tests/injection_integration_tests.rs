@@ -1,10 +1,10 @@
 //! Integration tests for injection testing framework
 
 use openre_plugins::injection::{
-    BuiltinPayloadEngine, BuiltinResponseAnalyzer, ConfidenceScorer, SafetyConfig,
-    InjectionCategory, ParameterLocation, PayloadContext, PayloadEngine, ResponseAnalyzer,
-    DetectionMethod, Severity, create_payload_engine, create_response_analyzer,
-    create_confidence_scorer, ConfidenceConfig,
+    create_confidence_scorer, create_payload_engine, create_response_analyzer,
+    BuiltinPayloadEngine, BuiltinResponseAnalyzer, ConfidenceConfig, ConfidenceScorer,
+    DetectionMethod, InjectionCategory, ParameterLocation, PayloadContext, PayloadEngine,
+    ResponseAnalyzer, SafetyConfig, Severity,
 };
 use std::collections::HashMap;
 
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 async fn test_payload_engine_sql_injection() {
     let safety = SafetyConfig::default();
     let engine = create_payload_engine(safety);
-    
+
     let context = PayloadContext {
         parameter_name: "id".to_string(),
         location: ParameterLocation::Query,
@@ -25,12 +25,14 @@ async fn test_payload_engine_sql_injection() {
         is_auth_context: false,
         custom: HashMap::new(),
     };
-    
+
     let payloads = engine.get_payloads(InjectionCategory::SqlInjection, &context);
     assert!(!payloads.is_empty());
-    
+
     // Check for MySQL-specific payloads
-    let has_mysql = payloads.iter().any(|p| p.required_context.contains(&"mysql".to_string()));
+    let has_mysql = payloads
+        .iter()
+        .any(|p| p.required_context.contains(&"mysql".to_string()));
     assert!(has_mysql);
 }
 
@@ -38,7 +40,7 @@ async fn test_payload_engine_sql_injection() {
 async fn test_payload_engine_xss() {
     let safety = SafetyConfig::default();
     let engine = create_payload_engine(safety);
-    
+
     let context = PayloadContext {
         parameter_name: "search".to_string(),
         location: ParameterLocation::Query,
@@ -51,12 +53,14 @@ async fn test_payload_engine_xss() {
         is_auth_context: false,
         custom: HashMap::new(),
     };
-    
+
     let payloads = engine.get_payloads(InjectionCategory::Xss, &context);
     assert!(!payloads.is_empty());
-    
+
     // Check for reflection-based payloads
-    let has_reflection = payloads.iter().any(|p| p.detection_method == DetectionMethod::Reflection);
+    let has_reflection = payloads
+        .iter()
+        .any(|p| p.detection_method == DetectionMethod::Reflection);
     assert!(has_reflection);
 }
 
@@ -64,7 +68,7 @@ async fn test_payload_engine_xss() {
 async fn test_payload_engine_xxe() {
     let safety = SafetyConfig::default();
     let engine = create_payload_engine(safety);
-    
+
     let context = PayloadContext {
         parameter_name: "xml".to_string(),
         location: ParameterLocation::XmlBody,
@@ -77,12 +81,14 @@ async fn test_payload_engine_xxe() {
         is_auth_context: false,
         custom: HashMap::new(),
     };
-    
+
     let payloads = engine.get_payloads(InjectionCategory::Xxe, &context);
     assert!(!payloads.is_empty());
-    
+
     // Check for file-read payloads
-    let has_file_read = payloads.iter().any(|p| p.tags.contains(&"file-read".to_string()));
+    let has_file_read = payloads
+        .iter()
+        .any(|p| p.tags.contains(&"file-read".to_string()));
     assert!(has_file_read);
 }
 
@@ -90,7 +96,7 @@ async fn test_payload_engine_xxe() {
 async fn test_payload_engine_ldap_injection() {
     let safety = SafetyConfig::default();
     let engine = create_payload_engine(safety);
-    
+
     let context = PayloadContext {
         parameter_name: "username".to_string(),
         location: ParameterLocation::Query,
@@ -103,12 +109,14 @@ async fn test_payload_engine_ldap_injection() {
         is_auth_context: true,
         custom: HashMap::new(),
     };
-    
+
     let payloads = engine.get_payloads(InjectionCategory::LdapInjection, &context);
     assert!(!payloads.is_empty());
-    
+
     // Check for auth-bypass payloads
-    let has_auth_bypass = payloads.iter().any(|p| p.tags.contains(&"auth-bypass".to_string()));
+    let has_auth_bypass = payloads
+        .iter()
+        .any(|p| p.tags.contains(&"auth-bypass".to_string()));
     assert!(has_auth_bypass);
 }
 
@@ -116,7 +124,7 @@ async fn test_payload_engine_ldap_injection() {
 async fn test_payload_engine_xpath_injection() {
     let safety = SafetyConfig::default();
     let engine = create_payload_engine(safety);
-    
+
     let context = PayloadContext {
         parameter_name: "id".to_string(),
         location: ParameterLocation::Query,
@@ -129,12 +137,14 @@ async fn test_payload_engine_xpath_injection() {
         is_auth_context: false,
         custom: HashMap::new(),
     };
-    
+
     let payloads = engine.get_payloads(InjectionCategory::XPathInjection, &context);
     assert!(!payloads.is_empty());
-    
+
     // Check for tautology payloads
-    let has_tautology = payloads.iter().any(|p| p.tags.contains(&"tautology".to_string()));
+    let has_tautology = payloads
+        .iter()
+        .any(|p| p.tags.contains(&"tautology".to_string()));
     assert!(has_tautology);
 }
 
@@ -142,7 +152,7 @@ async fn test_payload_engine_xpath_injection() {
 async fn test_payload_engine_header_injection() {
     let safety = SafetyConfig::default();
     let engine = create_payload_engine(safety);
-    
+
     let context = PayloadContext {
         parameter_name: "X-Forwarded-For".to_string(),
         location: ParameterLocation::Header,
@@ -155,12 +165,14 @@ async fn test_payload_engine_header_injection() {
         is_auth_context: false,
         custom: HashMap::new(),
     };
-    
+
     let payloads = engine.get_payloads(InjectionCategory::HeaderInjection, &context);
     assert!(!payloads.is_empty());
-    
+
     // Check for CRLF payloads
-    let has_crlf = payloads.iter().any(|p| p.tags.contains(&"crlf".to_string()));
+    let has_crlf = payloads
+        .iter()
+        .any(|p| p.tags.contains(&"crlf".to_string()));
     assert!(has_crlf);
 }
 
@@ -168,28 +180,30 @@ async fn test_payload_engine_header_injection() {
 async fn test_payload_encoding() {
     let safety = SafetyConfig::default();
     let engine = create_payload_engine(safety);
-    
+
     let payload = "<script>alert(1)</script>";
-    
+
     // Test URL encoding
     let url_encoded = engine.encode_payload(payload, openre_plugins::injection::Encoding::Url);
     assert!(url_encoded.contains("%3C"));
     assert!(url_encoded.contains("%3E"));
-    
+
     // Test HTML entity encoding
-    let html_encoded = engine.encode_payload(payload, openre_plugins::injection::Encoding::HtmlEntity);
+    let html_encoded =
+        engine.encode_payload(payload, openre_plugins::injection::Encoding::HtmlEntity);
     assert!(html_encoded.contains("&lt;"));
     assert!(html_encoded.contains("&gt;"));
-    
+
     // Test double URL encoding
-    let double_encoded = engine.encode_payload(payload, openre_plugins::injection::Encoding::DoubleUrl);
+    let double_encoded =
+        engine.encode_payload(payload, openre_plugins::injection::Encoding::DoubleUrl);
     assert!(double_encoded.contains("%253C"));
 }
 
 #[tokio::test]
 async fn test_response_analyzer_sql_error_detection() {
     let analyzer = create_response_analyzer(InjectionCategory::SqlInjection);
-    
+
     let test_result = create_test_result(
         InjectionCategory::SqlInjection,
         "id",
@@ -198,10 +212,10 @@ async fn test_response_analyzer_sql_error_detection() {
         "You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version",
         200,
     );
-    
+
     let findings = analyzer.analyze(&test_result, None);
     assert!(!findings.is_empty());
-    
+
     let finding = &findings[0];
     assert_eq!(finding.detection_method, DetectionMethod::ErrorBased);
     assert_eq!(finding.severity, Severity::High);
@@ -211,7 +225,7 @@ async fn test_response_analyzer_sql_error_detection() {
 #[tokio::test]
 async fn test_response_analyzer_xss_reflection() {
     let analyzer = create_response_analyzer(InjectionCategory::Xss);
-    
+
     let test_result = create_test_result(
         InjectionCategory::Xss,
         "search",
@@ -220,10 +234,10 @@ async fn test_response_analyzer_xss_reflection() {
         "<html><body>Search results for <script>alert(1)</script></body></html>",
         200,
     );
-    
+
     let findings = analyzer.analyze(&test_result, None);
     assert!(!findings.is_empty());
-    
+
     let finding = &findings[0];
     assert_eq!(finding.detection_method, DetectionMethod::Reflection);
     assert_eq!(finding.severity, Severity::High);
@@ -232,7 +246,7 @@ async fn test_response_analyzer_xss_reflection() {
 #[tokio::test]
 async fn test_response_analyzer_xxe_file_read() {
     let analyzer = create_response_analyzer(InjectionCategory::Xxe);
-    
+
     let test_result = create_test_result(
         InjectionCategory::Xxe,
         "xml",
@@ -241,10 +255,10 @@ async fn test_response_analyzer_xxe_file_read() {
         "root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin",
         200,
     );
-    
+
     let findings = analyzer.analyze(&test_result, None);
     assert!(!findings.is_empty());
-    
+
     let finding = &findings[0];
     assert_eq!(finding.detection_method, DetectionMethod::PatternMatch);
     assert_eq!(finding.severity, Severity::Critical);
@@ -253,7 +267,7 @@ async fn test_response_analyzer_xxe_file_read() {
 #[tokio::test]
 async fn test_response_analyzer_ldap_injection() {
     let analyzer = create_response_analyzer(InjectionCategory::LdapInjection);
-    
+
     let test_result = create_test_result(
         InjectionCategory::LdapInjection,
         "username",
@@ -262,10 +276,10 @@ async fn test_response_analyzer_ldap_injection() {
         "cn=admin,ou=users,dc=example,dc=com\nuserPassword=secret123",
         200,
     );
-    
+
     let findings = analyzer.analyze(&test_result, None);
     assert!(!findings.is_empty());
-    
+
     let finding = &findings[0];
     assert_eq!(finding.detection_method, DetectionMethod::PatternMatch);
     assert_eq!(finding.severity, Severity::High);
@@ -274,7 +288,7 @@ async fn test_response_analyzer_ldap_injection() {
 #[tokio::test]
 async fn test_response_analyzer_xpath_injection() {
     let analyzer = create_response_analyzer(InjectionCategory::XPathInjection);
-    
+
     let test_result = create_test_result(
         InjectionCategory::XPathInjection,
         "id",
@@ -283,10 +297,10 @@ async fn test_response_analyzer_xpath_injection() {
         "user1\nuser2\nadmin\npassword123",
         200,
     );
-    
+
     let findings = analyzer.analyze(&test_result, None);
     assert!(!findings.is_empty());
-    
+
     let finding = &findings[0];
     assert_eq!(finding.detection_method, DetectionMethod::PatternMatch);
     assert_eq!(finding.severity, Severity::High);
@@ -295,7 +309,7 @@ async fn test_response_analyzer_xpath_injection() {
 #[tokio::test]
 async fn test_response_analyzer_header_injection() {
     let analyzer = create_response_analyzer(InjectionCategory::HeaderInjection);
-    
+
     let test_result = create_test_result(
         InjectionCategory::HeaderInjection,
         "X-Forwarded-For",
@@ -304,10 +318,10 @@ async fn test_response_analyzer_header_injection() {
         "HTTP/1.1 200 OK\r\nX-Injected: test\r\nContent-Type: text/html",
         200,
     );
-    
+
     let findings = analyzer.analyze(&test_result, None);
     assert!(!findings.is_empty());
-    
+
     let finding = &findings[0];
     assert_eq!(finding.detection_method, DetectionMethod::PatternMatch);
     assert_eq!(finding.severity, Severity::High);
@@ -316,22 +330,22 @@ async fn test_response_analyzer_header_injection() {
 #[tokio::test]
 async fn test_confidence_scoring() {
     let scorer = create_confidence_scorer(ConfidenceConfig::default());
-    
+
     // High confidence finding
     let finding = create_injection_test_result(
         InjectionCategory::SqlInjection,
         DetectionMethod::ErrorBased,
         Severity::High,
         0.8,
-        true,  // has baseline
-        true,  // has timing
-        true,  // has diff
-        2,     // multiple patterns
+        true, // has baseline
+        true, // has timing
+        true, // has diff
+        2,    // multiple patterns
     );
-    
+
     let score = scorer.score(&finding);
     assert!(score > 0.7);
-    
+
     // Low confidence finding
     let finding_low = create_injection_test_result(
         InjectionCategory::Xss,
@@ -343,7 +357,7 @@ async fn test_confidence_scoring() {
         false, // no diff
         0,     // no patterns
     );
-    
+
     let score_low = scorer.score(&finding_low);
     assert!(score_low < 0.5);
 }
@@ -351,7 +365,7 @@ async fn test_confidence_scoring() {
 #[tokio::test]
 async fn test_confidence_breakdown() {
     let scorer = create_confidence_scorer(ConfidenceConfig::default());
-    
+
     let finding = create_injection_test_result(
         InjectionCategory::SqlInjection,
         DetectionMethod::TimeBased,
@@ -362,7 +376,7 @@ async fn test_confidence_breakdown() {
         true,
         3,
     );
-    
+
     let breakdown = scorer.detailed_score(&finding);
     assert!(breakdown.final_score > 0.0);
     assert!(breakdown.final_score <= 1.0);
@@ -374,7 +388,7 @@ async fn test_confidence_breakdown() {
 async fn test_safety_controls_payload_blocking() {
     let safety = SafetyConfig::default();
     let engine = create_payload_engine(safety);
-    
+
     // Test that dangerous payloads are blocked
     let context = PayloadContext {
         parameter_name: "test".to_string(),
@@ -388,14 +402,18 @@ async fn test_safety_controls_payload_blocking() {
         is_auth_context: false,
         custom: HashMap::new(),
     };
-    
+
     let payloads = engine.get_payloads(InjectionCategory::SqlInjection, &context);
-    
+
     // Check that DROP TABLE is not in payloads
-    let has_drop = payloads.iter().any(|p| p.raw.to_uppercase().contains("DROP TABLE"));
+    let has_drop = payloads
+        .iter()
+        .any(|p| p.raw.to_uppercase().contains("DROP TABLE"));
     assert!(!has_drop);
-    
-    let has_delete = payloads.iter().any(|p| p.raw.to_uppercase().contains("DELETE FROM"));
+
+    let has_delete = payloads
+        .iter()
+        .any(|p| p.raw.to_uppercase().contains("DELETE FROM"));
     assert!(!has_delete);
 }
 
@@ -403,7 +421,7 @@ async fn test_safety_controls_payload_blocking() {
 async fn test_payload_context_filtering() {
     let safety = SafetyConfig::default();
     let engine = create_payload_engine(safety);
-    
+
     // Context without MySQL hint should not get MySQL-specific payloads
     let context_no_mysql = PayloadContext {
         parameter_name: "id".to_string(),
@@ -417,11 +435,13 @@ async fn test_payload_context_filtering() {
         is_auth_context: false,
         custom: HashMap::new(),
     };
-    
+
     let payloads = engine.get_payloads(InjectionCategory::SqlInjection, &context_no_mysql);
-    let has_mysql = payloads.iter().any(|p| p.required_context.contains(&"mysql".to_string()));
+    let has_mysql = payloads
+        .iter()
+        .any(|p| p.required_context.contains(&"mysql".to_string()));
     assert!(!has_mysql);
-    
+
     // Context with MySQL hint should get MySQL-specific payloads
     let context_mysql = PayloadContext {
         parameter_name: "id".to_string(),
@@ -435,9 +455,11 @@ async fn test_payload_context_filtering() {
         is_auth_context: false,
         custom: HashMap::new(),
     };
-    
+
     let payloads = engine.get_payloads(InjectionCategory::SqlInjection, &context_mysql);
-    let has_mysql = payloads.iter().any(|p| p.required_context.contains(&"mysql".to_string()));
+    let has_mysql = payloads
+        .iter()
+        .any(|p| p.required_context.contains(&"mysql".to_string()));
     assert!(has_mysql);
 }
 
@@ -445,22 +467,20 @@ async fn test_payload_context_filtering() {
 async fn test_parameter_mutation() {
     let safety = SafetyConfig::default();
     let engine = create_payload_engine(safety);
-    
-    let payloads = vec![
-        openre_plugins::injection::Payload {
-            id: "test_1".to_string(),
-            category: InjectionCategory::SqlInjection,
-            raw: "'".to_string(),
-            description: "Test".to_string(),
-            tags: vec![],
-            risk_level: 1,
-            is_safe: true,
-            required_context: vec![],
-            compatible_encodings: vec![openre_plugins::injection::Encoding::None],
-            detection_method: DetectionMethod::ErrorBased,
-        },
-    ];
-    
+
+    let payloads = vec![openre_plugins::injection::Payload {
+        id: "test_1".to_string(),
+        category: InjectionCategory::SqlInjection,
+        raw: "'".to_string(),
+        description: "Test".to_string(),
+        tags: vec![],
+        risk_level: 1,
+        is_safe: true,
+        required_context: vec![],
+        compatible_encodings: vec![openre_plugins::injection::Encoding::None],
+        detection_method: DetectionMethod::ErrorBased,
+    }];
+
     let mutated = engine.mutate_parameter("original", &payloads, ParameterLocation::Query);
     assert!(!mutated.is_empty());
     assert!(mutated.contains(&"'".to_string()));
@@ -477,10 +497,10 @@ fn create_test_result(
     response_body: &str,
     status: u16,
 ) -> openre_plugins::injection::response_analyzer::TestResult {
+    use chrono::Utc;
     use openre_plugins::injection::{HttpRequestSnapshot, HttpResponseSnapshot, Payload};
     use std::collections::HashMap;
-    use chrono::Utc;
-    
+
     openre_plugins::injection::response_analyzer::TestResult {
         parameter: parameter.to_string(),
         location,
@@ -527,10 +547,13 @@ fn create_injection_test_result(
     has_diff: bool,
     pattern_count: usize,
 ) -> openre_plugins::injection::InjectionTestResult {
-    use openre_plugins::injection::{HttpRequestSnapshot, HttpResponseSnapshot, InjectionEvidence, ReproducibleRequest, ResponseDiff, TimingInfo, HeaderChange};
-    use std::collections::HashMap;
     use chrono::Utc;
-    
+    use openre_plugins::injection::{
+        HeaderChange, HttpRequestSnapshot, HttpResponseSnapshot, InjectionEvidence,
+        ReproducibleRequest, ResponseDiff, TimingInfo,
+    };
+    use std::collections::HashMap;
+
     let mut evidence = InjectionEvidence {
         original_request: Some(HttpRequestSnapshot {
             method: "GET".to_string(),
@@ -571,7 +594,9 @@ fn create_injection_test_result(
         } else {
             None
         },
-        matched_patterns: (0..pattern_count).map(|i| format!("pattern{}", i)).collect(),
+        matched_patterns: (0..pattern_count)
+            .map(|i| format!("pattern{}", i))
+            .collect(),
         timing_info: if has_timing {
             Some(TimingInfo {
                 baseline_ms: 50,
@@ -584,7 +609,7 @@ fn create_injection_test_result(
             None
         },
     };
-    
+
     openre_plugins::injection::InjectionTestResult {
         category,
         parameter: "test".to_string(),

@@ -3,7 +3,7 @@
 use crate::error::{ScannerError, ScannerResult};
 use crate::target::TargetType;
 use openre_core::ids::PluginId;
-use openre_plugins::{PluginRuntime, PluginInstance, Capability, Manifest};
+use openre_plugins::{Capability, Manifest, PluginInstance, PluginRuntime};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -242,7 +242,10 @@ impl PluginManager {
                             discovered.push(plugin_info);
                         }
                         Err(e) => {
-                            warn!("Failed to load plugin manifest at {:?}: {}", manifest_path, e);
+                            warn!(
+                                "Failed to load plugin manifest at {:?}: {}",
+                                manifest_path, e
+                            );
                         }
                     }
                 }
@@ -279,20 +282,28 @@ impl PluginManager {
             homepage: manifest.homepage,
             repository: manifest.repository,
             license: manifest.license,
-            capabilities: manifest.capabilities.into_iter().map(|c| PluginCapability {
-                name: c.name,
-                description: c.description,
-                target_types: c.target_types,
-                permissions: c.permissions,
-                risk_level: c.risk_level,
-                enabled_by_default: c.enabled_by_default,
-            }).collect(),
-            dependencies: manifest.dependencies.into_iter().map(|d| PluginDependency {
-                plugin_id: PluginId::from_string(&d.name).unwrap(),
-                min_version: d.min_version,
-                max_version: d.max_version,
-                optional: d.optional,
-            }).collect(),
+            capabilities: manifest
+                .capabilities
+                .into_iter()
+                .map(|c| PluginCapability {
+                    name: c.name,
+                    description: c.description,
+                    target_types: c.target_types,
+                    permissions: c.permissions,
+                    risk_level: c.risk_level,
+                    enabled_by_default: c.enabled_by_default,
+                })
+                .collect(),
+            dependencies: manifest
+                .dependencies
+                .into_iter()
+                .map(|d| PluginDependency {
+                    plugin_id: PluginId::from_string(&d.name).unwrap(),
+                    min_version: d.min_version,
+                    max_version: d.max_version,
+                    optional: d.optional,
+                })
+                .collect(),
             config_schema: manifest.config_schema,
             default_config: manifest.default_config,
             tags: manifest.tags,
@@ -344,18 +355,24 @@ impl PluginManager {
 
     /// Load a plugin
     pub async fn load_plugin(&self, plugin_id: &PluginId) -> ScannerResult<()> {
-        let plugin_info = self.plugins.get(plugin_id)
+        let plugin_info = self
+            .plugins
+            .get(plugin_id)
             .ok_or_else(|| ScannerError::PluginNotFound(plugin_id.to_string()))?
             .clone();
 
-        if plugin_info.status == PluginStatus::Loaded || plugin_info.status == PluginStatus::Enabled {
+        if plugin_info.status == PluginStatus::Loaded || plugin_info.status == PluginStatus::Enabled
+        {
             return Ok(());
         }
 
         // Update status to loading
-        self.update_plugin_status(plugin_id, PluginStatus::Loading).await?;
+        self.update_plugin_status(plugin_id, PluginStatus::Loading)
+            .await?;
 
-        let source_path = plugin_info.source_path.clone()
+        let source_path = plugin_info
+            .source_path
+            .clone()
             .ok_or_else(|| ScannerError::PluginLoadFailed("No source path".to_string()))?;
 
         // Load plugin instance
@@ -386,13 +403,18 @@ impl PluginManager {
     }
 
     /// Validate plugin capabilities
-    async fn validate_capabilities(&self, plugin_info: &PluginInfo, instance: &Arc<dyn PluginInstance>) -> ScannerResult<()> {
+    async fn validate_capabilities(
+        &self,
+        plugin_info: &PluginInfo,
+        instance: &Arc<dyn PluginInstance>,
+    ) -> ScannerResult<()> {
         let instance_caps = instance.capabilities();
         for cap in &plugin_info.capabilities {
             if !instance_caps.iter().any(|c| c.name == cap.name) {
-                return Err(ScannerError::PluginCapabilityMismatch(
-                    format!("Plugin declares capability '{}' but instance doesn't provide it", cap.name)
-                ));
+                return Err(ScannerError::PluginCapabilityMismatch(format!(
+                    "Plugin declares capability '{}' but instance doesn't provide it",
+                    cap.name
+                )));
             }
         }
         Ok(())
@@ -410,7 +432,9 @@ impl PluginManager {
 
     /// Enable a plugin
     pub async fn enable_plugin(&self, plugin_id: &PluginId) -> ScannerResult<()> {
-        let mut plugin_info = self.plugins.get_mut(plugin_id)
+        let mut plugin_info = self
+            .plugins
+            .get_mut(plugin_id)
             .ok_or_else(|| ScannerError::PluginNotFound(plugin_id.to_string()))?;
 
         if plugin_info.status == PluginStatus::Enabled {
@@ -428,7 +452,9 @@ impl PluginManager {
 
     /// Disable a plugin
     pub async fn disable_plugin(&self, plugin_id: &PluginId) -> ScannerResult<()> {
-        let mut plugin_info = self.plugins.get_mut(plugin_id)
+        let mut plugin_info = self
+            .plugins
+            .get_mut(plugin_id)
             .ok_or_else(|| ScannerError::PluginNotFound(plugin_id.to_string()))?;
 
         plugin_info.status = PluginStatus::Disabled;
@@ -438,7 +464,9 @@ impl PluginManager {
 
     /// Unload a plugin
     pub async fn unload_plugin(&self, plugin_id: &PluginId) -> ScannerResult<()> {
-        let mut plugin_info = self.plugins.get_mut(plugin_id)
+        let mut plugin_info = self
+            .plugins
+            .get_mut(plugin_id)
             .ok_or_else(|| ScannerError::PluginNotFound(plugin_id.to_string()))?;
 
         plugin_info.status = PluginStatus::Unloading;
@@ -454,7 +482,11 @@ impl PluginManager {
     }
 
     /// Update plugin status
-    async fn update_plugin_status(&self, plugin_id: &PluginId, status: PluginStatus) -> ScannerResult<()> {
+    async fn update_plugin_status(
+        &self,
+        plugin_id: &PluginId,
+        status: PluginStatus,
+    ) -> ScannerResult<()> {
         if let Some(mut plugin_info) = self.plugins.get_mut(plugin_id) {
             plugin_info.status = status;
         }
@@ -473,7 +505,9 @@ impl PluginManager {
 
     /// List enabled plugins
     pub async fn list_enabled_plugins(&self) -> ScannerResult<Vec<PluginInfo>> {
-        Ok(self.plugins.iter()
+        Ok(self
+            .plugins
+            .iter()
             .filter(|p| p.status == PluginStatus::Enabled)
             .map(|p| p.clone())
             .collect())
@@ -494,19 +528,31 @@ impl PluginManager {
     }
 
     /// Execute a plugin
-    pub async fn execute_plugin(&self, plugin_id: &PluginId, context: &crate::context::ScanContext) -> ScannerResult<Vec<crate::result::Finding>> {
-        let instance = self.instances.get(plugin_id)
+    pub async fn execute_plugin(
+        &self,
+        plugin_id: &PluginId,
+        context: &crate::context::ScanContext,
+    ) -> ScannerResult<Vec<crate::result::Finding>> {
+        let instance = self
+            .instances
+            .get(plugin_id)
             .ok_or_else(|| ScannerError::PluginNotFound(plugin_id.to_string()))?;
 
-        let plugin_info = self.plugins.get(plugin_id)
+        let plugin_info = self
+            .plugins
+            .get(plugin_id)
             .ok_or_else(|| ScannerError::PluginNotFound(plugin_id.to_string()))?;
 
         if plugin_info.status != PluginStatus::Enabled {
-            return Err(ScannerError::Plugin(format!("Plugin {} is not enabled", plugin_id)));
+            return Err(ScannerError::Plugin(format!(
+                "Plugin {} is not enabled",
+                plugin_id
+            )));
         }
 
         // Execute with timeout
-        let timeout_duration = self.get_plugin_config(plugin_id)
+        let timeout_duration = self
+            .get_plugin_config(plugin_id)
             .map(|c| c.resource_limits.timeout)
             .unwrap_or(Duration::from_secs(300));
 
@@ -515,13 +561,18 @@ impl PluginManager {
         match result {
             Ok(Ok(findings)) => Ok(findings),
             Ok(Err(e)) => Err(ScannerError::PluginExecutionFailed(e.to_string())),
-            Err(_) => Err(ScannerError::Timeout(format!("Plugin {} timed out", plugin_id))),
+            Err(_) => Err(ScannerError::Timeout(format!(
+                "Plugin {} timed out",
+                plugin_id
+            ))),
         }
     }
 
     /// Perform health check on a plugin
     pub async fn health_check(&self, plugin_id: &PluginId) -> ScannerResult<HealthStatus> {
-        let instance = self.instances.get(plugin_id)
+        let instance = self
+            .instances
+            .get(plugin_id)
             .ok_or_else(|| ScannerError::PluginNotFound(plugin_id.to_string()))?;
 
         let health = instance.health_check().await?;

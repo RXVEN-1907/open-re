@@ -1,6 +1,6 @@
 //! Safety guard for preventing hallucination and tagging claim sources
 
-use crate::{AiResult, AiAnalystError};
+use crate::{AiAnalystError, AiResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -40,7 +40,9 @@ pub struct SafetyGuard {
 impl SafetyGuard {
     /// Create a new safety guard
     pub fn new(strict_evidence_checking: bool) -> Self {
-        Self { strict_evidence_checking }
+        Self {
+            strict_evidence_checking,
+        }
     }
 
     /// Tag claims in a response with their sources
@@ -94,7 +96,9 @@ impl SafetyGuard {
         // Look for UUID-like patterns that might be finding IDs
         // This is just a placeholder - real implementation would be more robust
         use regex::Regex;
-        if let Ok(re) = Regex::new(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}") {
+        if let Ok(re) = Regex::new(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+        ) {
             for cap in re.captures_iter(text) {
                 ids.push(cap[0].to_string());
             }
@@ -104,7 +108,11 @@ impl SafetyGuard {
     }
 
     /// Process structured response to ensure evidence grounding
-    pub fn process_structured_response<T>(&self, response: &T, available_finding_ids: &[String]) -> AiResult<T>
+    pub fn process_structured_response<T>(
+        &self,
+        response: &T,
+        available_finding_ids: &[String],
+    ) -> AiResult<T>
     where
         T: serde::Serialize + serde::de::DeserializeOwned,
     {
@@ -148,7 +156,8 @@ impl SafetyGuard {
         if response.contains("will allow attackers to") && !context.contains("allow attackers") {
             alerts.push(HallucinationAlert {
                 alert_type: HallucinationType::UnsubstantiatedImpact,
-                description: "Response claims specific attack outcomes not supported by evidence".to_string(),
+                description: "Response claims specific attack outcomes not supported by evidence"
+                    .to_string(),
                 confidence: 0.7,
             });
         }

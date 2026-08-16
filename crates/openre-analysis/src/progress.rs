@@ -1,12 +1,12 @@
 //! Progress tracking for analysis jobs
 
+use chrono::{DateTime, Utc};
+use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_queue::QueueManager;
-use openre_core::error::OpenreResult as Result;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use tracing::debug;
 
 /// Job progress for real-time updates
@@ -15,7 +15,7 @@ pub struct JobProgress {
     pub job_id: JobId,
     pub status: JobStatus,
     pub current_stage: Option<StageId>,
-    pub stage_progress: f32, // 0.0 - 1.0
+    pub stage_progress: f32,   // 0.0 - 1.0
     pub overall_progress: f32, // 0.0 - 1.0
     pub message: String,
     pub started_at: DateTime<Utc>,
@@ -47,12 +47,29 @@ pub enum StageStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum JobStatus {
-    Queued { queued_at: DateTime<Utc> },
-    Running { worker_id: WorkerId, started_at: DateTime<Utc>, stage: StageId },
-    Completed { completed_at: DateTime<Utc> },
-    Failed { error: String, failed_at: DateTime<Utc>, retryable: bool },
-    Cancelled { cancelled_at: DateTime<Utc>, reason: String },
-    Scheduled { run_at: DateTime<Utc> },
+    Queued {
+        queued_at: DateTime<Utc>,
+    },
+    Running {
+        worker_id: WorkerId,
+        started_at: DateTime<Utc>,
+        stage: StageId,
+    },
+    Completed {
+        completed_at: DateTime<Utc>,
+    },
+    Failed {
+        error: String,
+        failed_at: DateTime<Utc>,
+        retryable: bool,
+    },
+    Cancelled {
+        cancelled_at: DateTime<Utc>,
+        reason: String,
+    },
+    Scheduled {
+        run_at: DateTime<Utc>,
+    },
 }
 
 /// Progress tracker for real-time updates
@@ -72,7 +89,10 @@ impl ProgressTracker {
     /// Update job progress (called by worker)
     pub async fn update_progress(&self, progress: JobProgress) -> Result<()> {
         // 1. Store in cache for real-time polling
-        self.cache.write().await.insert(progress.job_id, progress.clone());
+        self.cache
+            .write()
+            .await
+            .insert(progress.job_id, progress.clone());
 
         // 2. Publish to queue for WebSocket push
         self.queue.update_progress(progress).await?;

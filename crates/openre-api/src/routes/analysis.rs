@@ -1,11 +1,10 @@
 //! Analysis routes
 
-use crate::{AppState, ApiResult, ValidatedJson};
+use crate::{ApiResult, AppState, ValidatedJson};
 use axum::{
     extract::{Path, Query, State},
     routing::{get, post},
-    Json,
-    Router,
+    Json, Router,
 };
 use openre_core::ids::{JobId, ProjectId};
 use serde::{Deserialize, Serialize};
@@ -41,9 +40,12 @@ async fn start_analysis(
     ValidatedJson(payload): ValidatedJson<AnalysisRequest>,
 ) -> ApiResult<Json<AnalysisResponse>> {
     let user_id: openre_core::ids::UserId = claims.sub.parse()?;
-    
+
     // Verify file access
-    let file = state.global_store.get_file(payload.file_id).await?
+    let file = state
+        .global_store
+        .get_file(payload.file_id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("File not found".into()))?;
 
     if file.user_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
@@ -59,7 +61,7 @@ async fn start_analysis(
         }))
         .with_priority(payload.priority.unwrap_or_default())
         .with_project(file.project_id.unwrap_or_else(|| ProjectId::new()));
-    
+
     let job_id = state.queue_manager.enqueue(job).await?;
 
     Ok(Json(AnalysisResponse {
@@ -85,7 +87,10 @@ async fn get_analysis_status(
     Path(id): Path<JobId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<AnalysisStatusResponse>> {
-    let job = state.queue_manager.get_job_result(id).await?
+    let job = state
+        .queue_manager
+        .get_job_result(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Analysis not found".into()))?;
 
     // Check access via file/project
@@ -93,7 +98,9 @@ async fn get_analysis_status(
         if let Ok(file_id) = file_id.parse::<openre_core::ids::FileId>() {
             let file = state.global_store.get_file(file_id).await?;
             if let Some(file) = file {
-                if file.user_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
+                if file.user_id.to_string() != claims.sub
+                    && !claims.roles.contains(&"admin".to_string())
+                {
                     return Err(crate::error::ApiError::Forbidden("Access denied".into()));
                 }
             }
@@ -134,11 +141,16 @@ async fn get_analysis_results(
     Path(id): Path<JobId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<AnalysisResultsResponse>> {
-    let job = state.queue_manager.get_job_result(id).await?
+    let job = state
+        .queue_manager
+        .get_job_result(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Analysis not found".into()))?;
 
     if job.status != openre_queue::JobStatus::Completed {
-        return Err(crate::error::ApiError::BadRequest("Analysis not completed".into()));
+        return Err(crate::error::ApiError::BadRequest(
+            "Analysis not completed".into(),
+        ));
     }
 
     // Check access
@@ -146,7 +158,9 @@ async fn get_analysis_results(
         if let Ok(file_id) = file_id.parse::<openre_core::ids::FileId>() {
             let file = state.global_store.get_file(file_id).await?;
             if let Some(file) = file {
-                if file.user_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
+                if file.user_id.to_string() != claims.sub
+                    && !claims.roles.contains(&"admin".to_string())
+                {
                     return Err(crate::error::ApiError::Forbidden("Access denied".into()));
                 }
             }
@@ -167,7 +181,7 @@ async fn cancel_analysis(
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<CancelResponse>> {
     let cancelled = state.queue_manager.cancel(id).await?;
-    
+
     Ok(Json(CancelResponse {
         job_id: id,
         cancelled,
@@ -180,7 +194,10 @@ async fn retry_analysis(
     Path(id): Path<JobId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<AnalysisResponse>> {
-    let job = state.queue_manager.get_job_result(id).await?
+    let job = state
+        .queue_manager
+        .get_job_result(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Analysis not found".into()))?;
 
     // Check access
@@ -188,7 +205,9 @@ async fn retry_analysis(
         if let Ok(file_id) = file_id.parse::<openre_core::ids::FileId>() {
             let file = state.global_store.get_file(file_id).await?;
             if let Some(file) = file {
-                if file.user_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
+                if file.user_id.to_string() != claims.sub
+                    && !claims.roles.contains(&"admin".to_string())
+                {
                     return Err(crate::error::ApiError::Forbidden("Access denied".into()));
                 }
             }
@@ -200,7 +219,7 @@ async fn retry_analysis(
         .with_payload(job.payload)
         .with_priority(job.priority)
         .with_project(job.project_id.unwrap_or_else(|| ProjectId::new()));
-    
+
     let job_id = state.queue_manager.enqueue(new_job).await?;
 
     Ok(Json(AnalysisResponse {
@@ -215,11 +234,11 @@ async fn retry_analysis(
 pub struct AnalysisRequest {
     #[validate(custom(function = "crate::validation::rules::validate_uuid"))]
     pub file_id: String,
-    
+
     pub stages: Option<Vec<String>>,
-    
+
     pub config: Option<serde_json::Value>,
-    
+
     pub priority: Option<openre_queue::Priority>,
 }
 

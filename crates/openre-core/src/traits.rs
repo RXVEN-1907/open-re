@@ -1,7 +1,7 @@
 //! Core traits for open-re services
 
+use crate::{error::OpenreResult, ids::*};
 use async_trait::async_trait;
-use crate::{ids::*, error::OpenreResult};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -24,7 +24,12 @@ pub trait AnalysisService: Send + Sync {
 pub trait PluginService: Send + Sync {
     async fn discover_plugins(&self) -> Result<Vec<String>>;
     async fn load_plugin(&self, plugin_id: &PluginId) -> Result<()>;
-    async fn execute_capability(&self, plugin_id: &PluginId, cap: &str, input: serde_json::Value) -> Result<serde_json::Value>;
+    async fn execute_capability(
+        &self,
+        plugin_id: &PluginId,
+        cap: &str,
+        input: serde_json::Value,
+    ) -> Result<serde_json::Value>;
     async fn hot_reload(&self, plugin_id: &PluginId) -> Result<()>;
 }
 
@@ -38,7 +43,11 @@ pub trait AiService: Send + Sync {
 /// Trait for file service
 #[async_trait]
 pub trait FileService: Send + Sync {
-    async fn upload(&self, file_id: FileId, stream: Box<dyn tokio::io::AsyncRead + Unpin + Send>) -> Result<()>;
+    async fn upload(
+        &self,
+        file_id: FileId,
+        stream: Box<dyn tokio::io::AsyncRead + Unpin + Send>,
+    ) -> Result<()>;
     async fn identify_format(&self, file_id: FileId) -> Result<String>;
     async fn get_binary(&self, file_id: FileId) -> Result<()>;
 }

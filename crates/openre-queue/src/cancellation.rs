@@ -1,16 +1,15 @@
 //! Job cancellation system
 
-use crate::{QueueManager, job::JobStatus};
-use openre_core::ids::JobId;
+use crate::QueueManager;
 use openre_core::error::OpenreResult as Result;
+use openre_core::ids::JobId;
 use openre_telemetry::metrics::CancellationMetrics;
 use redis::{AsyncCommands, Client};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, info, warn};
-use anyhow;
 
 /// Cancellation manager
 pub struct CancellationManager {
@@ -21,6 +20,7 @@ pub struct CancellationManager {
     cancel_tx: broadcast::Sender<JobId>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct CancellationInfo {
     job_id: JobId,
@@ -30,6 +30,7 @@ struct CancellationInfo {
     status: CancellationStatus,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum CancellationStatus {
     Pending,
@@ -45,7 +46,7 @@ impl CancellationManager {
         metrics: Arc<CancellationMetrics>,
     ) -> Self {
         let (cancel_tx, _) = broadcast::channel(1000);
-        
+
         Self {
             queue_manager,
             client,
@@ -72,7 +73,7 @@ impl CancellationManager {
 
         // Try to cancel via queue manager
         let cancelled = self.queue_manager.cancel(job_id).await?;
-        
+
         if cancelled {
             // Mark as cancelled in our tracking
             let info = CancellationInfo {
@@ -82,13 +83,13 @@ impl CancellationManager {
                 reason,
                 status: CancellationStatus::Completed,
             };
-            
+
             self.cancelled_jobs.write().await.insert(job_id, info);
             self.metrics.cancellations_completed.increment(1);
-            
+
             // Broadcast cancellation
             let _ = self.cancel_tx.send(job_id);
-            
+
             info!("Job {} cancelled by {}", job_id, requested_by);
             Ok(CancellationResult::Cancelled)
         } else {
@@ -100,14 +101,14 @@ impl CancellationManager {
                 reason,
                 status: CancellationStatus::Pending,
             };
-            
+
             self.cancelled_jobs.write().await.insert(job_id, info);
-            
+
             // Signal worker via Redis
             self.signal_worker(job_id).await?;
-            
+
             self.metrics.cancellations_requested.increment(1);
-            
+
             Ok(CancellationResult::Signalled)
         }
     }
@@ -115,19 +116,27 @@ impl CancellationManager {
     /// Signal worker to cancel job
     async fn signal_worker(&self, job_id: JobId) -> Result<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
-        
+
         // Publish cancellation signal
         let signal = serde_json::json!({
             "job_id": job_id.to_string(),
             "action": "cancel",
             "timestamp": chrono::Utc::now().to_rfc3339(),
         });
-        
-        let _: () = conn.publish("openre:cancellation", serde_json::to_string(&signal)?).await?;
-        
+
+        let _: () = conn
+            .publish("openre:cancellation", serde_json::to_string(&signal)?)
+            .await?;
+
         // Also add to a cancellation stream for workers to poll
-        let _: () = conn.xadd("openre:cancellation:signals", "*", &[("job_id", job_id.to_string())]).await?;
-        
+        let _: () = conn
+            .xadd(
+                "openre:cancellation:signals",
+                "*",
+                &[("job_id", job_id.to_string())],
+            )
+            .await?;
+
         Ok(())
     }
 
@@ -140,14 +149,18 @@ impl CancellationManager {
     /// Wait for cancellation signal (for workers)
     pub async fn wait_for_cancellation(&self, job_id: JobId) -> Result<()> {
         let mut rx = self.cancel_tx.subscribe();
-        
+
         loop {
             match rx.recv().await {
                 Ok(cancelled_id) if cancelled_id == job_id => {
                     return Ok(());
                 }
                 Ok(_) => continue, // Different job
-                Err(_) => return Err(openre_core::Error::Internal(anyhow::anyhow!("Cancellation channel closed"))),
+                Err(_) => {
+                    return Err(openre_core::Error::Internal(anyhow::anyhow!(
+                        "Cancellation channel closed"
+                    )))
+                }
             }
         }
     }
@@ -174,22 +187,22 @@ impl CancellationManager {
             reason: Some("Force cancelled".to_string()),
             status: CancellationStatus::Completed,
         };
-        
+
         self.cancelled_jobs.write().await.insert(job_id, info);
-        
+
         // Try to cancel in queue manager
         let _ = self.queue_manager.cancel(job_id).await;
-        
+
         // Signal worker
         self.signal_worker(job_id).await?;
-        
+
         // Broadcast
         let _ = self.cancel_tx.send(job_id);
-        
+
         self.metrics.cancellations_completed.increment(1);
-        
+
         warn!("Job {} force cancelled by {}", job_id, requested_by);
-        
+
         Ok(())
     }
 
@@ -197,10 +210,11 @@ impl CancellationManager {
     pub async fn cleanup(&self, max_age: Duration) {
         let mut cancelled = self.cancelled_jobs.write().await;
         let now = chrono::Utc::now();
-        let max_age_chrono = chrono::Duration::from_std(max_age).unwrap_or(chrono::Duration::hours(24));
-        
+        let max_age_chrono =
+            chrono::Duration::from_std(max_age).unwrap_or(chrono::Duration::hours(24));
+
         cancelled.retain(|_, info| (now - info.requested_at) < max_age_chrono);
-        
+
         debug!("Cleaned up old cancellation records");
     }
 }
@@ -231,7 +245,11 @@ impl CancellationHandler {
                     return Ok(());
                 }
                 Ok(_) => continue,
-                Err(_) => return Err(openre_core::Error::Internal(anyhow::anyhow!("Cancellation channel closed"))),
+                Err(_) => {
+                    return Err(openre_core::Error::Internal(anyhow::anyhow!(
+                        "Cancellation channel closed"
+                    )))
+                }
             }
         }
     }
@@ -239,17 +257,19 @@ impl CancellationHandler {
     /// Poll Redis for cancellation signals (alternative to broadcast)
     pub async fn poll_redis(&self, job_id: JobId) -> Result<bool> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
-        
+
         // Check cancellation stream using XREAD
         let entries: Vec<redis::streams::StreamReadReply> = redis::cmd("XREAD")
-            .arg("COUNT").arg(10)
-            .arg("BLOCK").arg(100)
+            .arg("COUNT")
+            .arg(10)
+            .arg("BLOCK")
+            .arg(100)
             .arg("STREAMS")
             .arg("openre:cancellation:signals")
             .arg("0-0")
             .query_async(&mut conn)
             .await?;
-        
+
         for reply in entries {
             for key in reply.keys {
                 for entry in key.ids {
@@ -262,7 +282,7 @@ impl CancellationHandler {
                 }
             }
         }
-        
+
         Ok(false)
     }
 }

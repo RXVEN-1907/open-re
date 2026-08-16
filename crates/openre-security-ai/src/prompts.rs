@@ -79,7 +79,8 @@ impl PromptCompiler {
             PromptTemplate {
                 name: "generate_remediation_system".to_string(),
                 version: "1.0.0".to_string(),
-                system_prompt: include_str!("templates/generate_remediation_system.txt").to_string(),
+                system_prompt: include_str!("templates/generate_remediation_system.txt")
+                    .to_string(),
                 user_template: String::new(),
                 required_variables: vec![],
             },
@@ -132,7 +133,8 @@ impl PromptCompiler {
             PromptTemplate {
                 name: "executive_summary_developer".to_string(),
                 version: "1.0.0".to_string(),
-                system_prompt: include_str!("templates/executive_summary_developer.txt").to_string(),
+                system_prompt: include_str!("templates/executive_summary_developer.txt")
+                    .to_string(),
                 user_template: String::new(),
                 required_variables: vec![],
             },
@@ -154,7 +156,8 @@ impl PromptCompiler {
             PromptTemplate {
                 name: "executive_summary_security_engineer".to_string(),
                 version: "1.0.0".to_string(),
-                system_prompt: include_str!("templates/executive_summary_security_engineer.txt").to_string(),
+                system_prompt: include_str!("templates/executive_summary_security_engineer.txt")
+                    .to_string(),
                 user_template: String::new(),
                 required_variables: vec![],
             },
@@ -165,7 +168,8 @@ impl PromptCompiler {
             PromptTemplate {
                 name: "executive_summary_executive".to_string(),
                 version: "1.0.0".to_string(),
-                system_prompt: include_str!("templates/executive_summary_executive.txt").to_string(),
+                system_prompt: include_str!("templates/executive_summary_executive.txt")
+                    .to_string(),
                 user_template: String::new(),
                 required_variables: vec![],
             },
@@ -177,7 +181,8 @@ impl PromptCompiler {
             PromptTemplate {
                 name: "natural_language_query_system".to_string(),
                 version: "1.0.0".to_string(),
-                system_prompt: include_str!("templates/natural_language_query_system.txt").to_string(),
+                system_prompt: include_str!("templates/natural_language_query_system.txt")
+                    .to_string(),
                 user_template: String::new(),
                 required_variables: vec![],
             },
@@ -207,8 +212,13 @@ impl PromptCompiler {
     }
 
     /// Render a template with variables
-    pub fn render_template(&self, name: &str, variables: &HashMap<String, String>) -> Result<String, AiAnalystError> {
-        let template = self.get_template(name)
+    pub fn render_template(
+        &self,
+        name: &str,
+        variables: &HashMap<String, String>,
+    ) -> Result<String, AiAnalystError> {
+        let template = self
+            .get_template(name)
             .ok_or_else(|| AiAnalystError::TemplateNotFound(name.to_string()))?;
 
         // Check required variables

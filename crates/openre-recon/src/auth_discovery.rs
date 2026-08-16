@@ -3,13 +3,21 @@
 //! Identifies authentication mechanisms such as login forms, Basic Authentication,
 //! Bearer token usage, OAuth indicators, and session cookie patterns.
 
-use crate::{ReconPlugin, ReconPluginConfig, ReconType, ReconMetadata};
-use openre_plugins::sdk::{Plugin, CapabilityRequest, CapabilityResponse, Capability, AnalysisContext};
+use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use openre_core::error::OpenreResult as Result;
-use openre_scanner::{target::TargetType, context::ScanContext, result::{Finding, Severity, Confidence, Category, Evidence, EvidenceType, Reference, ReferenceType}};
+use openre_plugins::sdk::{
+    AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
+};
+use openre_scanner::{
+    context::ScanContext,
+    result::{
+        Category, Confidence, Evidence, EvidenceType, Finding, Reference, ReferenceType, Severity,
+    },
+    target::TargetType,
+};
 use reqwest::Client;
 use select::document::Document;
-use select::predicate::{Name, Attr};
+use select::predicate::{Attr, Name};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -36,15 +44,16 @@ impl AuthDiscoveryPlugin {
     /// Discover authentication mechanisms
     async fn discover_auth(&self, url: &str) -> Result<AuthDiscoveryResult> {
         let mut result = AuthDiscoveryResult::default();
-        
+
         let response = self.client.get(url).send().await?;
-        let headers: HashMap<String, String> = response.headers()
+        let headers: HashMap<String, String> = response
+            .headers()
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
             .collect();
-        
+
         let body = response.text().await.unwrap_or_default();
-        
+
         // Check for Basic Auth challenge
         if let Some(www_auth) = headers.get("www-authenticate") {
             result.basic_auth = Some(BasicAuthInfo {
@@ -52,7 +61,7 @@ impl AuthDiscoveryPlugin {
                 realm: self.extract_realm(www_auth),
             });
         }
-        
+
         // Check for Bearer token usage
         if let Some(www_auth) = headers.get("www-authenticate") {
             if www_auth.to_lowercase().contains("bearer") {
@@ -61,19 +70,19 @@ impl AuthDiscoveryPlugin {
                 });
             }
         }
-        
+
         // Check for OAuth indicators
         self.detect_oauth(&headers, &body, &mut result);
-        
+
         // Check for login forms
         self.detect_login_forms(&body, &mut result);
-        
+
         // Check for session cookies
         self.detect_session_cookies(&headers, &mut result);
-        
+
         // Check for authentication-related headers
         self.detect_auth_headers(&headers, &mut result);
-        
+
         Ok(result)
     }
 
@@ -81,15 +90,20 @@ impl AuthDiscoveryPlugin {
         if let Some(start) = www_auth.find("realm=\"") {
             let start = start + 7;
             if let Some(end) = www_auth[start..].find('"') {
-                return Some(www_auth[start..start+end].to_string());
+                return Some(www_auth[start..start + end].to_string());
             }
         }
         None
     }
 
-    fn detect_oauth(&self, headers: &HashMap<String, String>, body: &str, result: &mut AuthDiscoveryResult) {
+    fn detect_oauth(
+        &self,
+        headers: &HashMap<String, String>,
+        body: &str,
+        result: &mut AuthDiscoveryResult,
+    ) {
         let body_lower = body.to_lowercase();
-        
+
         // Check for OAuth endpoints in headers
         if let Some(link) = headers.get("link") {
             if link.contains("rel=\"oauth") || link.contains("rel=\"authorization") {
@@ -99,7 +113,7 @@ impl AuthDiscoveryPlugin {
                 });
             }
         }
-        
+
         // Check for OAuth in body
         let oauth_patterns = [
             ("oauth2", "OAuth 2.0"),
@@ -117,7 +131,7 @@ impl AuthDiscoveryPlugin {
             ("refresh_token", "Refresh Token"),
             ("id_token", "ID Token"),
         ];
-        
+
         for (pattern, name) in oauth_patterns {
             if body_lower.contains(pattern) {
                 result.oauth_indicators.push(OAuthIndicator {
@@ -126,7 +140,7 @@ impl AuthDiscoveryPlugin {
                 });
             }
         }
-        
+
         // Check for well-known OAuth endpoints
         let oauth_endpoints = [
             "/.well-known/oauth-authorization-server",
@@ -140,7 +154,7 @@ impl AuthDiscoveryPlugin {
             "/connect/token",
             "/connect/userinfo",
         ];
-        
+
         for endpoint in oauth_endpoints {
             if body_lower.contains(endpoint) {
                 result.oauth_indicators.push(OAuthIndicator {
@@ -153,70 +167,83 @@ impl AuthDiscoveryPlugin {
 
     fn detect_login_forms(&self, body: &str, result: &mut AuthDiscoveryResult) {
         let doc = Document::from(body.as_bytes());
-        
+
         for form in doc.find(Name("form")) {
             let mut login_form = LoginFormInfo::default();
             login_form.action = form.attr("action").unwrap_or("").to_string();
             login_form.method = form.attr("method").unwrap_or("GET").to_uppercase();
-            
+
             // Check for password field
             let has_password = form.find(Name("input")).any(|input| {
-                input.attr("type").map_or(false, |t| t.to_lowercase() == "password")
+                input
+                    .attr("type")
+                    .map_or(false, |t| t.to_lowercase() == "password")
             });
-            
+
             if has_password {
                 login_form.has_password_field = true;
-                
+
                 // Check for username/email field
                 let has_username = form.find(Name("input")).any(|input| {
                     let t = input.attr("type").unwrap_or("").to_lowercase();
                     let name = input.attr("name").unwrap_or("").to_lowercase();
-                    t == "text" || t == "email" || name.contains("user") || name.contains("email") || name.contains("login")
+                    t == "text"
+                        || t == "email"
+                        || name.contains("user")
+                        || name.contains("email")
+                        || name.contains("login")
                 });
-                
+
                 if has_username {
                     login_form.has_username_field = true;
                 }
-                
+
                 // Check for CSRF token
                 let has_csrf = form.find(Name("input")).any(|input| {
                     let name = input.attr("name").unwrap_or("").to_lowercase();
                     name.contains("csrf") || name.contains("token") || name.contains("_token")
                 });
-                
+
                 if has_csrf {
                     login_form.has_csrf_token = true;
                 }
-                
+
                 // Check for remember me
                 let has_remember = form.find(Name("input")).any(|input| {
                     let name = input.attr("name").unwrap_or("").to_lowercase();
                     name.contains("remember") || name.contains("persist")
                 });
-                
+
                 if has_remember {
                     login_form.has_remember_me = true;
                 }
-                
+
                 // Check for MFA indicators
                 let has_mfa = form.find(Name("input")).any(|input| {
                     let name = input.attr("name").unwrap_or("").to_lowercase();
-                    name.contains("totp") || name.contains("mfa") || name.contains("2fa") || name.contains("code")
+                    name.contains("totp")
+                        || name.contains("mfa")
+                        || name.contains("2fa")
+                        || name.contains("code")
                 });
-                
+
                 if has_mfa {
                     login_form.has_mfa = true;
                 }
-                
+
                 result.login_forms.push(login_form);
             }
         }
     }
 
-    fn detect_session_cookies(&self, headers: &HashMap<String, String>, result: &mut AuthDiscoveryResult) {
+    fn detect_session_cookies(
+        &self,
+        headers: &HashMap<String, String>,
+        result: &mut AuthDiscoveryResult,
+    ) {
         if let Some(set_cookie) = headers.get("set-cookie") {
             let cookie_lower = set_cookie.to_lowercase();
-            
+
             let session_patterns = [
                 ("jsessionid", "Java/JSP Session"),
                 ("phpsessid", "PHP Session"),
@@ -228,7 +255,7 @@ impl AuthDiscoveryPlugin {
                 ("laravel_session", "Laravel Session"),
                 ("ci_session", "CodeIgniter Session"),
             ];
-            
+
             for (pattern, name) in session_patterns {
                 if cookie_lower.contains(pattern) {
                     result.session_cookies.push(SessionCookieInfo {
@@ -240,7 +267,11 @@ impl AuthDiscoveryPlugin {
         }
     }
 
-    fn detect_auth_headers(&self, headers: &HashMap<String, String>, result: &mut AuthDiscoveryResult) {
+    fn detect_auth_headers(
+        &self,
+        headers: &HashMap<String, String>,
+        result: &mut AuthDiscoveryResult,
+    ) {
         // Check for authentication-related headers
         let auth_headers = [
             ("authorization", "Authorization Header"),
@@ -251,7 +282,7 @@ impl AuthDiscoveryPlugin {
             ("x-csrf-token", "CSRF Token Header"),
             ("x-xsrf-token", "XSRF Token Header"),
         ];
-        
+
         for (header, name) in auth_headers {
             if headers.contains_key(header) {
                 result.auth_headers.push(AuthHeaderInfo {
@@ -322,16 +353,13 @@ impl Plugin for AuthDiscoveryPlugin {
     }
 
     fn capabilities(&self) -> Vec<Capability> {
-        vec![
-            Capability::NetworkAccess,
-            Capability::ReadConfig,
-        ]
+        vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
     async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
         let context = request.context;
         let findings = self.recon(&context).await?;
-        
+
         Ok(CapabilityResponse::success(serde_json::json!({
             "findings": findings,
             "recon_type": ReconType::AuthDiscovery,
@@ -357,174 +385,215 @@ impl ReconPlugin for AuthDiscoveryPlugin {
     async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
         let target_url = context.target.to_string();
-        
+
         info!("Starting authentication discovery for: {}", target_url);
-        
+
         let discovery = self.discover_auth(&target_url).await?;
-        
+
         // Basic Auth findings
         if let Some(basic) = &discovery.basic_auth {
-            findings.push(Finding::new(
-                "Basic Authentication Detected".to_string(),
-                format!("WWW-Authenticate header present: {}", basic.challenge),
-                Severity::Info,
-                Confidence::High,
-                Category::BrokenAuthentication,
-                target_url.clone(),
-                "web_application".to_string(),
-                "auth_discovery".to_string(),
-                "0.1.0".to_string(),
-                context.scan_id,
-            ).with_evidence(Evidence {
-                evidence_type: EvidenceType::HttpResponse,
-                description: "Basic Auth challenge".to_string(),
-                data: Some(serde_json::json!({
-                    "challenge": basic.challenge,
-                    "realm": basic.realm,
-                })),
-                location: Some(target_url.clone()),
-                metadata: HashMap::new(),
-            }));
+            findings.push(
+                Finding::new(
+                    "Basic Authentication Detected".to_string(),
+                    format!("WWW-Authenticate header present: {}", basic.challenge),
+                    Severity::Info,
+                    Confidence::High,
+                    Category::BrokenAuthentication,
+                    target_url.clone(),
+                    "web_application".to_string(),
+                    "auth_discovery".to_string(),
+                    "0.1.0".to_string(),
+                    context.scan_id,
+                )
+                .with_evidence(Evidence {
+                    evidence_type: EvidenceType::HttpResponse,
+                    description: "Basic Auth challenge".to_string(),
+                    data: Some(serde_json::json!({
+                        "challenge": basic.challenge,
+                        "realm": basic.realm,
+                    })),
+                    location: Some(target_url.clone()),
+                    metadata: HashMap::new(),
+                }),
+            );
         }
-        
+
         // Bearer Auth findings
         if let Some(bearer) = &discovery.bearer_auth {
-            findings.push(Finding::new(
-                "Bearer Token Authentication Detected".to_string(),
-                format!("WWW-Authenticate header indicates Bearer token: {}", bearer.challenge),
-                Severity::Info,
-                Confidence::High,
-                Category::BrokenAuthentication,
-                target_url.clone(),
-                "web_application".to_string(),
-                "auth_discovery".to_string(),
-                "0.1.0".to_string(),
-                context.scan_id,
-            ).with_evidence(Evidence {
-                evidence_type: EvidenceType::HttpResponse,
-                description: "Bearer token challenge".to_string(),
-                data: Some(serde_json::json!({
-                    "challenge": bearer.challenge,
-                })),
-                location: Some(target_url.clone()),
-                metadata: HashMap::new(),
-            }));
+            findings.push(
+                Finding::new(
+                    "Bearer Token Authentication Detected".to_string(),
+                    format!(
+                        "WWW-Authenticate header indicates Bearer token: {}",
+                        bearer.challenge
+                    ),
+                    Severity::Info,
+                    Confidence::High,
+                    Category::BrokenAuthentication,
+                    target_url.clone(),
+                    "web_application".to_string(),
+                    "auth_discovery".to_string(),
+                    "0.1.0".to_string(),
+                    context.scan_id,
+                )
+                .with_evidence(Evidence {
+                    evidence_type: EvidenceType::HttpResponse,
+                    description: "Bearer token challenge".to_string(),
+                    data: Some(serde_json::json!({
+                        "challenge": bearer.challenge,
+                    })),
+                    location: Some(target_url.clone()),
+                    metadata: HashMap::new(),
+                }),
+            );
         }
-        
+
         // OAuth findings
         for oauth in &discovery.oauth_indicators {
-            findings.push(Finding::new(
-                "OAuth Indicator Detected".to_string(),
-                oauth.detail.clone(),
-                Severity::Info,
-                Confidence::Medium,
-                Category::BrokenAuthentication,
-                target_url.clone(),
-                "web_application".to_string(),
-                "auth_discovery".to_string(),
-                "0.1.0".to_string(),
-                context.scan_id,
-            ).with_evidence(Evidence {
-                evidence_type: EvidenceType::HttpResponse,
-                description: "OAuth indicator".to_string(),
-                data: Some(serde_json::json!({
-                    "type": oauth.type_,
-                    "detail": oauth.detail,
-                })),
-                location: Some(target_url.clone()),
-                metadata: HashMap::new(),
-            }));
+            findings.push(
+                Finding::new(
+                    "OAuth Indicator Detected".to_string(),
+                    oauth.detail.clone(),
+                    Severity::Info,
+                    Confidence::Medium,
+                    Category::BrokenAuthentication,
+                    target_url.clone(),
+                    "web_application".to_string(),
+                    "auth_discovery".to_string(),
+                    "0.1.0".to_string(),
+                    context.scan_id,
+                )
+                .with_evidence(Evidence {
+                    evidence_type: EvidenceType::HttpResponse,
+                    description: "OAuth indicator".to_string(),
+                    data: Some(serde_json::json!({
+                        "type": oauth.type_,
+                        "detail": oauth.detail,
+                    })),
+                    location: Some(target_url.clone()),
+                    metadata: HashMap::new(),
+                }),
+            );
         }
-        
+
         // Login form findings
         for form in &discovery.login_forms {
-            let mut details = vec![format!("Action: {}", form.action), format!("Method: {}", form.method)];
-            
-            if form.has_password_field { details.push("Password field: Yes".to_string()); }
-            if form.has_username_field { details.push("Username field: Yes".to_string()); }
-            if form.has_csrf_token { details.push("CSRF token: Yes".to_string()); }
-            if form.has_remember_me { details.push("Remember me: Yes".to_string()); }
-            if form.has_mfa { details.push("MFA field: Yes".to_string()); }
-            
-            findings.push(Finding::new(
-                "Login Form Detected".to_string(),
-                details.join(", "),
-                Severity::Info,
-                Confidence::High,
-                Category::BrokenAuthentication,
-                target_url.clone(),
-                "web_application".to_string(),
-                "auth_discovery".to_string(),
-                "0.1.0".to_string(),
-                context.scan_id,
-            ).with_evidence(Evidence {
-                evidence_type: EvidenceType::HttpResponse,
-                description: "Login form found".to_string(),
-                data: Some(serde_json::json!({
-                    "action": form.action,
-                    "method": form.method,
-                    "has_password_field": form.has_password_field,
-                    "has_username_field": form.has_username_field,
-                    "has_csrf_token": form.has_csrf_token,
-                    "has_remember_me": form.has_remember_me,
-                    "has_mfa": form.has_mfa,
-                })),
-                location: Some(target_url.clone()),
-                metadata: HashMap::new(),
-            }));
+            let mut details = vec![
+                format!("Action: {}", form.action),
+                format!("Method: {}", form.method),
+            ];
+
+            if form.has_password_field {
+                details.push("Password field: Yes".to_string());
+            }
+            if form.has_username_field {
+                details.push("Username field: Yes".to_string());
+            }
+            if form.has_csrf_token {
+                details.push("CSRF token: Yes".to_string());
+            }
+            if form.has_remember_me {
+                details.push("Remember me: Yes".to_string());
+            }
+            if form.has_mfa {
+                details.push("MFA field: Yes".to_string());
+            }
+
+            findings.push(
+                Finding::new(
+                    "Login Form Detected".to_string(),
+                    details.join(", "),
+                    Severity::Info,
+                    Confidence::High,
+                    Category::BrokenAuthentication,
+                    target_url.clone(),
+                    "web_application".to_string(),
+                    "auth_discovery".to_string(),
+                    "0.1.0".to_string(),
+                    context.scan_id,
+                )
+                .with_evidence(Evidence {
+                    evidence_type: EvidenceType::HttpResponse,
+                    description: "Login form found".to_string(),
+                    data: Some(serde_json::json!({
+                        "action": form.action,
+                        "method": form.method,
+                        "has_password_field": form.has_password_field,
+                        "has_username_field": form.has_username_field,
+                        "has_csrf_token": form.has_csrf_token,
+                        "has_remember_me": form.has_remember_me,
+                        "has_mfa": form.has_mfa,
+                    })),
+                    location: Some(target_url.clone()),
+                    metadata: HashMap::new(),
+                }),
+            );
         }
-        
+
         // Session cookie findings
         for cookie in &discovery.session_cookies {
-            findings.push(Finding::new(
-                "Session Cookie Detected".to_string(),
-                format!("Session cookie pattern found: {} ({})", cookie.name, cookie.pattern),
-                Severity::Info,
-                Confidence::Medium,
-                Category::InformationDisclosure,
-                target_url.clone(),
-                "web_application".to_string(),
-                "auth_discovery".to_string(),
-                "0.1.0".to_string(),
-                context.scan_id,
-            ).with_evidence(Evidence {
-                evidence_type: EvidenceType::HttpResponse,
-                description: "Session cookie pattern".to_string(),
-                data: Some(serde_json::json!({
-                    "name": cookie.name,
-                    "pattern": cookie.pattern,
-                })),
-                location: Some(target_url.clone()),
-                metadata: HashMap::new(),
-            }));
+            findings.push(
+                Finding::new(
+                    "Session Cookie Detected".to_string(),
+                    format!(
+                        "Session cookie pattern found: {} ({})",
+                        cookie.name, cookie.pattern
+                    ),
+                    Severity::Info,
+                    Confidence::Medium,
+                    Category::InformationDisclosure,
+                    target_url.clone(),
+                    "web_application".to_string(),
+                    "auth_discovery".to_string(),
+                    "0.1.0".to_string(),
+                    context.scan_id,
+                )
+                .with_evidence(Evidence {
+                    evidence_type: EvidenceType::HttpResponse,
+                    description: "Session cookie pattern".to_string(),
+                    data: Some(serde_json::json!({
+                        "name": cookie.name,
+                        "pattern": cookie.pattern,
+                    })),
+                    location: Some(target_url.clone()),
+                    metadata: HashMap::new(),
+                }),
+            );
         }
-        
+
         // Auth header findings
         for header in &discovery.auth_headers {
-            findings.push(Finding::new(
-                "Authentication Header Detected".to_string(),
-                format!("{} header present", header.name),
-                Severity::Info,
-                Confidence::High,
-                Category::InformationDisclosure,
-                target_url.clone(),
-                "web_application".to_string(),
-                "auth_discovery".to_string(),
-                "0.1.0".to_string(),
-                context.scan_id,
-            ).with_evidence(Evidence {
-                evidence_type: EvidenceType::HttpResponse,
-                description: "Auth header found".to_string(),
-                data: Some(serde_json::json!({
-                    "name": header.name,
-                    "header": header.header,
-                })),
-                location: Some(target_url.clone()),
-                metadata: HashMap::new(),
-            }));
+            findings.push(
+                Finding::new(
+                    "Authentication Header Detected".to_string(),
+                    format!("{} header present", header.name),
+                    Severity::Info,
+                    Confidence::High,
+                    Category::InformationDisclosure,
+                    target_url.clone(),
+                    "web_application".to_string(),
+                    "auth_discovery".to_string(),
+                    "0.1.0".to_string(),
+                    context.scan_id,
+                )
+                .with_evidence(Evidence {
+                    evidence_type: EvidenceType::HttpResponse,
+                    description: "Auth header found".to_string(),
+                    data: Some(serde_json::json!({
+                        "name": header.name,
+                        "header": header.header,
+                    })),
+                    location: Some(target_url.clone()),
+                    metadata: HashMap::new(),
+                }),
+            );
         }
-        
-        info!("Authentication discovery completed for: {} - {} findings", target_url, findings.len());
+
+        info!(
+            "Authentication discovery completed for: {} - {} findings",
+            target_url,
+            findings.len()
+        );
         Ok(findings)
     }
 }
@@ -545,7 +614,12 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
 }
 
 #[no_mangle]
-pub extern "C" fn plugin_execute(request_ptr: *const u8, request_len: usize, response_ptr: *mut u8, response_len: *mut usize) -> i32 {
+pub extern "C" fn plugin_execute(
+    request_ptr: *const u8,
+    request_len: usize,
+    response_ptr: *mut u8,
+    response_len: *mut usize,
+) -> i32 {
     0
 }
 

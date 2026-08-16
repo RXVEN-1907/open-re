@@ -41,7 +41,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Scan { target, profile, format } => {
+        Commands::Scan {
+            target,
+            profile,
+            format,
+        } => {
             println!("🔍 Scanning target: {}", target);
             println!("📋 Profile: {}", profile);
             println!("📊 Format: {}", format);

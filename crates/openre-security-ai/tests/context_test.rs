@@ -1,6 +1,6 @@
+use openre_core::ids::{FindingId, ScanId};
+use openre_core::result::{Category, Confidence, Evidence, EvidenceType, Finding, Severity};
 use openre_security_ai::context::{ContextBuilder, TokenBudget};
-use openre_core::result::{Finding, Severity, Confidence, Category, Evidence, EvidenceType};
-use openre_core::ids::{ScanId, FindingId};
 
 #[test]
 fn test_token_budget() {

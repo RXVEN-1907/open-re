@@ -1,31 +1,28 @@
 //! Analysis pipeline for open-re
 
-pub mod orchestrator;
-pub mod stages;
-pub mod incremental;
-pub mod progress;
-pub mod metrics;
 pub mod binary;
+pub mod incremental;
+pub mod metrics;
+pub mod orchestrator;
+pub mod progress;
+pub mod stages;
 
-pub use orchestrator::*;
-pub use stages::*;
-pub use incremental::*;
-pub use progress::*;
-pub use metrics::*;
 pub use binary::*;
+pub use incremental::*;
+pub use metrics::*;
+pub use orchestrator::*;
+pub use progress::*;
+pub use stages::*;
 
 // Re-export binary analysis types for use by other crates
 pub use binary::common::{
-    BinaryFormat, Architecture, Endianness, OperatingSystem, Bitness,
-    SecurityFeatures, RelroLevel, BinaryIdentification, CompilerInfo,
-    SectionInfo, SectionCharacteristics, SegmentInfo, SegmentPermissions,
-    SymbolInfo, SymbolType, SymbolBinding, SymbolVisibility,
-    ImportInfo, ImportedFunction, ExportInfo, ExtractedString, StringEncoding,
-    ResourceInfo, VersionInfo, BinaryMetadata, FileHashes,
-    AnalysisSession, AnalysisStatus, AnalysisStageStatus,
-    BinaryUploadRequest, BinaryUploadResponse,
-    IdentificationOutput, DisassemblyOutput, FunctionBoundary, BasicBlock, Instruction,
-    Operand, OperandKind, OperandType, ControlFlowOutput, CfgEdge, CfgEdgeType,
-    CallEdge, CallType, LoopInfo, LoopType, DataFlowOutput, Variable, VariableStorage,
-    DataDependency, DependencyType, TypeRecoveryOutput, TypeInfo, TypeKind, TypeSource,
+    AnalysisSession, AnalysisStageStatus, AnalysisStatus, Architecture, BasicBlock, BinaryFormat,
+    BinaryIdentification, BinaryMetadata, BinaryUploadRequest, BinaryUploadResponse, Bitness,
+    CallEdge, CallType, CfgEdge, CfgEdgeType, CompilerInfo, ControlFlowOutput, DataDependency,
+    DataFlowOutput, DependencyType, DisassemblyOutput, Endianness, ExportInfo, ExtractedString,
+    FileHashes, FunctionBoundary, IdentificationOutput, ImportInfo, ImportedFunction, Instruction,
+    LoopInfo, LoopType, Operand, OperandKind, OperandType, OperatingSystem, RelroLevel,
+    ResourceInfo, SectionCharacteristics, SectionInfo, SecurityFeatures, SegmentInfo,
+    SegmentPermissions, StringEncoding, SymbolBinding, SymbolInfo, SymbolType, SymbolVisibility,
+    TypeInfo, TypeKind, TypeRecoveryOutput, TypeSource, Variable, VariableStorage, VersionInfo,
 };

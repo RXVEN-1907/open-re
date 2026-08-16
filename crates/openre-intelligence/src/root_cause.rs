@@ -1,8 +1,8 @@
 //! Root Cause Analysis - Identify underlying issues rather than individual findings
 
-use crate::{types::*, error::IntelligenceError, IntelligenceResult};
-use openre_core::result::{Finding, Category, Severity};
+use crate::{error::IntelligenceError, types::*, IntelligenceResult};
 use openre_core::ids::FindingId;
+use openre_core::result::{Category, Finding, Severity};
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, info, warn};
 
@@ -60,18 +60,25 @@ impl RootCauseAnalyzer {
     }
 
     /// Analyze findings to identify root causes
-    pub fn analyze_root_causes(&self, findings: &[Finding]) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
+    pub fn analyze_root_causes(
+        &self,
+        findings: &[Finding],
+    ) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
         let mut root_causes = Vec::new();
 
         // Group findings by target for more focused analysis
         let mut findings_by_target: HashMap<&str, Vec<&Finding>> = HashMap::new();
         for finding in findings {
-            findings_by_target.entry(&finding.target).or_default().push(finding);
+            findings_by_target
+                .entry(&finding.target)
+                .or_default()
+                .push(finding);
         }
 
         // Analyze each target separately
         for (target, target_findings) in findings_by_target {
-            let mut target_root_causes = self.analyze_target_root_causes(target, &target_findings)?;
+            let mut target_root_causes =
+                self.analyze_target_root_causes(target, &target_findings)?;
             root_causes.append(&mut target_root_causes);
         }
 
@@ -79,7 +86,11 @@ impl RootCauseAnalyzer {
     }
 
     /// Analyze root causes for a specific target
-    fn analyze_target_root_causes(&self, target: &str, findings: &[&Finding]) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
+    fn analyze_target_root_causes(
+        &self,
+        target: &str,
+        findings: &[&Finding],
+    ) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
         let mut root_causes = Vec::new();
 
         // Apply different root cause analysis patterns based on configuration
@@ -100,17 +111,22 @@ impl RootCauseAnalyzer {
         }
 
         // Filter by confidence threshold
-        root_causes.retain(|rc| rc.priority as u8 >= (self.config.confidence_threshold * 5.0) as u8);
+        root_causes
+            .retain(|rc| rc.priority as u8 >= (self.config.confidence_threshold * 5.0) as u8);
 
         Ok(root_causes)
     }
 
     /// Analyze common vulnerability patterns that indicate systemic issues
-    fn analyze_common_vulnerability_patterns(&self, findings: &[&Finding]) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
+    fn analyze_common_vulnerability_patterns(
+        &self,
+        findings: &[&Finding],
+    ) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
         let mut root_causes = Vec::new();
 
         // Pattern 1: Multiple injection vulnerabilities suggest lack of input validation/sanitization
-        let injection_findings: Vec<&Finding> = findings.iter()
+        let injection_findings: Vec<&Finding> = findings
+            .iter()
             .filter(|f| f.category == Category::Injection)
             .copied()
             .collect();
@@ -131,7 +147,8 @@ impl RootCauseAnalyzer {
         }
 
         // Pattern 2: Multiple XSS vulnerabilities suggest lack of output encoding
-        let xss_findings: Vec<&Finding> = findings.iter()
+        let xss_findings: Vec<&Finding> = findings
+            .iter()
             .filter(|f| f.category == Category::Xss)
             .copied()
             .collect();
@@ -152,13 +169,15 @@ impl RootCauseAnalyzer {
         }
 
         // Pattern 3: Multiple information disclosure issues suggest poor error handling
-        let info_disclosure_findings: Vec<&Finding> = findings.iter()
+        let info_disclosure_findings: Vec<&Finding> = findings
+            .iter()
             .filter(|f| f.category == Category::InformationDisclosure)
             .copied()
             .collect();
 
         if info_disclosure_findings.len() >= self.config.min_related_findings {
-            let finding_ids: Vec<FindingId> = info_disclosure_findings.iter().map(|f| f.id).collect();
+            let finding_ids: Vec<FindingId> =
+                info_disclosure_findings.iter().map(|f| f.id).collect();
 
             let root_cause = RootCauseAnalysis {
                 root_cause_id: finding_ids[0],
@@ -176,16 +195,21 @@ impl RootCauseAnalyzer {
     }
 
     /// Analyze misconfiguration patterns that indicate systemic issues
-    fn analyze_misconfiguration_patterns(&self, findings: &[&Finding]) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
+    fn analyze_misconfiguration_patterns(
+        &self,
+        findings: &[&Finding],
+    ) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
         let mut root_causes = Vec::new();
 
         // Pattern: Multiple security misconfigurations suggest lack of hardening
-        let misconfig_findings: Vec<&Finding> = findings.iter()
+        let misconfig_findings: Vec<&Finding> = findings
+            .iter()
             .filter(|f| f.category == Category::SecurityMisconfiguration)
             .copied()
             .collect();
 
-        if misconfig_findings.len() >= 2 { // Lower threshold for misconfigurations
+        if misconfig_findings.len() >= 2 {
+            // Lower threshold for misconfigurations
             let finding_ids: Vec<FindingId> = misconfig_findings.iter().map(|f| f.id).collect();
 
             let root_cause = RootCauseAnalysis {
@@ -204,14 +228,21 @@ impl RootCauseAnalyzer {
     }
 
     /// Analyze authentication/authorization patterns
-    fn analyze_authentication_patterns(&self, findings: &[&Finding]) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
+    fn analyze_authentication_patterns(
+        &self,
+        findings: &[&Finding],
+    ) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
         let mut root_causes = Vec::new();
 
         // Pattern: Multiple auth-related issues suggest weak identity management
-        let auth_findings: Vec<&Finding> = findings.iter()
-            .filter(|f| matches!(f.category,
-                Category::BrokenAuthentication |
-                Category::BrokenAccessControl))
+        let auth_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| {
+                matches!(
+                    f.category,
+                    Category::BrokenAuthentication | Category::BrokenAccessControl
+                )
+            })
             .copied()
             .collect();
 
@@ -234,24 +265,30 @@ impl RootCauseAnalyzer {
     }
 
     /// Analyze input validation patterns
-    fn analyze_input_validation_patterns(&self, findings: &[&Finding]) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
+    fn analyze_input_validation_patterns(
+        &self,
+        findings: &[&Finding],
+    ) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
         let mut root_causes = Vec::new();
 
         // Pattern: Mix of injection, XSS, and validation issues suggest poor input handling
-        let validation_related_findings: Vec<&Finding> = findings.iter()
-            .filter(|f| matches!(f.category,
-                Category::Injection |
-                Category::Xss |
-                Category::SecurityMisconfiguration) &&
-                (f.title.to_lowercase().contains("validation") ||
-                 f.description.to_lowercase().contains("validation") ||
-                 f.title.to_lowercase().contains("sanitiz") ||
-                 f.description.to_lowercase().contains("sanitiz")))
+        let validation_related_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| {
+                matches!(
+                    f.category,
+                    Category::Injection | Category::Xss | Category::SecurityMisconfiguration
+                ) && (f.title.to_lowercase().contains("validation")
+                    || f.description.to_lowercase().contains("validation")
+                    || f.title.to_lowercase().contains("sanitiz")
+                    || f.description.to_lowercase().contains("sanitiz"))
+            })
             .copied()
             .collect();
 
         if validation_related_findings.len() >= self.config.min_related_findings {
-            let finding_ids: Vec<FindingId> = validation_related_findings.iter().map(|f| f.id).collect();
+            let finding_ids: Vec<FindingId> =
+                validation_related_findings.iter().map(|f| f.id).collect();
 
             let root_cause = RootCauseAnalysis {
                 root_cause_id: finding_ids[0],
@@ -269,13 +306,18 @@ impl RootCauseAnalyzer {
     }
 
     /// Correlate findings with identified root causes
-    pub fn correlate_findings_with_root_causes(&self, findings: &mut [Finding], root_causes: &[RootCauseAnalysis]) -> IntelligenceResult<()> {
+    pub fn correlate_findings_with_root_causes(
+        &self,
+        findings: &mut [Finding],
+        root_causes: &[RootCauseAnalysis],
+    ) -> IntelligenceResult<()> {
         // Create a mapping of finding ID to root cause IDs
         let mut finding_to_root_causes: HashMap<FindingId, Vec<FindingId>> = HashMap::new();
 
         for root_cause in root_causes {
             for related_finding_id in &root_cause.related_findings {
-                finding_to_root_causes.entry(*related_finding_id)
+                finding_to_root_causes
+                    .entry(*related_finding_id)
                     .or_default()
                     .push(root_cause.root_cause_id);
             }
@@ -294,18 +336,18 @@ impl RootCauseAnalyzer {
                 // Add metadata about root cause analysis
                 finding.metadata.insert(
                     "root_cause_analysis_performed".to_string(),
-                    serde_json::Value::Bool(true)
+                    serde_json::Value::Bool(true),
                 );
                 finding.metadata.insert(
                     "root_cause_count".to_string(),
-                    serde_json::Value::Number(serde_json::Number::from(root_cause_ids.len()))
+                    serde_json::Value::Number(serde_json::Number::from(root_cause_ids.len())),
                 );
 
                 // Add a note about the root cause
                 if let Some(first_root_cause_id) = root_cause_ids.first() {
                     finding.metadata.insert(
                         "primary_root_cause".to_string(),
-                        serde_json::Value::String(first_root_cause_id.to_string())
+                        serde_json::Value::String(first_root_cause_id.to_string()),
                     );
                 }
             }
@@ -315,7 +357,11 @@ impl RootCauseAnalyzer {
     }
 
     /// Generate a root cause analysis report
-    pub fn generate_root_cause_report(&self, root_causes: &[RootCauseAnalysis], all_findings: &[Finding]) -> String {
+    pub fn generate_root_cause_report(
+        &self,
+        root_causes: &[RootCauseAnalysis],
+        all_findings: &[Finding],
+    ) -> String {
         let mut report = String::new();
         report.push_str("# Root Cause Analysis Report\n\n");
 
@@ -324,42 +370,70 @@ impl RootCauseAnalyzer {
             return report;
         }
 
-        report.push_str(&format!("## Identified Root Causes ({})\n\n", root_causes.len()));
+        report.push_str(&format!(
+            "## Identified Root Causes ({})\n\n",
+            root_causes.len()
+        ));
 
         for (index, root_cause) in root_causes.iter().enumerate() {
-            report.push_str(&format!("### Root Cause #{} - {}\n", index + 1,
+            report.push_str(&format!(
+                "### Root Cause #{} - {}\n",
+                index + 1,
                 match root_cause.priority {
                     RemediationPriority::Immediate => "CRITICAL",
                     RemediationPriority::High => "HIGH",
                     RemediationPriority::Medium => "MEDIUM",
                     RemediationPriority::Low => "LOW",
                     RemediationPriority::Deferred => "INFO",
-                }));
+                }
+            ));
 
             // Find the actual finding for this root cause
-            if let Some(cause_finding) = all_findings.iter().find(|f| f.id == root_cause.root_cause_id) {
-                report.push_str(&format!("**Primary Finding**: {} - {}\n", cause_finding.title, cause_finding.description));
+            if let Some(cause_finding) = all_findings
+                .iter()
+                .find(|f| f.id == root_cause.root_cause_id)
+            {
+                report.push_str(&format!(
+                    "**Primary Finding**: {} - {}\n",
+                    cause_finding.title, cause_finding.description
+                ));
             }
 
-            report.push_str(&format!("\n**Description**: {}\n\n", root_cause.description));
-            report.push_str(&format!("**Impact Assessment**: {}\n\n", root_cause.impact_assessment));
-            report.push_str(&format!("**Remediation Approach**: {}\n\n", root_cause.remediation_approach));
+            report.push_str(&format!(
+                "\n**Description**: {}\n\n",
+                root_cause.description
+            ));
+            report.push_str(&format!(
+                "**Impact Assessment**: {}\n\n",
+                root_cause.impact_assessment
+            ));
+            report.push_str(&format!(
+                "**Remediation Approach**: {}\n\n",
+                root_cause.remediation_approach
+            ));
 
             report.push_str(&format!("**Priority**: {:?}\n", root_cause.priority));
-            report.push_str(&format!("**Related Findings**: {} total\n", root_cause.related_findings.len()));
+            report.push_str(&format!(
+                "**Related Findings**: {} total\n",
+                root_cause.related_findings.len()
+            ));
 
             // List related findings
             report.push_str("\n**Related Findings Details**:\n");
             for (i, related_id) in root_cause.related_findings.iter().enumerate() {
                 if let Some(related_finding) = all_findings.iter().find(|f| f.id == *related_id) {
-                    report.push_str(&format!("{}. {} - {}\n", i + 1, related_finding.title,
+                    report.push_str(&format!(
+                        "{}. {} - {}\n",
+                        i + 1,
+                        related_finding.title,
                         match related_finding.severity {
                             Severity::Critical => "CRITICAL",
                             Severity::High => "HIGH",
                             Severity::Medium => "MEDIUM",
                             Severity::Low => "LOW",
                             Severity::Info => "INFO",
-                        }));
+                        }
+                    ));
                 }
             }
 
@@ -367,7 +441,8 @@ impl RootCauseAnalyzer {
         }
 
         // Summary statistics
-        let total_related_findings: usize = root_causes.iter().map(|rc| rc.related_findings.len()).sum();
+        let total_related_findings: usize =
+            root_causes.iter().map(|rc| rc.related_findings.len()).sum();
         let avg_related_per_root = if !root_causes.is_empty() {
             total_related_findings as f32 / root_causes.len() as f32
         } else {
@@ -375,9 +450,18 @@ impl RootCauseAnalyzer {
         };
 
         report.push_str("## Summary\n");
-        report.push_str(&format!("- Total root causes identified: {}\n", root_causes.len()));
-        report.push_str(&format!("- Total findings linked to root causes: {}\n", total_related_findings));
-        report.push_str(&format!("- Average findings per root cause: {:.1}\n", avg_related_per_root));
+        report.push_str(&format!(
+            "- Total root causes identified: {}\n",
+            root_causes.len()
+        ));
+        report.push_str(&format!(
+            "- Total findings linked to root causes: {}\n",
+            total_related_findings
+        ));
+        report.push_str(&format!(
+            "- Average findings per root cause: {:.1}\n",
+            avg_related_per_root
+        ));
 
         report
     }
@@ -386,9 +470,9 @@ impl RootCauseAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openre_core::result::{Finding, Category, Severity, Confidence};
-    use openre_core::ids::{FindingId, ScanId};
     use chrono::Utc;
+    use openre_core::ids::{FindingId, ScanId};
+    use openre_core::result::{Category, Confidence, Finding, Severity};
     use std::collections::HashMap;
 
     fn create_test_finding(title: &str, category: Category, description: &str) -> Finding {
@@ -437,12 +521,12 @@ mod tests {
             create_test_finding(
                 "SQL Injection in login form",
                 Category::Injection,
-                "User input concatenated directly into SQL query"
+                "User input concatenated directly into SQL query",
             ),
             create_test_finding(
                 "Command Injection in file upload",
                 Category::Injection,
-                "Shell commands constructed with user input"
+                "Shell commands constructed with user input",
             ),
         ];
 
@@ -454,7 +538,9 @@ mod tests {
         let root_cause = &root_causes[0];
         assert_eq!(root_cause.related_findings.len(), 2);
         assert_eq!(root_cause.priority, RemediationPriority::Immediate);
-        assert!(root_cause.description.contains("systemic lack of proper input validation"));
+        assert!(root_cause
+            .description
+            .contains("systemic lack of proper input validation"));
     }
 
     #[test]
@@ -468,12 +554,12 @@ mod tests {
             create_test_finding(
                 "Reflected XSS in search parameter",
                 Category::Xss,
-                "User input reflected without encoding"
+                "User input reflected without encoding",
             ),
             create_test_finding(
                 "Stored XSS in comment field",
                 Category::Xss,
-                "User comments stored and displayed without sanitization"
+                "User comments stored and displayed without sanitization",
             ),
         ];
 
@@ -485,7 +571,9 @@ mod tests {
         let root_cause = &root_causes[0];
         assert_eq!(root_cause.related_findings.len(), 2);
         assert_eq!(root_cause.priority, RemediationPriority::High);
-        assert!(root_cause.description.contains("systemic lack of proper output encoding"));
+        assert!(root_cause
+            .description
+            .contains("systemic lack of proper output encoding"));
     }
 
     #[test]
@@ -499,12 +587,12 @@ mod tests {
             create_test_finding(
                 "Missing security headers",
                 Category::SecurityMisconfiguration,
-                "Security headers not properly configured"
+                "Security headers not properly configured",
             ),
             create_test_finding(
                 "Directory listing enabled",
                 Category::SecurityMisconfiguration,
-                "Web server allows directory browsing"
+                "Web server allows directory browsing",
             ),
         ];
 
@@ -527,12 +615,12 @@ mod tests {
             create_test_finding(
                 "SQL Injection in login form",
                 Category::Injection,
-                "User input concatenated directly into SQL query"
+                "User input concatenated directly into SQL query",
             ),
             create_test_finding(
                 "Command Injection in file upload",
                 Category::Injection,
-                "Shell commands constructed with user input"
+                "Shell commands constructed with user input",
             ),
         ];
 
@@ -545,12 +633,16 @@ mod tests {
             priority: RemediationPriority::High,
         }];
 
-        analyzer.correlate_findings_with_root_causes(&mut findings, &root_causes).unwrap();
+        analyzer
+            .correlate_findings_with_root_causes(&mut findings, &root_causes)
+            .unwrap();
 
         // Check that findings were updated with root cause information
         for finding in &findings {
             assert!(finding.related_findings.contains(&findings[0].id));
-            assert!(finding.metadata.contains_key("root_cause_analysis_performed"));
+            assert!(finding
+                .metadata
+                .contains_key("root_cause_analysis_performed"));
             assert!(finding.metadata.contains_key("root_cause_count"));
         }
     }

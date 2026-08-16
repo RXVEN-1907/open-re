@@ -4,25 +4,23 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use colored::Colorize;
-use dashmap::DashMap;
 use indicatif::{ProgressBar, ProgressStyle};
-use openre_core::ids::{FindingId, ScanId};
+use openre_core::ids::ScanId;
 
 // Re-export core types for public API
 pub use openre_core::result::{
-    Category, Confidence, Evidence, EvidenceType, Finding, FindingFilter, FindingSort,
-    RemediationEffort, RemediationGuidance, RemediationPriority, Severity,
+    Category, Confidence, Evidence, EvidenceType, Finding, FindingConfig, FindingFilter,
+    FindingSort, RemediationEffort, RemediationGuidance, RemediationPriority, Severity,
 };
 use regex::Regex;
 use reqwest::Client;
 use select::document::Document;
-use select::predicate::{Name};
+use select::predicate::Name;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tabled::{Table, Tabled};
-use tracing::{Level};
+use tracing::Level;
 use tracing_subscriber::{fmt, EnvFilter};
 use url::Url;
 
@@ -138,16 +136,47 @@ fn parse_header(s: &str) -> Result<(String, String), String> {
 }
 
 #[tokio::main]
+#[allow(dead_code)]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    let level = if cli.verbose { Level::DEBUG } else { Level::INFO };
+    let level = if cli.verbose {
+        Level::DEBUG
+    } else {
+        Level::INFO
+    };
     let filter = EnvFilter::new(level.to_string());
     fmt().with_env_filter(filter).compact().init();
 
     match cli.command {
-        Commands::Scan { target, profile, format, checks, exclude, max_duration, output, no_progress, follow_redirects, header } => {
-            run_scan(target, profile, format, checks, exclude, max_duration, output, no_progress, follow_redirects, header, cli.timeout, cli.max_redirects, cli.user_agent).await?;
+        Commands::Scan {
+            target,
+            profile,
+            format,
+            checks,
+            exclude,
+            max_duration,
+            output,
+            no_progress,
+            follow_redirects,
+            header,
+        } => {
+            run_scan(ScanConfig {
+                target_str: target,
+                profile,
+                format,
+                checks,
+                exclude,
+                max_duration,
+                output,
+                no_progress,
+                follow_redirects,
+                headers: header,
+                timeout: cli.timeout,
+                max_redirects: cli.max_redirects,
+                user_agent: cli.user_agent,
+            })
+            .await?;
         }
         Commands::Version => {
             show_version();
@@ -196,13 +225,16 @@ pub async fn run_scan_internal(
     Ok(all_findings)
 }
 
-async fn run_scan(
+#[derive(Debug)]
+#[allow(dead_code)]
+struct ScanConfig {
     target_str: String,
     profile: ScanProfile,
     format: OutputFormat,
     checks: Option<Vec<String>>,
     exclude: Option<Vec<String>>,
-    _max_duration: u64,
+    #[allow(dead_code)]
+    max_duration: u64,
     output: Option<PathBuf>,
     no_progress: bool,
     follow_redirects: bool,
@@ -210,26 +242,49 @@ async fn run_scan(
     timeout: u64,
     max_redirects: usize,
     user_agent: String,
-) -> anyhow::Result<()> {
-    println!("{}", "🔍 openre-scan - Lightweight Security Scanner".bold().cyan());
-    println!("{}", format!("Target: {}", target_str).dimmed());
-    println!("{}", format!("Profile: {:?}", profile).dimmed());
+}
+
+#[allow(dead_code)]
+async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
+    println!(
+        "{}",
+        "🔍 openre-scan - Lightweight Security Scanner"
+            .bold()
+            .cyan()
+    );
+    println!("{}", format!("Target: {}", config.target_str).dimmed());
+    println!("{}", format!("Profile: {:?}", config.profile).dimmed());
     println!();
 
-    let target_url = if target_str.starts_with("http://") || target_str.starts_with("https://") {
-        target_str.parse::<Url>()?
-    } else {
-        format!("https://{}", target_str).parse::<Url>()?
-    };
+    let target_url =
+        if config.target_str.starts_with("http://") || config.target_str.starts_with("https://") {
+            config.target_str.parse::<Url>()?
+        } else {
+            format!("https://{}", config.target_str).parse::<Url>()?
+        };
 
-    let client = build_client(timeout, max_redirects, follow_redirects, user_agent, headers)?;
+    let client = build_client(
+        config.timeout,
+        config.max_redirects,
+        config.follow_redirects,
+        config.user_agent,
+        config.headers,
+    )?;
 
-    let all_checks = get_all_checks(&profile);
+    let all_checks = get_all_checks(&config.profile);
     let checks_to_run: Vec<Check> = all_checks
         .into_iter()
         .filter(|c| {
-            let should_run = checks.as_ref().map(|cs| cs.iter().any(|s| s == c.name())).unwrap_or(true);
-            let should_exclude = exclude.as_ref().map(|es| es.iter().any(|s| s == c.name())).unwrap_or(false);
+            let should_run = config
+                .checks
+                .as_ref()
+                .map(|cs| cs.iter().any(|s| s == c.name()))
+                .unwrap_or(true);
+            let should_exclude = config
+                .exclude
+                .as_ref()
+                .map(|es| es.iter().any(|s| s == c.name()))
+                .unwrap_or(false);
             should_run && !should_exclude
         })
         .collect();
@@ -241,12 +296,14 @@ async fn run_scan(
     }
     println!();
 
-    let progress_bar = if !no_progress {
+    let progress_bar = if !config.no_progress {
         let pb = ProgressBar::new(checks_count as u64);
-        pb.set_style(ProgressStyle::default_bar()
-            .template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-            .unwrap()
-            .progress_chars("##-"));
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+                .unwrap()
+                .progress_chars("##-"),
+        );
         Some(pb)
     } else {
         None
@@ -283,11 +340,24 @@ async fn run_scan(
 
     println!("\n{}", "📋 Scan Results".bold().underline());
     println!("{}", "═".repeat(80).dimmed());
-    println!("Scan ID: {} | Duration: {:.2}s | Checks: {} | Findings: {}",
-        scan_id, duration.as_secs_f32(), checks_count, all_findings.len());
+    println!(
+        "Scan ID: {} | Duration: {:.2}s | Checks: {} | Findings: {}",
+        scan_id,
+        duration.as_secs_f32(),
+        checks_count,
+        all_findings.len()
+    );
     println!("{}", "═".repeat(80).dimmed());
 
-    display_results(&all_findings, &format, output, &target_url, duration, checks_count).await?;
+    display_results(
+        &all_findings,
+        &config.format,
+        config.output,
+        &target_url,
+        duration,
+        checks_count,
+    )
+    .await?;
 
     Ok(())
 }
@@ -452,43 +522,53 @@ async fn check_http_headers(client: &Client, target: &Url) -> anyhow::Result<Vec
     let headers = response.headers();
 
     if let Some(server) = headers.get("server") {
-        let finding = Finding::new(
-            "Server Header Disclosure".to_string(),
-            format!("Server header reveals: {}", server.to_str().unwrap_or("unknown")),
-            Severity::Info,
-            Confidence::High,
-            Category::InformationDisclosure,
-            target.to_string(),
-            "web".to_string(),
-            "http-headers".to_string(),
-            "1.0".to_string(),
-            scan_id(),
-        );
+        let finding = Finding::new(FindingConfig {
+            title: "Server Header Disclosure".to_string(),
+            description: format!(
+                "Server header reveals: {}",
+                server.to_str().unwrap_or("unknown")
+            ),
+            severity: Severity::Info,
+            confidence: Confidence::High,
+            category: Category::InformationDisclosure,
+            target: target.to_string(),
+            target_type: "web".to_string(),
+            plugin_source: "http-headers".to_string(),
+            plugin_version: "1.0".to_string(),
+            scan_id: scan_id(),
+        });
         let evidence = Evidence::new(
             EvidenceType::HttpResponse,
             "Server header present".to_string(),
-        ).with_data(serde_json::json!({"header": "server", "value": server.to_str().unwrap_or("")}))
+        )
+        .with_data(serde_json::json!({"header": "server", "value": server.to_str().unwrap_or("")}))
         .with_location(target.to_string());
         findings.push(finding.with_evidence(evidence));
     }
 
     if let Some(powered) = headers.get("x-powered-by") {
-        let finding = Finding::new(
-            "X-Powered-By Header Disclosure".to_string(),
-            format!("X-Powered-By header reveals: {}", powered.to_str().unwrap_or("unknown")),
-            Severity::Low,
-            Confidence::High,
-            Category::InformationDisclosure,
-            target.to_string(),
-            "web".to_string(),
-            "http-headers".to_string(),
-            "1.0".to_string(),
-            scan_id(),
-        );
+        let finding = Finding::new(FindingConfig {
+            title: "X-Powered-By Header Disclosure".to_string(),
+            description: format!(
+                "X-Powered-By header reveals: {}",
+                powered.to_str().unwrap_or("unknown")
+            ),
+            severity: Severity::Low,
+            confidence: Confidence::High,
+            category: Category::InformationDisclosure,
+            target: target.to_string(),
+            target_type: "web".to_string(),
+            plugin_source: "http-headers".to_string(),
+            plugin_version: "1.0".to_string(),
+            scan_id: scan_id(),
+        });
         let evidence = Evidence::new(
             EvidenceType::HttpResponse,
             "X-Powered-By header present".to_string(),
-        ).with_data(serde_json::json!({"header": "x-powered-by", "value": powered.to_str().unwrap_or("")}))
+        )
+        .with_data(
+            serde_json::json!({"header": "x-powered-by", "value": powered.to_str().unwrap_or("")}),
+        )
         .with_location(target.to_string());
         findings.push(finding.with_evidence(evidence));
     }
@@ -502,42 +582,90 @@ async fn check_security_headers(client: &Client, target: &Url) -> anyhow::Result
     let headers = response.headers();
 
     let security_headers = [
-        ("x-frame-options", "X-Frame-Options", Severity::Medium, "Clickjacking protection"),
-        ("x-content-type-options", "X-Content-Type-Options", Severity::Medium, "MIME type sniffing protection"),
-        ("strict-transport-security", "Strict-Transport-Security", Severity::High, "HSTS enforcement"),
-        ("content-security-policy", "Content-Security-Policy", Severity::High, "Content Security Policy"),
-        ("referrer-policy", "Referrer-Policy", Severity::Medium, "Referrer policy"),
-        ("permissions-policy", "Permissions-Policy", Severity::Low, "Feature policy"),
-        ("cross-origin-opener-policy", "Cross-Origin-Opener-Policy", Severity::Low, "COOP"),
-        ("cross-origin-resource-policy", "Cross-Origin-Resource-Policy", Severity::Low, "CORP"),
+        (
+            "x-frame-options",
+            "X-Frame-Options",
+            Severity::Medium,
+            "Clickjacking protection",
+        ),
+        (
+            "x-content-type-options",
+            "X-Content-Type-Options",
+            Severity::Medium,
+            "MIME type sniffing protection",
+        ),
+        (
+            "strict-transport-security",
+            "Strict-Transport-Security",
+            Severity::High,
+            "HSTS enforcement",
+        ),
+        (
+            "content-security-policy",
+            "Content-Security-Policy",
+            Severity::High,
+            "Content Security Policy",
+        ),
+        (
+            "referrer-policy",
+            "Referrer-Policy",
+            Severity::Medium,
+            "Referrer policy",
+        ),
+        (
+            "permissions-policy",
+            "Permissions-Policy",
+            Severity::Low,
+            "Feature policy",
+        ),
+        (
+            "cross-origin-opener-policy",
+            "Cross-Origin-Opener-Policy",
+            Severity::Low,
+            "COOP",
+        ),
+        (
+            "cross-origin-resource-policy",
+            "Cross-Origin-Resource-Policy",
+            Severity::Low,
+            "CORP",
+        ),
     ];
 
     for (header_name, display_name, severity, description) in security_headers {
         if headers.get(header_name).is_none() {
-            let finding = Finding::new(
-                format!("Missing {} Header", display_name),
-                format!("{} header is missing. {}", display_name, description),
+            let finding = Finding::new(FindingConfig {
+                title: format!("Missing {} Header", display_name),
+                description: format!("{} header is missing. {}", display_name, description),
                 severity,
-                Confidence::High,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "security-headers".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+                confidence: Confidence::High,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "security-headers".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 format!("Missing {} header", display_name),
-            ).with_data(serde_json::json!({"missing_header": header_name}))
+            )
+            .with_data(serde_json::json!({"missing_header": header_name}))
             .with_location(target.to_string());
             let remediation = RemediationGuidance::new(
                 format!("Add {} header", display_name),
-                vec![format!("Add the {} header to your HTTP responses", display_name)],
+                vec![format!(
+                    "Add the {} header to your HTTP responses",
+                    display_name
+                )],
                 RemediationEffort::Low,
                 RemediationPriority::High,
             );
-            findings.push(finding.with_evidence(evidence).with_remediation(remediation));
+            findings.push(
+                finding
+                    .with_evidence(evidence)
+                    .with_remediation(remediation),
+            );
         }
     }
 
@@ -547,28 +675,29 @@ async fn check_security_headers(client: &Client, target: &Url) -> anyhow::Result
 async fn check_cookie_security(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
     let mut findings = Vec::new();
     let response = client.get(target.as_str()).send().await?;
-    
+
     for cookie_header in response.headers().get_all("set-cookie") {
         if let Ok(cookie_str) = cookie_header.to_str() {
             let cookie = cookie_str;
-            
+
             if !cookie.to_lowercase().contains("secure") && target.scheme() == "https" {
-                let finding = Finding::new(
-                    "Cookie Missing Secure Flag".to_string(),
-                    format!("Cookie set without Secure flag on HTTPS: {}", cookie),
-                    Severity::Medium,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target.to_string(),
-                    "web".to_string(),
-                    "cookie-security".to_string(),
-                    "1.0".to_string(),
-                    scan_id(),
-                );
+                let finding = Finding::new(FindingConfig {
+                    title: "Cookie Missing Secure Flag".to_string(),
+                    description: format!("Cookie set without Secure flag on HTTPS: {}", cookie),
+                    severity: Severity::Medium,
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target.to_string(),
+                    target_type: "web".to_string(),
+                    plugin_source: "cookie-security".to_string(),
+                    plugin_version: "1.0".to_string(),
+                    scan_id: scan_id(),
+                });
                 let evidence = Evidence::new(
                     EvidenceType::HttpResponse,
                     "Cookie without Secure flag".to_string(),
-                ).with_data(serde_json::json!({"cookie": cookie}))
+                )
+                .with_data(serde_json::json!({"cookie": cookie}))
                 .with_location(target.to_string());
                 let remediation = RemediationGuidance::new(
                     "Add Secure flag to cookies".to_string(),
@@ -576,26 +705,31 @@ async fn check_cookie_security(client: &Client, target: &Url) -> anyhow::Result<
                     RemediationEffort::Low,
                     RemediationPriority::High,
                 );
-                findings.push(finding.with_evidence(evidence).with_remediation(remediation));
+                findings.push(
+                    finding
+                        .with_evidence(evidence)
+                        .with_remediation(remediation),
+                );
             }
 
             if !cookie.to_lowercase().contains("httponly") {
-                let finding = Finding::new(
-                    "Cookie Missing HttpOnly Flag".to_string(),
-                    format!("Cookie set without HttpOnly flag: {}", cookie),
-                    Severity::Medium,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target.to_string(),
-                    "web".to_string(),
-                    "cookie-security".to_string(),
-                    "1.0".to_string(),
-                    scan_id(),
-                );
+                let finding = Finding::new(FindingConfig {
+                    title: "Cookie Missing HttpOnly Flag".to_string(),
+                    description: format!("Cookie set without HttpOnly flag: {}", cookie),
+                    severity: Severity::Medium,
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target.to_string(),
+                    target_type: "web".to_string(),
+                    plugin_source: "cookie-security".to_string(),
+                    plugin_version: "1.0".to_string(),
+                    scan_id: scan_id(),
+                });
                 let evidence = Evidence::new(
                     EvidenceType::HttpResponse,
                     "Cookie without HttpOnly flag".to_string(),
-                ).with_data(serde_json::json!({"cookie": cookie}))
+                )
+                .with_data(serde_json::json!({"cookie": cookie}))
                 .with_location(target.to_string());
                 let remediation = RemediationGuidance::new(
                     "Add HttpOnly flag to cookies".to_string(),
@@ -603,26 +737,31 @@ async fn check_cookie_security(client: &Client, target: &Url) -> anyhow::Result<
                     RemediationEffort::Low,
                     RemediationPriority::High,
                 );
-                findings.push(finding.with_evidence(evidence).with_remediation(remediation));
+                findings.push(
+                    finding
+                        .with_evidence(evidence)
+                        .with_remediation(remediation),
+                );
             }
 
             if !cookie.to_lowercase().contains("samesite") {
-                let finding = Finding::new(
-                    "Cookie Missing SameSite Attribute".to_string(),
-                    format!("Cookie set without SameSite attribute: {}", cookie),
-                    Severity::Low,
-                    Confidence::Medium,
-                    Category::SecurityMisconfiguration,
-                    target.to_string(),
-                    "web".to_string(),
-                    "cookie-security".to_string(),
-                    "1.0".to_string(),
-                    scan_id(),
-                );
+                let finding = Finding::new(FindingConfig {
+                    title: "Cookie Missing SameSite Attribute".to_string(),
+                    description: format!("Cookie set without SameSite attribute: {}", cookie),
+                    severity: Severity::Low,
+                    confidence: Confidence::Medium,
+                    category: Category::SecurityMisconfiguration,
+                    target: target.to_string(),
+                    target_type: "web".to_string(),
+                    plugin_source: "cookie-security".to_string(),
+                    plugin_version: "1.0".to_string(),
+                    scan_id: scan_id(),
+                });
                 let evidence = Evidence::new(
                     EvidenceType::HttpResponse,
                     "Cookie without SameSite".to_string(),
-                ).with_data(serde_json::json!({"cookie": cookie}))
+                )
+                .with_data(serde_json::json!({"cookie": cookie}))
                 .with_location(target.to_string());
                 findings.push(finding.with_evidence(evidence));
             }
@@ -634,23 +773,27 @@ async fn check_cookie_security(client: &Client, target: &Url) -> anyhow::Result<
 
 async fn check_tls_certificate(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
     let mut findings = Vec::new();
-    
+
     if target.scheme() != "https" {
-        let finding = Finding::new(
-            "Not Using HTTPS".to_string(),
-            "Target is not using HTTPS encryption".to_string(),
-            Severity::High,
-            Confidence::VeryHigh,
-            Category::SecurityMisconfiguration,
-            target.to_string(),
-            "web".to_string(),
-            "tls-certificate".to_string(),
-            "1.0".to_string(),
-            scan_id(),
-        );
+        let finding = Finding::new(FindingConfig {
+            title: "Not Using HTTPS".to_string(),
+            description: "Target is not using HTTPS encryption".to_string(),
+            severity: Severity::High,
+            confidence: Confidence::VeryHigh,
+            category: Category::SecurityMisconfiguration,
+            target: target.to_string(),
+            target_type: "web".to_string(),
+            plugin_source: "tls-certificate".to_string(),
+            plugin_version: "1.0".to_string(),
+            scan_id: scan_id(),
+        });
         let remediation = RemediationGuidance::new(
             "Enable HTTPS".to_string(),
-            vec!["Obtain and install a valid TLS certificate".to_string(), "Configure HTTPS on your web server".to_string(), "Redirect all HTTP traffic to HTTPS".to_string()],
+            vec![
+                "Obtain and install a valid TLS certificate".to_string(),
+                "Configure HTTPS on your web server".to_string(),
+                "Redirect all HTTP traffic to HTTPS".to_string(),
+            ],
             RemediationEffort::Medium,
             RemediationPriority::Immediate,
         );
@@ -660,33 +803,33 @@ async fn check_tls_certificate(client: &Client, target: &Url) -> anyhow::Result<
 
     match client.get(target.as_str()).send().await {
         Ok(_) => {
-            let finding = Finding::new(
-                "HTTPS Enabled".to_string(),
-                "Target is accessible via HTTPS".to_string(),
-                Severity::Info,
-                Confidence::High,
-                Category::Configuration,
-                target.to_string(),
-                "web".to_string(),
-                "tls-certificate".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "HTTPS Enabled".to_string(),
+                description: "Target is accessible via HTTPS".to_string(),
+                severity: Severity::Info,
+                confidence: Confidence::High,
+                category: Category::Configuration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "tls-certificate".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             findings.push(finding);
         }
         Err(e) => {
-            let finding = Finding::new(
-                "HTTPS Connection Failed".to_string(),
-                format!("Failed to connect via HTTPS: {}", e),
-                Severity::High,
-                Confidence::High,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "tls-certificate".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "HTTPS Connection Failed".to_string(),
+                description: format!("Failed to connect via HTTPS: {}", e),
+                severity: Severity::High,
+                confidence: Confidence::High,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "tls-certificate".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             findings.push(finding);
         }
     }
@@ -701,85 +844,93 @@ async fn check_csp(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>
 
     if let Some(csp) = headers.get("content-security-policy") {
         let csp_str = csp.to_str().unwrap_or("");
-        
+
         if csp_str.contains("unsafe-inline") {
-            let finding = Finding::new(
-                "CSP Allows unsafe-inline".to_string(),
-                "Content-Security-Policy contains 'unsafe-inline' directive".to_string(),
-                Severity::Medium,
-                Confidence::High,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "csp".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "CSP Allows unsafe-inline".to_string(),
+                description: "Content-Security-Policy contains 'unsafe-inline' directive"
+                    .to_string(),
+                severity: Severity::Medium,
+                confidence: Confidence::High,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "csp".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 "CSP with unsafe-inline".to_string(),
-            ).with_data(serde_json::json!({"csp": csp_str}))
+            )
+            .with_data(serde_json::json!({"csp": csp_str}))
             .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
 
         if csp_str.contains("unsafe-eval") {
-            let finding = Finding::new(
-                "CSP Allows unsafe-eval".to_string(),
-                "Content-Security-Policy contains 'unsafe-eval' directive".to_string(),
-                Severity::Medium,
-                Confidence::High,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "csp".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "CSP Allows unsafe-eval".to_string(),
+                description: "Content-Security-Policy contains 'unsafe-eval' directive".to_string(),
+                severity: Severity::Medium,
+                confidence: Confidence::High,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "csp".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 "CSP with unsafe-eval".to_string(),
-            ).with_data(serde_json::json!({"csp": csp_str}))
+            )
+            .with_data(serde_json::json!({"csp": csp_str}))
             .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
 
         if csp_str.contains("'*'") || csp_str.contains("\"*\"") {
-            let finding = Finding::new(
-                "CSP Uses Wildcard".to_string(),
-                "Content-Security-Policy uses wildcard (*) which may be overly permissive".to_string(),
-                Severity::Low,
-                Confidence::Medium,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "csp".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
-            let evidence = Evidence::new(
-                EvidenceType::HttpResponse,
-                "CSP with wildcard".to_string(),
-            ).with_data(serde_json::json!({"csp": csp_str}))
-            .with_location(target.to_string());
+            let finding = Finding::new(FindingConfig {
+                title: "CSP Uses Wildcard".to_string(),
+                description:
+                    "Content-Security-Policy uses wildcard (*) which may be overly permissive"
+                        .to_string(),
+                severity: Severity::Low,
+                confidence: Confidence::Medium,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "csp".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
+            let evidence =
+                Evidence::new(EvidenceType::HttpResponse, "CSP with wildcard".to_string())
+                    .with_data(serde_json::json!({"csp": csp_str}))
+                    .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
     } else {
-        let finding = Finding::new(
-            "Missing Content-Security-Policy".to_string(),
-            "No Content-Security-Policy header found".to_string(),
-            Severity::High,
-            Confidence::High,
-            Category::SecurityMisconfiguration,
-            target.to_string(),
-            "web".to_string(),
-            "csp".to_string(),
-            "1.0".to_string(),
-            scan_id(),
-        );
+        let finding = Finding::new(FindingConfig {
+            title: "Missing Content-Security-Policy".to_string(),
+            description: "No Content-Security-Policy header found".to_string(),
+            severity: Severity::High,
+            confidence: Confidence::High,
+            category: Category::SecurityMisconfiguration,
+            target: target.to_string(),
+            target_type: "web".to_string(),
+            plugin_source: "csp".to_string(),
+            plugin_version: "1.0".to_string(),
+            scan_id: scan_id(),
+        });
         let remediation = RemediationGuidance::new(
             "Implement Content-Security-Policy".to_string(),
-            vec!["Add a Content-Security-Policy header to restrict resource loading".to_string(), "Start with a restrictive policy and adjust as needed".to_string(), "Use nonce or hash-based approach for inline scripts".to_string()],
+            vec![
+                "Add a Content-Security-Policy header to restrict resource loading".to_string(),
+                "Start with a restrictive policy and adjust as needed".to_string(),
+                "Use nonce or hash-based approach for inline scripts".to_string(),
+            ],
             RemediationEffort::Medium,
             RemediationPriority::High,
         );
@@ -797,30 +948,38 @@ async fn check_cors(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding
     if let Some(acao) = headers.get("access-control-allow-origin") {
         let acao_str = acao.to_str().unwrap_or("");
         if acao_str == "*" {
-            let finding = Finding::new(
-                "CORS Allows All Origins".to_string(),
-                "Access-Control-Allow-Origin is set to * (wildcard)".to_string(),
-                Severity::Medium,
-                Confidence::High,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "cors".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "CORS Allows All Origins".to_string(),
+                description: "Access-Control-Allow-Origin is set to * (wildcard)".to_string(),
+                severity: Severity::Medium,
+                confidence: Confidence::High,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "cors".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 "CORS wildcard origin".to_string(),
-            ).with_data(serde_json::json!({"acao": acao_str}))
+            )
+            .with_data(serde_json::json!({"acao": acao_str}))
             .with_location(target.to_string());
             let remediation = RemediationGuidance::new(
                 "Restrict CORS origins".to_string(),
-                vec!["Set Access-Control-Allow-Origin to specific trusted origins".to_string(), "Avoid using wildcard (*) for origins that handle sensitive data".to_string()],
+                vec![
+                    "Set Access-Control-Allow-Origin to specific trusted origins".to_string(),
+                    "Avoid using wildcard (*) for origins that handle sensitive data".to_string(),
+                ],
                 RemediationEffort::Low,
                 RemediationPriority::Medium,
             );
-            findings.push(finding.with_evidence(evidence).with_remediation(remediation));
+            findings.push(
+                finding
+                    .with_evidence(evidence)
+                    .with_remediation(remediation),
+            );
         }
     }
 
@@ -828,18 +987,20 @@ async fn check_cors(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding
         if acac.to_str().unwrap_or("").to_lowercase() == "true" {
             if let Some(acao) = headers.get("access-control-allow-origin") {
                 if acao.to_str().unwrap_or("") == "*" {
-                    let finding = Finding::new(
-                        "CORS Credentials with Wildcard Origin".to_string(),
-                        "Access-Control-Allow-Credentials is true with wildcard origin".to_string(),
-                        Severity::High,
-                        Confidence::High,
-                        Category::SecurityMisconfiguration,
-                        target.to_string(),
-                        "web".to_string(),
-                        "cors".to_string(),
-                        "1.0".to_string(),
-                        scan_id(),
-                    );
+                    let finding = Finding::new(FindingConfig {
+                        title: "CORS Credentials with Wildcard Origin".to_string(),
+                        description:
+                            "Access-Control-Allow-Credentials is true with wildcard origin"
+                                .to_string(),
+                        severity: Severity::High,
+                        confidence: Confidence::High,
+                        category: Category::SecurityMisconfiguration,
+                        target: target.to_string(),
+                        target_type: "web".to_string(),
+                        plugin_source: "cors".to_string(),
+                        plugin_version: "1.0".to_string(),
+                        scan_id: scan_id(),
+                    });
                     findings.push(finding);
                 }
             }
@@ -849,26 +1010,35 @@ async fn check_cors(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding
     Ok(findings)
 }
 
-async fn check_information_disclosure(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
+async fn check_information_disclosure(
+    client: &Client,
+    target: &Url,
+) -> anyhow::Result<Vec<Finding>> {
     let mut findings = Vec::new();
     let response = client.get(target.as_str()).send().await?;
     let headers = response.headers();
 
-    let debug_headers = ["x-debug-token", "x-drupal-cache", "x-varnish", "via", "x-cache"];
+    let debug_headers = [
+        "x-debug-token",
+        "x-drupal-cache",
+        "x-varnish",
+        "via",
+        "x-cache",
+    ];
     for header in debug_headers {
         if headers.contains_key(header) {
-            let finding = Finding::new(
-                format!("Debug Header Exposed: {}", header),
-                format!("Debug header {} is present in response", header),
-                Severity::Low,
-                Confidence::Medium,
-                Category::InformationDisclosure,
-                target.to_string(),
-                "web".to_string(),
-                "info-disclosure".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: format!("Debug Header Exposed: {}", header),
+                description: format!("Debug header {} is present in response", header),
+                severity: Severity::Low,
+                confidence: Confidence::Medium,
+                category: Category::InformationDisclosure,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "info-disclosure".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 format!("Debug header {} found", header),
@@ -881,22 +1051,23 @@ async fn check_information_disclosure(client: &Client, target: &Url) -> anyhow::
     if let Some(server) = headers.get("server") {
         let server_str = server.to_str().unwrap_or("");
         if server_str.contains('/') {
-            let finding = Finding::new(
-                "Server Version Disclosure".to_string(),
-                format!("Server header reveals version: {}", server_str),
-                Severity::Low,
-                Confidence::High,
-                Category::InformationDisclosure,
-                target.to_string(),
-                "web".to_string(),
-                "info-disclosure".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "Server Version Disclosure".to_string(),
+                description: format!("Server header reveals version: {}", server_str),
+                severity: Severity::Low,
+                confidence: Confidence::High,
+                category: Category::InformationDisclosure,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "info-disclosure".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 "Server version disclosed".to_string(),
-            ).with_data(serde_json::json!({"server": server_str}))
+            )
+            .with_data(serde_json::json!({"server": server_str}))
             .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
@@ -905,7 +1076,10 @@ async fn check_information_disclosure(client: &Client, target: &Url) -> anyhow::
     Ok(findings)
 }
 
-async fn check_technology_fingerprint(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
+async fn check_technology_fingerprint(
+    client: &Client,
+    target: &Url,
+) -> anyhow::Result<Vec<Finding>> {
     let mut findings = Vec::new();
     let response = client.get(target.as_str()).send().await?;
     let headers = response.headers().clone();
@@ -926,18 +1100,18 @@ async fn check_technology_fingerprint(client: &Client, target: &Url) -> anyhow::
         if let Some(header) = headers.get(header_name) {
             let header_str = header.to_str().unwrap_or("");
             if pattern.is_empty() || Regex::new(pattern).unwrap().is_match(header_str) {
-                let finding = Finding::new(
-                    format!("Technology Detected: {}", tech_name),
-                    format!("{} detected via {} header", tech_name, header_name),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::InformationDisclosure,
-                    target.to_string(),
-                    "web".to_string(),
-                    "tech-fingerprint".to_string(),
-                    "1.0".to_string(),
-                    scan_id(),
-                );
+                let finding = Finding::new(FindingConfig {
+                    title: format!("Technology Detected: {}", tech_name),
+                    description: format!("{} detected via {} header", tech_name, header_name),
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::InformationDisclosure,
+                    target: target.to_string(),
+                    target_type: "web".to_string(),
+                    plugin_source: "tech-fingerprint".to_string(),
+                    plugin_version: "1.0".to_string(),
+                    scan_id: scan_id(),
+                });
                 let evidence = Evidence::new(
                     EvidenceType::HttpResponse,
                     format!("{} detected", tech_name),
@@ -961,22 +1135,23 @@ async fn check_technology_fingerprint(client: &Client, target: &Url) -> anyhow::
 
     for (tech_name, pattern) in body_signatures {
         if Regex::new(pattern).unwrap().is_match(&body) {
-            let finding = Finding::new(
-                format!("Technology Detected: {}", tech_name),
-                format!("{} detected in page content", tech_name),
-                Severity::Info,
-                Confidence::Medium,
-                Category::InformationDisclosure,
-                target.to_string(),
-                "web".to_string(),
-                "tech-fingerprint".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: format!("Technology Detected: {}", tech_name),
+                description: format!("{} detected in page content", tech_name),
+                severity: Severity::Info,
+                confidence: Confidence::Medium,
+                category: Category::InformationDisclosure,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "tech-fingerprint".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 format!("{} detected in body", tech_name),
-            ).with_data(serde_json::json!({"technology": tech_name, "source": "body"}))
+            )
+            .with_data(serde_json::json!({"technology": tech_name, "source": "body"}))
             .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
@@ -989,49 +1164,51 @@ async fn check_robots_txt(client: &Client, target: &Url) -> anyhow::Result<Vec<F
     let mut findings = Vec::new();
     let mut robots_url = target.clone();
     robots_url.set_path("/robots.txt");
-    
+
     match client.get(robots_url.as_str()).send().await {
         Ok(response) if response.status().is_success() => {
             let body = response.text().await.unwrap_or_default();
-            let finding = Finding::new(
-                "robots.txt Found".to_string(),
-                "robots.txt file is accessible".to_string(),
-                Severity::Info,
-                Confidence::High,
-                Category::InformationDisclosure,
-                target.to_string(),
-                "web".to_string(),
-                "robots-txt".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "robots.txt Found".to_string(),
+                description: "robots.txt file is accessible".to_string(),
+                severity: Severity::Info,
+                confidence: Confidence::High,
+                category: Category::InformationDisclosure,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "robots-txt".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 "robots.txt accessible".to_string(),
-            ).with_data(serde_json::json!({"content": body.chars().take(500).collect::<String>()}))
+            )
+            .with_data(serde_json::json!({"content": body.chars().take(500).collect::<String>()}))
             .with_location(robots_url.to_string());
             findings.push(finding.with_evidence(evidence));
-            
+
             for line in body.lines() {
                 if line.to_lowercase().starts_with("disallow:") && !line.contains("disallow: /") {
                     let path = line.split(':').nth(1).unwrap_or("").trim();
                     if !path.is_empty() && path != "/" {
-                        let finding = Finding::new(
-                            "Interesting robots.txt Entry".to_string(),
-                            format!("robots.txt disallows: {}", path),
-                            Severity::Info,
-                            Confidence::Low,
-                            Category::InformationDisclosure,
-                            target.to_string(),
-                            "web".to_string(),
-                            "robots-txt".to_string(),
-                            "1.0".to_string(),
-                            scan_id(),
-                        );
+                        let finding = Finding::new(FindingConfig {
+                            title: "Interesting robots.txt Entry".to_string(),
+                            description: format!("robots.txt disallows: {}", path),
+                            severity: Severity::Info,
+                            confidence: Confidence::Low,
+                            category: Category::InformationDisclosure,
+                            target: target.to_string(),
+                            target_type: "web".to_string(),
+                            plugin_source: "robots-txt".to_string(),
+                            plugin_version: "1.0".to_string(),
+                            scan_id: scan_id(),
+                        });
                         let evidence = Evidence::new(
                             EvidenceType::HttpResponse,
                             format!("Disallowed path: {}", path),
-                        ).with_location(robots_url.to_string());
+                        )
+                        .with_location(robots_url.to_string());
                         findings.push(finding.with_evidence(evidence));
                     }
                 }
@@ -1052,25 +1229,26 @@ async fn check_sitemap(client: &Client, target: &Url) -> anyhow::Result<Vec<Find
     let mut findings = Vec::new();
     let mut sitemap_url = target.clone();
     sitemap_url.set_path("/sitemap.xml");
-    
+
     match client.get(sitemap_url.as_str()).send().await {
         Ok(response) if response.status().is_success() => {
-            let finding = Finding::new(
-                "sitemap.xml Found".to_string(),
-                "sitemap.xml file is accessible".to_string(),
-                Severity::Info,
-                Confidence::High,
-                Category::InformationDisclosure,
-                target.to_string(),
-                "web".to_string(),
-                "sitemap".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "sitemap.xml Found".to_string(),
+                description: "sitemap.xml file is accessible".to_string(),
+                severity: Severity::Info,
+                confidence: Confidence::High,
+                category: Category::InformationDisclosure,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "sitemap".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 "sitemap.xml accessible".to_string(),
-            ).with_location(sitemap_url.to_string());
+            )
+            .with_location(sitemap_url.to_string());
             findings.push(finding.with_evidence(evidence));
         }
         Ok(_) => {}
@@ -1084,7 +1262,7 @@ async fn check_directory_listing(client: &Client, target: &Url) -> anyhow::Resul
     let mut findings = Vec::new();
     let response = client.get(target.as_str()).send().await?;
     let body = response.text().await.unwrap_or_default();
-    
+
     let listing_indicators = [
         "Index of /",
         "Directory listing for",
@@ -1094,33 +1272,44 @@ async fn check_directory_listing(client: &Client, target: &Url) -> anyhow::Resul
         "Name</a>",
         "Last modified</a>",
     ];
-    
+
     for indicator in listing_indicators {
         if body.contains(indicator) {
-            let finding = Finding::new(
-                "Directory Listing Enabled".to_string(),
-                format!("Directory listing appears to be enabled: found '{}'", indicator),
-                Severity::Medium,
-                Confidence::High,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "dir-listing".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "Directory Listing Enabled".to_string(),
+                description: format!(
+                    "Directory listing appears to be enabled: found '{}'",
+                    indicator
+                ),
+                severity: Severity::Medium,
+                confidence: Confidence::High,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "dir-listing".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 "Directory listing detected".to_string(),
-            ).with_data(serde_json::json!({"indicator": indicator}))
+            )
+            .with_data(serde_json::json!({"indicator": indicator}))
             .with_location(target.to_string());
             let remediation = RemediationGuidance::new(
                 "Disable directory listing".to_string(),
-                vec!["Configure web server to disable directory indexing".to_string(), "Add default index file (index.html, index.php, etc.)".to_string()],
+                vec![
+                    "Configure web server to disable directory indexing".to_string(),
+                    "Add default index file (index.html, index.php, etc.)".to_string(),
+                ],
                 RemediationEffort::Low,
                 RemediationPriority::High,
             );
-            findings.push(finding.with_evidence(evidence).with_remediation(remediation));
+            findings.push(
+                finding
+                    .with_evidence(evidence)
+                    .with_remediation(remediation),
+            );
             break;
         }
     }
@@ -1157,21 +1346,21 @@ async fn check_sensitive_files(client: &Client, target: &Url) -> anyhow::Result<
     for path in sensitive_paths {
         let mut test_url = target.clone();
         test_url.set_path(&format!("/{}", path));
-        
+
         match client.head(test_url.as_str()).send().await {
             Ok(response) if response.status().is_success() => {
-                let finding = Finding::new(
-                    format!("Sensitive File Exposed: {}", path),
-                    format!("Sensitive file accessible: {}", test_url),
-                    Severity::Medium,
-                    Confidence::High,
-                    Category::InformationDisclosure,
-                    target.to_string(),
-                    "web".to_string(),
-                    "sensitive-files".to_string(),
-                    "1.0".to_string(),
-                    scan_id(),
-                );
+                let finding = Finding::new(FindingConfig {
+                    title: format!("Sensitive File Exposed: {}", path),
+                    description: format!("Sensitive file accessible: {}", test_url),
+                    severity: Severity::Medium,
+                    confidence: Confidence::High,
+                    category: Category::InformationDisclosure,
+                    target: target.to_string(),
+                    target_type: "web".to_string(),
+                    plugin_source: "sensitive-files".to_string(),
+                    plugin_version: "1.0".to_string(),
+                    scan_id: scan_id(),
+                });
                 let evidence = Evidence::new(
                     EvidenceType::HttpResponse,
                     format!("Sensitive file found: {}", path),
@@ -1182,7 +1371,7 @@ async fn check_sensitive_files(client: &Client, target: &Url) -> anyhow::Result<
             Ok(_) => {}
             Err(_) => {}
         }
-        
+
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
 
@@ -1193,86 +1382,103 @@ async fn check_forms(client: &Client, target: &Url) -> anyhow::Result<Vec<Findin
     let mut findings = Vec::new();
     let response = client.get(target.as_str()).send().await?;
     let body = response.text().await.unwrap_or_default();
-    
+
     let document = Document::from(body.as_str());
     let forms = document.find(Name("form")).collect::<Vec<_>>();
-    
+
     for form in forms {
         let action = form.attr("action").unwrap_or("");
         let method = form.attr("method").unwrap_or("GET").to_uppercase();
-        
-        let password_inputs = form.find(Name("input")).filter(|n| n.attr("type") == Some("password")).count();
-        
+
+        let password_inputs = form
+            .find(Name("input"))
+            .filter(|n| n.attr("type") == Some("password"))
+            .count();
+
         if password_inputs > 0 && method == "GET" {
-            let finding = Finding::new(
-                "Password Field in GET Form".to_string(),
-                "Form with password field uses GET method, exposing credentials in URL".to_string(),
-                Severity::High,
-                Confidence::High,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "forms".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "Password Field in GET Form".to_string(),
+                description:
+                    "Form with password field uses GET method, exposing credentials in URL"
+                        .to_string(),
+                severity: Severity::High,
+                confidence: Confidence::High,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "forms".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 "Password field in GET form".to_string(),
-            ).with_data(serde_json::json!({"action": action, "method": method}))
+            )
+            .with_data(serde_json::json!({"action": action, "method": method}))
             .with_location(target.to_string());
             let remediation = RemediationGuidance::new(
                 "Use POST for forms with password fields".to_string(),
-                vec!["Change form method to POST".to_string(), "Ensure HTTPS is used for all forms handling credentials".to_string()],
+                vec![
+                    "Change form method to POST".to_string(),
+                    "Ensure HTTPS is used for all forms handling credentials".to_string(),
+                ],
                 RemediationEffort::Low,
                 RemediationPriority::Immediate,
             );
-            findings.push(finding.with_evidence(evidence).with_remediation(remediation));
+            findings.push(
+                finding
+                    .with_evidence(evidence)
+                    .with_remediation(remediation),
+            );
         }
-        
+
         let autocomplete = form.attr("autocomplete");
         if autocomplete == Some("on") && password_inputs > 0 {
-            let finding = Finding::new(
-                "Autocomplete Enabled on Password Form".to_string(),
-                "Form with password field has autocomplete enabled".to_string(),
-                Severity::Low,
-                Confidence::Medium,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "forms".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "Autocomplete Enabled on Password Form".to_string(),
+                description: "Form with password field has autocomplete enabled".to_string(),
+                severity: Severity::Low,
+                confidence: Confidence::Medium,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "forms".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 "Autocomplete on password form".to_string(),
-            ).with_location(target.to_string());
+            )
+            .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
-        
+
         let has_csrf = form.find(Name("input")).any(|n| {
             let name = n.attr("name").unwrap_or("");
-            name.to_lowercase().contains("csrf") || name.to_lowercase().contains("token") || name.to_lowercase().contains("_token")
+            name.to_lowercase().contains("csrf")
+                || name.to_lowercase().contains("token")
+                || name.to_lowercase().contains("_token")
         });
-        
+
         if !has_csrf && method == "POST" && password_inputs > 0 {
-            let finding = Finding::new(
-                "Missing CSRF Protection on Login Form".to_string(),
-                "POST form with password field lacks apparent CSRF token".to_string(),
-                Severity::Medium,
-                Confidence::Medium,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "forms".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
+            let finding = Finding::new(FindingConfig {
+                title: "Missing CSRF Protection on Login Form".to_string(),
+                description: "POST form with password field lacks apparent CSRF token".to_string(),
+                severity: Severity::Medium,
+                confidence: Confidence::Medium,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "forms".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
             let evidence = Evidence::new(
                 EvidenceType::HttpResponse,
                 "Possible missing CSRF token".to_string(),
-            ).with_location(target.to_string());
+            )
+            .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
     }
@@ -1284,14 +1490,17 @@ async fn check_links(client: &Client, target: &Url) -> anyhow::Result<Vec<Findin
     let mut findings = Vec::new();
     let response = client.get(target.as_str()).send().await?;
     let body = response.text().await.unwrap_or_default();
-    
+
     let document = Document::from(body.as_str());
-    let links = document.find(Name("a")).filter_map(|n| n.attr("href")).collect::<Vec<_>>();
-    
+    let links = document
+        .find(Name("a"))
+        .filter_map(|n| n.attr("href"))
+        .collect::<Vec<_>>();
+
     let mut _external_links = 0;
     let mut http_links = 0;
     let mut mailto_links = 0;
-    
+
     for link in &links {
         if link.starts_with("http://") {
             http_links += 1;
@@ -1303,46 +1512,42 @@ async fn check_links(client: &Client, target: &Url) -> anyhow::Result<Vec<Findin
             mailto_links += 1;
         }
     }
-    
+
     if http_links > 0 {
-        let finding = Finding::new(
-            "Mixed Content: HTTP Links on HTTPS Page".to_string(),
-            format!("Found {} HTTP links on HTTPS page", http_links),
-            Severity::Medium,
-            Confidence::High,
-            Category::SecurityMisconfiguration,
-            target.to_string(),
-            "web".to_string(),
-            "links".to_string(),
-            "1.0".to_string(),
-            scan_id(),
-        );
-        let evidence = Evidence::new(
-            EvidenceType::HttpResponse,
-            "HTTP links found".to_string(),
-        ).with_data(serde_json::json!({"http_links": http_links}))
-        .with_location(target.to_string());
+        let finding = Finding::new(FindingConfig {
+            title: "Mixed Content: HTTP Links on HTTPS Page".to_string(),
+            description: format!("Found {} HTTP links on HTTPS page", http_links),
+            severity: Severity::Medium,
+            confidence: Confidence::High,
+            category: Category::SecurityMisconfiguration,
+            target: target.to_string(),
+            target_type: "web".to_string(),
+            plugin_source: "links".to_string(),
+            plugin_version: "1.0".to_string(),
+            scan_id: scan_id(),
+        });
+        let evidence = Evidence::new(EvidenceType::HttpResponse, "HTTP links found".to_string())
+            .with_data(serde_json::json!({"http_links": http_links}))
+            .with_location(target.to_string());
         findings.push(finding.with_evidence(evidence));
     }
-    
+
     if mailto_links > 0 {
-        let finding = Finding::new(
-            "Email Addresses Exposed in mailto Links".to_string(),
-            format!("Found {} mailto: links", mailto_links),
-            Severity::Low,
-            Confidence::High,
-            Category::InformationDisclosure,
-            target.to_string(),
-            "web".to_string(),
-            "links".to_string(),
-            "1.0".to_string(),
-            scan_id(),
-        );
-        let evidence = Evidence::new(
-            EvidenceType::HttpResponse,
-            "mailto links found".to_string(),
-        ).with_data(serde_json::json!({"mailto_links": mailto_links}))
-        .with_location(target.to_string());
+        let finding = Finding::new(FindingConfig {
+            title: "Email Addresses Exposed in mailto Links".to_string(),
+            description: format!("Found {} mailto: links", mailto_links),
+            severity: Severity::Low,
+            confidence: Confidence::High,
+            category: Category::InformationDisclosure,
+            target: target.to_string(),
+            target_type: "web".to_string(),
+            plugin_source: "links".to_string(),
+            plugin_version: "1.0".to_string(),
+            scan_id: scan_id(),
+        });
+        let evidence = Evidence::new(EvidenceType::HttpResponse, "mailto links found".to_string())
+            .with_data(serde_json::json!({"mailto_links": mailto_links}))
+            .with_location(target.to_string());
         findings.push(finding.with_evidence(evidence));
     }
 
@@ -1353,51 +1558,60 @@ async fn check_scripts(client: &Client, target: &Url) -> anyhow::Result<Vec<Find
     let mut findings = Vec::new();
     let response = client.get(target.as_str()).send().await?;
     let body = response.text().await.unwrap_or_default();
-    
+
     let document = Document::from(body.as_str());
-    let scripts = document.find(Name("script")).filter_map(|n| n.attr("src")).collect::<Vec<_>>();
-    
+    let scripts = document
+        .find(Name("script"))
+        .filter_map(|n| n.attr("src"))
+        .collect::<Vec<_>>();
+
     for script in scripts {
         if script.starts_with("http://") {
-            let finding = Finding::new(
-                "Mixed Content: HTTP Script on HTTPS Page".to_string(),
-                format!("External script loaded over HTTP: {}", script),
-                Severity::Medium,
-                Confidence::High,
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                "scripts".to_string(),
-                "1.0".to_string(),
-                scan_id(),
-            );
-            let evidence = Evidence::new(
-                EvidenceType::HttpResponse,
-                "HTTP script source".to_string(),
-            ).with_data(serde_json::json!({"script": script}))
-            .with_location(target.to_string());
+            let finding = Finding::new(FindingConfig {
+                title: "Mixed Content: HTTP Script on HTTPS Page".to_string(),
+                description: format!("External script loaded over HTTP: {}", script),
+                severity: Severity::Medium,
+                confidence: Confidence::High,
+                category: Category::SecurityMisconfiguration,
+                target: target.to_string(),
+                target_type: "web".to_string(),
+                plugin_source: "scripts".to_string(),
+                plugin_version: "1.0".to_string(),
+                scan_id: scan_id(),
+            });
+            let evidence =
+                Evidence::new(EvidenceType::HttpResponse, "HTTP script source".to_string())
+                    .with_data(serde_json::json!({"script": script}))
+                    .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
     }
-    
-    let inline_scripts = document.find(Name("script")).filter(|n| n.attr("src").is_none()).count();
+
+    let inline_scripts = document
+        .find(Name("script"))
+        .filter(|n| n.attr("src").is_none())
+        .count();
     if inline_scripts > 0 {
-        let finding = Finding::new(
-            "Inline Scripts Detected".to_string(),
-            format!("Found {} inline script(s) which may violate CSP", inline_scripts),
-            Severity::Info,
-            Confidence::Medium,
-            Category::SecurityMisconfiguration,
-            target.to_string(),
-            "web".to_string(),
-            "scripts".to_string(),
-            "1.0".to_string(),
-            scan_id(),
-        );
+        let finding = Finding::new(FindingConfig {
+            title: "Inline Scripts Detected".to_string(),
+            description: format!(
+                "Found {} inline script(s) which may violate CSP",
+                inline_scripts
+            ),
+            severity: Severity::Info,
+            confidence: Confidence::Medium,
+            category: Category::SecurityMisconfiguration,
+            target: target.to_string(),
+            target_type: "web".to_string(),
+            plugin_source: "scripts".to_string(),
+            plugin_version: "1.0".to_string(),
+            scan_id: scan_id(),
+        });
         let evidence = Evidence::new(
             EvidenceType::HttpResponse,
             "Inline scripts found".to_string(),
-        ).with_data(serde_json::json!({"count": inline_scripts}))
+        )
+        .with_data(serde_json::json!({"count": inline_scripts}))
         .with_location(target.to_string());
         findings.push(finding.with_evidence(evidence));
     }
@@ -1409,56 +1623,54 @@ async fn check_meta_tags(client: &Client, target: &Url) -> anyhow::Result<Vec<Fi
     let mut findings = Vec::new();
     let response = client.get(target.as_str()).send().await?;
     let body = response.text().await.unwrap_or_default();
-    
+
     let document = Document::from(body.as_str());
     let metas = document.find(Name("meta")).collect::<Vec<_>>();
-    
+
     for meta in metas {
         if let Some(name) = meta.attr("name") {
             if name.to_lowercase() == "generator" {
                 if let Some(content) = meta.attr("content") {
-                    let finding = Finding::new(
-                        "Generator Meta Tag Disclosure".to_string(),
-                        format!("Generator meta tag reveals: {}", content),
-                        Severity::Low,
-                        Confidence::High,
-                        Category::InformationDisclosure,
-                        target.to_string(),
-                        "web".to_string(),
-                        "meta-tags".to_string(),
-                        "1.0".to_string(),
-                        scan_id(),
-                    );
-                    let evidence = Evidence::new(
-                        EvidenceType::HttpResponse,
-                        "Generator meta tag".to_string(),
-                    ).with_data(serde_json::json!({"content": content}))
-                    .with_location(target.to_string());
+                    let finding = Finding::new(FindingConfig {
+                        title: "Generator Meta Tag Disclosure".to_string(),
+                        description: format!("Generator meta tag reveals: {}", content),
+                        severity: Severity::Low,
+                        confidence: Confidence::High,
+                        category: Category::InformationDisclosure,
+                        target: target.to_string(),
+                        target_type: "web".to_string(),
+                        plugin_source: "meta-tags".to_string(),
+                        plugin_version: "1.0".to_string(),
+                        scan_id: scan_id(),
+                    });
+                    let evidence =
+                        Evidence::new(EvidenceType::HttpResponse, "Generator meta tag".to_string())
+                            .with_data(serde_json::json!({"content": content}))
+                            .with_location(target.to_string());
                     findings.push(finding.with_evidence(evidence));
                 }
             }
         }
-        
+
         if let Some(http_equiv) = meta.attr("http-equiv") {
             if http_equiv.to_lowercase() == "refresh" {
                 if let Some(content) = meta.attr("content") {
-                    let finding = Finding::new(
-                        "Meta Refresh Redirect".to_string(),
-                        format!("Meta refresh redirect found: {}", content),
-                        Severity::Low,
-                        Confidence::High,
-                        Category::SecurityMisconfiguration,
-                        target.to_string(),
-                        "web".to_string(),
-                        "meta-tags".to_string(),
-                        "1.0".to_string(),
-                        scan_id(),
-                    );
-                    let evidence = Evidence::new(
-                        EvidenceType::HttpResponse,
-                        "Meta refresh".to_string(),
-                    ).with_data(serde_json::json!({"content": content}))
-                    .with_location(target.to_string());
+                    let finding = Finding::new(FindingConfig {
+                        title: "Meta Refresh Redirect".to_string(),
+                        description: format!("Meta refresh redirect found: {}", content),
+                        severity: Severity::Low,
+                        confidence: Confidence::High,
+                        category: Category::SecurityMisconfiguration,
+                        target: target.to_string(),
+                        target_type: "web".to_string(),
+                        plugin_source: "meta-tags".to_string(),
+                        plugin_version: "1.0".to_string(),
+                        scan_id: scan_id(),
+                    });
+                    let evidence =
+                        Evidence::new(EvidenceType::HttpResponse, "Meta refresh".to_string())
+                            .with_data(serde_json::json!({"content": content}))
+                            .with_location(target.to_string());
                     findings.push(finding.with_evidence(evidence));
                 }
             }
@@ -1471,7 +1683,7 @@ async fn check_meta_tags(client: &Client, target: &Url) -> anyhow::Result<Vec<Fi
 async fn check_http_methods(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
     let mut findings = Vec::new();
     let methods = ["TRACE", "TRACK", "PUT", "DELETE", "PATCH", "OPTIONS"];
-    
+
     for method in methods {
         let req = client.request(method.parse().unwrap(), target.as_str());
         if let Ok(response) = req.send().await {
@@ -1481,23 +1693,26 @@ async fn check_http_methods(client: &Client, target: &Url) -> anyhow::Result<Vec
                     "PUT" | "DELETE" => Severity::High,
                     _ => Severity::Low,
                 };
-                
-                let finding = Finding::new(
-                    format!("HTTP {} Method Enabled", method),
-                    format!("Server accepts {} requests", method),
+
+                let finding = Finding::new(FindingConfig {
+                    title: format!("HTTP {} Method Enabled", method),
+                    description: format!("Server accepts {} requests", method),
                     severity,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target.to_string(),
-                    "web".to_string(),
-                    "http-methods".to_string(),
-                    "1.0".to_string(),
-                    scan_id(),
-                );
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target.to_string(),
+                    target_type: "web".to_string(),
+                    plugin_source: "http-methods".to_string(),
+                    plugin_version: "1.0".to_string(),
+                    scan_id: scan_id(),
+                });
                 let evidence = Evidence::new(
                     EvidenceType::HttpResponse,
                     format!("{} method allowed", method),
-                ).with_data(serde_json::json!({"method": method, "status": response.status().as_u16()}))
+                )
+                .with_data(
+                    serde_json::json!({"method": method, "status": response.status().as_u16()}),
+                )
                 .with_location(target.to_string());
                 findings.push(finding.with_evidence(evidence));
             }
@@ -1509,20 +1724,20 @@ async fn check_http_methods(client: &Client, target: &Url) -> anyhow::Result<Vec
 
 async fn check_ssl_config(_client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
     let mut findings = Vec::new();
-    
+
     if target.scheme() == "https" {
-        let finding = Finding::new(
-            "SSL/TLS Configuration Check".to_string(),
-            "SSL/TLS configuration analysis requires specialized tools (e.g., testssl.sh, sslyze)".to_string(),
-            Severity::Info,
-            Confidence::Low,
-            Category::Configuration,
-            target.to_string(),
-            "web".to_string(),
-            "ssl-config".to_string(),
-            "1.0".to_string(),
-            scan_id(),
-        );
+        let finding = Finding::new(FindingConfig {
+            title: "SSL/TLS Configuration Check".to_string(),
+            description: "SSL/TLS configuration analysis requires specialized tools (e.g., testssl.sh, sslyze)".to_string(),
+            severity: Severity::Info,
+            confidence: Confidence::Low,
+            category: Category::Configuration,
+            target: target.to_string(),
+            target_type: "web".to_string(),
+            plugin_source: "ssl-config".to_string(),
+            plugin_version: "1.0".to_string(),
+            scan_id: scan_id(),
+        });
         let evidence = Evidence::new(
             EvidenceType::HttpResponse,
             "SSL/TLS check placeholder".to_string(),
@@ -1534,6 +1749,7 @@ async fn check_ssl_config(_client: &Client, target: &Url) -> anyhow::Result<Vec<
     Ok(findings)
 }
 
+#[allow(dead_code)]
 async fn display_results(
     findings: &[Finding],
     format: &OutputFormat,
@@ -1544,13 +1760,23 @@ async fn display_results(
 ) -> anyhow::Result<()> {
     match format {
         OutputFormat::Table => print_table_results(findings, target, duration, checks_run),
-        OutputFormat::Json => print_json_results(findings, target, duration, checks_run, output).await?,
-        OutputFormat::Sarif => print_sarif_results(findings, target, duration, checks_run, output).await?,
+        OutputFormat::Json => {
+            print_json_results(findings, target, duration, checks_run, output).await?
+        }
+        OutputFormat::Sarif => {
+            print_sarif_results(findings, target, duration, checks_run, output).await?
+        }
     }
     Ok(())
 }
 
-fn print_table_results(findings: &[Finding], _target: &Url, _duration: Duration, _checks_run: usize) {
+#[allow(dead_code)]
+fn print_table_results(
+    findings: &[Finding],
+    _target: &Url,
+    _duration: Duration,
+    _checks_run: usize,
+) {
     #[derive(Tabled)]
     struct FindingRow {
         #[tabled(rename = "Severity")]
@@ -1565,13 +1791,20 @@ fn print_table_results(findings: &[Finding], _target: &Url, _duration: Duration,
         check: String,
     }
 
-    let rows: Vec<FindingRow> = findings.iter().map(|f| FindingRow {
-        severity: format_severity(&f.severity),
-        confidence: format!("{:?}", f.confidence),
-        category: format!("{:?}", f.category),
-        title: if f.title.len() > 60 { format!("{}...", &f.title[..57]) } else { f.title.clone() },
-        check: f.plugin_source.clone(),
-    }).collect();
+    let rows: Vec<FindingRow> = findings
+        .iter()
+        .map(|f| FindingRow {
+            severity: format_severity(&f.severity),
+            confidence: format!("{:?}", f.confidence),
+            category: format!("{:?}", f.category),
+            title: if f.title.len() > 60 {
+                format!("{}...", &f.title[..57])
+            } else {
+                f.title.clone()
+            },
+            check: f.plugin_source.clone(),
+        })
+        .collect();
 
     if rows.is_empty() {
         println!("\n{} No findings detected.", "✓".green());
@@ -1587,7 +1820,13 @@ fn print_table_results(findings: &[Finding], _target: &Url, _duration: Duration,
     }
 
     println!("\n{}", "📊 Summary by Severity".bold());
-    for sev in [Severity::Critical, Severity::High, Severity::Medium, Severity::Low, Severity::Info] {
+    for sev in [
+        Severity::Critical,
+        Severity::High,
+        Severity::Medium,
+        Severity::Low,
+        Severity::Info,
+    ] {
         if let Some(count) = severity_counts.get(&sev) {
             let color = match sev {
                 Severity::Critical => "red",
@@ -1601,6 +1840,7 @@ fn print_table_results(findings: &[Finding], _target: &Url, _duration: Duration,
     }
 }
 
+#[allow(dead_code)]
 fn format_severity(sev: &Severity) -> String {
     match sev {
         Severity::Critical => "CRITICAL".red().bold().to_string(),
@@ -1611,6 +1851,7 @@ fn format_severity(sev: &Severity) -> String {
     }
 }
 
+#[allow(dead_code)]
 async fn print_json_results(
     findings: &[Finding],
     target: &Url,
@@ -1619,7 +1860,7 @@ async fn print_json_results(
     output: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     use serde_json::json;
-    
+
     let result = json!({
         "scan_id": scan_id().to_string(),
         "target": target.to_string(),
@@ -1631,17 +1872,18 @@ async fn print_json_results(
     });
 
     let json_str = serde_json::to_string_pretty(&result)?;
-    
+
     if let Some(path) = output {
         tokio::fs::write(path, json_str).await?;
         println!("Results written to file");
     } else {
         println!("{}", json_str);
     }
-    
+
     Ok(())
 }
 
+#[allow(dead_code)]
 async fn print_sarif_results(
     findings: &[Finding],
     target: &Url,
@@ -1650,7 +1892,7 @@ async fn print_sarif_results(
     output: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     use serde_json::json;
-    
+
     let mut results = Vec::new();
     for f in findings {
         let mut result = json!({
@@ -1676,11 +1918,11 @@ async fn print_sarif_results(
                 "description": f.description,
             }
         });
-        
+
         if let Some(cwe) = f.cwe_ids.first() {
             result["properties"]["cwe"] = json!(cwe);
         }
-        
+
         results.push(result);
     }
 
@@ -1706,17 +1948,18 @@ async fn print_sarif_results(
     });
 
     let json_str = serde_json::to_string_pretty(&sarif)?;
-    
+
     if let Some(path) = output {
         tokio::fs::write(path, json_str).await?;
         println!("SARIF results written to file");
     } else {
         println!("{}", json_str);
     }
-    
+
     Ok(())
 }
 
+#[allow(dead_code)]
 fn show_version() {
     println!("openre-scan {}", env!("CARGO_PKG_VERSION"));
     println!("Lightweight Security Scanner");
@@ -1728,6 +1971,7 @@ fn scan_id() -> ScanId {
 }
 
 // Extensions for Finding and Evidence
+#[allow(dead_code)]
 trait FindingExt {
     fn with_evidence(self, evidence: Evidence) -> Self;
     fn with_remediation(self, remediation: RemediationGuidance) -> Self;
@@ -1738,13 +1982,14 @@ impl FindingExt for Finding {
         self.evidence.push(evidence);
         self
     }
-    
+
     fn with_remediation(mut self, remediation: RemediationGuidance) -> Self {
         self.remediation = Some(remediation);
         self
     }
 }
 
+#[allow(dead_code)]
 trait EvidenceExt {
     fn new(evidence_type: EvidenceType, description: String) -> Self;
     fn with_data(self, data: serde_json::Value) -> Self;
@@ -1768,12 +2013,12 @@ impl EvidenceExt for Evidence {
             timestamp: chrono::Utc::now(),
         }
     }
-    
+
     fn with_data(mut self, data: serde_json::Value) -> Self {
         self.data = Some(data);
         self
     }
-    
+
     fn with_location(mut self, location: String) -> Self {
         self.location = Some(location);
         self
@@ -1781,11 +2026,21 @@ impl EvidenceExt for Evidence {
 }
 
 trait RemediationGuidanceExt {
-    fn new(summary: String, steps: Vec<String>, effort: RemediationEffort, priority: RemediationPriority) -> Self;
+    fn new(
+        summary: String,
+        steps: Vec<String>,
+        effort: RemediationEffort,
+        priority: RemediationPriority,
+    ) -> Self;
 }
 
 impl RemediationGuidanceExt for RemediationGuidance {
-    fn new(summary: String, steps: Vec<String>, effort: RemediationEffort, priority: RemediationPriority) -> Self {
+    fn new(
+        summary: String,
+        steps: Vec<String>,
+        effort: RemediationEffort,
+        priority: RemediationPriority,
+    ) -> Self {
         Self {
             summary,
             steps,

@@ -1,9 +1,9 @@
 //! FindingProvider trait for resolving scan data
 
-use crate::{AiResult, AiAnalystError};
-use openre_core::result::{Finding, FindingFilter};
-use openre_core::ids::{ScanId, FindingId};
+use crate::{AiAnalystError, AiResult};
 use async_trait::async_trait;
+use openre_core::ids::{FindingId, ScanId};
+use openre_core::result::{Finding, FindingFilter};
 
 /// Metadata about a scan
 #[derive(Debug, Clone)]
@@ -31,10 +31,18 @@ pub struct ScanMetadata {
 #[async_trait]
 pub trait FindingProvider: Send + Sync {
     /// Get a specific finding by ID
-    async fn get_finding(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<Option<Finding>>;
+    async fn get_finding(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<Option<Finding>>;
 
     /// List findings for a scan with optional filtering
-    async fn list_findings(&self, scan_id: ScanId, filter: Option<&FindingFilter>) -> AiResult<Vec<Finding>>;
+    async fn list_findings(
+        &self,
+        scan_id: ScanId,
+        filter: Option<&FindingFilter>,
+    ) -> AiResult<Vec<Finding>>;
 
     /// Get metadata about a scan
     async fn get_scan_metadata(&self, scan_id: ScanId) -> AiResult<ScanMetadata>;

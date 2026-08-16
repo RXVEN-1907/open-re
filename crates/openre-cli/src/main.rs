@@ -4,20 +4,13 @@ use clap::{Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use openre_cli::{
     commands::{
-        auth::AuthCommands,
-        project::ProjectCommands,
-        file::FileCommands,
-        analysis::AnalysisCommands,
-        function::FunctionCommands,
-        ai::AiCommands,
-        analyst::AnalystCommands,
-        plugin::PluginCommands,
-        config::ConfigCommands,
-        server::ServerCommands,
+        ai::AiCommands, analysis::AnalysisCommands, analyst::AnalystCommands, auth::AuthCommands,
+        config::ConfigCommands, file::FileCommands, function::FunctionCommands,
+        plugin::PluginCommands, project::ProjectCommands, server::ServerCommands,
     },
     config::CliConfig,
-    output::{OutputFormat, print_output},
     error::CliError,
+    output::{print_output, OutputFormat},
 };
 use std::path::PathBuf;
 

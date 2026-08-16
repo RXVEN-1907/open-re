@@ -43,7 +43,10 @@ impl TargetType {
     pub fn requires_auth(&self) -> bool {
         matches!(
             self,
-            TargetType::RemoteWebApp | TargetType::RestApi | TargetType::GraphQLApi | TargetType::WebSocket
+            TargetType::RemoteWebApp
+                | TargetType::RestApi
+                | TargetType::GraphQLApi
+                | TargetType::WebSocket
         )
     }
 
@@ -206,7 +209,9 @@ pub enum AuthConfig {
         scopes: Vec<String>,
     },
     /// Custom authentication
-    Custom { config: HashMap<String, serde_json::Value> },
+    Custom {
+        config: HashMap<String, serde_json::Value>,
+    },
 }
 
 impl AuthConfig {
@@ -229,7 +234,9 @@ impl AuthConfig {
             }
             AuthConfig::OAuth2 { .. } => {
                 // OAuth2 would require token refresh logic - placeholder for now
-                return Err(ScannerError::Authentication("OAuth2 not yet implemented".to_string()));
+                return Err(ScannerError::Authentication(
+                    "OAuth2 not yet implemented".to_string(),
+                ));
             }
             AuthConfig::Custom { config } => {
                 for (key, value) in config {
@@ -433,10 +440,7 @@ impl Target {
             ));
         }
 
-        let metadata = TargetMetadata::new(
-            url.host_str().unwrap_or("unknown").to_string(),
-            url,
-        );
+        let metadata = TargetMetadata::new(url.host_str().unwrap_or("unknown").to_string(), url);
 
         Ok(Self::new(target_type, metadata))
     }

@@ -1,7 +1,7 @@
 //! Plugin manifest parsing and validation
 
-use openre_core::ids::{PluginId, PluginType, Capability, FileFormat, Architecture};
 use openre_core::error::OpenreResult as Result;
+use openre_core::ids::{Architecture, Capability, FileFormat, PluginId, PluginType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -130,8 +130,9 @@ impl PluginManifest {
         }
 
         let content = std::fs::read_to_string(&manifest_path)?;
-        let manifest: PluginManifest = toml::from_str(&content)
-            .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("TOML parse error: {}", e)))?;
+        let manifest: PluginManifest = toml::from_str(&content).map_err(|e| {
+            openre_core::Error::Internal(anyhow::anyhow!("TOML parse error: {}", e))
+        })?;
         manifest.validate()?;
         Ok(manifest)
     }
@@ -139,13 +140,19 @@ impl PluginManifest {
     /// Validate the manifest
     pub fn validate(&self) -> Result<()> {
         if self.name.is_empty() {
-            return Err(openre_core::Error::Validation("Plugin name cannot be empty".into()));
+            return Err(openre_core::Error::Validation(
+                "Plugin name cannot be empty".into(),
+            ));
         }
         if self.version.is_empty() {
-            return Err(openre_core::Error::Validation("Plugin version cannot be empty".into()));
+            return Err(openre_core::Error::Validation(
+                "Plugin version cannot be empty".into(),
+            ));
         }
         if self.plugin.capabilities.is_empty() {
-            return Err(openre_core::Error::Validation("Plugin must declare at least one capability".into()));
+            return Err(openre_core::Error::Validation(
+                "Plugin must declare at least one capability".into(),
+            ));
         }
 
         // Validate capabilities match plugin type
@@ -155,12 +162,16 @@ impl PluginManifest {
         match self.build.target {
             BuildTarget::Wasm => {
                 if self.plugin.entry.wasm.is_none() {
-                    return Err(openre_core::Error::Validation("WASM plugin must specify wasm entry point".into()));
+                    return Err(openre_core::Error::Validation(
+                        "WASM plugin must specify wasm entry point".into(),
+                    ));
                 }
             }
             BuildTarget::Native => {
                 if self.plugin.entry.native.is_empty() {
-                    return Err(openre_core::Error::Validation("Native plugin must specify native entry points".into()));
+                    return Err(openre_core::Error::Validation(
+                        "Native plugin must specify native entry points".into(),
+                    ));
                 }
             }
         }

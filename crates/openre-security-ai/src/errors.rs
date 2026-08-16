@@ -1,7 +1,7 @@
 //! Error types for the AI Security Analyst
 
-use openre_core::ids::{FindingId, ScanId};
 use openre_ai::providers::AiError;
+use openre_core::ids::{FindingId, ScanId};
 use thiserror::Error;
 
 /// Result type alias for AI analyst operations

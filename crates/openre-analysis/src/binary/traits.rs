@@ -1,16 +1,16 @@
 //! Traits for binary analysis
 
 use crate::binary::common::*;
-use openre_core::error::OpenreResult as Result;
 use async_trait::async_trait;
+use openre_core::error::OpenreResult as Result;
 
 /// Trait for binary format identification
 #[async_trait]
 pub trait BinaryIdentifier: Send + Sync {
     fn format(&self) -> BinaryFormat;
-    
+
     async fn identify(&self, data: &[u8]) -> Result<BinaryIdentification>;
-    
+
     fn can_handle(&self, data: &[u8]) -> bool {
         BinaryFormat::from_bytes(data) == self.format()
     }
@@ -20,23 +20,23 @@ pub trait BinaryIdentifier: Send + Sync {
 #[async_trait]
 pub trait BinaryMetadataExtractor: Send + Sync {
     fn format(&self) -> BinaryFormat;
-    
+
     async fn extract_metadata(&self, data: &[u8]) -> Result<BinaryMetadata>;
-    
+
     async fn extract_sections(&self, data: &[u8]) -> Result<Vec<SectionInfo>>;
-    
+
     async fn extract_segments(&self, data: &[u8]) -> Result<Vec<SegmentInfo>>;
-    
+
     async fn extract_symbols(&self, data: &[u8]) -> Result<Vec<SymbolInfo>>;
-    
+
     async fn extract_imports(&self, data: &[u8]) -> Result<Vec<ImportInfo>>;
-    
+
     async fn extract_exports(&self, data: &[u8]) -> Result<Vec<ExportInfo>>;
-    
+
     async fn extract_strings(&self, data: &[u8]) -> Result<Vec<ExtractedString>>;
-    
+
     async fn extract_resources(&self, data: &[u8]) -> Result<Vec<ResourceInfo>>;
-    
+
     async fn extract_version_info(&self, data: &[u8]) -> Result<Option<VersionInfo>>;
 }
 
@@ -44,12 +44,24 @@ pub trait BinaryMetadataExtractor: Send + Sync {
 #[async_trait]
 pub trait StaticAnalyzer: Send + Sync {
     async fn calculate_entropy(&self, data: &[u8]) -> Result<f64>;
-    
-    async fn find_functions(&self, data: &[u8], metadata: &BinaryMetadata) -> Result<Vec<FunctionInfo>>;
-    
-    async fn analyze_control_flow(&self, data: &[u8], metadata: &BinaryMetadata) -> Result<ControlFlowInfo>;
-    
-    async fn analyze_data_flow(&self, data: &[u8], metadata: &BinaryMetadata) -> Result<DataFlowInfo>;
+
+    async fn find_functions(
+        &self,
+        data: &[u8],
+        metadata: &BinaryMetadata,
+    ) -> Result<Vec<FunctionInfo>>;
+
+    async fn analyze_control_flow(
+        &self,
+        data: &[u8],
+        metadata: &BinaryMetadata,
+    ) -> Result<ControlFlowInfo>;
+
+    async fn analyze_data_flow(
+        &self,
+        data: &[u8],
+        metadata: &BinaryMetadata,
+    ) -> Result<DataFlowInfo>;
 }
 
 /// Function information from static analysis

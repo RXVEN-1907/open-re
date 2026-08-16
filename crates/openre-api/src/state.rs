@@ -1,15 +1,17 @@
 //! Application state for open-re API
 
-use crate::{AuthService, ApiError, ApiResult};
+use crate::{ApiError, ApiResult, AuthService};
+use governor::{Quota, RateLimiter};
 use openre_ai::AiService;
 use openre_config::Config;
 use openre_plugins::PluginRegistry;
-use openre_queue::{QueueManager, ProgressTracker, CancellationManager, Scheduler};
-use openre_scanner::storage::{ScanStorage, SqliteScanStorage, MemoryScanStorage};
+use openre_queue::{CancellationManager, ProgressTracker, QueueManager, Scheduler};
+use openre_scanner::storage::{MemoryScanStorage, ScanStorage, SqliteScanStorage};
+use openre_security_ai::{
+    FindingProvider, ScanStorageFindingProvider, SecurityAnalyst, SecurityAnalystImpl,
+};
 use openre_storage::{GlobalStore, ObjectStore};
 use openre_telemetry::Telemetry;
-use openre_security_ai::{SecurityAnalyst, SecurityAnalystImpl, FindingProvider, ScanStorageFindingProvider};
-use governor::{Quota, RateLimiter};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
@@ -30,7 +32,13 @@ pub struct AppState {
     pub plugin_registry: Arc<PluginRegistry>,
     pub auth_service: Arc<AuthService>,
     pub telemetry: Arc<Telemetry>,
-    pub rate_limiter: Arc<RateLimiter<governor::state::NotKeyed, governor::state::InMemoryState, governor::clock::DefaultClock>>,
+    pub rate_limiter: Arc<
+        RateLimiter<
+            governor::state::NotKeyed,
+            governor::state::InMemoryState,
+            governor::clock::DefaultClock,
+        >,
+    >,
     pub scan_storage: Arc<dyn ScanStorage>,
 }
 
@@ -39,64 +47,68 @@ impl AppState {
     pub async fn new(config: Config) -> ApiResult<Self> {
         // Initialize telemetry
         let telemetry = Arc::new(Telemetry::new(&config.telemetry)?);
-        
+
         // Initialize stores
         let global_store = Arc::new(GlobalStore::new(&config.database).await?);
         let object_store = Arc::new(ObjectStore::new(&config.storage).await?);
-        
+
         // Initialize queue system
         let queue_metrics = telemetry.metrics.queue_metrics();
         let queue_manager = Arc::new(QueueManager::new(config.queue.clone(), queue_metrics).await?);
-        
+
         let progress_tracker = Arc::new(ProgressTracker::new(
             queue_manager.client().clone(),
             telemetry.metrics.progress_metrics(),
         ));
-        
+
         let cancellation_manager = Arc::new(CancellationManager::new(
             queue_manager.clone(),
             queue_manager.client().clone(),
             telemetry.metrics.cancellation_metrics(),
         ));
-        
+
         let scheduler = Arc::new(Scheduler::new(
             queue_manager.clone(),
             queue_manager.client().clone(),
             telemetry.metrics.scheduler_metrics(),
         ));
-        
+
         // Load scheduled jobs from Redis
         scheduler.load_from_redis().await?;
-        
+
         // Start background tasks
         queue_manager.start_maintenance().await;
         progress_tracker.start_cleanup().await;
         scheduler.start().await;
-        
+
         // Initialize AI service
-        let ai_service = Arc::new(AiService::new(
-            config.ai.clone(),
-            global_store.clone(),
-            object_store.clone(),
-        ).await?);
-        
+        let ai_service = Arc::new(
+            AiService::new(
+                config.ai.clone(),
+                global_store.clone(),
+                object_store.clone(),
+            )
+            .await?,
+        );
+
         // Initialize plugin registry
         let plugin_registry = Arc::new(PluginRegistry::new(&config.plugins).await?);
-        
+
         // Initialize auth service
         let auth_service = Arc::new(AuthService::new(config.auth.clone()));
-        
+
         // Initialize rate limiter
-        let quota = Quota::per_minute(NonZeroU32::new(config.rate_limit.requests_per_minute).unwrap());
+        let quota =
+            Quota::per_minute(NonZeroU32::new(config.rate_limit.requests_per_minute).unwrap());
         let rate_limiter = Arc::new(RateLimiter::direct(quota));
-        
+
         // Initialize scan storage
         let scan_storage: Arc<dyn ScanStorage> = if config.database.url.starts_with("sqlite") {
             Arc::new(SqliteScanStorage::new(&config.database.url).await?)
         } else {
             Arc::new(MemoryScanStorage::new())
         };
-        
+
         // Initialize AI Security Analyst if configured
         let analyst: Option<Arc<dyn SecurityAnalyst>> = if config.ai.providers.is_empty() {
             None
@@ -105,7 +117,8 @@ impl AppState {
             // In a real implementation, this should be configurable
             if let Some((provider_id, _)) = config.ai.providers.first() {
                 if let Some(provider) = ai_service.get_provider(provider_id) {
-                    let finding_provider = Arc::new(ScanStorageFindingProvider::new(scan_storage.clone()));
+                    let finding_provider =
+                        Arc::new(ScanStorageFindingProvider::new(scan_storage.clone()));
                     let analyst_impl = SecurityAnalystImpl::new(
                         finding_provider,
                         Arc::from(provider),
@@ -119,7 +132,7 @@ impl AppState {
                 None
             }
         };
-        
+
         Ok(Self {
             config: Arc::new(config),
             global_store,
@@ -137,20 +150,25 @@ impl AppState {
             scan_storage,
         })
     }
-    
+
     /// Get project store for a project
-    pub async fn get_project_store(&self, project_id: openre_core::ids::ProjectId) -> ApiResult<Arc<openre_storage::ProjectStore>> {
-        self.global_store.get_project_store(project_id).await
+    pub async fn get_project_store(
+        &self,
+        project_id: openre_core::ids::ProjectId,
+    ) -> ApiResult<Arc<openre_storage::ProjectStore>> {
+        self.global_store
+            .get_project_store(project_id)
+            .await
             .map_err(|e| ApiError::Internal(e.to_string()))
     }
-    
+
     /// Health check
     pub async fn health_check(&self) -> ApiResult<()> {
         self.global_store.health_check().await?;
         self.queue_manager.health_check().await?;
         Ok(())
     }
-    
+
     /// Shutdown gracefully
     pub async fn shutdown(&self) -> ApiResult<()> {
         // Stop accepting new requests

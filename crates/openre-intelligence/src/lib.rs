@@ -14,14 +14,14 @@
 pub mod correlation;
 pub mod cve_intelligence;
 pub mod dependency_analysis;
+pub mod error;
 pub mod knowledge_base;
+pub mod performance;
 pub mod root_cause;
 pub mod scan_diff;
-pub mod workflow;
-pub mod performance;
 pub mod tui_enhancements;
 pub mod types;
-pub mod error;
+pub mod workflow;
 
 #[cfg(test)]
 mod comprehensive_test;
@@ -30,14 +30,14 @@ mod comprehensive_test;
 pub use correlation::CorrelationEngine;
 pub use cve_intelligence::{CveIntelligence, CveProvider};
 pub use dependency_analysis::DependencyAnalyzer;
+pub use error::IntelligenceError;
 pub use knowledge_base::KnowledgeBase;
+pub use performance::PerformanceOptimizer;
 pub use root_cause::RootCauseAnalyzer;
 pub use scan_diff::ScanDiffAnalyzer;
-pub use workflow::WorkflowManager;
-pub use performance::PerformanceOptimizer;
 pub use tui_enhancements::TuiEnhancer;
 pub use types::*;
-pub use error::IntelligenceError;
+pub use workflow::WorkflowManager;
 
 /// Intelligence module result type
 pub type IntelligenceResult<T> = Result<T, error::IntelligenceError>;

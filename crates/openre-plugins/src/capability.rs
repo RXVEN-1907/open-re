@@ -1,7 +1,7 @@
 //! Capability system for plugins
 
-use openre_core::ids::Capability;
 use openre_core::error::OpenreResult as Result;
+use openre_core::ids::Capability;
 use std::collections::HashSet;
 
 /// Capability enforcer for runtime permission checking
@@ -38,7 +38,7 @@ pub fn validate_capabilities(
     requested: &[Capability],
 ) -> Result<()> {
     let allowed = allowed_capabilities_for_type(plugin_type);
-    
+
     for cap in requested {
         if !allowed.contains(cap) {
             return Err(openre_core::Error::Validation(format!(
@@ -50,40 +50,39 @@ pub fn validate_capabilities(
     Ok(())
 }
 
-fn allowed_capabilities_for_type(
-    plugin_type: openre_core::ids::PluginType,
-) -> HashSet<Capability> {
+fn allowed_capabilities_for_type(plugin_type: openre_core::ids::PluginType) -> HashSet<Capability> {
     use openre_core::ids::{Capability, PluginType};
-    
+
     match plugin_type {
-        PluginType::Identifier => [
-            Capability::ReadBinary,
-            Capability::WriteAnnotations,
-        ].into(),
+        PluginType::Identifier => [Capability::ReadBinary, Capability::WriteAnnotations].into(),
         PluginType::Disassembler => [
             Capability::ReadBinary,
             Capability::WriteAnnotations,
             Capability::QueryDatabase,
-        ].into(),
+        ]
+        .into(),
         PluginType::Decompiler => [
             Capability::ReadBinary,
             Capability::WriteAnnotations,
             Capability::QueryDatabase,
             Capability::ReadCfg,
-        ].into(),
+        ]
+        .into(),
         PluginType::Analyzer => [
             Capability::ReadBinary,
             Capability::WriteAnnotations,
             Capability::QueryDatabase,
             Capability::ReadCfg,
             Capability::ReadDataFlow,
-        ].into(),
+        ]
+        .into(),
         PluginType::AiEnricher => [
             Capability::ReadBinary,
             Capability::WriteAnnotations,
             Capability::QueryDatabase,
             Capability::CallAi,
-        ].into(),
+        ]
+        .into(),
         PluginType::Exporter => [
             Capability::ReadBinary,
             Capability::QueryDatabase,
@@ -92,11 +91,9 @@ fn allowed_capabilities_for_type(
             Capability::ReadSymbols,
             Capability::ReadStrings,
             Capability::ReadXRefs,
-        ].into(),
-        PluginType::Importer => [
-            Capability::WriteAnnotations,
-            Capability::WriteBinary,
-        ].into(),
+        ]
+        .into(),
+        PluginType::Importer => [Capability::WriteAnnotations, Capability::WriteBinary].into(),
         PluginType::UiExtension => [
             Capability::ReadUiState,
             Capability::WriteUiState,
@@ -104,21 +101,22 @@ fn allowed_capabilities_for_type(
             Capability::RegisterPanel,
             Capability::RegisterMenu,
             Capability::RegisterShortcut,
-        ].into(),
-        PluginType::Theme => [
-            Capability::RegisterTheme,
-        ].into(),
+        ]
+        .into(),
+        PluginType::Theme => [Capability::RegisterTheme].into(),
         PluginType::Language => [
             Capability::ReadBinary,
             Capability::WriteAnnotations,
             Capability::RegisterInstructionSet,
-        ].into(),
+        ]
+        .into(),
         PluginType::Security => [
             Capability::ReadBinary,
             Capability::WriteAnnotations,
             Capability::QueryDatabase,
             Capability::NetworkAccess,
             Capability::ReadConfig,
-        ].into(),
+        ]
+        .into(),
     }
 }

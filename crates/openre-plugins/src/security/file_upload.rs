@@ -4,16 +4,22 @@
 //! allowed extensions, MIME type validation, size restrictions,
 //! filename handling, storage behavior, and dangerous configurations.
 
+use crate::sdk::{
+    AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin, PluginId, Result,
+};
 use crate::security::{SecurityPlugin, SecurityPluginConfig, SecurityReference};
-use crate::sdk::{CapabilityRequest, CapabilityResponse, AnalysisContext, Result, Capability, PluginId, Plugin};
-use openre_core::result::{Finding, Severity, Confidence, Category, Evidence, EvidenceType, Reference, ReferenceType};
+use async_trait::async_trait;
+use chrono::Utc;
+use openre_core::result::{
+    Category, Confidence, Evidence, EvidenceType, Finding, FindingConfig, Reference, ReferenceType,
+    Severity,
+};
+use reqwest::multipart::{Form, Part};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_trait::async_trait;
 use tracing::{debug, info, warn};
-use reqwest::Client;
-use reqwest::multipart::{Form, Part};
 
 /// File Upload Security Plugin
 pub struct FileUploadPlugin {
@@ -27,25 +33,27 @@ impl FileUploadPlugin {
         let client = Arc::new(
             reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(config.request_timeout))
-                .redirect(reqwest::redirect::Policy::limited(config.max_redirects as usize))
+                .redirect(reqwest::redirect::Policy::limited(
+                    config.max_redirects as usize,
+                ))
                 .user_agent(&config.user_agent)
                 .build()
-                .map_err(|e| format!("Failed to create HTTP client: {}", e))?
+                .map_err(|e| format!("Failed to create HTTP client: {}", e))?,
         );
-        
+
         Ok(Self { config, client })
     }
-    
+
     /// Get plugin version
     fn version(&self) -> &'static str {
         "1.0.0"
     }
-    
+
     /// Get plugin description
     fn description(&self) -> &'static str {
         "Evaluates file upload mechanisms for security issues including allowed extensions, MIME type validation, size restrictions, filename handling, storage behavior, and dangerous configurations"
     }
-    
+
     /// Get plugin references
     fn references(&self) -> Vec<SecurityReference> {
         vec![
@@ -69,7 +77,7 @@ impl FileUploadPlugin {
             },
         ]
     }
-    
+
     /// Validate configuration
     fn validate_config(&self, config: &FileUploadConfig) -> std::result::Result<(), String> {
         if config.request_timeout == 0 {
@@ -80,61 +88,89 @@ impl FileUploadPlugin {
         }
         Ok(())
     }
-    
+
     /// Discover file upload endpoints
     async fn discover_upload_endpoints(&self, base_url: &str) -> Vec<UploadEndpoint> {
         let mut endpoints = Vec::new();
-        
+
         // Common file upload paths
         let common_paths = vec![
-            "/api/upload", "/api/upload/",
-            "/api/files", "/api/files/",
-            "/api/attachments", "/api/attachments/",
-            "/api/documents", "/api/documents/",
-            "/api/images", "/api/images/",
-            "/api/media", "/api/media/",
-            "/api/avatar", "/api/avatar/",
-            "/api/profile/upload", "/api/profile/avatar",
-            "/upload", "/upload/",
-            "/files", "/files/",
-            "/import", "/import/",
+            "/api/upload",
+            "/api/upload/",
+            "/api/files",
+            "/api/files/",
+            "/api/attachments",
+            "/api/attachments/",
+            "/api/documents",
+            "/api/documents/",
+            "/api/images",
+            "/api/images/",
+            "/api/media",
+            "/api/media/",
+            "/api/avatar",
+            "/api/avatar/",
+            "/api/profile/upload",
+            "/api/profile/avatar",
+            "/upload",
+            "/upload/",
+            "/files",
+            "/files/",
+            "/import",
+            "/import/",
         ];
-        
+
         for path in common_paths {
             let url = format!("{}{}", base_url.trim_end_matches('/'), path);
-            
+
             // Test with OPTIONS to see allowed methods
-            if let Ok(resp) = self.client.request(reqwest::Method::OPTIONS, &url).send().await {
-                if resp.status().is_success() || resp.status().as_u16() == 401 || resp.status().as_u16() == 403 || resp.status().as_u16() == 405 {
-                    let allow_header = resp.headers().get("allow")
+            if let Ok(resp) = self
+                .client
+                .request(reqwest::Method::OPTIONS, &url)
+                .send()
+                .await
+            {
+                if resp.status().is_success()
+                    || resp.status().as_u16() == 401
+                    || resp.status().as_u16() == 403
+                    || resp.status().as_u16() == 405
+                {
+                    let allow_header = resp
+                        .headers()
+                        .get("allow")
                         .and_then(|v| v.to_str().ok())
                         .unwrap_or("")
                         .to_string();
-                    
-                    let methods: Vec<String> = allow_header.split(',')
+
+                    let methods: Vec<String> = allow_header
+                        .split(',')
                         .map(|s| s.trim().to_uppercase())
                         .filter(|s| ["POST", "PUT", "PATCH"].contains(&s.as_str()))
                         .collect();
-                    
+
                     if !methods.is_empty() {
                         endpoints.push(UploadEndpoint {
                             url: url.clone(),
                             path: path.to_string(),
                             methods,
-                            requires_auth: resp.status().as_u16() == 401 || resp.status().as_u16() == 403,
+                            requires_auth: resp.status().as_u16() == 401
+                                || resp.status().as_u16() == 403,
                         });
                     }
                 }
             }
         }
-        
+
         endpoints
     }
-    
+
     /// Test file upload endpoint for security issues
-    async fn test_endpoint(&self, endpoint: &UploadEndpoint) -> Vec<Finding> {
+    async fn test_endpoint(
+        &self,
+        endpoint: &UploadEndpoint,
+        scan_id: openre_core::ids::ScanId,
+    ) -> Vec<Finding> {
         let mut findings = Vec::new();
-        
+
         // Test 1: Dangerous file extensions
         let dangerous_extensions = vec![
             ("shell.php", "PHP shell script"),
@@ -154,13 +190,22 @@ impl FileUploadPlugin {
             ("shell.jar", "Java archive"),
             ("shell.war", "Web archive"),
         ];
-        
+
         for (filename, description) in dangerous_extensions {
-            if let Some(finding) = self.test_file_upload(endpoint, filename, &self.create_test_content(description), "application/octet-stream").await {
+            if let Some(finding) = self
+                .test_file_upload(
+                    endpoint,
+                    filename,
+                    &self.create_test_content(description),
+                    "application/octet-stream",
+                    scan_id,
+                )
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Test 2: Double extensions
         let double_extensions = vec![
             "shell.php.jpg",
@@ -169,26 +214,32 @@ impl FileUploadPlugin {
             "shell.asp.png",
             "shell.jsp.jpg",
         ];
-        
+
         for filename in double_extensions {
-            if let Some(finding) = self.test_file_upload(endpoint, filename, "test content", "image/jpeg").await {
+            if let Some(finding) = self
+                .test_file_upload(endpoint, filename, "test content", "image/jpeg", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Test 3: Null byte injection in filename
         let null_byte_filenames = vec![
             "shell.php%00.jpg",
             "shell.php\u{00}.jpg",
             "shell.asp%00.png",
         ];
-        
+
         for filename in null_byte_filenames {
-            if let Some(finding) = self.test_file_upload(endpoint, filename, "test content", "image/jpeg").await {
+            if let Some(finding) = self
+                .test_file_upload(endpoint, filename, "test content", "image/jpeg", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Test 4: Path traversal in filename
         let path_traversal_filenames = vec![
             "../../../etc/passwd",
@@ -197,13 +248,22 @@ impl FileUploadPlugin {
             "..%5C..%5C..%5Cwindows%5Csystem32%5Ccmd.exe",
             "shell.php/../../../etc/passwd",
         ];
-        
+
         for filename in path_traversal_filenames {
-            if let Some(finding) = self.test_file_upload(endpoint, filename, "test content", "application/octet-stream").await {
+            if let Some(finding) = self
+                .test_file_upload(
+                    endpoint,
+                    filename,
+                    "test content",
+                    "application/octet-stream",
+                    scan_id,
+                )
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Test 5: MIME type bypass
         let mime_bypass_tests = vec![
             ("shell.php", "image/jpeg"),
@@ -212,24 +272,39 @@ impl FileUploadPlugin {
             ("shell.asp", "application/pdf"),
             ("shell.jsp", "text/plain"),
         ];
-        
+
         for (filename, mime_type) in mime_bypass_tests {
-            if let Some(finding) = self.test_file_upload(endpoint, filename, "<?php system($_GET['cmd']); ?>", mime_type).await {
+            if let Some(finding) = self
+                .test_file_upload(
+                    endpoint,
+                    filename,
+                    "<?php system($_GET['cmd']); ?>",
+                    mime_type,
+                    scan_id,
+                )
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Test 6: File size limits
         let large_content = "A".repeat(100 * 1024 * 1024); // 100MB
-        if let Some(finding) = self.test_file_upload(endpoint, "large.txt", &large_content, "text/plain").await {
+        if let Some(finding) = self
+            .test_file_upload(endpoint, "large.txt", &large_content, "text/plain", scan_id)
+            .await
+        {
             findings.push(finding);
         }
-        
+
         // Test 7: Empty filename
-        if let Some(finding) = self.test_file_upload(endpoint, "", "test content", "text/plain").await {
+        if let Some(finding) = self
+            .test_file_upload(endpoint, "", "test content", "text/plain", scan_id)
+            .await
+        {
             findings.push(finding);
         }
-        
+
         // Test 8: Special characters in filename
         let special_filenames = vec![
             "shell.php;.jpg",
@@ -243,26 +318,32 @@ impl FileUploadPlugin {
             "shell.php<.jpg",
             "shell.php>.jpg",
         ];
-        
+
         for filename in special_filenames {
-            if let Some(finding) = self.test_file_upload(endpoint, filename, "test content", "image/jpeg").await {
+            if let Some(finding) = self
+                .test_file_upload(endpoint, filename, "test content", "image/jpeg", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Test 9: Unicode/UTF-8 filenames
         let unicode_filenames = vec![
             "shell.php\u{0000}.jpg",
             "shell.php\u{202E}jpg.php", // Right-to-left override
-            "shell.php\u{FEFF}.jpg", // BOM
+            "shell.php\u{FEFF}.jpg",    // BOM
         ];
-        
+
         for filename in unicode_filenames {
-            if let Some(finding) = self.test_file_upload(endpoint, filename, "test content", "image/jpeg").await {
+            if let Some(finding) = self
+                .test_file_upload(endpoint, filename, "test content", "image/jpeg", scan_id)
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         // Test 10: Case sensitivity bypass
         let case_filenames = vec![
             "shell.PHP",
@@ -273,48 +354,72 @@ impl FileUploadPlugin {
             "shell.JSP",
             "shell.Jsp",
         ];
-        
+
         for filename in case_filenames {
-            if let Some(finding) = self.test_file_upload(endpoint, filename, "test content", "application/octet-stream").await {
+            if let Some(finding) = self
+                .test_file_upload(
+                    endpoint,
+                    filename,
+                    "test content",
+                    "application/octet-stream",
+                    scan_id,
+                )
+                .await
+            {
                 findings.push(finding);
             }
         }
-        
+
         findings
     }
-    
+
     /// Test a single file upload
-    async fn test_file_upload(&self, endpoint: &UploadEndpoint, filename: &str, content: &str, mime_type: &str) -> Option<Finding> {
+    async fn test_file_upload(
+        &self,
+        endpoint: &UploadEndpoint,
+        filename: &str,
+        content: &str,
+        mime_type: &str,
+        scan_id: openre_core::ids::ScanId,
+    ) -> Option<Finding> {
         // Try each supported method
         for method in &endpoint.methods {
             let url = &endpoint.url;
-            
+
             let part = Part::text(content.to_string())
                 .file_name(filename.to_string())
-                .mime_str(mime_type).ok()?;
-            
+                .mime_str(mime_type)
+                .ok()?;
+
             let form = Form::new().part("file", part);
-            
+
             let req = match method.as_str() {
                 "POST" => self.client.post(url).multipart(form),
                 "PUT" => self.client.put(url).multipart(form),
                 "PATCH" => self.client.patch(url).multipart(form),
                 _ => continue,
             };
-            
+
             if let Ok(resp) = req.send().await {
                 let status = resp.status().as_u16();
                 let body = resp.text().await.unwrap_or_default();
-                
+
                 // Check if upload was successful (2xx or 3xx)
                 if status >= 200 && status < 400 {
                     // Check if response indicates file was processed/stored
-                    let stored = body.contains(filename) || body.contains("success") || body.contains("uploaded") || body.contains("url") || body.contains("path");
-                    
+                    let stored = body.contains(filename)
+                        || body.contains("success")
+                        || body.contains("uploaded")
+                        || body.contains("url")
+                        || body.contains("path");
+
                     if stored {
                         return Some(self.create_finding(
                             "Dangerous File Upload Accepted",
-                            &format!("Endpoint {} accepted dangerous file: {} ({})", endpoint.path, filename, mime_type),
+                            &format!(
+                                "Endpoint {} accepted dangerous file: {} ({})",
+                                endpoint.path, filename, mime_type
+                            ),
                             Severity::High,
                             Confidence::High,
                             Category::SecurityMisconfiguration,
@@ -328,15 +433,24 @@ impl FileUploadPlugin {
                                 "Validate MIME type matches file content".to_string(),
                                 "Scan uploaded files for malware".to_string(),
                             ],
+                            scan_id,
                         ));
                     }
                 }
-                
+
                 // Check for path traversal success indicators
-                if status >= 200 && status < 400 && (filename.contains("..") || filename.contains("%2F") || filename.contains("%5C")) {
+                if status >= 200
+                    && status < 400
+                    && (filename.contains("..")
+                        || filename.contains("%2F")
+                        || filename.contains("%5C"))
+                {
                     return Some(self.create_finding(
                         "Path Traversal in File Upload",
-                        &format!("Endpoint {} accepted filename with path traversal: {}", endpoint.path, filename),
+                        &format!(
+                            "Endpoint {} accepted filename with path traversal: {}",
+                            endpoint.path, filename
+                        ),
                         Severity::Critical,
                         Confidence::High,
                         Category::SecurityMisconfiguration,
@@ -349,14 +463,15 @@ impl FileUploadPlugin {
                             "Store files with generated safe names".to_string(),
                             "Validate file paths are within upload directory".to_string(),
                         ],
+                        scan_id,
                     ));
                 }
             }
         }
-        
+
         None
     }
-    
+
     /// Create test content for file uploads
     fn create_test_content(&self, description: &str) -> String {
         match description {
@@ -379,7 +494,7 @@ impl FileUploadPlugin {
             _ => "test content".to_string(),
         }
     }
-    
+
     /// Create a finding
     fn create_finding(
         &self,
@@ -393,23 +508,27 @@ impl FileUploadPlugin {
         mime_type: &str,
         tags: Vec<String>,
         verification_steps: Vec<String>,
+        scan_id: openre_core::ids::ScanId,
     ) -> Finding {
-        let mut finding = Finding::new(
-            title.to_string(),
-            description.to_string(),
+        let mut finding = Finding::new(FindingConfig {
+            title: title.to_string(),
+            description: description.to_string(),
             severity,
             confidence,
             category,
-            endpoint.url.clone(),
-            "web_api".to_string(),
-            "file_upload".to_string(),
-            self.version().to_string(),
-            openre_core::ids::ScanId::new(),
-        );
-        
+            target: endpoint.url.clone(),
+            target_type: "web_api".to_string(),
+            plugin_source: "file_upload".to_string(),
+            plugin_version: self.version().to_string(),
+            scan_id,
+        });
+
         finding = finding.with_evidence(Evidence {
             evidence_type: EvidenceType::HttpResponse,
-            description: format!("File upload test for {} with file {}", endpoint.path, filename),
+            description: format!(
+                "File upload test for {} with file {}",
+                endpoint.path, filename
+            ),
             data: Some(serde_json::json!({
                 "endpoint": {
                     "url": endpoint.url,
@@ -424,8 +543,15 @@ impl FileUploadPlugin {
             })),
             location: Some(endpoint.url.clone()),
             metadata: HashMap::new(),
+            http_request: None,
+            http_response: None,
+            timing: None,
+            payload: None,
+            reproduction_steps: None,
+            plugin_source: Some("file_upload".to_string()),
+            timestamp: Utc::now(),
         });
-        
+
         for reference in self.references() {
             finding = finding.with_reference(Reference {
                 reference_type: match reference.ref_type.as_str() {
@@ -439,12 +565,12 @@ impl FileUploadPlugin {
                 description: Some(reference.description.clone()),
             });
         }
-        
+
         for tag in tags {
             finding = finding.with_tag(tag);
         }
         finding = finding.with_tag("file-upload".to_string());
-        
+
         finding
     }
 }
@@ -452,40 +578,40 @@ impl FileUploadPlugin {
 #[async_trait]
 impl Plugin for FileUploadPlugin {
     type Config = FileUploadConfig;
-    
+
     fn new(config: Self::Config) -> Self {
         Self::new(config).expect("Failed to create File Upload plugin")
     }
-    
+
     fn capabilities(&self) -> Vec<Capability> {
-        vec![
-            Capability::NetworkAccess,
-            Capability::ReadConfig,
-        ]
+        vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
-    
+
     async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
         let context = request.context;
-        let target_url = request.input.get("target_url")
+        let scan_id = openre_core::ids::ScanId::from_uuid(context.job_id.as_uuid());
+        let target_url = request
+            .input
+            .get("target_url")
             .and_then(|v| v.as_str())
             .unwrap_or("http://localhost");
-        
+
         info!("Starting file upload security analysis for {}", target_url);
-        
+
         // Discover upload endpoints
         let endpoints = self.discover_upload_endpoints(target_url).await;
         let endpoints_count = endpoints.len();
         info!("Discovered {} upload endpoints", endpoints_count);
-        
+
         // Test each endpoint
         let mut all_findings = Vec::new();
         for endpoint in endpoints {
-            let findings = self.test_endpoint(&endpoint).await;
+            let findings = self.test_endpoint(&endpoint, scan_id).await;
             all_findings.extend(findings);
         }
-        
+
         info!("Found {} file upload issues", all_findings.len());
-        
+
         Ok(CapabilityResponse::success(serde_json::json!({
             "findings": all_findings,
             "endpoints_tested": endpoints_count,

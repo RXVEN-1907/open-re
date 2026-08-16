@@ -1,17 +1,17 @@
 //! API endpoints for scan management
 
-use crate::error::{ScannerError, ScannerResult};
-use crate::scan::{ScanManager, ScanSession, ScanStatus, ScanProgress, ScanId};
-use crate::target::{Target, TargetId, TargetType, TargetMetadata, ScanConfig};
-use crate::result::{Finding, FindingId, FindingFilter, FindingSort, FindingStats};
-use crate::plugin::{PluginManager, PluginInfo, PluginId, PluginConfig};
-use crate::storage::{ScanStorage, MemoryScanStorage, SqliteScanStorage};
 use crate::context::ScanContext;
+use crate::error::{ScannerError, ScannerResult};
+use crate::plugin::{PluginConfig, PluginId, PluginInfo, PluginManager};
+use crate::result::{Finding, FindingFilter, FindingId, FindingSort, FindingStats};
+use crate::scan::{ScanId, ScanManager, ScanProgress, ScanSession, ScanStatus};
+use crate::storage::{MemoryScanStorage, ScanStorage, SqliteScanStorage};
+use crate::target::{ScanConfig, Target, TargetId, TargetMetadata, TargetType};
 use axum::{
-    extract::{Path, Query, State, Json},
+    extract::{Json, Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post, put, delete},
+    routing::{delete, get, post, put},
     Router,
 };
 use openre_core::ids::ProjectId;
@@ -332,7 +332,10 @@ pub fn create_router(state: ApiState) -> Router {
     Router::new()
         // Scan endpoints
         .route("/scans", post(create_scan).get(list_scans))
-        .route("/scans/:id", get(get_scan).put(update_scan).delete(cancel_scan))
+        .route(
+            "/scans/:id",
+            get(get_scan).put(update_scan).delete(cancel_scan),
+        )
         .route("/scans/:id/cancel", post(cancel_scan))
         .route("/scans/:id/pause", post(pause_scan))
         .route("/scans/:id/resume", post(resume_scan))
@@ -341,13 +344,19 @@ pub fn create_router(state: ApiState) -> Router {
         .route("/scans/:id/logs", get(get_scan_logs))
         // Target endpoints
         .route("/targets", post(create_target).get(list_targets))
-        .route("/targets/:id", get(get_target).put(update_target).delete(delete_target))
+        .route(
+            "/targets/:id",
+            get(get_target).put(update_target).delete(delete_target),
+        )
         // Plugin endpoints
         .route("/plugins", get(list_plugins))
         .route("/plugins/:id", get(get_plugin))
         .route("/plugins/:id/enable", post(enable_plugin))
         .route("/plugins/:id/disable", post(disable_plugin))
-        .route("/plugins/:id/config", get(get_plugin_config).put(set_plugin_config))
+        .route(
+            "/plugins/:id/config",
+            get(get_plugin_config).put(set_plugin_config),
+        )
         // Finding endpoints
         .route("/findings/stats", get(get_finding_stats))
         // OpenAPI documentation
@@ -386,19 +395,25 @@ async fn create_scan(
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response());
+        )
+            .into_response());
     }
 
     // Get target
-    let target = state.target_manager.get(&request.target_id)
-        .ok_or_else(|| (
-            StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: "not_found".to_string(),
-                message: format!("Target {} not found", request.target_id),
-                details: None,
-            }),
-        ).into_response())?;
+    let target = state
+        .target_manager
+        .get(&request.target_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "not_found".to_string(),
+                    message: format!("Target {} not found", request.target_id),
+                    details: None,
+                }),
+            )
+                .into_response()
+        })?;
 
     // Build scan config
     let mut config = ScanConfig {
@@ -417,31 +432,36 @@ async fn create_scan(
     };
 
     // Start scan
-    let scan_id = state.scan_manager.start_scan(config, target).await
-        .map_err(|e| (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: "scan_error".to_string(),
-                message: e.to_string(),
-                details: None,
-            }),
-        ).into_response())?;
+    let scan_id = state
+        .scan_manager
+        .start_scan(config, target)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "scan_error".to_string(),
+                    message: e.to_string(),
+                    details: None,
+                }),
+            )
+                .into_response()
+        })?;
 
     // Get created scan
-    let scan = state.scan_manager.get_scan(&scan_id)
-        .ok_or_else(|| (
+    let scan = state.scan_manager.get_scan(&scan_id).ok_or_else(|| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "scan_error".to_string(),
                 message: "Failed to retrieve created scan".to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(ScanResponse::from(scan)),
-    ).into_response())
+    Ok((StatusCode::CREATED, Json(ScanResponse::from(scan))).into_response())
 }
 
 /// Get a scan by ID
@@ -461,15 +481,17 @@ async fn get_scan(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
 ) -> Result<impl IntoResponse, Response> {
-    let scan = state.scan_manager.get_scan(&id)
-        .ok_or_else(|| (
+    let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
+        (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
                 error: "not_found".to_string(),
                 message: format!("Scan {} not found", id),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(ScanResponse::from(scan)).into_response())
 }
@@ -491,7 +513,8 @@ async fn list_scans(
     Query(params): Query<PaginationParams>,
 ) -> impl IntoResponse {
     let scans = state.scan_manager.list_scans();
-    let scans: Vec<ScanResponse> = scans.into_iter()
+    let scans: Vec<ScanResponse> = scans
+        .into_iter()
         .skip(params.offset)
         .take(params.limit)
         .map(ScanResponse::from)
@@ -519,51 +542,59 @@ async fn update_scan(
     Path(id): Path<ScanId>,
     Json(request): Json<UpdateScanRequest>,
 ) -> Result<impl IntoResponse, Response> {
-    let scan = state.scan_manager.get_scan(&id)
-        .ok_or_else(|| (
+    let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
+        (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
                 error: "not_found".to_string(),
                 message: format!("Scan {} not found", id),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     // Handle status changes
     if let Some(status) = request.status {
         match status {
             ScanStatus::Cancelled => {
-                state.scan_manager.cancel_scan(&id).await
-                    .map_err(|e| (
+                state.scan_manager.cancel_scan(&id).await.map_err(|e| {
+                    (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ErrorResponse {
                             error: "scan_error".to_string(),
                             message: e.to_string(),
                             details: None,
                         }),
-                    ).into_response())?;
+                    )
+                        .into_response()
+                })?;
             }
             ScanStatus::Paused => {
-                state.scan_manager.pause_scan(&id).await
-                    .map_err(|e| (
+                state.scan_manager.pause_scan(&id).await.map_err(|e| {
+                    (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ErrorResponse {
                             error: "scan_error".to_string(),
                             message: e.to_string(),
                             details: None,
                         }),
-                    ).into_response())?;
+                    )
+                        .into_response()
+                })?;
             }
             ScanStatus::Running => {
-                state.scan_manager.resume_scan(&id).await
-                    .map_err(|e| (
+                state.scan_manager.resume_scan(&id).await.map_err(|e| {
+                    (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ErrorResponse {
                             error: "scan_error".to_string(),
                             message: e.to_string(),
                             details: None,
                         }),
-                    ).into_response())?;
+                    )
+                        .into_response()
+                })?;
             }
             _ => {
                 return Err((
@@ -573,21 +604,24 @@ async fn update_scan(
                         message: "Cannot set this status via update".to_string(),
                         details: None,
                     }),
-                ).into_response());
+                )
+                    .into_response());
             }
         }
     }
 
     // Get updated scan
-    let scan = state.scan_manager.get_scan(&id)
-        .ok_or_else(|| (
+    let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "scan_error".to_string(),
                 message: "Failed to retrieve updated scan".to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(ScanResponse::from(scan)).into_response())
 }
@@ -609,25 +643,29 @@ async fn cancel_scan(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
 ) -> Result<impl IntoResponse, Response> {
-    state.scan_manager.cancel_scan(&id).await
-        .map_err(|e| (
+    state.scan_manager.cancel_scan(&id).await.map_err(|e| {
+        (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
                 error: "not_found".to_string(),
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
-    let scan = state.scan_manager.get_scan(&id)
-        .ok_or_else(|| (
+    let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "scan_error".to_string(),
                 message: "Failed to retrieve cancelled scan".to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(ScanResponse::from(scan)).into_response())
 }
@@ -650,25 +688,29 @@ async fn pause_scan(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
 ) -> Result<impl IntoResponse, Response> {
-    state.scan_manager.pause_scan(&id).await
-        .map_err(|e| (
+    state.scan_manager.pause_scan(&id).await.map_err(|e| {
+        (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
                 error: "scan_error".to_string(),
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
-    let scan = state.scan_manager.get_scan(&id)
-        .ok_or_else(|| (
+    let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "scan_error".to_string(),
                 message: "Failed to retrieve paused scan".to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(ScanResponse::from(scan)).into_response())
 }
@@ -691,25 +733,29 @@ async fn resume_scan(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
 ) -> Result<impl IntoResponse, Response> {
-    state.scan_manager.resume_scan(&id).await
-        .map_err(|e| (
+    state.scan_manager.resume_scan(&id).await.map_err(|e| {
+        (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
                 error: "scan_error".to_string(),
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
-    let scan = state.scan_manager.get_scan(&id)
-        .ok_or_else(|| (
+    let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "scan_error".to_string(),
                 message: "Failed to retrieve resumed scan".to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(ScanResponse::from(scan)).into_response())
 }
@@ -731,15 +777,17 @@ async fn get_scan_progress(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
 ) -> Result<impl IntoResponse, Response> {
-    let progress = state.scan_manager.get_progress(&id)
-        .ok_or_else(|| (
+    let progress = state.scan_manager.get_progress(&id).ok_or_else(|| {
+        (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
                 error: "not_found".to_string(),
                 message: format!("Scan {} not found", id),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(progress).into_response())
 }
@@ -772,14 +820,21 @@ async fn get_scan_findings(
                 message: format!("Scan {} not found", id),
                 details: None,
             }),
-        ).into_response());
+        )
+            .into_response());
     }
 
     // Build filter
     let filter = FindingFilter {
-        severity: params.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
-        confidence: params.confidence.map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
-        category: params.category.map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
+        severity: params
+            .severity
+            .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+        confidence: params
+            .confidence
+            .map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
+        category: params
+            .category
+            .map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
         target: params.target,
         plugin_source: params.plugin_source,
         scan_id: Some(id),
@@ -794,15 +849,26 @@ async fn get_scan_findings(
     };
 
     let sort = params.sort.unwrap_or(FindingSort::SeverityDesc);
-    let findings = state.storage.get_findings_filtered(filter, sort, params.pagination.limit, params.pagination.offset).await
-        .map_err(|e| (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: "storage_error".to_string(),
-                message: e.to_string(),
-                details: None,
-            }),
-        ).into_response())?;
+    let findings = state
+        .storage
+        .get_findings_filtered(
+            filter,
+            sort,
+            params.pagination.limit,
+            params.pagination.offset,
+        )
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "storage_error".to_string(),
+                    message: e.to_string(),
+                    details: None,
+                }),
+            )
+                .into_response()
+        })?;
 
     let findings: Vec<FindingResponse> = findings.into_iter().map(FindingResponse::from).collect();
     Ok(Json(findings).into_response())
@@ -828,7 +894,8 @@ async fn get_scan_logs(
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, Response> {
     let logs = state.scan_manager.get_logs(&id);
-    let logs: Vec<crate::scan::ScanLogEntry> = logs.into_iter()
+    let logs: Vec<crate::scan::ScanLogEntry> = logs
+        .into_iter()
         .skip(params.offset)
         .take(params.limit)
         .collect();
@@ -859,18 +926,21 @@ async fn create_target(
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response());
+        )
+            .into_response());
     }
 
-    let base_url = request.base_url.parse()
-        .map_err(|e| (
+    let base_url = request.base_url.parse().map_err(|e| {
+        (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
                 error: "invalid_url".to_string(),
                 message: format!("Invalid base URL: {}", e),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     let mut metadata = TargetMetadata::new(request.name, base_url);
     if let Some(desc) = request.description {
@@ -910,31 +980,32 @@ async fn create_target(
     }
 
     let target = Target::new(request.target_type, metadata);
-    let target_id = state.target_manager.register(target.clone())
-        .map_err(|e| (
+    let target_id = state.target_manager.register(target.clone()).map_err(|e| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "target_error".to_string(),
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     // Save to storage
-    state.storage.save_target(&target).await
-        .map_err(|e| (
+    state.storage.save_target(&target).await.map_err(|e| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "storage_error".to_string(),
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(TargetResponse::from(target)),
-    ).into_response())
+    Ok((StatusCode::CREATED, Json(TargetResponse::from(target))).into_response())
 }
 
 /// Get a target by ID
@@ -954,15 +1025,17 @@ async fn get_target(
     State(state): State<ApiState>,
     Path(id): Path<TargetId>,
 ) -> Result<impl IntoResponse, Response> {
-    let target = state.target_manager.get(&id)
-        .ok_or_else(|| (
+    let target = state.target_manager.get(&id).ok_or_else(|| {
+        (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
                 error: "not_found".to_string(),
                 message: format!("Target {} not found", id),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(TargetResponse::from(target)).into_response())
 }
@@ -984,7 +1057,8 @@ async fn list_targets(
     Query(params): Query<PaginationParams>,
 ) -> impl IntoResponse {
     let targets = state.target_manager.list();
-    let targets: Vec<TargetResponse> = targets.into_iter()
+    let targets: Vec<TargetResponse> = targets
+        .into_iter()
         .skip(params.offset)
         .take(params.limit)
         .map(TargetResponse::from)
@@ -1012,15 +1086,17 @@ async fn update_target(
     Path(id): Path<TargetId>,
     Json(request): Json<UpdateTargetRequest>,
 ) -> Result<impl IntoResponse, Response> {
-    let mut target = state.target_manager.get(&id)
-        .ok_or_else(|| (
+    let mut target = state.target_manager.get(&id).ok_or_else(|| {
+        (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
                 error: "not_found".to_string(),
                 message: format!("Target {} not found", id),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     if let Some(name) = request.name {
         target.metadata.name = name;
@@ -1029,15 +1105,17 @@ async fn update_target(
         target.metadata.description = Some(description);
     }
     if let Some(base_url) = request.base_url {
-        target.metadata.base_url = base_url.parse()
-            .map_err(|e| (
+        target.metadata.base_url = base_url.parse().map_err(|e| {
+            (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
                     error: "invalid_url".to_string(),
                     message: format!("Invalid base URL: {}", e),
                     details: None,
                 }),
-            ).into_response())?;
+            )
+                .into_response()
+        })?;
     }
     if let Some(headers) = request.headers {
         target.metadata.headers = headers;
@@ -1064,25 +1142,32 @@ async fn update_target(
         target.metadata.tags = tags;
     }
 
-    state.target_manager.update(&id, target.clone())
-        .map_err(|e| (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: "target_error".to_string(),
-                message: e.to_string(),
-                details: None,
-            }),
-        ).into_response())?;
+    state
+        .target_manager
+        .update(&id, target.clone())
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "target_error".to_string(),
+                    message: e.to_string(),
+                    details: None,
+                }),
+            )
+                .into_response()
+        })?;
 
-    state.storage.save_target(&target).await
-        .map_err(|e| (
+    state.storage.save_target(&target).await.map_err(|e| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "storage_error".to_string(),
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(TargetResponse::from(target)).into_response())
 }
@@ -1113,18 +1198,21 @@ async fn delete_target(
                 message: format!("Target {} not found", id),
                 details: None,
             }),
-        ).into_response());
+        )
+            .into_response());
     }
 
-    state.storage.delete_target(&id).await
-        .map_err(|e| (
+    state.storage.delete_target(&id).await.map_err(|e| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "storage_error".to_string(),
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(StatusCode::NO_CONTENT.into_response())
 }
@@ -1138,18 +1226,18 @@ async fn delete_target(
     ),
     tag = "plugins"
 )]
-async fn list_plugins(
-    State(state): State<ApiState>,
-) -> Result<impl IntoResponse, Response> {
-    let plugins = state.plugin_manager.list_plugins().await
-        .map_err(|e| (
+async fn list_plugins(State(state): State<ApiState>) -> Result<impl IntoResponse, Response> {
+    let plugins = state.plugin_manager.list_plugins().await.map_err(|e| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "plugin_error".to_string(),
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     let plugins: Vec<PluginResponse> = plugins.into_iter().map(PluginResponse::from).collect();
     Ok(Json(plugins).into_response())
@@ -1172,15 +1260,17 @@ async fn get_plugin(
     State(state): State<ApiState>,
     Path(id): Path<PluginId>,
 ) -> Result<impl IntoResponse, Response> {
-    let plugin = state.plugin_manager.get_plugin(&id)
-        .ok_or_else(|| (
+    let plugin = state.plugin_manager.get_plugin(&id).ok_or_else(|| {
+        (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
                 error: "not_found".to_string(),
                 message: format!("Plugin {} not found", id),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(PluginResponse::from(plugin)).into_response())
 }
@@ -1202,25 +1292,29 @@ async fn enable_plugin(
     State(state): State<ApiState>,
     Path(id): Path<PluginId>,
 ) -> Result<impl IntoResponse, Response> {
-    state.plugin_manager.enable_plugin(&id).await
-        .map_err(|e| (
+    state.plugin_manager.enable_plugin(&id).await.map_err(|e| {
+        (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
                 error: "not_found".to_string(),
                 message: e.to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
-    let plugin = state.plugin_manager.get_plugin(&id)
-        .ok_or_else(|| (
+    let plugin = state.plugin_manager.get_plugin(&id).ok_or_else(|| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "plugin_error".to_string(),
                 message: "Failed to retrieve enabled plugin".to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(PluginResponse::from(plugin)).into_response())
 }
@@ -1242,25 +1336,33 @@ async fn disable_plugin(
     State(state): State<ApiState>,
     Path(id): Path<PluginId>,
 ) -> Result<impl IntoResponse, Response> {
-    state.plugin_manager.disable_plugin(&id).await
-        .map_err(|e| (
-            StatusCode::NOT_FOUND,
-            Json(ErrorResponse {
-                error: "not_found".to_string(),
-                message: e.to_string(),
-                details: None,
-            }),
-        ).into_response())?;
+    state
+        .plugin_manager
+        .disable_plugin(&id)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "not_found".to_string(),
+                    message: e.to_string(),
+                    details: None,
+                }),
+            )
+                .into_response()
+        })?;
 
-    let plugin = state.plugin_manager.get_plugin(&id)
-        .ok_or_else(|| (
+    let plugin = state.plugin_manager.get_plugin(&id).ok_or_else(|| {
+        (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "plugin_error".to_string(),
                 message: "Failed to retrieve disabled plugin".to_string(),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(PluginResponse::from(plugin)).into_response())
 }
@@ -1282,15 +1384,17 @@ async fn get_plugin_config(
     State(state): State<ApiState>,
     Path(id): Path<PluginId>,
 ) -> Result<impl IntoResponse, Response> {
-    let config = state.plugin_manager.get_plugin_config(&id)
-        .ok_or_else(|| (
+    let config = state.plugin_manager.get_plugin_config(&id).ok_or_else(|| {
+        (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
                 error: "not_found".to_string(),
                 message: format!("Plugin {} not found", id),
                 details: None,
             }),
-        ).into_response())?;
+        )
+            .into_response()
+    })?;
 
     Ok(Json(config).into_response())
 }
@@ -1322,18 +1426,25 @@ async fn set_plugin_config(
                 message: "Plugin ID in path and body must match".to_string(),
                 details: None,
             }),
-        ).into_response());
+        )
+            .into_response());
     }
 
-    state.plugin_manager.set_plugin_config(config.clone()).await
-        .map_err(|e| (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: "plugin_error".to_string(),
-                message: e.to_string(),
-                details: None,
-            }),
-        ).into_response())?;
+    state
+        .plugin_manager
+        .set_plugin_config(config.clone())
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "plugin_error".to_string(),
+                    message: e.to_string(),
+                    details: None,
+                }),
+            )
+                .into_response()
+        })?;
 
     Ok(Json(config).into_response())
 }
@@ -1355,15 +1466,21 @@ async fn get_finding_stats(
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, Response> {
     let scan_id = params.get("scan_id").and_then(|s| s.parse().ok());
-    let stats = state.storage.get_finding_stats(scan_id).await
-        .map_err(|e| (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: "storage_error".to_string(),
-                message: e.to_string(),
-                details: None,
-            }),
-        ).into_response())?;
+    let stats = state
+        .storage
+        .get_finding_stats(scan_id)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "storage_error".to_string(),
+                    message: e.to_string(),
+                    details: None,
+                }),
+            )
+                .into_response()
+        })?;
 
     Ok(Json(stats).into_response())
 }

@@ -1,10 +1,21 @@
-//! Database migrations for open-re
+//! Database migrations for open-re (PostgreSQL)
 
-use openre_core::error::OpenreResult as Result;
+#[cfg(feature = "postgres")]
+use openre_core::error::{Error, OpenreResult as Result};
+#[cfg(feature = "postgres")]
 use sqlx::{PgPool, Row};
+#[cfg(feature = "postgres")]
 use std::sync::Arc;
+#[cfg(feature = "postgres")]
 use tracing::{info, warn};
 
+#[cfg(feature = "postgres")]
+/// Convert sqlx::Error to openre_core::Error::Database
+fn map_sqlx_error(e: sqlx::Error) -> Error {
+    Error::Database(e.to_string())
+}
+
+#[cfg(feature = "postgres")]
 /// Migration trait - using a simpler approach for dyn compatibility
 pub trait Migration: Send + Sync {
     fn version(&self) -> i64;
@@ -13,12 +24,14 @@ pub trait Migration: Send + Sync {
     fn down_sql(&self) -> &str;
 }
 
+#[cfg(feature = "postgres")]
 /// Migration manager
 pub struct MigrationManager {
     pool: Arc<PgPool>,
     migrations: Vec<Arc<dyn Migration>>,
 }
 
+#[cfg(feature = "postgres")]
 impl MigrationManager {
     pub fn new(pool: Arc<PgPool>) -> Self {
         Self {
@@ -40,15 +53,18 @@ impl MigrationManager {
                 name VARCHAR(255) NOT NULL,
                 applied_at TIMESTAMPTZ DEFAULT NOW()
             )
-            "#
+            "#,
         )
         .execute(&*self.pool)
-        .await?;
+        .await
+        .map_err(map_sqlx_error)?;
 
         // Get applied migrations
-        let applied: Vec<i64> = sqlx::query_scalar("SELECT version FROM schema_migrations ORDER BY version")
-            .fetch_all(&*self.pool)
-            .await?;
+        let applied: Vec<i64> =
+            sqlx::query_scalar("SELECT version FROM schema_migrations ORDER BY version")
+                .fetch_all(&*self.pool)
+                .await
+                .map_err(map_sqlx_error)?;
 
         // Sort migrations by version
         let mut migrations = self.migrations.clone();
@@ -57,16 +73,26 @@ impl MigrationManager {
         // Apply pending migrations
         for migration in migrations {
             if !applied.contains(&migration.version()) {
-                info!(version = migration.version(), name = migration.name(), "Applying migration");
+                info!(
+                    version = migration.version(),
+                    name = migration.name(),
+                    "Applying migration"
+                );
                 sqlx::query(migration.up_sql())
                     .execute(&*self.pool)
-                    .await?;
+                    .await
+                    .map_err(map_sqlx_error)?;
                 sqlx::query("INSERT INTO schema_migrations (version, name) VALUES ($1, $2)")
                     .bind(migration.version())
                     .bind(migration.name())
                     .execute(&*self.pool)
-                    .await?;
-                info!(version = migration.version(), name = migration.name(), "Migration applied successfully");
+                    .await
+                    .map_err(map_sqlx_error)?;
+                info!(
+                    version = migration.version(),
+                    name = migration.name(),
+                    "Migration applied successfully"
+                );
             }
         }
 
@@ -74,19 +100,17 @@ impl MigrationManager {
     }
 
     pub async fn rollback(&self, target_version: i64) -> Result<()> {
-        let applied_rows = sqlx::query("SELECT version, name FROM schema_migrations WHERE version > $1 ORDER BY version DESC")
-            .bind(target_version)
-            .fetch_all(&*self.pool)
-            .await?;
+        let applied_rows = sqlx::query(
+            "SELECT version, name FROM schema_migrations WHERE version > $1 ORDER BY version DESC",
+        )
+        .bind(target_version)
+        .fetch_all(&*self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
 
         let applied: Vec<(i64, String)> = applied_rows
             .into_iter()
-            .map(|row| {
-                (
-                    row.get("version"),
-                    row.get("name"),
-                )
-            })
+            .map(|row| (row.get("version"), row.get("name")))
             .collect();
 
         let mut migrations = self.migrations.clone();
@@ -97,11 +121,13 @@ impl MigrationManager {
                 warn!(version, name, "Rolling back migration");
                 sqlx::query(migration.down_sql())
                     .execute(&*self.pool)
-                    .await?;
+                    .await
+                    .map_err(map_sqlx_error)?;
                 sqlx::query("DELETE FROM schema_migrations WHERE version = $1")
                     .bind(version)
                     .execute(&*self.pool)
-                    .await?;
+                    .await
+                    .map_err(map_sqlx_error)?;
                 warn!(version, name, "Migration rolled back successfully");
             }
         }
@@ -110,21 +136,15 @@ impl MigrationManager {
     }
 
     pub async fn status(&self) -> Result<Vec<MigrationStatus>> {
-        let applied_rows = sqlx::query(
-            "SELECT version, name, applied_at FROM schema_migrations ORDER BY version"
-        )
-        .fetch_all(&*self.pool)
-        .await?;
+        let applied_rows =
+            sqlx::query("SELECT version, name, applied_at FROM schema_migrations ORDER BY version")
+                .fetch_all(&*self.pool)
+                .await
+                .map_err(map_sqlx_error)?;
 
         let applied: Vec<(i64, String, chrono::DateTime<chrono::Utc>)> = applied_rows
             .into_iter()
-            .map(|row| {
-                (
-                    row.get("version"),
-                    row.get("name"),
-                    row.get("applied_at"),
-                )
-            })
+            .map(|row| (row.get("version"), row.get("name"), row.get("applied_at")))
             .collect();
 
         let mut migrations = self.migrations.clone();
@@ -145,6 +165,7 @@ impl MigrationManager {
     }
 }
 
+#[cfg(feature = "postgres")]
 /// Migration status
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct MigrationStatus {
@@ -154,13 +175,19 @@ pub struct MigrationStatus {
     pub applied_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+#[cfg(feature = "postgres")]
 /// Initial schema migration
 pub struct InitialSchemaMigration;
 
+#[cfg(feature = "postgres")]
 impl Migration for InitialSchemaMigration {
-    fn version(&self) -> i64 { 20260101001 }
-    fn name(&self) -> &str { "initial_schema" }
-    
+    fn version(&self) -> i64 {
+        20260101001
+    }
+    fn name(&self) -> &str {
+        "initial_schema"
+    }
+
     fn up_sql(&self) -> &str {
         r#"
         -- Users table
@@ -408,7 +435,7 @@ impl Migration for InitialSchemaMigration {
         CREATE TABLE IF NOT EXISTS audit_logs_2026_12 PARTITION OF audit_logs FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
         "#
     }
-    
+
     fn down_sql(&self) -> &str {
         r#"
         DROP TABLE IF EXISTS audit_logs_2026_12;

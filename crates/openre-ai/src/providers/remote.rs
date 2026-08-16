@@ -1,11 +1,11 @@
 //! Remote AI providers (OpenAI, vLLM, Anthropic) for open-re
 
 use crate::providers::*;
-use openre_core::error::OpenreResult as Result;
+use anyhow::Context;
+use async_trait::async_trait;
+use bytes::Bytes;
 use openre_config::RemoteConfig;
 use reqwest::Client;
-use std::sync::Arc;
-use async_trait::async_trait;
 use tokio_stream::StreamExt;
 
 /// Remote provider (OpenAI-compatible API)
@@ -22,16 +22,34 @@ impl RemoteProvider {
             client: Client::new(),
             base_url: "https://api.openai.com/v1".to_string(),
             api_key: Some(api_key),
-            config: RemoteConfig::default(),
+            config: RemoteConfig {
+                base_url: "https://api.openai.com/v1".to_string(),
+                api_key: None,
+                model: "gpt-4".to_string(),
+                timeout_secs: 30,
+                max_retries: 3,
+                supports_vision: true,
+                max_context_tokens: 128000,
+                embedding_model: "text-embedding-3-small".to_string(),
+            },
         }
     }
 
     pub fn vllm(base_url: String, api_key: Option<String>) -> Self {
         Self {
             client: Client::new(),
-            base_url,
+            base_url: base_url.clone(),
             api_key,
-            config: RemoteConfig::default(),
+            config: RemoteConfig {
+                base_url,
+                api_key: None,
+                model: "default".to_string(),
+                timeout_secs: 60,
+                max_retries: 3,
+                supports_vision: false,
+                max_context_tokens: 4096,
+                embedding_model: "default".to_string(),
+            },
         }
     }
 
@@ -40,16 +58,43 @@ impl RemoteProvider {
             client: Client::new(),
             base_url: "https://api.anthropic.com/v1".to_string(),
             api_key: Some(api_key),
-            config: RemoteConfig::default(),
+            config: RemoteConfig {
+                base_url: "https://api.anthropic.com/v1".to_string(),
+                api_key: None,
+                model: "claude-3-opus-20240229".to_string(),
+                timeout_secs: 60,
+                max_retries: 3,
+                supports_vision: true,
+                max_context_tokens: 200000,
+                embedding_model: "".to_string(),
+            },
         }
     }
 
     pub fn custom(base_url: String, api_key: Option<String>) -> Self {
         Self {
             client: Client::new(),
-            base_url,
+            base_url: base_url.clone(),
             api_key,
-            config: RemoteConfig::default(),
+            config: RemoteConfig {
+                base_url,
+                api_key: None,
+                model: "custom".to_string(),
+                timeout_secs: 30,
+                max_retries: 3,
+                supports_vision: false,
+                max_context_tokens: 4096,
+                embedding_model: "custom".to_string(),
+            },
+        }
+    }
+
+    pub fn from_config(config: RemoteConfig) -> Self {
+        Self {
+            client: Client::new(),
+            base_url: config.base_url.clone(),
+            api_key: config.api_key.clone(),
+            config,
         }
     }
 }
@@ -97,13 +142,23 @@ impl ModelProvider for RemoteProvider {
             req = req.bearer_auth(key);
         }
 
-        let response = req.send().await?;
+        let response = req.send().await.context("Failed to send request")?;
         if !response.status().is_success() {
-            let error = response.text().await?;
-            return Err(openre_core::Error::Internal(format!("Remote API error: {}", error).into()));
+            let error = response
+                .text()
+                .await
+                .context("Failed to read error response")?;
+            return Err(openre_core::Error::Internal(anyhow::anyhow!(
+                "Remote API error: {}",
+                error
+            )));
         }
 
-        response.json().await.map_err(|e| openre_core::Error::Internal(e.into()))
+        response
+            .json()
+            .await
+            .context("Failed to parse response")
+            .map_err(openre_core::Error::Internal)
     }
 
     async fn stream(&self, request: CompletionRequest) -> Result<StreamingResponse> {
@@ -117,15 +172,25 @@ impl ModelProvider for RemoteProvider {
             request_builder = request_builder.bearer_auth(key);
         }
 
-        let response = request_builder.send().await?;
+        let response = request_builder
+            .send()
+            .await
+            .context("Failed to send streaming request")?;
         if !response.status().is_success() {
-            let error = response.text().await?;
-            return Err(openre_core::Error::Internal(format!("Remote API error: {}", error).into()));
+            let error = response
+                .text()
+                .await
+                .context("Failed to read error response")?;
+            return Err(openre_core::Error::Internal(anyhow::anyhow!(
+                "Remote API error: {}",
+                error
+            )));
         }
 
-        let stream = response.bytes_stream()
-            .map(|chunk| parse_sse_chunk(chunk))
-            .filter_map(|chunk| async move { chunk.ok() });
+        let stream = response.bytes_stream().filter_map(|result| {
+            let chunk = result.ok()?;
+            parse_sse_chunk(Ok(chunk))
+        });
 
         let (tx, rx) = tokio::sync::mpsc::channel(32);
         tokio::spawn(async move {
@@ -151,21 +216,39 @@ impl ModelProvider for RemoteProvider {
             req = req.bearer_auth(key);
         }
 
-        let response = req.send().await?;
+        let response = req
+            .send()
+            .await
+            .context("Failed to send embedding request")?;
         if !response.status().is_success() {
-            let error = response.text().await?;
-            return Err(openre_core::Error::Internal(format!("Embedding error: {}", error).into()));
+            let error = response
+                .text()
+                .await
+                .context("Failed to read error response")?;
+            return Err(openre_core::Error::Internal(anyhow::anyhow!(
+                "Embedding error: {}",
+                error
+            )));
         }
 
-        let result: serde_json::Value = response.json().await?;
-        let embeddings = result["data"].as_array()
-            .ok_or_else(|| openre_core::Error::Internal("Invalid embedding response".into()))?
+        let result: serde_json::Value = response
+            .json()
+            .await
+            .context("Failed to parse embedding response")?;
+        let embeddings = result["data"]
+            .as_array()
+            .ok_or_else(|| {
+                openre_core::Error::Internal(anyhow::anyhow!("Invalid embedding response"))
+            })?
             .iter()
-            .map(|d| d["embedding"].as_array()
-                .unwrap()
-                .iter()
-                .map(|v| v.as_f64().unwrap() as f32)
-                .collect())
+            .map(|d| {
+                d["embedding"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_f64().unwrap() as f32)
+                    .collect()
+            })
             .collect();
 
         Ok(embeddings)
@@ -204,17 +287,17 @@ impl ModelProvider for RemoteProvider {
 }
 
 /// Parse SSE chunk from remote API
-fn parse_sse_chunk(chunk: Result<bytes::Bytes, reqwest::Error>) -> Option<StreamChunk> {
+fn parse_sse_chunk(chunk: std::result::Result<Bytes, reqwest::Error>) -> Option<StreamChunk> {
     let chunk = chunk.ok()?;
     let text = String::from_utf8_lossy(&chunk);
-    
+
     for line in text.lines() {
         if line.starts_with("data: ") {
             let data = &line[6..];
             if data == "[DONE]" {
                 return Some(StreamChunk::Finish(FinishReason::Stop));
             }
-            
+
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
                 if let Some(choices) = json["choices"].as_array() {
                     if let Some(choice) = choices.first() {
@@ -222,11 +305,16 @@ fn parse_sse_chunk(chunk: Result<bytes::Bytes, reqwest::Error>) -> Option<Stream
                             if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
                                 return Some(StreamChunk::Content(content.to_string()));
                             }
-                            if let Some(tool_calls) = delta.get("tool_calls").and_then(|v| v.as_array()) {
+                            if let Some(tool_calls) =
+                                delta.get("tool_calls").and_then(|v| v.as_array())
+                            {
                                 if let Some(tc) = tool_calls.first() {
                                     return Some(StreamChunk::ToolCall(ToolCall {
                                         id: tc["id"].as_str().unwrap_or("").to_string(),
-                                        name: tc["function"]["name"].as_str().unwrap_or("").to_string(),
+                                        name: tc["function"]["name"]
+                                            .as_str()
+                                            .unwrap_or("")
+                                            .to_string(),
                                         arguments: tc["function"]["arguments"].clone(),
                                     }));
                                 }

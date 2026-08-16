@@ -1,6 +1,6 @@
 //! Analysis pipeline stages for open-re
 
-use crate::{orchestrator::*, incremental::*};
+use crate::{incremental::*, orchestrator::*};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_plugins::PluginRegistry;
@@ -38,12 +38,24 @@ impl IdentificationStage {
 
 #[async_trait::async_trait]
 impl PipelineStage for IdentificationStage {
-    fn id(&self) -> StageId { StageId::new("identification") }
-    fn name(&self) -> &str { "Identification" }
-    fn description(&self) -> &str { "Identify file format, architecture, and compiler" }
-    fn dependencies(&self) -> Vec<StageId> { vec![] }
-    fn estimated_duration(&self) -> Duration { Duration::from_secs(5) }
-    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool { false }
+    fn id(&self) -> StageId {
+        StageId::new("identification")
+    }
+    fn name(&self) -> &str {
+        "Identification"
+    }
+    fn description(&self) -> &str {
+        "Identify file format, architecture, and compiler"
+    }
+    fn dependencies(&self) -> Vec<StageId> {
+        vec![]
+    }
+    fn estimated_duration(&self) -> Duration {
+        Duration::from_secs(5)
+    }
+    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool {
+        false
+    }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
         let mut format = None;
@@ -97,12 +109,24 @@ impl LoadingStage {
 
 #[async_trait::async_trait]
 impl PipelineStage for LoadingStage {
-    fn id(&self) -> StageId { StageId::new("loading") }
-    fn name(&self) -> &str { "Loading" }
-    fn description(&self) -> &str { "Load segments, sections, imports, exports, relocations" }
-    fn dependencies(&self) -> Vec<StageId> { vec![StageId::new("identification")] }
-    fn estimated_duration(&self) -> Duration { Duration::from_secs(10) }
-    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool { false }
+    fn id(&self) -> StageId {
+        StageId::new("loading")
+    }
+    fn name(&self) -> &str {
+        "Loading"
+    }
+    fn description(&self) -> &str {
+        "Load segments, sections, imports, exports, relocations"
+    }
+    fn dependencies(&self) -> Vec<StageId> {
+        vec![StageId::new("identification")]
+    }
+    fn estimated_duration(&self) -> Duration {
+        Duration::from_secs(10)
+    }
+    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool {
+        false
+    }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
         // In a real implementation, this would load the binary
@@ -137,24 +161,40 @@ pub struct DisassemblyStage {
 
 impl DisassemblyStage {
     pub fn new(disassembler: Arc<dyn DisassemblerPlugin>, executor: Arc<StageExecutor>) -> Self {
-        Self { disassembler, executor }
+        Self {
+            disassembler,
+            executor,
+        }
     }
 }
 
 #[async_trait::async_trait]
 impl PipelineStage for DisassemblyStage {
-    fn id(&self) -> StageId { StageId::new("disassembly") }
-    fn name(&self) -> &str { "Disassembly" }
-    fn description(&self) -> &str { "Disassemble instructions and identify basic blocks" }
-    fn dependencies(&self) -> Vec<StageId> { vec![StageId::new("loading")] }
-    fn estimated_duration(&self) -> Duration { Duration::from_secs(60) }
+    fn id(&self) -> StageId {
+        StageId::new("disassembly")
+    }
+    fn name(&self) -> &str {
+        "Disassembly"
+    }
+    fn description(&self) -> &str {
+        "Disassemble instructions and identify basic blocks"
+    }
+    fn dependencies(&self) -> Vec<StageId> {
+        vec![StageId::new("loading")]
+    }
+    fn estimated_duration(&self) -> Duration {
+        Duration::from_secs(60)
+    }
     fn can_skip(&self, ctx: &PipelineContext, prev: &HashMap<StageId, StageResult>) -> bool {
-        prev.get(&StageId::new("disassembly")).map(|r| r.status == StageStatus::Success).unwrap_or(false)
+        prev.get(&StageId::new("disassembly"))
+            .map(|r| r.status == StageStatus::Success)
+            .unwrap_or(false)
     }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
         let loading_result = ctx.previous_results.get(&StageId::new("loading")).unwrap();
-        let functions: Vec<FunctionBoundary> = serde_json::from_value(loading_result.output.clone())?;
+        let functions: Vec<FunctionBoundary> =
+            serde_json::from_value(loading_result.output.clone())?;
 
         let semaphore = Arc::new(Semaphore::new(self.executor.config.max_parallel_functions));
         let mut tasks = Vec::new();
@@ -217,12 +257,24 @@ impl ControlFlowStage {
 
 #[async_trait::async_trait]
 impl PipelineStage for ControlFlowStage {
-    fn id(&self) -> StageId { StageId::new("control_flow") }
-    fn name(&self) -> &str { "Control Flow" }
-    fn description(&self) -> &str { "Build CFG, call graph, detect loops" }
-    fn dependencies(&self) -> Vec<StageId> { vec![StageId::new("disassembly")] }
-    fn estimated_duration(&self) -> Duration { Duration::from_secs(30) }
-    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool { false }
+    fn id(&self) -> StageId {
+        StageId::new("control_flow")
+    }
+    fn name(&self) -> &str {
+        "Control Flow"
+    }
+    fn description(&self) -> &str {
+        "Build CFG, call graph, detect loops"
+    }
+    fn dependencies(&self) -> Vec<StageId> {
+        vec![StageId::new("disassembly")]
+    }
+    fn estimated_duration(&self) -> Duration {
+        Duration::from_secs(30)
+    }
+    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool {
+        false
+    }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
         let output = ControlFlowOutput {
@@ -259,12 +311,24 @@ impl DataFlowStage {
 
 #[async_trait::async_trait]
 impl PipelineStage for DataFlowStage {
-    fn id(&self) -> StageId { StageId::new("data_flow") }
-    fn name(&self) -> &str { "Data Flow" }
-    fn description(&self) -> &str { "SSA, def-use chains, taint analysis" }
-    fn dependencies(&self) -> Vec<StageId> { vec![StageId::new("control_flow")] }
-    fn estimated_duration(&self) -> Duration { Duration::from_secs(60) }
-    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool { false }
+    fn id(&self) -> StageId {
+        StageId::new("data_flow")
+    }
+    fn name(&self) -> &str {
+        "Data Flow"
+    }
+    fn description(&self) -> &str {
+        "SSA, def-use chains, taint analysis"
+    }
+    fn dependencies(&self) -> Vec<StageId> {
+        vec![StageId::new("control_flow")]
+    }
+    fn estimated_duration(&self) -> Duration {
+        Duration::from_secs(60)
+    }
+    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool {
+        false
+    }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
         let output = DataFlowOutput {
@@ -301,12 +365,24 @@ impl TypeRecoveryStage {
 
 #[async_trait::async_trait]
 impl PipelineStage for TypeRecoveryStage {
-    fn id(&self) -> StageId { StageId::new("type_recovery") }
-    fn name(&self) -> &str { "Type Recovery" }
-    fn description(&self) -> &str { "Recover function signatures, variable types, struct definitions" }
-    fn dependencies(&self) -> Vec<StageId> { vec![StageId::new("data_flow")] }
-    fn estimated_duration(&self) -> Duration { Duration::from_secs(60) }
-    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool { false }
+    fn id(&self) -> StageId {
+        StageId::new("type_recovery")
+    }
+    fn name(&self) -> &str {
+        "Type Recovery"
+    }
+    fn description(&self) -> &str {
+        "Recover function signatures, variable types, struct definitions"
+    }
+    fn dependencies(&self) -> Vec<StageId> {
+        vec![StageId::new("data_flow")]
+    }
+    fn estimated_duration(&self) -> Duration {
+        Duration::from_secs(60)
+    }
+    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool {
+        false
+    }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
         let output = TypeRecoveryOutput {
@@ -336,22 +412,43 @@ pub struct DecompilationStage {
 
 impl DecompilationStage {
     pub fn new(decompiler: Arc<dyn DecompilerPlugin>, executor: Arc<StageExecutor>) -> Self {
-        Self { decompiler, executor }
+        Self {
+            decompiler,
+            executor,
+        }
     }
 }
 
 #[async_trait::async_trait]
 impl PipelineStage for DecompilationStage {
-    fn id(&self) -> StageId { StageId::new("decompilation") }
-    fn name(&self) -> &str { "Decompilation" }
-    fn description(&self) -> &str { "Generate pseudocode from CFG and types" }
-    fn dependencies(&self) -> Vec<StageId> { vec![StageId::new("type_recovery")] }
-    fn estimated_duration(&self) -> Duration { Duration::from_secs(120) }
-    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool { false }
+    fn id(&self) -> StageId {
+        StageId::new("decompilation")
+    }
+    fn name(&self) -> &str {
+        "Decompilation"
+    }
+    fn description(&self) -> &str {
+        "Generate pseudocode from CFG and types"
+    }
+    fn dependencies(&self) -> Vec<StageId> {
+        vec![StageId::new("type_recovery")]
+    }
+    fn estimated_duration(&self) -> Duration {
+        Duration::from_secs(120)
+    }
+    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool {
+        false
+    }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
-        let type_result = ctx.previous_results.get(&StageId::new("type_recovery")).unwrap();
-        let cfg_result = ctx.previous_results.get(&StageId::new("control_flow")).unwrap();
+        let type_result = ctx
+            .previous_results
+            .get(&StageId::new("type_recovery"))
+            .unwrap();
+        let cfg_result = ctx
+            .previous_results
+            .get(&StageId::new("control_flow"))
+            .unwrap();
 
         let types: TypeInfo = serde_json::from_value(type_result.output.clone())?;
         let cfgs: HashMap<FunctionId, CFG> = serde_json::from_value(cfg_result.output.clone())?;
@@ -424,11 +521,21 @@ impl AiEnrichmentStage {
 
 #[async_trait::async_trait]
 impl PipelineStage for AiEnrichmentStage {
-    fn id(&self) -> StageId { StageId::new("ai_enrichment") }
-    fn name(&self) -> &str { "AI Enrichment" }
-    fn description(&self) -> &str { "AI-powered function naming, comments, vulnerability detection" }
-    fn dependencies(&self) -> Vec<StageId> { vec![StageId::new("decompilation")] }
-    fn estimated_duration(&self) -> Duration { Duration::from_secs(300) }
+    fn id(&self) -> StageId {
+        StageId::new("ai_enrichment")
+    }
+    fn name(&self) -> &str {
+        "AI Enrichment"
+    }
+    fn description(&self) -> &str {
+        "AI-powered function naming, comments, vulnerability detection"
+    }
+    fn dependencies(&self) -> Vec<StageId> {
+        vec![StageId::new("decompilation")]
+    }
+    fn estimated_duration(&self) -> Duration {
+        Duration::from_secs(300)
+    }
     fn can_skip(&self, ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool {
         !self.config.enabled || !ctx.job.config.ai_enabled
     }
@@ -438,38 +545,53 @@ impl PipelineStage for AiEnrichmentStage {
             return Ok(StageResult::skipped(self.id()));
         }
 
-        let decomp_result = ctx.previous_results.get(&StageId::new("decompilation")).unwrap();
-        let pseudocode: HashMap<FunctionId, String> = serde_json::from_value(decomp_result.output.clone())?;
+        let decomp_result = ctx
+            .previous_results
+            .get(&StageId::new("decompilation"))
+            .unwrap();
+        let pseudocode: HashMap<FunctionId, String> =
+            serde_json::from_value(decomp_result.output.clone())?;
 
         let mut enriched = 0;
         let mut metrics = StageMetrics::default();
 
-        for chunk in pseudocode.keys().collect::<Vec<_>>().chunks(self.config.batch_size) {
+        for chunk in pseudocode
+            .keys()
+            .collect::<Vec<_>>()
+            .chunks(self.config.batch_size)
+        {
             ctx.cancellation.check()?;
 
-            let functions: Vec<_> = chunk.iter().filter_map(|id| pseudocode.get(*id).map(|p| (*id, p.clone()))).collect();
+            let functions: Vec<_> = chunk
+                .iter()
+                .filter_map(|id| pseudocode.get(*id).map(|p| (*id, p.clone())))
+                .collect();
             let contexts = self.build_contexts(&ctx, &functions).await?;
 
-            let requests: Vec<_> = functions.iter().zip(contexts).map(|((id, pseudo), ctx)| {
-                InferenceRequest {
+            let requests: Vec<_> = functions
+                .iter()
+                .zip(contexts)
+                .map(|((id, pseudo), ctx)| InferenceRequest {
                     task_type: TaskType::FunctionNaming,
                     context: ctx,
                     ..Default::default()
-                }
-            }).collect();
+                })
+                .collect();
 
             let responses = self.ai_service.batch_infer(requests).await?;
 
             for ((func_id, _), response) in functions.iter().zip(responses) {
                 if let Some(name) = response.extract_function_name() {
-                    ctx.project_store.write_annotation(Annotation {
-                        address: func_id.address(),
-                        annotation_type: AnnotationType::Name,
-                        value: name,
-                        function_id: Some(*func_id),
-                        created_by: AnnotationSource::AI,
-                        created_at: chrono::Utc::now(),
-                    }).await?;
+                    ctx.project_store
+                        .write_annotation(Annotation {
+                            address: func_id.address(),
+                            annotation_type: AnnotationType::Name,
+                            value: name,
+                            function_id: Some(*func_id),
+                            created_by: AnnotationSource::AI,
+                            created_at: chrono::Utc::now(),
+                        })
+                        .await?;
                     enriched += 1;
                 }
                 metrics.ai_calls += 1;
@@ -501,12 +623,24 @@ impl FinalizationStage {
 
 #[async_trait::async_trait]
 impl PipelineStage for FinalizationStage {
-    fn id(&self) -> StageId { StageId::new("finalization") }
-    fn name(&self) -> &str { "Finalization" }
-    fn description(&self) -> &str { "Index results, generate exports, cleanup" }
-    fn dependencies(&self) -> Vec<StageId> { vec![StageId::new("ai_enrichment")] }
-    fn estimated_duration(&self) -> Duration { Duration::from_secs(10) }
-    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool { false }
+    fn id(&self) -> StageId {
+        StageId::new("finalization")
+    }
+    fn name(&self) -> &str {
+        "Finalization"
+    }
+    fn description(&self) -> &str {
+        "Index results, generate exports, cleanup"
+    }
+    fn dependencies(&self) -> Vec<StageId> {
+        vec![StageId::new("ai_enrichment")]
+    }
+    fn estimated_duration(&self) -> Duration {
+        Duration::from_secs(10)
+    }
+    fn can_skip(&self, _ctx: &PipelineContext, _prev: &HashMap<StageId, StageResult>) -> bool {
+        false
+    }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
         ctx.project_store.finalize(ctx.job.project_id).await?;
@@ -544,7 +678,11 @@ pub trait LoaderPlugin: Send + Sync {
 
 #[async_trait::async_trait]
 pub trait DisassemblerPlugin: Send + Sync {
-    async fn disassemble_function(&self, binary: &IsolatedBinary, func: FunctionBoundary) -> Result<DisassemblyFunctionResult>;
+    async fn disassemble_function(
+        &self,
+        binary: &IsolatedBinary,
+        func: FunctionBoundary,
+    ) -> Result<DisassemblyFunctionResult>;
 }
 
 #[derive(Debug, Clone)]
@@ -555,14 +693,28 @@ pub struct DisassemblyFunctionResult {
 
 #[async_trait::async_trait]
 pub trait AnalyzerPlugin: Send + Sync {
-    async fn analyze_control_flow(&self, binary: &IsolatedBinary, functions: &[FunctionBoundary]) -> Result<ControlFlowOutput>;
-    async fn analyze_data_flow(&self, binary: &IsolatedBinary, cfg: &CFG) -> Result<DataFlowOutput>;
-    async fn recover_types(&self, binary: &IsolatedBinary, data_flow: &DataFlowOutput) -> Result<TypeRecoveryOutput>;
+    async fn analyze_control_flow(
+        &self,
+        binary: &IsolatedBinary,
+        functions: &[FunctionBoundary],
+    ) -> Result<ControlFlowOutput>;
+    async fn analyze_data_flow(&self, binary: &IsolatedBinary, cfg: &CFG)
+        -> Result<DataFlowOutput>;
+    async fn recover_types(
+        &self,
+        binary: &IsolatedBinary,
+        data_flow: &DataFlowOutput,
+    ) -> Result<TypeRecoveryOutput>;
 }
 
 #[async_trait::async_trait]
 pub trait DecompilerPlugin: Send + Sync {
-    async fn decompile_function(&self, func_id: FunctionId, cfg: &CFG, types: &TypeInfo) -> Result<DecompilationFunctionResult>;
+    async fn decompile_function(
+        &self,
+        func_id: FunctionId,
+        cfg: &CFG,
+        types: &TypeInfo,
+    ) -> Result<DecompilationFunctionResult>;
 }
 
 #[derive(Debug, Clone)]

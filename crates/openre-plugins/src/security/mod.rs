@@ -1,22 +1,22 @@
 //! Security Plugins Module
-//! 
+//!
 //! This module contains all security assessment plugins for authentication,
 //! session management, and common web security misconfigurations.
 
-pub mod auth_discovery;
-pub mod session_management;
-pub mod cookie_security;
-pub mod security_headers;
-pub mod cors_analysis;
-pub mod rate_limiting;
-pub mod information_disclosure;
-pub mod rest_api;
-pub mod graphql;
-pub mod api_rate_limiting;
 pub mod access_control;
+pub mod api_rate_limiting;
+pub mod auth_discovery;
+pub mod cookie_security;
+pub mod cors_analysis;
 pub mod file_upload;
+pub mod graphql;
+pub mod information_disclosure;
 pub mod path_traversal;
+pub mod rate_limiting;
+pub mod rest_api;
+pub mod security_headers;
 pub mod sensitive_info;
+pub mod session_management;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -45,7 +45,7 @@ impl Default for SecurityPluginConfig {
         let mut settings = HashMap::new();
         settings.insert("aggressive_mode".to_string(), serde_json::json!(false));
         settings.insert("verify_ssl".to_string(), serde_json::json!(true));
-        
+
         Self {
             settings,
             enabled_checks: vec![],
@@ -63,16 +63,16 @@ impl Default for SecurityPluginConfig {
 pub trait SecurityPlugin: crate::sdk::Plugin {
     /// Get the plugin's security category
     fn security_category(&self) -> &'static str;
-    
+
     /// Get the plugin's version
     fn version(&self) -> &'static str;
-    
+
     /// Get the plugin's description
     fn description(&self) -> &'static str;
-    
+
     /// Get the plugin's references (CWE, OWASP, etc.)
     fn references(&self) -> Vec<SecurityReference>;
-    
+
     /// Validate the plugin configuration
     fn validate_config(&self, config: &SecurityPluginConfig) -> std::result::Result<(), String>;
 }
@@ -96,8 +96,10 @@ pub fn standard_references() -> Vec<SecurityReference> {
         SecurityReference {
             ref_type: "OWASP".to_string(),
             id: "A07:2021".to_string(),
-            url: "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/".to_string(),
-            description: "OWASP Top 10 2021 - Identification and Authentication Failures".to_string(),
+            url: "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+                .to_string(),
+            description: "OWASP Top 10 2021 - Identification and Authentication Failures"
+                .to_string(),
         },
         SecurityReference {
             ref_type: "OWASP".to_string(),
@@ -153,13 +155,13 @@ pub struct CookieInfo {
 /// Extract cookies from Set-Cookie headers
 pub fn extract_cookies(headers: &HashMap<String, String>, url: &str) -> Vec<CookieInfo> {
     let mut cookies = Vec::new();
-    
+
     for (key, value) in headers {
         if key.to_lowercase() == "set-cookie" {
             cookies.extend(parse_cookie_header(value, url));
         }
     }
-    
+
     cookies
 }
 
@@ -167,21 +169,21 @@ pub fn extract_cookies(headers: &HashMap<String, String>, url: &str) -> Vec<Cook
 fn parse_cookie_header(header: &str, url: &str) -> Vec<CookieInfo> {
     let mut cookies = Vec::new();
     let parts: Vec<&str> = header.split(';').collect();
-    
+
     if parts.is_empty() {
         return cookies;
     }
-    
+
     // Parse name=value
     let name_value = parts[0].trim();
     let eq_pos = name_value.find('=');
     if eq_pos.is_none() {
         return cookies;
     }
-    
+
     let name = name_value[..eq_pos.unwrap()].trim().to_string();
     let value = name_value[eq_pos.unwrap() + 1..].trim().to_string();
-    
+
     let mut cookie = CookieInfo {
         name,
         value,
@@ -193,7 +195,7 @@ fn parse_cookie_header(header: &str, url: &str) -> Vec<CookieInfo> {
         expires: None,
         max_age: None,
     };
-    
+
     // Parse attributes
     for part in &parts[1..] {
         let part = part.trim().to_lowercase();
@@ -213,7 +215,7 @@ fn parse_cookie_header(header: &str, url: &str) -> Vec<CookieInfo> {
             cookie.max_age = part[8..].trim().parse().ok();
         }
     }
-    
+
     cookies.push(cookie);
     cookies
 }
@@ -222,23 +224,41 @@ fn parse_cookie_header(header: &str, url: &str) -> Vec<CookieInfo> {
 pub fn is_auth_page(url: &str, body: &str) -> bool {
     let url_lower = url.to_lowercase();
     let body_lower = body.to_lowercase();
-    
+
     // Check URL patterns
     let auth_url_patterns = [
-        "/login", "/signin", "/sign-in", "/logon", "/auth/login",
-        "/register", "/signup", "/sign-up", "/registration", "/auth/register",
-        "/password/reset", "/password/forgot", "/forgot-password", "/reset-password",
-        "/auth/password", "/account/recovery",
-        "/mfa", "/2fa", "/two-factor", "/totp",
-        "/sso", "/saml", "/oidc", "/oauth",
+        "/login",
+        "/signin",
+        "/sign-in",
+        "/logon",
+        "/auth/login",
+        "/register",
+        "/signup",
+        "/sign-up",
+        "/registration",
+        "/auth/register",
+        "/password/reset",
+        "/password/forgot",
+        "/forgot-password",
+        "/reset-password",
+        "/auth/password",
+        "/account/recovery",
+        "/mfa",
+        "/2fa",
+        "/two-factor",
+        "/totp",
+        "/sso",
+        "/saml",
+        "/oidc",
+        "/oauth",
     ];
-    
+
     for pattern in &auth_url_patterns {
         if url_lower.contains(pattern) {
             return true;
         }
     }
-    
+
     // Check body for auth form indicators
     let auth_body_patterns = [
         r#"type=["']password["']"#,
@@ -252,13 +272,13 @@ pub fn is_auth_page(url: &str, body: &str) -> bool {
         "authenticity_token",
         "_token",
     ];
-    
+
     for pattern in &auth_body_patterns {
         if body_lower.contains(pattern) {
             return true;
         }
     }
-    
+
     false
 }
 
@@ -266,7 +286,7 @@ pub fn is_auth_page(url: &str, body: &str) -> bool {
 pub fn detect_sso_providers(body: &str) -> Vec<String> {
     let mut providers = Vec::new();
     let body_lower = body.to_lowercase();
-    
+
     let sso_patterns = [
         ("google", "Google OAuth"),
         ("github", "GitHub OAuth"),
@@ -282,13 +302,13 @@ pub fn detect_sso_providers(body: &str) -> Vec<String> {
         ("oidc", "OpenID Connect"),
         ("openid", "OpenID"),
     ];
-    
+
     for (pattern, name) in &sso_patterns {
         if body_lower.contains(pattern) {
             providers.push(name.to_string());
         }
     }
-    
+
     providers
 }
 
@@ -296,7 +316,7 @@ pub fn detect_sso_providers(body: &str) -> Vec<String> {
 pub fn detect_mfa_indicators(body: &str) -> Vec<String> {
     let mut indicators = Vec::new();
     let body_lower = body.to_lowercase();
-    
+
     let mfa_patterns = [
         ("totp", "TOTP (Time-based One-Time Password)"),
         ("authenticator", "Authenticator App"),
@@ -312,12 +332,12 @@ pub fn detect_mfa_indicators(body: &str) -> Vec<String> {
         ("backup code", "Backup Codes"),
         ("recovery code", "Recovery Codes"),
     ];
-    
+
     for (pattern, name) in &mfa_patterns {
         if body_lower.contains(pattern) {
             indicators.push(name.to_string());
         }
     }
-    
+
     indicators
 }

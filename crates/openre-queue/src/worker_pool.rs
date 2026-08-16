@@ -1,7 +1,7 @@
 //! Worker pool for open-re queue system
 
-use crate::{QueueManager, Job, JobHandler, BoxedJobHandler};
-use openre_config::{WorkerConfig, QueueConfig};
+use crate::{BoxedJobHandler, QueueManager};
+use openre_config::{QueueConfig, WorkerConfig};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::WorkerId;
 use openre_telemetry::metrics::WorkerMetrics as TelemetryWorkerMetrics;
@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, Semaphore};
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
 /// Worker pool managing multiple workers
 pub struct WorkerPool {
@@ -50,8 +50,8 @@ impl WorkerPool {
         self.shutdown_tx = Some(shutdown_tx);
 
         let semaphore = Arc::new(Semaphore::new(self.worker_config.max_workers));
-        
-        for i in 0..self.worker_config.max_workers {
+
+        for _i in 0..self.worker_config.max_workers {
             let worker_id = WorkerId::new();
             let queue_manager = self.queue_manager.clone();
             let worker_config = self.worker_config.clone();
@@ -63,7 +63,16 @@ impl WorkerPool {
 
             let handle = tokio::spawn(async move {
                 let _permit = permit; // Hold permit for worker lifetime
-                Self::worker_loop(worker_id, queue_manager, worker_config, queue_config, metrics, handlers, worker_shutdown_rx).await;
+                Self::worker_loop(
+                    worker_id,
+                    queue_manager,
+                    worker_config,
+                    queue_config,
+                    metrics,
+                    handlers,
+                    worker_shutdown_rx,
+                )
+                .await;
             });
 
             self.workers.push(WorkerHandle {
@@ -76,7 +85,8 @@ impl WorkerPool {
         }
 
         // Start shutdown listener
-        let shutdown_txs: Vec<mpsc::Sender<()>> = self.workers.iter().map(|w| w.shutdown_tx.clone()).collect();
+        let shutdown_txs: Vec<mpsc::Sender<()>> =
+            self.workers.iter().map(|w| w.shutdown_tx.clone()).collect();
         tokio::spawn(async move {
             shutdown_rx.recv().await;
             info!("Shutdown signal received, stopping workers...");
@@ -91,13 +101,17 @@ impl WorkerPool {
     async fn worker_loop(
         worker_id: WorkerId,
         queue_manager: Arc<QueueManager>,
-        worker_config: WorkerConfig,
+        _worker_config: WorkerConfig,
         queue_config: QueueConfig,
         metrics: Arc<TelemetryWorkerMetrics>,
         handlers: Vec<BoxedJobHandler>,
         mut shutdown_rx: mpsc::Receiver<()>,
     ) {
-        let priorities = [crate::job::Priority::High, crate::job::Priority::Default, crate::job::Priority::Low];
+        let priorities = [
+            crate::job::Priority::High,
+            crate::job::Priority::Default,
+            crate::job::Priority::Low,
+        ];
         let poll_interval = Duration::from_millis(queue_config.poll_interval_ms);
 
         loop {
@@ -112,14 +126,14 @@ impl WorkerPool {
                         Ok(Some(job)) => {
                             metrics.jobs_processed.increment(1);
                             let start = std::time::Instant::now();
-                            
+
                             // Find handler for job type
                             if let Some(handler) = handlers.iter().find(|h| h.can_handle(&job)) {
                                 let result = handler.handle(job.clone()).await;
-                                
+
                                 let duration = start.elapsed().as_millis() as u64;
                                 metrics.job_duration.record(duration as f64);
-                                
+
                                 match result {
                                     Ok(output) => {
                                         if let Err(e) = queue_manager.complete(job.id, output).await {
@@ -178,24 +192,36 @@ impl WorkerPool {
 
     /// Scale worker pool
     pub async fn scale(&mut self, new_size: usize, handlers: Vec<BoxedJobHandler>) -> Result<()> {
-        if new_size > self.config.max_workers {
-            return Err(openre_core::Error::InvalidInput("Cannot exceed max_workers".into()));
+        if new_size > self.worker_config.max_workers {
+            return Err(openre_core::Error::InvalidInput(
+                "Cannot exceed max_workers".into(),
+            ));
         }
 
         let current = self.workers.len();
-        
+
         if new_size > current {
             // Add workers
             for _ in current..new_size {
                 let worker_id = WorkerId::new();
                 let queue_manager = self.queue_manager.clone();
-                let config = self.config.clone();
+                let worker_config = self.worker_config.clone();
+                let queue_config = self.queue_config.clone();
                 let metrics = self.metrics.clone();
                 let handlers = handlers.clone();
                 let (worker_shutdown_tx, worker_shutdown_rx) = mpsc::channel(1);
 
                 let handle = tokio::spawn(async move {
-                    Self::worker_loop(worker_id, queue_manager, config, metrics, handlers, worker_shutdown_rx).await;
+                    Self::worker_loop(
+                        worker_id,
+                        queue_manager,
+                        worker_config,
+                        queue_config,
+                        metrics,
+                        handlers,
+                        worker_shutdown_rx,
+                    )
+                    .await;
                 });
 
                 self.workers.push(WorkerHandle {

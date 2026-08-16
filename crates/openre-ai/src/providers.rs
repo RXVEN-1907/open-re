@@ -1,11 +1,13 @@
 //! AI model providers for open-re
 
-use openre_core::error::OpenreResult as Result;
 use async_trait::async_trait;
+use openre_core::error::OpenreResult as Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod onnx;
-pub mod llama_cpp;
+// Optional providers - require additional dependencies
+// pub mod onnx;
+// pub mod llama_cpp;
 pub mod remote;
 
 /// Model provider trait
@@ -31,7 +33,9 @@ pub struct ProviderRegistry {
 
 impl ProviderRegistry {
     pub fn new() -> Self {
-        Self { providers: HashMap::new() }
+        Self {
+            providers: HashMap::new(),
+        }
     }
 
     pub fn register(&mut self, provider: Box<dyn ModelProvider>) {
@@ -48,7 +52,8 @@ impl ProviderRegistry {
     }
 
     pub fn local_only(&self) -> Vec<&dyn ModelProvider> {
-        self.providers.values()
+        self.providers
+            .values()
             .filter(|p| matches!(p.id().provider_type.as_str(), "onnx" | "llama.cpp"))
             .map(|p| p.as_ref())
             .collect()
@@ -84,7 +89,7 @@ impl std::fmt::Display for ProviderId {
 }
 
 /// Provider capabilities
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProviderCapabilities {
     pub chat: bool,
     pub completion: bool,
@@ -97,7 +102,7 @@ pub struct ProviderCapabilities {
 }
 
 /// Completion request
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CompletionRequest {
     pub messages: Vec<Message>,
     pub tools: Option<Vec<ToolDefinition>>,
@@ -112,7 +117,7 @@ pub struct CompletionRequest {
 }
 
 /// Completion response
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompletionResponse {
     pub id: String,
     pub model: String,
@@ -122,7 +127,7 @@ pub struct CompletionResponse {
 }
 
 /// Choice in completion response
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Choice {
     pub index: u32,
     pub message: Message,
@@ -130,7 +135,7 @@ pub struct Choice {
 }
 
 /// Message in conversation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub role: MessageRole,
     pub content: Option<String>,
@@ -141,19 +146,43 @@ pub struct Message {
 
 impl Message {
     pub fn user(content: String) -> Self {
-        Self { role: MessageRole::User, content: Some(content), tool_calls: None, tool_call_id: None, name: None }
+        Self {
+            role: MessageRole::User,
+            content: Some(content),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }
     }
 
     pub fn assistant(content: String) -> Self {
-        Self { role: MessageRole::Assistant, content: Some(content), tool_calls: None, tool_call_id: None, name: None }
+        Self {
+            role: MessageRole::Assistant,
+            content: Some(content),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }
     }
 
     pub fn system(content: String) -> Self {
-        Self { role: MessageRole::System, content: Some(content), tool_calls: None, tool_call_id: None, name: None }
+        Self {
+            role: MessageRole::System,
+            content: Some(content),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }
     }
 
     pub fn tool_result(tool_call_id: String, content: String) -> Self {
-        Self { role: MessageRole::Tool, content: Some(content), tool_calls: None, tool_call_id: Some(tool_call_id), name: None }
+        Self {
+            role: MessageRole::Tool,
+            content: Some(content),
+            tool_calls: None,
+            tool_call_id: Some(tool_call_id),
+            name: None,
+        }
     }
 }
 
@@ -168,7 +197,7 @@ pub enum MessageRole {
 }
 
 /// Tool call
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
     pub id: String,
     pub name: String,
@@ -176,7 +205,7 @@ pub struct ToolCall {
 }
 
 /// Tool definition
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDefinition {
     pub name: String,
     pub description: String,
@@ -185,7 +214,8 @@ pub struct ToolDefinition {
 }
 
 /// Tool choice
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ToolChoice {
     Auto,
     None,
@@ -194,7 +224,8 @@ pub enum ToolChoice {
 }
 
 /// Response format
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ResponseFormat {
     Text,
     JsonObject,
@@ -213,7 +244,7 @@ pub enum FinishReason {
 }
 
 /// Usage statistics
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Usage {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
@@ -222,7 +253,9 @@ pub struct Usage {
 
 impl Usage {
     pub fn estimate(request: &CompletionRequest, response: &str) -> Self {
-        let prompt_tokens = request.messages.iter()
+        let prompt_tokens = request
+            .messages
+            .iter()
             .map(|m| m.content.as_ref().map(|c| c.len() / 4).unwrap_or(0))
             .sum::<usize>() as u32;
         let completion_tokens = response.len() / 4;
@@ -240,7 +273,7 @@ pub struct StreamingResponse {
 }
 
 /// Stream chunk
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StreamChunk {
     Content(String),
     ToolCall(ToolCall),
@@ -248,7 +281,7 @@ pub enum StreamChunk {
 }
 
 /// Health status
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthStatus {
     pub healthy: bool,
     pub message: Option<String>,

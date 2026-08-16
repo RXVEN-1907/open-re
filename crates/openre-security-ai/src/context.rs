@@ -1,7 +1,7 @@
 //! Context builder for assembling token-budgeted structured context for AI prompts
 
-use crate::{AiResult, AiAnalystError};
-use openre_core::result::{Finding, Evidence};
+use crate::{AiAnalystError, AiResult};
+use openre_core::result::{Evidence, Finding};
 use serde::{Deserialize, Serialize};
 
 /// Token budget for context assembly
@@ -130,7 +130,11 @@ impl ContextBuilder {
     }
 
     /// Process evidence within token budget
-    fn process_evidence(&self, evidence: &[Evidence], budget: &mut TokenBudget) -> AiResult<Vec<EvidenceSummary>> {
+    fn process_evidence(
+        &self,
+        evidence: &[Evidence],
+        budget: &mut TokenBudget,
+    ) -> AiResult<Vec<EvidenceSummary>> {
         let mut summaries = Vec::new();
 
         for ev in evidence {
@@ -223,7 +227,6 @@ impl ContextBuilder {
                 preview.push_str(body);
             }
         }
-
         // HTTP response
         else if let Some(http_resp) = &evidence.http_response {
             preview.push_str(&format!("HTTP/1.1 {}\n", http_resp.status_code));
@@ -235,7 +238,6 @@ impl ContextBuilder {
                 preview.push_str(body);
             }
         }
-
         // Raw data
         else if let Some(data) = &evidence.data {
             preview.push_str(&format!("{:.200}", format!("{:?}", data)));
@@ -299,8 +301,10 @@ impl ContextBuilder {
         let mut budget = TokenBudget::new(self.max_tokens);
 
         // Process both sets of findings
-        let base_summaries = self.process_findings_for_comparison(base_findings, "base", &mut budget)?;
-        let target_summaries = self.process_findings_for_comparison(target_findings, "target", &mut budget)?;
+        let base_summaries =
+            self.process_findings_for_comparison(base_findings, "base", &mut budget)?;
+        let target_summaries =
+            self.process_findings_for_comparison(target_findings, "target", &mut budget)?;
 
         Ok(ComparisonContext {
             base_findings: base_summaries,

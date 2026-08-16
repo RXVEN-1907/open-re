@@ -1,10 +1,10 @@
 //! FindingProvider implementation using ScanStorage
 
-use crate::{FindingProvider, ScanMetadata, AiResult, AiAnalystError};
-use openre_core::result::{Finding, FindingFilter};
-use openre_core::ids::{ScanId, FindingId};
-use openre_scanner::storage::ScanStorage;
+use crate::{AiAnalystError, AiResult, FindingProvider, ScanMetadata};
 use async_trait::async_trait;
+use openre_core::ids::{FindingId, ScanId};
+use openre_core::result::{Finding, FindingFilter};
+use openre_scanner::storage::ScanStorage;
 use std::sync::Arc;
 
 /// FindingProvider implementation that uses ScanStorage
@@ -21,7 +21,11 @@ impl ScanStorageFindingProvider {
 
 #[async_trait]
 impl FindingProvider for ScanStorageFindingProvider {
-    async fn get_finding(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<Option<Finding>> {
+    async fn get_finding(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<Option<Finding>> {
         // Get the finding from storage
         match self.scan_storage.get_finding(&finding_id).await {
             Ok(Some(finding)) => {
@@ -34,17 +38,25 @@ impl FindingProvider for ScanStorageFindingProvider {
                 }
             }
             Ok(None) => Ok(None),
-            Err(e) => Err(AiAnalystError::Internal(format!("Failed to get finding: {}", e))),
+            Err(e) => Err(AiAnalystError::Internal(format!(
+                "Failed to get finding: {}",
+                e
+            ))),
         }
     }
 
-    async fn list_findings(&self, scan_id: ScanId, filter: Option<&FindingFilter>) -> AiResult<Vec<Finding>> {
+    async fn list_findings(
+        &self,
+        scan_id: ScanId,
+        filter: Option<&FindingFilter>,
+    ) -> AiResult<Vec<Finding>> {
         // Get all findings for the scan
         match self.scan_storage.get_findings(&scan_id).await {
             Ok(findings) => {
                 if let Some(filter) = filter {
                     // Apply filtering if specified
-                    let filtered: Vec<Finding> = findings.into_iter()
+                    let filtered: Vec<Finding> = findings
+                        .into_iter()
                         .filter(|finding| {
                             // Filter by severity if specified
                             if let Some(severities) = &filter.severity {
@@ -67,7 +79,10 @@ impl FindingProvider for ScanStorageFindingProvider {
                     Ok(findings)
                 }
             }
-            Err(e) => Err(AiAnalystError::Internal(format!("Failed to list findings: {}", e))),
+            Err(e) => Err(AiAnalystError::Internal(format!(
+                "Failed to list findings: {}",
+                e
+            ))),
         }
     }
 
@@ -78,7 +93,12 @@ impl FindingProvider for ScanStorageFindingProvider {
                 // Count findings for this scan
                 let finding_count = match self.scan_storage.get_findings(&scan_id).await {
                     Ok(findings) => findings.len(),
-                    Err(e) => return Err(AiAnalystError::Internal(format!("Failed to count findings: {}", e))),
+                    Err(e) => {
+                        return Err(AiAnalystError::Internal(format!(
+                            "Failed to count findings: {}",
+                            e
+                        )))
+                    }
                 };
 
                 Ok(ScanMetadata {
@@ -91,7 +111,10 @@ impl FindingProvider for ScanStorageFindingProvider {
                 })
             }
             Ok(None) => Err(AiAnalystError::ScanNotFound(scan_id)),
-            Err(e) => Err(AiAnalystError::Internal(format!("Failed to get scan metadata: {}", e))),
+            Err(e) => Err(AiAnalystError::Internal(format!(
+                "Failed to get scan metadata: {}",
+                e
+            ))),
         }
     }
 }

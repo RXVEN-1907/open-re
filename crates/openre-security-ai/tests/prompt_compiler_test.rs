@@ -7,7 +7,8 @@ fn test_prompt_compiler_creation() {
     assert!(!compiler.list_templates().is_empty());
 
     // Check that all expected templates are present
-    let template_names: Vec<&str> = compiler.list_templates()
+    let template_names: Vec<&str> = compiler
+        .list_templates()
         .iter()
         .map(|t| t.name.as_str())
         .collect();
@@ -25,7 +26,10 @@ fn test_template_rendering() {
     // Test rendering a template with variables
     let mut variables = HashMap::new();
     variables.insert("finding_title".to_string(), "SQL Injection".to_string());
-    variables.insert("finding_description".to_string(), "User input is not properly sanitized".to_string());
+    variables.insert(
+        "finding_description".to_string(),
+        "User input is not properly sanitized".to_string(),
+    );
     variables.insert("severity".to_string(), "High".to_string());
     variables.insert("confidence".to_string(), "Medium".to_string());
     variables.insert("category".to_string(), "Injection".to_string());

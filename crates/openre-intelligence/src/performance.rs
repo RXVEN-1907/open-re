@@ -1,9 +1,9 @@
 //! Performance optimizations - Caching and incremental operation
 
-use crate::{types::*, error::IntelligenceError, IntelligenceResult};
+use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
-use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
 /// Configuration for performance optimizations
@@ -109,7 +109,9 @@ impl PerformanceOptimizer {
         }
 
         // Clean up expired entries periodically
-        if self.last_cleanup.elapsed() > Duration::from_secs(self.config.cache_cleanup_interval_seconds) {
+        if self.last_cleanup.elapsed()
+            > Duration::from_secs(self.config.cache_cleanup_interval_seconds)
+        {
             self.cleanup_expired_entries();
             self.last_cleanup = Instant::now();
         }
@@ -174,7 +176,8 @@ impl PerformanceOptimizer {
 
     /// Evict oldest entries to make space
     fn evict_oldest_entries(&mut self, count: usize) {
-        let mut entries: Vec<(String, Duration)> = self.cache
+        let mut entries: Vec<(String, Duration)> = self
+            .cache
             .iter()
             .map(|(key, entry)| (key.clone(), entry.age()))
             .collect();
@@ -187,7 +190,10 @@ impl PerformanceOptimizer {
             self.cache.remove(&key);
         }
 
-        debug!("Evicted {} oldest cache entries", count.min(self.cache.len()));
+        debug!(
+            "Evicted {} oldest cache entries",
+            count.min(self.cache.len())
+        );
     }
 
     /// Get cache statistics
@@ -241,11 +247,10 @@ impl PerformanceOptimizer {
                 }
             } else {
                 // If no fingerprint, use a combination of key fields
-                let key = format!("{}:{}:{}:{:?}",
-                    finding.title,
-                    finding.target,
-                    finding.category,
-                    finding.severity);
+                let key = format!(
+                    "{}:{}:{}:{:?}",
+                    finding.title, finding.target, finding.category, finding.severity
+                );
 
                 if seen_fingerprints.insert(key) {
                     deduplicated.push(finding);
@@ -368,8 +373,8 @@ pub struct IncrementalProcessingResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openre_core::result::{Finding, Category, Severity, Confidence};
     use openre_core::ids::{FindingId, ScanId};
+    use openre_core::result::{Category, Confidence, Finding, Severity};
     use std::collections::HashMap;
     use std::thread;
 
@@ -490,7 +495,8 @@ mod tests {
         assert_eq!(findings.len(), 3); // 5 original - 2 duplicates = 3
 
         // Check that we kept one of each unique fingerprint
-        let fingerprints: Vec<&str> = findings.iter()
+        let fingerprints: Vec<&str> = findings
+            .iter()
             .filter_map(|f| f.fingerprint.as_deref())
             .collect();
 
@@ -514,8 +520,8 @@ mod tests {
         let mut current_findings = vec![
             create_test_finding("Existing Issue 1", Some("existing-1")), // Unchanged
             create_test_finding("Existing Issue 2", Some("existing-2")), // Unchanged
-            create_test_finding("New Issue 1", Some("new-1")),          // New
-            create_test_finding("New Issue 2", Some("new-2")),          // New
+            create_test_finding("New Issue 1", Some("new-1")),           // New
+            create_test_finding("New Issue 2", Some("new-2")),           // New
         ];
 
         let result = optimizer.incremental_process(&previous_findings, &mut current_findings);
@@ -539,8 +545,12 @@ mod tests {
         let mut optimizer = PerformanceOptimizer::new();
 
         // Perform some cache operations
-        optimizer.put_in_cache("key1".to_string(), "value1".to_string()).unwrap();
-        optimizer.put_in_cache("key2".to_string(), "value2".to_string()).unwrap();
+        optimizer
+            .put_in_cache("key1".to_string(), "value1".to_string())
+            .unwrap();
+        optimizer
+            .put_in_cache("key2".to_string(), "value2".to_string())
+            .unwrap();
 
         let _val1: Option<String> = optimizer.get_from_cache("key1").unwrap();
         let _val2: Option<String> = optimizer.get_from_cache("key2").unwrap();

@@ -1,20 +1,15 @@
 //! Integration tests for openre-scan
 
 use openre_scan::{
-    run_scan_internal, Check, ScanProfile, OutputFormat, Finding, Severity, Confidence,
-    Category, build_client,
+    build_client, run_scan_internal, Check, Confidence, OutputFormat, ScanProfile, Severity,
 };
 use std::time::Duration;
 use tokio::process::Command;
 use url::Url;
 
-// Re-export types for easier use in tests
-type ScanProfileType = ScanProfile;
-type OutputFormatType = OutputFormat;
-
 /// Start a test HTTP server and return its base URL
 async fn start_test_server() -> (String, tokio::process::Child) {
-    let mut child = Command::new("python3")
+    let child = Command::new("python3")
         .arg("test_server.py")
         .current_dir("/home/jupyter-24b11cs489@adityau-1219b/project/open-re")
         .stdout(std::process::Stdio::null())
@@ -46,7 +41,8 @@ async fn test_scan_pipeline_quick_profile() {
         10,
         10,
         "openre-scan-test/0.1.0".to_string(),
-    ).await;
+    )
+    .await;
 
     stop_test_server(server).await;
 
@@ -61,7 +57,9 @@ async fn test_scan_pipeline_quick_profile() {
     assert!(has_server_header, "Should detect server header disclosure");
 
     // Should include security-headers findings
-    let has_missing_hsts = findings.iter().any(|f| f.title.contains("Strict-Transport-Security"));
+    let has_missing_hsts = findings
+        .iter()
+        .any(|f| f.title.contains("Strict-Transport-Security"));
     assert!(has_missing_hsts, "Should detect missing HSTS header");
 }
 
@@ -77,7 +75,8 @@ async fn test_scan_pipeline_standard_profile() {
         10,
         10,
         "openre-scan-test/0.1.0".to_string(),
-    ).await;
+    )
+    .await;
 
     stop_test_server(server).await;
 
@@ -85,7 +84,10 @@ async fn test_scan_pipeline_standard_profile() {
     let findings = findings.unwrap();
 
     // Standard profile should find more issues
-    assert!(findings.len() > 10, "Standard profile should find more than 10 findings");
+    assert!(
+        findings.len() > 10,
+        "Standard profile should find more than 10 findings"
+    );
 
     // Should include forms check (GET password form)
     let has_get_password = findings.iter().any(|f| f.title.contains("GET Form"));
@@ -109,7 +111,8 @@ async fn test_finding_generation_has_evidence() {
         10,
         10,
         "openre-scan-test/0.1.0".to_string(),
-    ).await;
+    )
+    .await;
 
     stop_test_server(server).await;
 
@@ -117,13 +120,22 @@ async fn test_finding_generation_has_evidence() {
 
     // Most findings should have evidence (some informational ones may not)
     let findings_with_evidence = findings.iter().filter(|f| !f.evidence.is_empty()).count();
-    assert!(findings_with_evidence > 0, "At least some findings should have evidence");
+    assert!(
+        findings_with_evidence > 0,
+        "At least some findings should have evidence"
+    );
 
     for finding in &findings {
         assert!(!finding.target.is_empty(), "Finding should have target");
-        assert!(!finding.plugin_source.is_empty(), "Finding should have plugin source");
+        assert!(
+            !finding.plugin_source.is_empty(),
+            "Finding should have plugin source"
+        );
         // Severity should be one of the valid variants
-        assert!(matches!(finding.severity, Severity::Info | Severity::Low | Severity::Medium | Severity::High | Severity::Critical));
+        assert!(matches!(
+            finding.severity,
+            Severity::Info | Severity::Low | Severity::Medium | Severity::High | Severity::Critical
+        ));
     }
 }
 
@@ -139,7 +151,8 @@ async fn test_json_output_format() {
         10,
         10,
         "openre-scan-test/0.1.0".to_string(),
-    ).await;
+    )
+    .await;
 
     stop_test_server(server).await;
 
@@ -168,7 +181,8 @@ async fn test_sarif_output_format() {
         10,
         10,
         "openre-scan-test/0.1.0".to_string(),
-    ).await;
+    )
+    .await;
 
     stop_test_server(server).await;
 
@@ -228,7 +242,10 @@ async fn test_exclude_check() {
     }
 
     // Should detect multiple missing headers
-    assert!(findings.len() >= 5, "Should detect multiple missing security headers");
+    assert!(
+        findings.len() >= 5,
+        "Should detect multiple missing security headers"
+    );
 }
 
 #[tokio::test]
@@ -243,7 +260,8 @@ async fn test_remediation_guidance() {
         10,
         10,
         "openre-scan-test/0.1.0".to_string(),
-    ).await;
+    )
+    .await;
 
     stop_test_server(server).await;
 
@@ -251,7 +269,10 @@ async fn test_remediation_guidance() {
 
     // At least some findings should have remediation
     let with_remediation = findings.iter().filter(|f| f.remediation.is_some()).count();
-    assert!(with_remediation > 0, "At least some findings should have remediation guidance");
+    assert!(
+        with_remediation > 0,
+        "At least some findings should have remediation guidance"
+    );
 
     // Check remediation structure
     for finding in &findings {
@@ -274,17 +295,24 @@ async fn test_severity_and_confidence() {
         10,
         10,
         "openre-scan-test/0.1.0".to_string(),
-    ).await;
+    )
+    .await;
 
     stop_test_server(server).await;
 
     let findings = findings.unwrap();
 
     // Should have findings across different severities
-    let has_high = findings.iter().any(|f| matches!(f.severity, Severity::High));
-    let has_medium = findings.iter().any(|f| matches!(f.severity, Severity::Medium));
+    let has_high = findings
+        .iter()
+        .any(|f| matches!(f.severity, Severity::High));
+    let has_medium = findings
+        .iter()
+        .any(|f| matches!(f.severity, Severity::Medium));
     let has_low = findings.iter().any(|f| matches!(f.severity, Severity::Low));
-    let has_info = findings.iter().any(|f| matches!(f.severity, Severity::Info));
+    let has_info = findings
+        .iter()
+        .any(|f| matches!(f.severity, Severity::Info));
 
     assert!(has_high, "Should have HIGH severity findings");
     assert!(has_medium, "Should have MEDIUM severity findings");
@@ -293,7 +321,10 @@ async fn test_severity_and_confidence() {
 
     // All findings should have confidence
     for finding in &findings {
-        assert!(matches!(finding.confidence, Confidence::VeryHigh | Confidence::High | Confidence::Medium | Confidence::Low));
+        assert!(matches!(
+            finding.confidence,
+            Confidence::VeryHigh | Confidence::High | Confidence::Medium | Confidence::Low
+        ));
     }
 }
 
@@ -318,7 +349,19 @@ async fn test_cli_scan_json_output() {
     let target = format!("{}/", base_url);
 
     let output = Command::new("cargo")
-        .args(["run", "--release", "-p", "openre-scan", "--", "scan", &target, "--profile", "quick", "--format", "json"])
+        .args([
+            "run",
+            "--release",
+            "-p",
+            "openre-scan",
+            "--",
+            "scan",
+            &target,
+            "--profile",
+            "quick",
+            "--format",
+            "json",
+        ])
         .current_dir("/home/jupyter-24b11cs489@adityau-1219b/project/open-re")
         .output()
         .await
@@ -341,7 +384,19 @@ async fn test_cli_scan_sarif_output() {
     let target = format!("{}/", base_url);
 
     let output = Command::new("cargo")
-        .args(["run", "--release", "-p", "openre-scan", "--", "scan", &target, "--profile", "quick", "--format", "sarif"])
+        .args([
+            "run",
+            "--release",
+            "-p",
+            "openre-scan",
+            "--",
+            "scan",
+            &target,
+            "--profile",
+            "quick",
+            "--format",
+            "sarif",
+        ])
         .current_dir("/home/jupyter-24b11cs489@adityau-1219b/project/open-re")
         .output()
         .await

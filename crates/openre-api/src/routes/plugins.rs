@@ -1,11 +1,10 @@
 //! Plugin routes
 
-use crate::{AppState, ApiResult, ValidatedJson};
+use crate::{ApiResult, AppState, ValidatedJson};
 use axum::{
     extract::{Path, Query, State},
-    routing::{get, post, delete},
-    Json,
-    Router,
+    routing::{delete, get, post, put},
+    Json, Router,
 };
 use openre_core::ids::PluginId;
 use serde::{Deserialize, Serialize};
@@ -40,17 +39,20 @@ async fn list_plugins(
     Query(filter): Query<PluginFilterParams>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<PluginListResponse>> {
-    let plugins = state.plugin_registry.list_plugins(
-        filter.plugin_type.as_deref(),
-        filter.enabled,
-        pagination.offset(),
-        pagination.limit(),
-    ).await?;
+    let plugins = state
+        .plugin_registry
+        .list_plugins(
+            filter.plugin_type.as_deref(),
+            filter.enabled,
+            pagination.offset(),
+            pagination.limit(),
+        )
+        .await?;
 
-    let total = state.plugin_registry.count_plugins(
-        filter.plugin_type.as_deref(),
-        filter.enabled,
-    ).await?;
+    let total = state
+        .plugin_registry
+        .count_plugins(filter.plugin_type.as_deref(), filter.enabled)
+        .await?;
 
     Ok(Json(PluginListResponse {
         plugins: plugins.into_iter().map(PluginResponse::from).collect(),
@@ -77,7 +79,10 @@ async fn get_plugin(
     Path(id): Path<PluginId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<PluginResponse>> {
-    let plugin = state.plugin_registry.get_plugin(id).await?
+    let plugin = state
+        .plugin_registry
+        .get_plugin(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Plugin not found".into()))?;
 
     Ok(Json(PluginResponse::from(plugin)))
@@ -106,10 +111,10 @@ async fn install_plugin(
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    let plugin = state.plugin_registry.install_plugin(
-        &payload.source,
-        payload.version.as_deref(),
-    ).await?;
+    let plugin = state
+        .plugin_registry
+        .install_plugin(&payload.source, payload.version.as_deref())
+        .await?;
 
     Ok(Json(PluginResponse::from(plugin)))
 }
@@ -174,7 +179,10 @@ async fn configure_plugin(
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    let plugin = state.plugin_registry.configure_plugin(id, payload.config).await?;
+    let plugin = state
+        .plugin_registry
+        .configure_plugin(id, payload.config)
+        .await?;
 
     Ok(Json(PluginResponse::from(plugin)))
 }

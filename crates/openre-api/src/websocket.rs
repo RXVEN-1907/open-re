@@ -1,38 +1,69 @@
 //! WebSocket support for open-re API
 
-use crate::{AppState, ApiError, ApiResult};
+use crate::{ApiError, ApiResult, AppState};
 use axum::{
-    extract::{State, WebSocketUpgrade, ws::{Message, WebSocket}},
+    extract::{
+        ws::{Message, WebSocket},
+        State, WebSocketUpgrade,
+    },
     response::IntoResponse,
 };
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
-use uuid::Uuid;
 use tracing::{debug, info, warn};
+use uuid::Uuid;
 
 /// WebSocket message types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WsMessage {
     // Client -> Server
-    Subscribe { channels: Vec<String> },
-    Unsubscribe { channels: Vec<String> },
+    Subscribe {
+        channels: Vec<String>,
+    },
+    Unsubscribe {
+        channels: Vec<String>,
+    },
     Ping,
-    Auth { token: String },
-    
+    Auth {
+        token: String,
+    },
+
     // Server -> Client
-    Subscribed { channels: Vec<String> },
-    Unsubscribed { channels: Vec<String> },
+    Subscribed {
+        channels: Vec<String>,
+    },
+    Unsubscribed {
+        channels: Vec<String>,
+    },
     Pong,
-    AuthSuccess { user_id: String },
-    AuthError { message: String },
-    Progress { job_id: String, progress: JobProgressUpdate },
-    AnalysisUpdate { job_id: String, stage: String, message: String },
-    Notification { title: String, message: String, level: NotificationLevel },
-    Error { code: String, message: String },
+    AuthSuccess {
+        user_id: String,
+    },
+    AuthError {
+        message: String,
+    },
+    Progress {
+        job_id: String,
+        progress: JobProgressUpdate,
+    },
+    AnalysisUpdate {
+        job_id: String,
+        stage: String,
+        message: String,
+    },
+    Notification {
+        title: String,
+        message: String,
+        level: NotificationLevel,
+    },
+    Error {
+        code: String,
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,9 +109,9 @@ impl WsConnection {
         // Subscribe to progress updates
         let progress_rx = self.state.progress_tracker.subscribe();
         let mut progress_rx = progress_rx;
-        
+
         let mut rx = self.tx.subscribe();
-        
+
         loop {
             tokio::select! {
                 // Handle incoming messages
@@ -117,7 +148,7 @@ impl WsConnection {
                         }
                     }
                 }
-                
+
                 // Handle progress updates
                 Ok(update) = progress_rx.recv() => {
                     if self.is_subscribed(&format!("job:{}", update.job_id)) {
@@ -136,7 +167,7 @@ impl WsConnection {
                         }
                     }
                 }
-                
+
                 // Handle broadcast messages
                 Ok(msg) = rx.recv() => {
                     if self.send(msg).await.is_err() {
@@ -150,7 +181,7 @@ impl WsConnection {
     async fn handle_text(&mut self, text: String) -> ApiResult<()> {
         let msg: WsMessage = serde_json::from_str(&text)
             .map_err(|e| ApiError::BadRequest(format!("Invalid message format: {}", e)))?;
-        
+
         match msg {
             WsMessage::Subscribe { channels } => {
                 self.subscribe(channels).await;
@@ -168,7 +199,7 @@ impl WsConnection {
                 // Ignore server-to-client messages from client
             }
         }
-        
+
         Ok(())
     }
 
@@ -178,13 +209,13 @@ impl WsConnection {
                 self.subscriptions.push(channel.clone());
             }
         }
-        
+
         let _ = self.send(WsMessage::Subscribed { channels }).await;
     }
 
     async fn unsubscribe(&mut self, channels: Vec<String>) {
         self.subscriptions.retain(|c| !channels.contains(c));
-        
+
         let _ = self.send(WsMessage::Unsubscribed { channels }).await;
     }
 
@@ -195,23 +226,28 @@ impl WsConnection {
     async fn authenticate(&mut self, token: String) -> ApiResult<()> {
         let claims = self.state.auth_service.validate_access_token(&token)?;
         self.user_id = Some(claims.sub.clone());
-        
+
         // Auto-subscribe to user's channels
         self.subscriptions.push(format!("user:{}", claims.sub));
         if let Some(project_id) = claims.project_id {
             self.subscriptions.push(format!("project:{}", project_id));
         }
-        
-        self.send(WsMessage::AuthSuccess { user_id: claims.sub }).await
+
+        self.send(WsMessage::AuthSuccess {
+            user_id: claims.sub,
+        })
+        .await
     }
 
     async fn send(&mut self, msg: WsMessage) -> ApiResult<()> {
         let text = serde_json::to_string(&msg)
             .map_err(|e| ApiError::Internal(format!("Failed to serialize message: {}", e)))?;
-        
-        self.socket.send(Message::Text(text)).await
+
+        self.socket
+            .send(Message::Text(text))
+            .await
             .map_err(|e| ApiError::Internal(format!("Failed to send message: {}", e)))?;
-        
+
         Ok(())
     }
 }

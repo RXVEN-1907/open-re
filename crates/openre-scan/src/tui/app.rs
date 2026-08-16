@@ -16,16 +16,12 @@ use ratatui::{
     Terminal,
 };
 #[cfg(feature = "tui")]
-use std::{
-    io,
-    sync::Arc,
-    time::Duration,
-};
+use std::{io, sync::Arc, time::Duration};
 #[cfg(feature = "tui")]
 use tokio::sync::{mpsc, Mutex};
 
 #[cfg(feature = "tui")]
-use crate::{run_scan_internal, Check, ScanProfile};
+use crate::{Check, ScanProfile};
 #[cfg(feature = "tui")]
 use url::Url;
 
@@ -33,7 +29,11 @@ use url::Url;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScanStatus {
     NotStarted,
-    Running { current: String, progress: usize, total: usize },
+    Running {
+        current: String,
+        progress: usize,
+        total: usize,
+    },
     Completed,
     Error(String),
 }
@@ -98,7 +98,11 @@ impl App {
     }
 
     pub fn previous_tab(&mut self) {
-        self.selected_tab = if self.selected_tab == 0 { 2 } else { self.selected_tab - 1 };
+        self.selected_tab = if self.selected_tab == 0 {
+            2
+        } else {
+            self.selected_tab - 1
+        };
     }
 
     pub fn next_item(&mut self) {
@@ -113,7 +117,8 @@ impl App {
         let len = self.get_current_list_len();
         if len > 0 {
             let i = self.list_state.selected().unwrap_or(0);
-            self.list_state.select(Some(if i == 0 { len - 1 } else { i - 1 }));
+            self.list_state
+                .select(Some(if i == 0 { len - 1 } else { i - 1 }));
         }
     }
 
@@ -148,7 +153,7 @@ impl App {
 
         let status_clone = status.clone();
         let tx_clone = tx.clone();
-        
+
         let handle = tokio::spawn(async move {
             let tx_for_progress = tx_clone.clone();
             match run_scan_with_progress(target, profile, format, tx_for_progress).await {
@@ -208,16 +213,14 @@ async fn run_scan_with_progress(
         .collect();
 
     let checks_count = checks_to_run.len();
-    
+
     let start_time = std::time::Instant::now();
     let mut all_findings = Vec::new();
 
     for (i, check) in checks_to_run.iter().enumerate() {
-        let _ = tx.send(ScanMsg::Progress(
-            check.name().to_string(),
-            i,
-            checks_count,
-        )).await;
+        let _ = tx
+            .send(ScanMsg::Progress(check.name().to_string(), i, checks_count))
+            .await;
 
         match check.run(&client, &target_url).await {
             Ok(findings) => all_findings.extend(findings),
@@ -320,7 +323,11 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
 
     // Title
     let title = Paragraph::new("openre-scan - Lightweight Security Scanner")
-        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
         .alignment(Alignment::Center)
         .block(Block::default().borders(Borders::ALL));
     f.render_widget(title, chunks[0]);
@@ -332,14 +339,16 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
         .enumerate()
         .map(|(i, t)| {
             let style = if i == app.selected_tab {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             };
             ListItem::new(Line::from(Span::styled(*t, style)))
         })
         .collect();
-    
+
     let tabs_widget = List::new(tab_items)
         .block(Block::default().borders(Borders::ALL).title("Tabs"))
         .style(Style::default())
@@ -357,7 +366,11 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
     // Status bar
     let status_text = match &app.status {
         ScanStatus::NotStarted => "Ready - Enter target and press Enter to scan".to_string(),
-        ScanStatus::Running { current, progress, total } => {
+        ScanStatus::Running {
+            current,
+            progress,
+            total,
+        } => {
             format!("Scanning: {} ({}/{})", current, progress, total)
         }
         ScanStatus::Completed => "Scan completed!".to_string(),
@@ -378,10 +391,7 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
 fn render_target_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(5),
-        ])
+        .constraints([Constraint::Length(3), Constraint::Min(5)])
         .split(area);
 
     let input = Paragraph::new(app.target_input.as_str())
@@ -402,8 +412,14 @@ fn render_target_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
 fn render_profile_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
     let profiles = vec![
         ("Quick", "Fast scan with essential checks (~6 checks)"),
-        ("Standard", "Balanced scan with common security checks (~15 checks)"),
-        ("Full", "Comprehensive scan with all available checks (~18 checks)"),
+        (
+            "Standard",
+            "Balanced scan with common security checks (~15 checks)",
+        ),
+        (
+            "Full",
+            "Comprehensive scan with all available checks (~18 checks)",
+        ),
     ];
 
     let items: Vec<ListItem> = profiles
@@ -413,13 +429,15 @@ fn render_profile_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
             let selected = matches!(app.profile, crate::ScanProfile::Quick) && i == 0
                 || matches!(app.profile, crate::ScanProfile::Standard) && i == 1
                 || matches!(app.profile, crate::ScanProfile::Full) && i == 2;
-            
+
             let style = if selected {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             };
-            
+
             let prefix = if selected { "► " } else { "  " };
             ListItem::new(Line::from(vec![
                 Span::styled(prefix, style),
@@ -430,9 +448,13 @@ fn render_profile_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
         .collect();
 
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title("Scan Profile (Up/Down to select, Enter to confirm)"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Scan Profile (Up/Down to select, Enter to confirm)"),
+        )
         .highlight_style(Style::default().add_modifier(Modifier::BOLD));
-    
+
     f.render_stateful_widget(list, area, &mut app.list_state.clone());
 }
 
@@ -451,13 +473,15 @@ fn render_output_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
             let selected = matches!(app.output_format, crate::OutputFormat::Table) && i == 0
                 || matches!(app.output_format, crate::OutputFormat::Json) && i == 1
                 || matches!(app.output_format, crate::OutputFormat::Sarif) && i == 2;
-            
+
             let style = if selected {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             };
-            
+
             let prefix = if selected { "► " } else { "  " };
             ListItem::new(Line::from(vec![
                 Span::styled(prefix, style),
@@ -468,9 +492,13 @@ fn render_output_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
         .collect();
 
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title("Output Format (Up/Down to select, Enter to confirm)"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Output Format (Up/Down to select, Enter to confirm)"),
+        )
         .highlight_style(Style::default().add_modifier(Modifier::BOLD));
-    
+
     f.render_stateful_widget(list, area, &mut app.list_state.clone());
 }
 
@@ -508,7 +536,11 @@ fn render_help(f: &mut ratatui::Frame) {
 
     let help = Paragraph::new(Text::from(help_text))
         .style(Style::default().fg(Color::White))
-        .block(Block::default().borders(Borders::ALL).title("Help (F1 to close)"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Help (F1 to close)"),
+        )
         .wrap(Wrap { trim: true });
 
     let area = centered_rect(60, 70, f.size());

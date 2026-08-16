@@ -1,34 +1,38 @@
 //! Project storage (SQLite) for open-re
 
-use openre_config::DatabaseConfig;
+use base64::engine::Engine;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_telemetry::metrics;
-use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
-use std::path::PathBuf;
+use rusqlite::{params, params_from_iter, Connection};
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::Mutex;
-use tracing::{info, warn};
-use uuid::Uuid;
 
 /// Project store for SQLite operations
+///
+/// Uses Arc<Mutex<Option<Connection>>> for thread safety. The Connection itself is not Send/Sync
+/// due to internal RefCell and raw pointers. We use Option<Connection> inside Mutex so that
+/// the Mutex contains an Option (which is Send/Sync) rather than the Connection directly.
+/// The connection is taken out of the Option when in use and put back when done.
 pub struct ProjectStore {
+    #[allow(dead_code)]
     db_path: PathBuf,
-    conn: Arc<Mutex<Connection>>,
+    conn: Arc<Mutex<Option<Connection>>>,
 }
 
 impl ProjectStore {
     /// Create a new project store
-    pub fn new(project_id: ProjectId, base_path: &PathBuf) -> Result<Self> {
+    pub fn new(project_id: ProjectId, base_path: &Path) -> Result<Self> {
         let db_path = base_path.join(format!("{}.db", project_id));
-        
+
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
 
         let conn = Connection::open(&db_path)?;
-        
+
         // Enable WAL mode for better concurrency
         conn.execute("PRAGMA journal_mode=WAL", [])?;
         conn.execute("PRAGMA synchronous=NORMAL", [])?;
@@ -40,16 +44,31 @@ impl ProjectStore {
 
         let store = Self {
             db_path,
-            conn: Arc::new(Mutex::new(conn)),
+            conn: Arc::new(Mutex::new(Some(conn))),
         };
 
         Ok(store)
     }
 
+    /// Take the connection from the mutex for use
+    async fn take_conn(&self) -> Result<Connection> {
+        let mut guard = self.conn.lock().await;
+        guard.take().ok_or_else(|| {
+            openre_core::Error::Internal(anyhow::anyhow!("Connection already in use"))
+        })
+    }
+
+    /// Put the connection back into the mutex
+    async fn put_conn(&self, conn: Connection) {
+        let mut guard = self.conn.lock().await;
+        *guard = Some(conn);
+    }
+
     /// Ensure schema exists
     pub async fn ensure_schema(&self) -> Result<()> {
-        let conn = self.conn.lock().await;
-        Self::create_schema(&conn)?;
+        let mut guard = self.conn.lock().await;
+        let conn = guard.as_mut().expect("Connection not available");
+        Self::create_schema(conn)?;
         Ok(())
     }
 
@@ -81,8 +100,14 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_functions_address ON functions(address)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_functions_name ON functions(name)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_functions_address ON functions(address)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_functions_name ON functions(name)",
+            [],
+        )?;
 
         // Basic blocks table
         conn.execute(
@@ -103,8 +128,14 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_basic_blocks_function ON basic_blocks(function_id)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_basic_blocks_address ON basic_blocks(start_address)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_basic_blocks_function ON basic_blocks(function_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_basic_blocks_address ON basic_blocks(start_address)",
+            [],
+        )?;
 
         // Instructions table
         conn.execute(
@@ -126,9 +157,18 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_instructions_block ON instructions(block_id)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_instructions_address ON instructions(address)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_instructions_mnemonic ON instructions(mnemonic)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_instructions_block ON instructions(block_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_instructions_address ON instructions(address)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_instructions_mnemonic ON instructions(mnemonic)",
+            [],
+        )?;
 
         // CFG edges table
         conn.execute(
@@ -146,8 +186,14 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_cfg_edges_from ON cfg_edges(from_block_id)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_cfg_edges_to ON cfg_edges(to_block_id)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cfg_edges_from ON cfg_edges(from_block_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cfg_edges_to ON cfg_edges(to_block_id)",
+            [],
+        )?;
 
         // Call edges table
         conn.execute(
@@ -166,8 +212,14 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_call_edges_from ON call_edges(from_function_id)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_call_edges_to ON call_edges(to_function_id)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_call_edges_from ON call_edges(from_function_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_call_edges_to ON call_edges(to_function_id)",
+            [],
+        )?;
 
         // Loops table
         conn.execute(
@@ -187,7 +239,10 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_loops_function ON loops(function_id)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_loops_function ON loops(function_id)",
+            [],
+        )?;
 
         // Variables table
         conn.execute(
@@ -213,8 +268,14 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_variables_function ON variables(function_id)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_variables_name ON variables(name)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_variables_function ON variables(function_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_variables_name ON variables(name)",
+            [],
+        )?;
 
         // Types table
         conn.execute(
@@ -234,8 +295,14 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_types_name ON types(name)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_types_kind ON types(kind)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_types_name ON types(name)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_types_kind ON types(kind)",
+            [],
+        )?;
 
         // Pseudocode table
         conn.execute(
@@ -255,7 +322,10 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_pseudocode_function ON pseudocode(function_id)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pseudocode_function ON pseudocode(function_id)",
+            [],
+        )?;
 
         // Annotations table
         conn.execute(
@@ -275,9 +345,18 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_annotations_address ON annotations(address)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_annotations_function ON annotations(function_id)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_annotations_type ON annotations(annotation_type)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_annotations_address ON annotations(address)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_annotations_function ON annotations(function_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_annotations_type ON annotations(annotation_type)",
+            [],
+        )?;
 
         // Strings table
         conn.execute(
@@ -296,8 +375,14 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_strings_address ON strings(address)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_strings_value ON strings(value)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_strings_address ON strings(address)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_strings_value ON strings(value)",
+            [],
+        )?;
         // FTS5 for full-text search
         conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS strings_fts USING fts5(value, content='strings', content_rowid='id')", [])?;
 
@@ -318,8 +403,14 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_constants_address ON constants(address)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_constants_value ON constants(value)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_constants_address ON constants(address)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_constants_value ON constants(value)",
+            [],
+        )?;
 
         // Indexes table
         conn.execute(
@@ -383,13 +474,19 @@ impl ProjectStore {
     }
 
     /// Execute a query and return results as JSON values
-    pub async fn query(&self, sql: &str, params: Vec<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        let conn = self.conn.lock().await;
+    pub async fn query(
+        &self,
+        sql: &str,
+        params: Vec<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        let mut guard = self.conn.lock().await;
+        let conn = guard.as_mut().expect("Connection not available");
         let start = std::time::Instant::now();
-        
+
         let mut stmt = conn.prepare(sql)?;
         let cols: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
-        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+        let param_refs: Vec<&dyn rusqlite::ToSql> =
+            params.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
         let rows = stmt.query_map(params_from_iter(param_refs), |row| {
             let mut map = serde_json::Map::new();
             for (i, col) in cols.iter().enumerate() {
@@ -412,21 +509,31 @@ impl ProjectStore {
     fn rusqlite_value_to_json(val: rusqlite::types::Value) -> serde_json::Value {
         match val {
             rusqlite::types::Value::Null => serde_json::Value::Null,
-            rusqlite::types::Value::Integer(i) => serde_json::Value::Number(serde_json::Number::from(i)),
-            rusqlite::types::Value::Real(f) => serde_json::Number::from_f64(f).map(serde_json::Value::Number).unwrap_or(serde_json::Value::Null),
+            rusqlite::types::Value::Integer(i) => {
+                serde_json::Value::Number(serde_json::Number::from(i))
+            }
+            rusqlite::types::Value::Real(f) => serde_json::Number::from_f64(f)
+                .map(serde_json::Value::Number)
+                .unwrap_or(serde_json::Value::Null),
             rusqlite::types::Value::Text(s) => serde_json::Value::String(s),
-            rusqlite::types::Value::Blob(b) => serde_json::Value::String(base64::encode(b)),
+            rusqlite::types::Value::Blob(b) => {
+                serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(b))
+            }
         }
     }
 
     /// Write identification output
-    pub async fn write_identification(&self, output: &openre_core::traits::IdentificationOutput) -> Result<()> {
-        let conn = self.conn.lock().await;
+    pub async fn write_identification(
+        &self,
+        output: &openre_core::traits::IdentificationOutput,
+    ) -> Result<()> {
+        let mut guard = self.conn.lock().await;
+        let conn = guard.as_mut().expect("Connection not available");
         let start = std::time::Instant::now();
-        
+
         conn.execute(
             r#"
-            INSERT OR REPLACE INTO statistics (key, value, updated_at) VALUES 
+            INSERT OR REPLACE INTO statistics (key, value, updated_at) VALUES
             ('format', ?1, CURRENT_TIMESTAMP),
             ('architecture', ?2, CURRENT_TIMESTAMP),
             ('compiler_info', ?3, CURRENT_TIMESTAMP),
@@ -473,15 +580,20 @@ impl ProjectStore {
     */
 
     /// Finalize the project database
-    pub async fn finalize(&self, project_id: ProjectId) -> Result<()> {
-        let conn = self.conn.lock().await;
+    pub async fn finalize(&self, _project_id: ProjectId) -> Result<()> {
+        let mut guard = self.conn.lock().await;
+        let conn = guard.as_mut().expect("Connection not available");
         let start = std::time::Instant::now();
-        
+
         // Update statistics
-        let total_functions: i64 = conn.query_row("SELECT COUNT(*) FROM functions", [], |row| row.get(0))?;
-        let total_instructions: i64 = conn.query_row("SELECT COUNT(*) FROM instructions", [], |row| row.get(0))?;
-        let total_basic_blocks: i64 = conn.query_row("SELECT COUNT(*) FROM basic_blocks", [], |row| row.get(0))?;
-        let total_strings: i64 = conn.query_row("SELECT COUNT(*) FROM strings", [], |row| row.get(0))?;
+        let total_functions: i64 =
+            conn.query_row("SELECT COUNT(*) FROM functions", [], |row| row.get(0))?;
+        let total_instructions: i64 =
+            conn.query_row("SELECT COUNT(*) FROM instructions", [], |row| row.get(0))?;
+        let total_basic_blocks: i64 =
+            conn.query_row("SELECT COUNT(*) FROM basic_blocks", [], |row| row.get(0))?;
+        let total_strings: i64 =
+            conn.query_row("SELECT COUNT(*) FROM strings", [], |row| row.get(0))?;
 
         conn.execute("UPDATE statistics SET value = ?1, updated_at = CURRENT_TIMESTAMP WHERE key = 'total_functions'", params![total_functions.to_string()])?;
         conn.execute("UPDATE statistics SET value = ?1, updated_at = CURRENT_TIMESTAMP WHERE key = 'total_instructions'", params![total_instructions.to_string()])?;
@@ -494,4 +606,316 @@ impl ProjectStore {
         metrics::record_db_query(start.elapsed());
         Ok(())
     }
+
+    /// Get a function by its ID
+    pub async fn get_function(&self, function_id: FunctionId) -> Result<Option<FunctionInfo>> {
+        let mut guard = self.conn.lock().await;
+        let conn = guard.as_mut().expect("Connection not available");
+        let start = std::time::Instant::now();
+
+        let mut stmt = conn.prepare(
+            "SELECT id, address, name, demangled_name, size, calling_convention, return_type, is_thunk, is_library, is_entry, cyclomatic_complexity, instruction_count, block_count FROM functions WHERE id = ?1"
+        )?;
+
+        let result = stmt.query_row(params![function_id.0], |row| {
+            Ok(FunctionInfo {
+                id: FunctionId(row.get(0)?),
+                address: row.get(1)?,
+                name: row.get(2)?,
+                demangled_name: row.get(3)?,
+                size: row.get(4)?,
+                calling_convention: row.get(5)?,
+                return_type: row.get(6)?,
+                is_thunk: row.get(7)?,
+                is_library: row.get(8)?,
+                is_entry: row.get(9)?,
+                cyclomatic_complexity: row.get(10)?,
+                instruction_count: row.get(11)?,
+                block_count: row.get(12)?,
+            })
+        });
+
+        metrics::record_db_query(start.elapsed());
+        match result {
+            Ok(func) => Ok(Some(func)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Get basic blocks for a function
+    pub async fn get_basic_blocks(&self, function_id: FunctionId) -> Result<Vec<BasicBlockInfo>> {
+        let conn = self.take_conn().await?;
+        let start = std::time::Instant::now();
+
+        let mut blocks = {
+            let mut stmt = conn.prepare(
+                "SELECT id, function_id, start_address, end_address, size, instruction_count, loop_depth, is_entry, is_exit FROM basic_blocks WHERE function_id = ?1 ORDER BY start_address"
+            )?;
+
+            let rows = stmt.query_map(params![function_id.0], |row| {
+                Ok(BasicBlockInfo {
+                    id: BlockId::from_uuid(row.get(0)?),
+                    function_id: FunctionId(row.get(1)?),
+                    start_address: row.get(2)?,
+                    end_address: row.get(3)?,
+                    size: row.get(4)?,
+                    instruction_count: row.get(5)?,
+                    loop_depth: row.get(6)?,
+                    is_entry: row.get(7)?,
+                    is_exit: row.get(8)?,
+                    instructions: Vec::new(), // Instructions loaded separately if needed
+                })
+            })?;
+
+            let mut blocks = Vec::new();
+            for row in rows {
+                blocks.push(row?);
+            }
+            blocks
+        }; // stmt is dropped here
+
+        // Load instructions for each block
+        for block in &mut blocks {
+            block.instructions = self.get_instructions_for_block(block.id).await?;
+        }
+
+        self.put_conn(conn).await;
+        metrics::record_db_query(start.elapsed());
+        Ok(blocks)
+    }
+
+    /// Get instructions for a basic block
+    async fn get_instructions_for_block(&self, block_id: BlockId) -> Result<Vec<InstructionInfo>> {
+        let conn = self.take_conn().await?;
+
+        let instructions = {
+            let mut stmt = conn.prepare(
+                "SELECT id, block_id, address, bytes, mnemonic, operands, operand_types, groups, size, stack_change FROM instructions WHERE block_id = ?1 ORDER BY address"
+            )?;
+
+            let rows = stmt.query_map(params![block_id.0], |row| {
+                Ok(InstructionInfo {
+                    id: row.get(0)?,
+                    block_id: BlockId::from_uuid(row.get(1)?),
+                    address: row.get(2)?,
+                    bytes: row.get(3)?,
+                    mnemonic: row.get(4)?,
+                    operands: row.get(5)?,
+                    operand_types: row.get(6)?,
+                    groups: row.get(7)?,
+                    size: row.get(8)?,
+                    stack_change: row.get(9)?,
+                })
+            })?;
+
+            let mut instructions = Vec::new();
+            for row in rows {
+                instructions.push(row?);
+            }
+            instructions
+        }; // stmt is dropped here
+
+        self.put_conn(conn).await;
+        Ok(instructions)
+    }
+
+    /// Get pseudocode for a function
+    pub async fn get_pseudocode(&self, function_id: FunctionId) -> Result<Option<String>> {
+        let mut guard = self.conn.lock().await;
+        let conn = guard.as_mut().expect("Connection not available");
+        let start = std::time::Instant::now();
+
+        let mut stmt = conn.prepare(
+            "SELECT code FROM pseudocode WHERE function_id = ?1 ORDER BY version DESC LIMIT 1",
+        )?;
+
+        let result = stmt.query_row(params![function_id.0], |row| row.get(0));
+
+        metrics::record_db_query(start.elapsed());
+        match result {
+            Ok(code) => Ok(Some(code)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    // Stub methods for AI tools - to be implemented when storage layer is fully developed
+    pub async fn add_function_annotation(
+        &self,
+        _function_id: FunctionId,
+        _annotation_type: &str,
+        _content: &str,
+        _confidence: f32,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    pub async fn add_instruction_annotation(
+        &self,
+        _instruction_id: u64,
+        _annotation_type: &str,
+        _content: &str,
+        _confidence: f32,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    pub async fn add_variable_annotation(
+        &self,
+        _variable_id: u64,
+        _annotation_type: &str,
+        _content: &str,
+        _confidence: f32,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    pub async fn add_address_annotation(
+        &self,
+        _address: u64,
+        _annotation_type: &str,
+        _content: &str,
+        _confidence: f32,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    pub async fn execute_query(
+        &self,
+        _query: &str,
+        _params: &[serde_json::Value],
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(Vec::new())
+    }
+
+    pub async fn get_instructions(&self, _block_id: BlockId) -> Result<Vec<InstructionInfo>> {
+        Ok(Vec::new())
+    }
+
+    pub async fn get_cfg(&self, _function_id: FunctionId) -> Result<serde_json::Value> {
+        Ok(serde_json::json!({}))
+    }
+
+    pub async fn get_xrefs_to_address(&self, _address: u64) -> Result<Vec<crate::XrefInfo>> {
+        Ok(Vec::new())
+    }
+
+    pub async fn get_xrefs_to_function(
+        &self,
+        _function_id: FunctionId,
+    ) -> Result<Vec<crate::XrefInfo>> {
+        Ok(Vec::new())
+    }
+
+    pub async fn get_strings(
+        &self,
+        _min_length: usize,
+        _encoding: &str,
+        _address: Option<u64>,
+    ) -> Result<Vec<crate::StringInfo>> {
+        Ok(Vec::new())
+    }
+
+    pub async fn get_symbols(
+        &self,
+        _symbol_type: &str,
+        _name_pattern: Option<&str>,
+    ) -> Result<Vec<crate::SymbolInfo>> {
+        Ok(Vec::new())
+    }
+
+    pub async fn search(
+        &self,
+        _query: &str,
+        _search_type: &str,
+        _limit: usize,
+    ) -> Result<Vec<crate::SearchResult>> {
+        Ok(Vec::new())
+    }
+}
+
+/// Symbol information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymbolInfo {
+    pub address: u64,
+    pub name: String,
+    pub symbol_type: String,
+    pub size: u32,
+    pub is_export: bool,
+}
+
+/// Cross-reference information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct XrefInfo {
+    pub from_address: u64,
+    pub to_address: u64,
+    pub is_to: bool,
+    pub xref_type: String,
+}
+
+/// Search result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub address: u64,
+    pub context: String,
+    pub match_type: String,
+}
+
+/// String information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StringInfo {
+    pub address: u64,
+    pub value: String,
+    pub length: u32,
+    pub encoding: String,
+    pub string_type: String,
+}
+
+/// Function information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FunctionInfo {
+    pub id: FunctionId,
+    pub address: u64,
+    pub name: Option<String>,
+    pub demangled_name: Option<String>,
+    pub size: u32,
+    pub calling_convention: Option<String>,
+    pub return_type: Option<String>,
+    pub is_thunk: bool,
+    pub is_library: bool,
+    pub is_entry: bool,
+    pub cyclomatic_complexity: Option<u32>,
+    pub instruction_count: Option<u32>,
+    pub block_count: Option<u32>,
+}
+
+/// Basic block information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BasicBlockInfo {
+    pub id: BlockId,
+    pub function_id: FunctionId,
+    pub start_address: u64,
+    pub end_address: u64,
+    pub size: u32,
+    pub instruction_count: Option<u32>,
+    pub loop_depth: u32,
+    pub is_entry: bool,
+    pub is_exit: bool,
+    pub instructions: Vec<InstructionInfo>,
+}
+
+/// Instruction information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstructionInfo {
+    pub id: i64,
+    pub block_id: BlockId,
+    pub address: u64,
+    pub bytes: Vec<u8>,
+    pub mnemonic: String,
+    pub operands: Option<String>,
+    pub operand_types: Option<String>,
+    pub groups: Option<String>,
+    pub size: u32,
+    pub stack_change: i32,
 }

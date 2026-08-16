@@ -1,23 +1,20 @@
 //! Security Analyst service - main entry point for AI-powered security analysis
 
 use crate::{
-    AiResult, AiAnalystError,
-    FindingProvider, ScanMetadata,
-    prompts::PromptCompiler,
-    context::ContextBuilder,
-    cache::AnalysisCache,
-    safety::SafetyGuard,
-    types::*,
+    cache::AnalysisCache, context::ContextBuilder, prompts::PromptCompiler, safety::SafetyGuard,
+    types::*, AiAnalystError, AiResult, FindingProvider, ScanMetadata,
 };
-use openre_core::result::{Finding, FindingFilter};
-use openre_core::ids::{ScanId, FindingId};
-use openre_ai::providers::{ModelProvider, CompletionRequest, CompletionResponse, StreamingResponse, Message, StreamChunk};
 use async_trait::async_trait;
-use std::sync::Arc;
+use openre_ai::providers::{
+    CompletionRequest, CompletionResponse, Message, ModelProvider, StreamChunk, StreamingResponse,
+};
+use openre_core::ids::{FindingId, ScanId};
+use openre_core::result::{Finding, FindingFilter};
 use serde_json::Value;
-use tracing::{debug, info, warn};
-use tokio_stream::{Stream, StreamExt};
 use std::pin::Pin;
+use std::sync::Arc;
+use tokio_stream::{Stream, StreamExt};
+use tracing::{debug, info, warn};
 
 /// Audience for executive summaries
 #[derive(Debug, Clone)]
@@ -32,46 +29,93 @@ pub enum SummaryAudience {
 #[async_trait]
 pub trait SecurityAnalyst: Send + Sync {
     /// Explain why a finding exists and its security implications
-    async fn explain_finding(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<FindingExplanation>;
+    async fn explain_finding(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<FindingExplanation>;
 
     /// Stream explanation of a finding
-    async fn stream_explain_finding(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
+    async fn stream_explain_finding(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
 
     /// Generate remediation guidance for a finding
-    async fn generate_remediation(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<RemediationPlan>;
+    async fn generate_remediation(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<RemediationPlan>;
 
     /// Stream generation of remediation guidance
-    async fn stream_generate_remediation(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
+    async fn stream_generate_remediation(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
 
     /// Identify relationships between findings
-    async fn correlate_findings(&self, scan_id: ScanId, filter: Option<&FindingFilter>) -> AiResult<CorrelationReport>;
+    async fn correlate_findings(
+        &self,
+        scan_id: ScanId,
+        filter: Option<&FindingFilter>,
+    ) -> AiResult<CorrelationReport>;
 
     /// Stream correlation of findings
-    async fn stream_correlate_findings(&self, scan_id: ScanId, filter: Option<&FindingFilter>) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
+    async fn stream_correlate_findings(
+        &self,
+        scan_id: ScanId,
+        filter: Option<&FindingFilter>,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
 
     /// Generate prioritized remediation plan
     async fn prioritize_findings(&self, scan_id: ScanId) -> AiResult<PrioritizedFindings>;
 
     /// Stream prioritization of findings
-    async fn stream_prioritize_findings(&self, scan_id: ScanId) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
+    async fn stream_prioritize_findings(
+        &self,
+        scan_id: ScanId,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
 
     /// Generate executive summary for a specific audience
-    async fn executive_summary(&self, scan_id: ScanId, audience: SummaryAudience) -> AiResult<ExecutiveSummary>;
+    async fn executive_summary(
+        &self,
+        scan_id: ScanId,
+        audience: SummaryAudience,
+    ) -> AiResult<ExecutiveSummary>;
 
     /// Stream generation of executive summary
-    async fn stream_executive_summary(&self, scan_id: ScanId, audience: SummaryAudience) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
+    async fn stream_executive_summary(
+        &self,
+        scan_id: ScanId,
+        audience: SummaryAudience,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
 
     /// Answer natural language questions about findings
     async fn query_findings(&self, scan_id: ScanId, question: &str) -> AiResult<QueryResponse>;
 
     /// Stream querying of findings
-    async fn stream_query_findings(&self, scan_id: ScanId, question: &str) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
+    async fn stream_query_findings(
+        &self,
+        scan_id: ScanId,
+        question: &str,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
 
     /// Compare two scans for changes
-    async fn compare_scans(&self, base_scan_id: ScanId, target_scan_id: ScanId) -> AiResult<ScanComparison>;
+    async fn compare_scans(
+        &self,
+        base_scan_id: ScanId,
+        target_scan_id: ScanId,
+    ) -> AiResult<ScanComparison>;
 
     /// Stream comparison of scans
-    async fn stream_compare_scans(&self, base_scan_id: ScanId, target_scan_id: ScanId) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
+    async fn stream_compare_scans(
+        &self,
+        base_scan_id: ScanId,
+        target_scan_id: ScanId,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>>;
 }
 
 /// Concrete implementation of SecurityAnalyst
@@ -162,7 +206,8 @@ impl SecurityAnalystImpl {
                 // Validate response grounding
                 // In a real implementation, we'd pass available finding IDs for validation
                 let available_ids: Vec<String> = vec![]; // Empty for now
-                self.safety_guard.validate_response_grounding(content, &available_ids)?;
+                self.safety_guard
+                    .validate_response_grounding(content, &available_ids)?;
 
                 // Parse the response
                 let result: T = serde_json::from_str(content)?;
@@ -170,27 +215,35 @@ impl SecurityAnalystImpl {
             }
         }
 
-        Err(AiAnalystError::Internal("No valid response from model".to_string()))
+        Err(AiAnalystError::Internal(
+            "No valid response from model".to_string(),
+        ))
     }
 
     /// Helper to execute streaming completion and handle response
-    async fn execute_streaming_completion(&self, request: CompletionRequest) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
+    async fn execute_streaming_completion(
+        &self,
+        request: CompletionRequest,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
         // Check if the provider supports streaming
         if !self.model_provider.supports_streaming() {
-            return Err(AiAnalystError::Internal("Model provider does not support streaming".to_string()));
+            return Err(AiAnalystError::Internal(
+                "Model provider does not support streaming".to_string(),
+            ));
         }
 
         let response = self.model_provider.stream(request).await?;
 
         // Convert the streaming response to a stream of strings
-        let stream = tokio_stream::wrappers::ReceiverStream::new(response.stream)
-            .filter_map(|chunk| async move {
+        let stream = tokio_stream::wrappers::ReceiverStream::new(response.stream).filter_map(
+            |chunk| async move {
                 match chunk {
                     StreamChunk::Content(content) => Some(Ok(content)),
-                    StreamChunk::Finish(_) => None, // End of stream
+                    StreamChunk::Finish(_) => None,   // End of stream
                     StreamChunk::ToolCall(_) => None, // Ignore tool calls for now
                 }
-            });
+            },
+        );
 
         Ok(Box::pin(stream))
     }
@@ -198,12 +251,18 @@ impl SecurityAnalystImpl {
 
 #[async_trait]
 impl SecurityAnalyst for SecurityAnalystImpl {
-    async fn explain_finding(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<FindingExplanation> {
+    async fn explain_finding(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<FindingExplanation> {
         // Try cache first
         // In a real implementation, we'd use proper cache keys with template versions
 
         // Get the finding
-        let finding = self.finding_provider.get_finding(scan_id, finding_id)
+        let finding = self
+            .finding_provider
+            .get_finding(scan_id, finding_id)
             .await?
             .ok_or(AiAnalystError::FindingNotFound(finding_id))?;
 
@@ -211,27 +270,46 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let context = self.context_builder.build_finding_context(&finding)?;
 
         // Get templates
-        let system_template = self.prompt_compiler.get_template("explain_finding_system")
-            .ok_or_else(|| AiAnalystError::TemplateNotFound("explain_finding_system".to_string()))?;
+        let system_template = self
+            .prompt_compiler
+            .get_template("explain_finding_system")
+            .ok_or_else(|| {
+                AiAnalystError::TemplateNotFound("explain_finding_system".to_string())
+            })?;
 
-        let user_template = self.prompt_compiler.get_template("explain_finding_user")
+        let user_template = self
+            .prompt_compiler
+            .get_template("explain_finding_user")
             .ok_or_else(|| AiAnalystError::TemplateNotFound("explain_finding_user".to_string()))?;
 
         // Prepare variables for user template
         let mut variables = std::collections::HashMap::new();
         variables.insert("finding_title".to_string(), finding.title.clone());
-        variables.insert("finding_description".to_string(), finding.description.clone());
+        variables.insert(
+            "finding_description".to_string(),
+            finding.description.clone(),
+        );
         variables.insert("severity".to_string(), format!("{:?}", finding.severity));
-        variables.insert("confidence".to_string(), format!("{:?}", finding.confidence));
+        variables.insert(
+            "confidence".to_string(),
+            format!("{:?}", finding.confidence),
+        );
         variables.insert("category".to_string(), format!("{:?}", finding.category));
         variables.insert("target".to_string(), finding.target.clone());
-        variables.insert("evidence_count".to_string(), context.evidence.len().to_string());
+        variables.insert(
+            "evidence_count".to_string(),
+            context.evidence.len().to_string(),
+        );
 
         // Render user prompt
-        let user_prompt = self.prompt_compiler.render_template("explain_finding_user", &variables)?;
+        let user_prompt = self
+            .prompt_compiler
+            .render_template("explain_finding_user", &variables)?;
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute completion
         let mut explanation: FindingExplanation = self.execute_completion(request).await?;
@@ -243,39 +321,62 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         Ok(explanation)
     }
 
-    async fn generate_remediation(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<RemediationPlan> {
+    async fn generate_remediation(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<RemediationPlan> {
         // Get the finding
-        let finding = self.finding_provider.get_finding(scan_id, finding_id)
+        let finding = self
+            .finding_provider
+            .get_finding(scan_id, finding_id)
             .await?
             .ok_or(AiAnalystError::FindingNotFound(finding_id))?;
 
         // Build a simplified evidence summary for the prompt
-        let evidence_summary: String = finding.evidence.iter()
+        let evidence_summary: String = finding
+            .evidence
+            .iter()
             .take(5) // Limit to first 5 pieces of evidence
             .map(|e| format!("- {}: {}", e.evidence_type, e.description))
             .collect::<Vec<_>>()
             .join("\n");
 
         // Get templates
-        let system_template = self.prompt_compiler.get_template("generate_remediation_system")
-            .ok_or_else(|| AiAnalystError::TemplateNotFound("generate_remediation_system".to_string()))?;
+        let system_template = self
+            .prompt_compiler
+            .get_template("generate_remediation_system")
+            .ok_or_else(|| {
+                AiAnalystError::TemplateNotFound("generate_remediation_system".to_string())
+            })?;
 
-        let user_template = self.prompt_compiler.get_template("generate_remediation_user")
-            .ok_or_else(|| AiAnalystError::TemplateNotFound("generate_remediation_user".to_string()))?;
+        let user_template = self
+            .prompt_compiler
+            .get_template("generate_remediation_user")
+            .ok_or_else(|| {
+                AiAnalystError::TemplateNotFound("generate_remediation_user".to_string())
+            })?;
 
         // Prepare variables for user template
         let mut variables = std::collections::HashMap::new();
         variables.insert("finding_title".to_string(), finding.title.clone());
-        variables.insert("finding_description".to_string(), finding.description.clone());
+        variables.insert(
+            "finding_description".to_string(),
+            finding.description.clone(),
+        );
         variables.insert("category".to_string(), format!("{:?}", finding.category));
         variables.insert("target".to_string(), finding.target.clone());
         variables.insert("evidence_summary".to_string(), evidence_summary);
 
         // Render user prompt
-        let user_prompt = self.prompt_compiler.render_template("generate_remediation_user", &variables)?;
+        let user_prompt = self
+            .prompt_compiler
+            .render_template("generate_remediation_user", &variables)?;
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute completion
         let mut plan: RemediationPlan = self.execute_completion(request).await?;
@@ -287,7 +388,11 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         Ok(plan)
     }
 
-    async fn correlate_findings(&self, scan_id: ScanId, filter: Option<&FindingFilter>) -> AiResult<CorrelationReport> {
+    async fn correlate_findings(
+        &self,
+        scan_id: ScanId,
+        filter: Option<&FindingFilter>,
+    ) -> AiResult<CorrelationReport> {
         // Get all findings for the scan
         let findings = self.finding_provider.list_findings(scan_id, filter).await?;
 
@@ -295,14 +400,22 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let finding_refs: Vec<&Finding> = findings.iter().collect();
 
         // Build correlation context
-        let context = self.context_builder.build_correlation_context(&finding_refs)?;
+        let context = self
+            .context_builder
+            .build_correlation_context(&finding_refs)?;
 
         // Get template
-        let system_template = self.prompt_compiler.get_template("correlate_findings_system")
-            .ok_or_else(|| AiAnalystError::TemplateNotFound("correlate_findings_system".to_string()))?;
+        let system_template = self
+            .prompt_compiler
+            .get_template("correlate_findings_system")
+            .ok_or_else(|| {
+                AiAnalystError::TemplateNotFound("correlate_findings_system".to_string())
+            })?;
 
         // Create a summary of findings for the prompt
-        let findings_summary: String = context.findings.iter()
+        let findings_summary: String = context
+            .findings
+            .iter()
             .map(|f| format!("- {} ({}, {})", f.title, f.category, f.severity))
             .collect::<Vec<_>>()
             .join("\n");
@@ -314,7 +427,9 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute completion
         let mut report: CorrelationReport = self.execute_completion(request).await?;
@@ -331,14 +446,19 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let findings = self.finding_provider.list_findings(scan_id, None).await?;
 
         // Get template
-        let system_template = self.prompt_compiler.get_template("prioritize_system")
+        let system_template = self
+            .prompt_compiler
+            .get_template("prioritize_system")
             .ok_or_else(|| AiAnalystError::TemplateNotFound("prioritize_system".to_string()))?;
 
         // Create a summary of findings for the prompt
-        let findings_summary: String = findings.iter()
+        let findings_summary: String = findings
+            .iter()
             .map(|f| {
-                format!("- {} (Severity: {:?}, Confidence: {:?}, Risk Score: {:?})",
-                    f.title, f.severity, f.confidence, f.risk_score)
+                format!(
+                    "- {} (Severity: {:?}, Confidence: {:?}, Risk Score: {:?})",
+                    f.title, f.severity, f.confidence, f.risk_score
+                )
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -350,7 +470,9 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute completion
         let mut prioritized: PrioritizedFindings = self.execute_completion(request).await?;
@@ -362,7 +484,11 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         Ok(prioritized)
     }
 
-    async fn executive_summary(&self, scan_id: ScanId, audience: SummaryAudience) -> AiResult<ExecutiveSummary> {
+    async fn executive_summary(
+        &self,
+        scan_id: ScanId,
+        audience: SummaryAudience,
+    ) -> AiResult<ExecutiveSummary> {
         // Get scan metadata
         let metadata = self.finding_provider.get_scan_metadata(scan_id).await?;
 
@@ -378,11 +504,14 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         };
 
         // Get template
-        let system_template = self.prompt_compiler.get_template(template_name)
+        let system_template = self
+            .prompt_compiler
+            .get_template(template_name)
             .ok_or_else(|| AiAnalystError::TemplateNotFound(template_name.to_string()))?;
 
         // Create a summary of key findings
-        let key_findings: Vec<SummaryFinding> = findings.iter()
+        let key_findings: Vec<SummaryFinding> = findings
+            .iter()
             .take(10) // Top 10 findings
             .map(|f| SummaryFinding {
                 finding_id: f.id,
@@ -407,7 +536,9 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute completion
         let mut summary: ExecutiveSummary = self.execute_completion(request).await?;
@@ -430,14 +561,21 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let findings = self.finding_provider.list_findings(scan_id, None).await?;
 
         // Get template
-        let system_template = self.prompt_compiler.get_template("natural_language_query_system")
-            .ok_or_else(|| AiAnalystError::TemplateNotFound("natural_language_query_system".to_string()))?;
+        let system_template = self
+            .prompt_compiler
+            .get_template("natural_language_query_system")
+            .ok_or_else(|| {
+                AiAnalystError::TemplateNotFound("natural_language_query_system".to_string())
+            })?;
 
         // Create a summary of findings for context
-        let findings_summary: String = findings.iter()
+        let findings_summary: String = findings
+            .iter()
             .map(|f| {
-                format!("- {} (ID: {}, Severity: {:?}, Category: {:?}): {}",
-                    f.title, f.id, f.severity, f.category, f.description)
+                format!(
+                    "- {} (ID: {}, Severity: {:?}, Category: {:?}): {}",
+                    f.title, f.id, f.severity, f.category, f.description
+                )
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -449,7 +587,9 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute completion
         let mut response: QueryResponse = self.execute_completion(request).await?;
@@ -461,22 +601,36 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         Ok(response)
     }
 
-    async fn compare_scans(&self, base_scan_id: ScanId, target_scan_id: ScanId) -> AiResult<ScanComparison> {
+    async fn compare_scans(
+        &self,
+        base_scan_id: ScanId,
+        target_scan_id: ScanId,
+    ) -> AiResult<ScanComparison> {
         // Get findings from both scans
-        let base_findings = self.finding_provider.list_findings(base_scan_id, None).await?;
-        let target_findings = self.finding_provider.list_findings(target_scan_id, None).await?;
+        let base_findings = self
+            .finding_provider
+            .list_findings(base_scan_id, None)
+            .await?;
+        let target_findings = self
+            .finding_provider
+            .list_findings(target_scan_id, None)
+            .await?;
 
         // Get template
-        let system_template = self.prompt_compiler.get_template("compare_scans_system")
+        let system_template = self
+            .prompt_compiler
+            .get_template("compare_scans_system")
             .ok_or_else(|| AiAnalystError::TemplateNotFound("compare_scans_system".to_string()))?;
 
         // Create summaries of findings from both scans
-        let base_summary: String = base_findings.iter()
+        let base_summary: String = base_findings
+            .iter()
             .map(|f| format!("- {} ({:?}, {:?})", f.title, f.severity, f.category))
             .collect::<Vec<_>>()
             .join("\n");
 
-        let target_summary: String = target_findings.iter()
+        let target_summary: String = target_findings
+            .iter()
             .map(|f| format!("- {} ({:?}, {:?})", f.title, f.severity, f.category))
             .collect::<Vec<_>>()
             .join("\n");
@@ -488,7 +642,9 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute completion
         let mut comparison: ScanComparison = self.execute_completion(request).await?;
@@ -501,9 +657,15 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         Ok(comparison)
     }
 
-    async fn stream_explain_finding(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
+    async fn stream_explain_finding(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
         // Get the finding
-        let finding = self.finding_provider.get_finding(scan_id, finding_id)
+        let finding = self
+            .finding_provider
+            .get_finding(scan_id, finding_id)
             .await?
             .ok_or(AiAnalystError::FindingNotFound(finding_id))?;
 
@@ -511,71 +673,117 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let context = self.context_builder.build_finding_context(&finding)?;
 
         // Get templates
-        let system_template = self.prompt_compiler.get_template("explain_finding_system")
-            .ok_or_else(|| AiAnalystError::TemplateNotFound("explain_finding_system".to_string()))?;
+        let system_template = self
+            .prompt_compiler
+            .get_template("explain_finding_system")
+            .ok_or_else(|| {
+                AiAnalystError::TemplateNotFound("explain_finding_system".to_string())
+            })?;
 
-        let user_template = self.prompt_compiler.get_template("explain_finding_user")
+        let user_template = self
+            .prompt_compiler
+            .get_template("explain_finding_user")
             .ok_or_else(|| AiAnalystError::TemplateNotFound("explain_finding_user".to_string()))?;
 
         // Prepare variables for user template
         let mut variables = std::collections::HashMap::new();
         variables.insert("finding_title".to_string(), finding.title.clone());
-        variables.insert("finding_description".to_string(), finding.description.clone());
+        variables.insert(
+            "finding_description".to_string(),
+            finding.description.clone(),
+        );
         variables.insert("severity".to_string(), format!("{:?}", finding.severity));
-        variables.insert("confidence".to_string(), format!("{:?}", finding.confidence));
+        variables.insert(
+            "confidence".to_string(),
+            format!("{:?}", finding.confidence),
+        );
         variables.insert("category".to_string(), format!("{:?}", finding.category));
         variables.insert("target".to_string(), finding.target.clone());
-        variables.insert("evidence_count".to_string(), context.evidence.len().to_string());
+        variables.insert(
+            "evidence_count".to_string(),
+            context.evidence.len().to_string(),
+        );
 
         // Render user prompt
-        let user_prompt = self.prompt_compiler.render_template("explain_finding_user", &variables)?;
+        let user_prompt = self
+            .prompt_compiler
+            .render_template("explain_finding_user", &variables)?;
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
     }
 
-    async fn stream_generate_remediation(&self, scan_id: ScanId, finding_id: FindingId) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
+    async fn stream_generate_remediation(
+        &self,
+        scan_id: ScanId,
+        finding_id: FindingId,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
         // Get the finding
-        let finding = self.finding_provider.get_finding(scan_id, finding_id)
+        let finding = self
+            .finding_provider
+            .get_finding(scan_id, finding_id)
             .await?
             .ok_or(AiAnalystError::FindingNotFound(finding_id))?;
 
         // Build a simplified evidence summary for the prompt
-        let evidence_summary: String = finding.evidence.iter()
+        let evidence_summary: String = finding
+            .evidence
+            .iter()
             .take(5) // Limit to first 5 pieces of evidence
             .map(|e| format!("- {}: {}", e.evidence_type, e.description))
             .collect::<Vec<_>>()
             .join("\n");
 
         // Get templates
-        let system_template = self.prompt_compiler.get_template("generate_remediation_system")
-            .ok_or_else(|| AiAnalystError::TemplateNotFound("generate_remediation_system".to_string()))?;
+        let system_template = self
+            .prompt_compiler
+            .get_template("generate_remediation_system")
+            .ok_or_else(|| {
+                AiAnalystError::TemplateNotFound("generate_remediation_system".to_string())
+            })?;
 
-        let user_template = self.prompt_compiler.get_template("generate_remediation_user")
-            .ok_or_else(|| AiAnalystError::TemplateNotFound("generate_remediation_user".to_string()))?;
+        let user_template = self
+            .prompt_compiler
+            .get_template("generate_remediation_user")
+            .ok_or_else(|| {
+                AiAnalystError::TemplateNotFound("generate_remediation_user".to_string())
+            })?;
 
         // Prepare variables for user template
         let mut variables = std::collections::HashMap::new();
         variables.insert("finding_title".to_string(), finding.title.clone());
-        variables.insert("finding_description".to_string(), finding.description.clone());
+        variables.insert(
+            "finding_description".to_string(),
+            finding.description.clone(),
+        );
         variables.insert("category".to_string(), format!("{:?}", finding.category));
         variables.insert("target".to_string(), finding.target.clone());
         variables.insert("evidence_summary".to_string(), evidence_summary);
 
         // Render user prompt
-        let user_prompt = self.prompt_compiler.render_template("generate_remediation_user", &variables)?;
+        let user_prompt = self
+            .prompt_compiler
+            .render_template("generate_remediation_user", &variables)?;
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
     }
 
-    async fn stream_correlate_findings(&self, scan_id: ScanId, filter: Option<&FindingFilter>) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
+    async fn stream_correlate_findings(
+        &self,
+        scan_id: ScanId,
+        filter: Option<&FindingFilter>,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
         // Get all findings for the scan
         let findings = self.finding_provider.list_findings(scan_id, filter).await?;
 
@@ -583,14 +791,22 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let finding_refs: Vec<&Finding> = findings.iter().collect();
 
         // Build correlation context
-        let context = self.context_builder.build_correlation_context(&finding_refs)?;
+        let context = self
+            .context_builder
+            .build_correlation_context(&finding_refs)?;
 
         // Get template
-        let system_template = self.prompt_compiler.get_template("correlate_findings_system")
-            .ok_or_else(|| AiAnalystError::TemplateNotFound("correlate_findings_system".to_string()))?;
+        let system_template = self
+            .prompt_compiler
+            .get_template("correlate_findings_system")
+            .ok_or_else(|| {
+                AiAnalystError::TemplateNotFound("correlate_findings_system".to_string())
+            })?;
 
         // Create a summary of findings for the prompt
-        let findings_summary: String = context.findings.iter()
+        let findings_summary: String = context
+            .findings
+            .iter()
             .map(|f| format!("- {} ({}, {})", f.title, f.category, f.severity))
             .collect::<Vec<_>>()
             .join("\n");
@@ -602,25 +818,35 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
     }
 
-    async fn stream_prioritize_findings(&self, scan_id: ScanId) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
+    async fn stream_prioritize_findings(
+        &self,
+        scan_id: ScanId,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
         // Get all findings for the scan
         let findings = self.finding_provider.list_findings(scan_id, None).await?;
 
         // Get template
-        let system_template = self.prompt_compiler.get_template("prioritize_system")
+        let system_template = self
+            .prompt_compiler
+            .get_template("prioritize_system")
             .ok_or_else(|| AiAnalystError::TemplateNotFound("prioritize_system".to_string()))?;
 
         // Create a summary of findings for the prompt
-        let findings_summary: String = findings.iter()
+        let findings_summary: String = findings
+            .iter()
             .map(|f| {
-                format!("- {} (Severity: {:?}, Confidence: {:?}, Risk Score: {:?})",
-                    f.title, f.severity, f.confidence, f.risk_score)
+                format!(
+                    "- {} (Severity: {:?}, Confidence: {:?}, Risk Score: {:?})",
+                    f.title, f.severity, f.confidence, f.risk_score
+                )
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -632,13 +858,19 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
     }
 
-    async fn stream_executive_summary(&self, scan_id: ScanId, audience: SummaryAudience) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
+    async fn stream_executive_summary(
+        &self,
+        scan_id: ScanId,
+        audience: SummaryAudience,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
         // Get scan metadata
         let metadata = self.finding_provider.get_scan_metadata(scan_id).await?;
 
@@ -654,11 +886,14 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         };
 
         // Get template
-        let system_template = self.prompt_compiler.get_template(template_name)
+        let system_template = self
+            .prompt_compiler
+            .get_template(template_name)
             .ok_or_else(|| AiAnalystError::TemplateNotFound(template_name.to_string()))?;
 
         // Create a summary of key findings
-        let key_findings: Vec<SummaryFinding> = findings.iter()
+        let key_findings: Vec<SummaryFinding> = findings
+            .iter()
             .take(10) // Top 10 findings
             .map(|f| SummaryFinding {
                 finding_id: f.id,
@@ -683,25 +918,38 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
     }
 
-    async fn stream_query_findings(&self, scan_id: ScanId, question: &str) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
+    async fn stream_query_findings(
+        &self,
+        scan_id: ScanId,
+        question: &str,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
         // Get all findings for the scan
         let findings = self.finding_provider.list_findings(scan_id, None).await?;
 
         // Get template
-        let system_template = self.prompt_compiler.get_template("natural_language_query_system")
-            .ok_or_else(|| AiAnalystError::TemplateNotFound("natural_language_query_system".to_string()))?;
+        let system_template = self
+            .prompt_compiler
+            .get_template("natural_language_query_system")
+            .ok_or_else(|| {
+                AiAnalystError::TemplateNotFound("natural_language_query_system".to_string())
+            })?;
 
         // Create a summary of findings for context
-        let findings_summary: String = findings.iter()
+        let findings_summary: String = findings
+            .iter()
             .map(|f| {
-                format!("- {} (ID: {}, Severity: {:?}, Category: {:?}): {}",
-                    f.title, f.id, f.severity, f.category, f.description)
+                format!(
+                    "- {} (ID: {}, Severity: {:?}, Category: {:?}): {}",
+                    f.title, f.id, f.severity, f.category, f.description
+                )
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -713,28 +961,44 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
     }
 
-    async fn stream_compare_scans(&self, base_scan_id: ScanId, target_scan_id: ScanId) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
+    async fn stream_compare_scans(
+        &self,
+        base_scan_id: ScanId,
+        target_scan_id: ScanId,
+    ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
         // Get findings from both scans
-        let base_findings = self.finding_provider.list_findings(base_scan_id, None).await?;
-        let target_findings = self.finding_provider.list_findings(target_scan_id, None).await?;
+        let base_findings = self
+            .finding_provider
+            .list_findings(base_scan_id, None)
+            .await?;
+        let target_findings = self
+            .finding_provider
+            .list_findings(target_scan_id, None)
+            .await?;
 
         // Get template
-        let system_template = self.prompt_compiler.get_template("compare_scans_system")
+        let system_template = self
+            .prompt_compiler
+            .get_template("compare_scans_system")
             .ok_or_else(|| AiAnalystError::TemplateNotFound("compare_scans_system".to_string()))?;
 
         // Create summaries of findings from both scans
-        let base_summary: String = base_findings.iter()
+        let base_summary: String = base_findings
+            .iter()
             .map(|f| format!("- {} ({:?}, {:?})", f.title, f.severity, f.category))
             .collect::<Vec<_>>()
             .join("\n");
 
-        let target_summary: String = target_findings.iter()
+        let target_summary: String = target_findings
+            .iter()
             .map(|f| format!("- {} ({:?}, {:?})", f.title, f.severity, f.category))
             .collect::<Vec<_>>()
             .join("\n");
@@ -746,7 +1010,9 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
+        let request = self
+            .create_completion_request(&system_template.system_prompt, &user_prompt)
+            .await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await

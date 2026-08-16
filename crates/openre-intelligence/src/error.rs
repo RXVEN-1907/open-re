@@ -1,7 +1,7 @@
 //! Error types for the intelligence module
 
-use thiserror::Error;
 use openre_core::error::OpenreError;
+use thiserror::Error;
 
 /// Intelligence module error types
 #[derive(Error, Debug)]
@@ -49,18 +49,19 @@ pub enum IntelligenceError {
 impl IntelligenceError {
     /// Check if this is a transient error that might succeed on retry
     pub fn is_transient(&self) -> bool {
-        matches!(self,
-            IntelligenceError::Network(_) |
-            IntelligenceError::Provider(_) |
-            IntelligenceError::Cache(_)
+        matches!(
+            self,
+            IntelligenceError::Network(_)
+                | IntelligenceError::Provider(_)
+                | IntelligenceError::Cache(_)
         )
     }
 
     /// Check if this error should be logged as a warning rather than an error
     pub fn is_warning(&self) -> bool {
-        matches!(self,
-            IntelligenceError::NotFound(_) |
-            IntelligenceError::WorkflowFeatureDisabled(_)
+        matches!(
+            self,
+            IntelligenceError::NotFound(_) | IntelligenceError::WorkflowFeatureDisabled(_)
         )
     }
 }

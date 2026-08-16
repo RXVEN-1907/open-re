@@ -1,8 +1,8 @@
 //! Security Knowledge Base - Link findings to CWE, OWASP, CAPEC, CVE, and standards
 
-use crate::{types::*, error::IntelligenceError, IntelligenceResult};
-use openre_core::result::{Finding, Category, Severity};
+use crate::{error::IntelligenceError, types::*, IntelligenceResult};
 use openre_core::ids::FindingId;
+use openre_core::result::{Category, Finding, Severity};
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
@@ -170,44 +170,66 @@ impl KnowledgeBase {
 
     /// Initialize OWASP Top 10 mappings
     fn initialize_owasp_mappings(&mut self) {
-        self.owasp_mappings.insert(Category::Injection, vec![
-            "A03:2021 - Injection".to_string(),
-            "A01:2017 - Injection".to_string(),
-        ]);
+        self.owasp_mappings.insert(
+            Category::Injection,
+            vec![
+                "A03:2021 - Injection".to_string(),
+                "A01:2017 - Injection".to_string(),
+            ],
+        );
 
-        self.owasp_mappings.insert(Category::BrokenAuthentication, vec![
-            "A07:2021 - Identification and Authentication Failures".to_string(),
-            "A02:2017 - Broken Authentication".to_string(),
-        ]);
+        self.owasp_mappings.insert(
+            Category::BrokenAuthentication,
+            vec![
+                "A07:2021 - Identification and Authentication Failures".to_string(),
+                "A02:2017 - Broken Authentication".to_string(),
+            ],
+        );
 
-        self.owasp_mappings.insert(Category::SensitiveDataExposure, vec![
-            "A02:2021 - Cryptographic Failures".to_string(),
-            "A03:2017 - Sensitive Data Exposure".to_string(),
-        ]);
+        self.owasp_mappings.insert(
+            Category::SensitiveDataExposure,
+            vec![
+                "A02:2021 - Cryptographic Failures".to_string(),
+                "A03:2017 - Sensitive Data Exposure".to_string(),
+            ],
+        );
 
-        self.owasp_mappings.insert(Category::Xss, vec![
-            "A03:2021 - Injection".to_string(),
-            "A07:2017 - Cross-Site Scripting (XSS)".to_string(),
-        ]);
+        self.owasp_mappings.insert(
+            Category::Xss,
+            vec![
+                "A03:2021 - Injection".to_string(),
+                "A07:2017 - Cross-Site Scripting (XSS)".to_string(),
+            ],
+        );
 
-        self.owasp_mappings.insert(Category::BrokenAccessControl, vec![
-            "A01:2021 - Broken Access Control".to_string(),
-            "A05:2017 - Broken Access Control".to_string(),
-        ]);
+        self.owasp_mappings.insert(
+            Category::BrokenAccessControl,
+            vec![
+                "A01:2021 - Broken Access Control".to_string(),
+                "A05:2017 - Broken Access Control".to_string(),
+            ],
+        );
 
-        self.owasp_mappings.insert(Category::SecurityMisconfiguration, vec![
-            "A05:2021 - Security Misconfiguration".to_string(),
-            "A06:2017 - Security Misconfiguration".to_string(),
-        ]);
+        self.owasp_mappings.insert(
+            Category::SecurityMisconfiguration,
+            vec![
+                "A05:2021 - Security Misconfiguration".to_string(),
+                "A06:2017 - Security Misconfiguration".to_string(),
+            ],
+        );
 
-        self.owasp_mappings.insert(Category::VulnerableComponents, vec![
-            "A06:2021 - Vulnerable and Outdated Components".to_string(),
-            "A09:2017 - Using Components with Known Vulnerabilities".to_string(),
-        ]);
+        self.owasp_mappings.insert(
+            Category::VulnerableComponents,
+            vec![
+                "A06:2021 - Vulnerable and Outdated Components".to_string(),
+                "A09:2017 - Using Components with Known Vulnerabilities".to_string(),
+            ],
+        );
 
-        self.owasp_mappings.insert(Category::Ssrf, vec![
-            "A10:2021 - Server-Side Request Forgery (SSRF)".to_string(),
-        ]);
+        self.owasp_mappings.insert(
+            Category::Ssrf,
+            vec!["A10:2021 - Server-Side Request Forgery (SSRF)".to_string()],
+        );
     }
 
     /// Initialize CAPEC database
@@ -249,22 +271,32 @@ impl KnowledgeBase {
     /// Initialize secure coding guidelines
     fn initialize_secure_coding_guidelines(&mut self) {
         // XSS Guidelines
-        self.secure_coding_guidelines.insert(Category::Xss, vec![
-            SecureCodingGuideline {
+        self.secure_coding_guidelines.insert(
+            Category::Xss,
+            vec![SecureCodingGuideline {
                 title: "Output Encoding".to_string(),
-                description: "Always encode output based on the context where it will be rendered.".to_string(),
+                description: "Always encode output based on the context where it will be rendered."
+                    .to_string(),
                 examples: HashMap::from([
-                    ("html".to_string(), r#"// HTML context encoding
-String encoded = HtmlUtils.htmlEscape(userInput);"#.to_string()),
-                    ("javascript".to_string(), r#"// JavaScript context encoding
-String encoded = JavaScriptUtils.javaScriptEscape(userInput);"#.to_string()),
+                    (
+                        "html".to_string(),
+                        r#"// HTML context encoding
+String encoded = HtmlUtils.htmlEscape(userInput);"#
+                            .to_string(),
+                    ),
+                    (
+                        "javascript".to_string(),
+                        r#"// JavaScript context encoding
+String encoded = JavaScriptUtils.javaScriptEscape(userInput);"#
+                            .to_string(),
+                    ),
                 ]),
                 references: vec![
                     "https://cheatsheetseries.owasp.org/".to_string(),
                     "https://cwe.mitre.org/data/definitions/79.html".to_string(),
                 ],
-            }
-        ]);
+            }],
+        );
 
         // SQL Injection Guidelines
         self.secure_coding_guidelines.insert(Category::Injection, vec![
@@ -291,35 +323,54 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
 
     /// Initialize standards references
     fn initialize_standards_references(&mut self) {
-        self.standards_references.insert("CWE-79".to_string(), vec![
-            StandardReference {
-                standard: "NIST SP 800-53".to_string(),
-                controls: vec!["SI-10".to_string()],
-                url: Some("https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final".to_string()),
-            },
-            StandardReference {
-                standard: "ISO 27001".to_string(),
-                controls: vec!["A.9.4.2".to_string()],
-                url: Some("https://www.iso.org/isoiec-27001-information-security.html".to_string()),
-            },
-        ]);
+        self.standards_references.insert(
+            "CWE-79".to_string(),
+            vec![
+                StandardReference {
+                    standard: "NIST SP 800-53".to_string(),
+                    controls: vec!["SI-10".to_string()],
+                    url: Some(
+                        "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final"
+                            .to_string(),
+                    ),
+                },
+                StandardReference {
+                    standard: "ISO 27001".to_string(),
+                    controls: vec!["A.9.4.2".to_string()],
+                    url: Some(
+                        "https://www.iso.org/isoiec-27001-information-security.html".to_string(),
+                    ),
+                },
+            ],
+        );
 
-        self.standards_references.insert("CWE-89".to_string(), vec![
-            StandardReference {
-                standard: "NIST SP 800-53".to_string(),
-                controls: vec!["SC-24".to_string(), "SI-10".to_string()],
-                url: Some("https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final".to_string()),
-            },
-            StandardReference {
-                standard: "ISO 27001".to_string(),
-                controls: vec!["A.9.4.2".to_string(), "A.14.1.3".to_string()],
-                url: Some("https://www.iso.org/isoiec-27001-information-security.html".to_string()),
-            },
-        ]);
+        self.standards_references.insert(
+            "CWE-89".to_string(),
+            vec![
+                StandardReference {
+                    standard: "NIST SP 800-53".to_string(),
+                    controls: vec!["SC-24".to_string(), "SI-10".to_string()],
+                    url: Some(
+                        "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final"
+                            .to_string(),
+                    ),
+                },
+                StandardReference {
+                    standard: "ISO 27001".to_string(),
+                    controls: vec!["A.9.4.2".to_string(), "A.14.1.3".to_string()],
+                    url: Some(
+                        "https://www.iso.org/isoiec-27001-information-security.html".to_string(),
+                    ),
+                },
+            ],
+        );
     }
 
     /// Enrich findings with knowledge base information
-    pub fn enrich_findings(&self, findings: &mut [Finding]) -> IntelligenceResult<Vec<KnowledgeBaseEntry>> {
+    pub fn enrich_findings(
+        &self,
+        findings: &mut [Finding],
+    ) -> IntelligenceResult<Vec<KnowledgeBaseEntry>> {
         let mut kb_entries = Vec::new();
 
         for finding in findings {
@@ -333,7 +384,10 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
     }
 
     /// Enrich a single finding with knowledge base information
-    fn enrich_single_finding(&self, finding: &mut Finding) -> IntelligenceResult<Option<KnowledgeBaseEntry>> {
+    fn enrich_single_finding(
+        &self,
+        finding: &mut Finding,
+    ) -> IntelligenceResult<Option<KnowledgeBaseEntry>> {
         let mut cwe_ids = Vec::new();
         let mut owasp_categories = Vec::new();
         let mut capec_ids = Vec::new();
@@ -346,29 +400,29 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
                 cwe_ids.push("CWE-79".to_string());
                 capec_ids.extend(["CAPEC-66".to_string(), "CAPEC-72".to_string()]);
                 mitre_attack_techniques.push("T1059.007".to_string()); // Command and Scripting Interpreter: JavaScript
-            },
+            }
             Category::Injection => {
                 cwe_ids.push("CWE-89".to_string());
                 capec_ids.extend(["CAPEC-66".to_string(), "CAPEC-108".to_string()]);
                 mitre_attack_techniques.push("T1505.003".to_string()); // Server Software Component: Web Shell
-            },
+            }
             Category::SecurityMisconfiguration => {
                 cwe_ids.push("CWE-732".to_string());
                 capec_ids.push("CAPEC-640".to_string()); // Incorrect Permission Assignment for Critical Resource
-            },
+            }
             Category::SensitiveDataExposure => {
                 cwe_ids.push("CWE-522".to_string()); // Insufficiently Protected Credentials
                 mitre_attack_techniques.push("T1530".to_string()); // Data from Cloud Storage Object
-            },
+            }
             Category::BrokenAuthentication => {
                 cwe_ids.push("CWE-798".to_string()); // Use of Hard-coded Credentials
                 capec_ids.push("CAPEC-112".to_string()); // Brute Force
                 mitre_attack_techniques.push("T1046".to_string()); // Network Service Scanning
-            },
+            }
             Category::InformationDisclosure => {
                 cwe_ids.push("CWE-200".to_string()); // Exposure of Sensitive Information to an Unauthorized Actor
                 mitre_attack_techniques.push("T1530".to_string()); // Data from Cloud Storage Object
-            },
+            }
             _ => {
                 // Try to map based on finding title/description keywords
                 self.map_by_keywords(finding, &mut cwe_ids, &mut capec_ids);
@@ -384,9 +438,18 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
         for cwe_id in &cwe_ids {
             finding.references.push(openre_core::result::Reference {
                 reference_type: openre_core::result::ReferenceType::Cwe,
-                title: format!("CWE-{} - {}", cwe_id.strip_prefix("CWE-").unwrap_or(cwe_id),
-                    self.cwe_database.get(cwe_id).map(|c| &c.name[..]).unwrap_or("Unknown CWE")),
-                url: format!("https://cwe.mitre.org/data/definitions/{}.html", cwe_id.strip_prefix("CWE-").unwrap_or(cwe_id)),
+                title: format!(
+                    "CWE-{} - {}",
+                    cwe_id.strip_prefix("CWE-").unwrap_or(cwe_id),
+                    self.cwe_database
+                        .get(cwe_id)
+                        .map(|c| &c.name[..])
+                        .unwrap_or("Unknown CWE")
+                ),
+                url: format!(
+                    "https://cwe.mitre.org/data/definitions/{}.html",
+                    cwe_id.strip_prefix("CWE-").unwrap_or(cwe_id)
+                ),
                 description: self.cwe_database.get(cwe_id).map(|c| c.description.clone()),
             });
 
@@ -394,11 +457,25 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
             if let Some(cwe_entry) = self.cwe_database.get(cwe_id) {
                 for capec_id in &cwe_entry.capec_ids {
                     finding.references.push(openre_core::result::Reference {
-                        reference_type: openre_core::result::ReferenceType::Custom("CAPEC".to_string()),
-                        title: format!("CAPEC-{} - {}", capec_id.strip_prefix("CAPEC-").unwrap_or(capec_id),
-                            self.capec_database.get(capec_id).map(|c| &c.name[..]).unwrap_or("Unknown CAPEC")),
-                        url: format!("https://capec.mitre.org/data/definitions/{}.html", capec_id.strip_prefix("CAPEC-").unwrap_or(capec_id)),
-                        description: self.capec_database.get(capec_id).map(|c| c.description.clone()),
+                        reference_type: openre_core::result::ReferenceType::Custom(
+                            "CAPEC".to_string(),
+                        ),
+                        title: format!(
+                            "CAPEC-{} - {}",
+                            capec_id.strip_prefix("CAPEC-").unwrap_or(capec_id),
+                            self.capec_database
+                                .get(capec_id)
+                                .map(|c| &c.name[..])
+                                .unwrap_or("Unknown CAPEC")
+                        ),
+                        url: format!(
+                            "https://capec.mitre.org/data/definitions/{}.html",
+                            capec_id.strip_prefix("CAPEC-").unwrap_or(capec_id)
+                        ),
+                        description: self
+                            .capec_database
+                            .get(capec_id)
+                            .map(|c| c.description.clone()),
                     });
                 }
             }
@@ -407,9 +484,10 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
             if let Some(standards) = self.standards_references.get(cwe_id) {
                 for standard in standards {
                     finding.references.push(openre_core::result::Reference {
-                        reference_type: openre_core::result::ReferenceType::Custom("Standard".to_string()),
-                        title: format!("{} - {}", standard.standard,
-                            standard.controls.join(", ")),
+                        reference_type: openre_core::result::ReferenceType::Custom(
+                            "Standard".to_string(),
+                        ),
+                        title: format!("{} - {}", standard.standard, standard.controls.join(", ")),
                         url: standard.url.clone(),
                         description: None,
                     });
@@ -448,7 +526,9 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
         }
 
         // Get secure coding guidelines for the category
-        let secure_coding_guidelines = self.secure_coding_guidelines.get(&finding.category)
+        let secure_coding_guidelines = self
+            .secure_coding_guidelines
+            .get(&finding.category)
             .cloned()
             .unwrap_or_default();
 
@@ -467,15 +547,24 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
         // Add knowledge base metadata
         finding.metadata.insert(
             "knowledge_base_enriched".to_string(),
-            serde_json::Value::Bool(true)
+            serde_json::Value::Bool(true),
         );
 
         Ok(Some(kb_entry))
     }
 
     /// Map findings to CWE/CAPEC based on keywords in title/description
-    fn map_by_keywords(&self, finding: &Finding, cwe_ids: &mut Vec<String>, capec_ids: &mut Vec<String>) {
-        let text = format!("{} {}", finding.title.to_lowercase(), finding.description.to_lowercase());
+    fn map_by_keywords(
+        &self,
+        finding: &Finding,
+        cwe_ids: &mut Vec<String>,
+        capec_ids: &mut Vec<String>,
+    ) {
+        let text = format!(
+            "{} {}",
+            finding.title.to_lowercase(),
+            finding.description.to_lowercase()
+        );
 
         if text.contains("sql") && (text.contains("inject") || text.contains("injection")) {
             cwe_ids.push("CWE-89".to_string());
@@ -537,7 +626,10 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
                 report.push_str("- **CWE References**:\n");
                 for cwe_id in &entry.cwe_ids {
                     if let Some(cwe) = self.cwe_database.get(cwe_id) {
-                        report.push_str(&format!("  - [{}] {} ({})\n", cwe_id, cwe.name, cwe.description));
+                        report.push_str(&format!(
+                            "  - [{}] {} ({})\n",
+                            cwe_id, cwe.name, cwe.description
+                        ));
                     } else {
                         report.push_str(&format!("  - {}\n", cwe_id));
                     }
@@ -555,7 +647,10 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
                 report.push_str("- **CAPEC Attack Patterns**:\n");
                 for capec_id in &entry.capec_ids {
                     if let Some(capec) = self.capec_database.get(capec_id) {
-                        report.push_str(&format!("  - [{}] {} ({})\n", capec_id, capec.name, capec.description));
+                        report.push_str(&format!(
+                            "  - [{}] {} ({})\n",
+                            capec_id, capec.name, capec.description
+                        ));
                     } else {
                         report.push_str(&format!("  - {}\n", capec_id));
                     }
@@ -579,9 +674,9 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openre_core::result::{Finding, Category, Severity, Confidence};
-    use openre_core::ids::{FindingId, ScanId};
     use chrono::Utc;
+    use openre_core::ids::{FindingId, ScanId};
+    use openre_core::result::{Category, Confidence, Finding, Severity};
     use std::collections::HashMap;
 
     fn create_test_finding(title: &str, category: Category, description: &str) -> Finding {
@@ -647,7 +742,7 @@ mod tests {
         let mut finding = create_test_finding(
             "SQL Injection vulnerability in login form",
             Category::Injection,
-            "The application constructs SQL queries using string concatenation with user input."
+            "The application constructs SQL queries using string concatenation with user input.",
         );
 
         let entries = kb.enrich_findings(&mut [finding.clone()]).unwrap();
@@ -669,7 +764,7 @@ mod tests {
         let mut finding = create_test_finding(
             "SQL Injection vulnerability detected",
             Category::Custom("Database".to_string()),
-            "User input is concatenated directly into SQL queries without sanitization."
+            "User input is concatenated directly into SQL queries without sanitization.",
         );
 
         let entries = kb.enrich_findings(&mut [finding.clone()]).unwrap();

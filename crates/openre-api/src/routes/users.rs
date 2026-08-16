@@ -1,11 +1,10 @@
 //! User routes
 
-use crate::{AppState, ApiResult};
+use crate::{ApiResult, AppState};
 use axum::{
     extract::{Path, Query, State},
     routing::get,
-    Json,
-    Router,
+    Json, Router,
 };
 use openre_core::ids::UserId;
 use serde::{Deserialize, Serialize};
@@ -42,16 +41,25 @@ async fn list_users(
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    let users = state.global_store.list_users(
-        filter.search.as_deref(),
-        pagination.offset(),
-        pagination.limit(),
-    ).await?;
+    let users = state
+        .global_store
+        .list_users(
+            filter.search.as_deref(),
+            pagination.offset(),
+            pagination.limit(),
+        )
+        .await?;
 
-    let total = state.global_store.count_users(filter.search.as_deref()).await?;
+    let total = state
+        .global_store
+        .count_users(filter.search.as_deref())
+        .await?;
 
     Ok(Json(UserListResponse {
-        users: users.into_iter().map(crate::routes::auth::UserResponse::from).collect(),
+        users: users
+            .into_iter()
+            .map(crate::routes::auth::UserResponse::from)
+            .collect(),
         total,
         page: pagination.page(),
         per_page: pagination.per_page(),
@@ -80,7 +88,10 @@ async fn get_user(
         return Err(crate::error::ApiError::Forbidden("Access denied".into()));
     }
 
-    let user = state.global_store.get_user(id).await?
+    let user = state
+        .global_store
+        .get_user(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("User not found".into()))?;
 
     Ok(Json(crate::routes::auth::UserResponse::from(user)))

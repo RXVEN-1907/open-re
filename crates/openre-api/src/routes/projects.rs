@@ -1,11 +1,10 @@
 //! Project routes
 
-use crate::{AppState, ApiResult, ValidatedJson};
+use crate::{ApiResult, AppState, ValidatedJson};
 use axum::{
     extract::{Path, Query, State},
-    routing::{get, post, put, delete},
-    Json,
-    Router,
+    routing::{delete, get, post, put},
+    Json, Router,
 };
 use openre_core::ids::ProjectId;
 use serde::{Deserialize, Serialize};
@@ -16,8 +15,14 @@ use validator::Validate;
 pub fn routes(state: std::sync::Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(list_projects).post(create_project))
-        .route("/:id", get(get_project).put(update_project).delete(delete_project))
-        .route("/:id/collaborators", get(list_collaborators).post(add_collaborator))
+        .route(
+            "/:id",
+            get(get_project).put(update_project).delete(delete_project),
+        )
+        .route(
+            "/:id/collaborators",
+            get(list_collaborators).post(add_collaborator),
+        )
         .route("/:id/collaborators/:user_id", delete(remove_collaborator))
         .route("/:id/invites", get(list_invites).post(create_invite))
         .route("/:id/invites/:invite_id", delete(revoke_invite))
@@ -43,17 +48,23 @@ async fn list_projects(
     Query(filter): Query<FilterParams>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<ProjectListResponse>> {
-    let projects = state.global_store.list_projects(
-        claims.sub.parse().ok(),
-        filter.project_id.as_deref().and_then(|s| s.parse().ok()),
-        pagination.offset(),
-        pagination.limit(),
-    ).await?;
+    let projects = state
+        .global_store
+        .list_projects(
+            claims.sub.parse().ok(),
+            filter.project_id.as_deref().and_then(|s| s.parse().ok()),
+            pagination.offset(),
+            pagination.limit(),
+        )
+        .await?;
 
-    let total = state.global_store.count_projects(
-        claims.sub.parse().ok(),
-        filter.project_id.as_deref().and_then(|s| s.parse().ok()),
-    ).await?;
+    let total = state
+        .global_store
+        .count_projects(
+            claims.sub.parse().ok(),
+            filter.project_id.as_deref().and_then(|s| s.parse().ok()),
+        )
+        .await?;
 
     Ok(Json(ProjectListResponse {
         projects,
@@ -81,14 +92,17 @@ async fn create_project(
     ValidatedJson(payload): ValidatedJson<CreateProjectRequest>,
 ) -> ApiResult<Json<ProjectResponse>> {
     let user_id: openre_core::ids::UserId = claims.sub.parse()?;
-    
-    let project = state.global_store.create_project(
-        user_id,
-        payload.name,
-        payload.description,
-        payload.is_public.unwrap_or(false),
-        payload.settings,
-    ).await?;
+
+    let project = state
+        .global_store
+        .create_project(
+            user_id,
+            payload.name,
+            payload.description,
+            payload.is_public.unwrap_or(false),
+            payload.settings,
+        )
+        .await?;
 
     Ok(Json(ProjectResponse::from(project)))
 }
@@ -110,7 +124,10 @@ async fn get_project(
     Path(id): Path<ProjectId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<ProjectResponse>> {
-    let project = state.global_store.get_project(id).await?
+    let project = state
+        .global_store
+        .get_project(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check access
@@ -143,21 +160,29 @@ async fn update_project(
     Extension(claims): Extension<crate::auth::Claims>,
     ValidatedJson(payload): ValidatedJson<UpdateProjectRequest>,
 ) -> ApiResult<Json<ProjectResponse>> {
-    let project = state.global_store.get_project(id).await?
+    let project = state
+        .global_store
+        .get_project(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check ownership
     if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
-        return Err(crate::error::ApiError::Forbidden("Only owner can update project".into()));
+        return Err(crate::error::ApiError::Forbidden(
+            "Only owner can update project".into(),
+        ));
     }
 
-    let updated = state.global_store.update_project(
-        id,
-        payload.name,
-        payload.description,
-        payload.is_public,
-        payload.settings,
-    ).await?;
+    let updated = state
+        .global_store
+        .update_project(
+            id,
+            payload.name,
+            payload.description,
+            payload.is_public,
+            payload.settings,
+        )
+        .await?;
 
     Ok(Json(ProjectResponse::from(updated)))
 }
@@ -180,12 +205,17 @@ async fn delete_project(
     Path(id): Path<ProjectId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<()> {
-    let project = state.global_store.get_project(id).await?
+    let project = state
+        .global_store
+        .get_project(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check ownership
     if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
-        return Err(crate::error::ApiError::Forbidden("Only owner can delete project".into()));
+        return Err(crate::error::ApiError::Forbidden(
+            "Only owner can delete project".into(),
+        ));
     }
 
     state.global_store.delete_project(id).await?;
@@ -199,7 +229,10 @@ async fn list_collaborators(
     Path(id): Path<ProjectId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<Vec<CollaboratorResponse>>> {
-    let project = state.global_store.get_project(id).await?
+    let project = state
+        .global_store
+        .get_project(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check access
@@ -211,7 +244,12 @@ async fn list_collaborators(
 
     let collaborators = state.global_store.list_collaborators(id).await?;
 
-    Ok(Json(collaborators.into_iter().map(CollaboratorResponse::from).collect()))
+    Ok(Json(
+        collaborators
+            .into_iter()
+            .map(CollaboratorResponse::from)
+            .collect(),
+    ))
 }
 
 /// Add collaborator
@@ -221,19 +259,23 @@ async fn add_collaborator(
     Extension(claims): Extension<crate::auth::Claims>,
     Json(payload): Json<AddCollaboratorRequest>,
 ) -> ApiResult<Json<CollaboratorResponse>> {
-    let project = state.global_store.get_project(id).await?
+    let project = state
+        .global_store
+        .get_project(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check ownership
     if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
-        return Err(crate::error::ApiError::Forbidden("Only owner can add collaborators".into()));
+        return Err(crate::error::ApiError::Forbidden(
+            "Only owner can add collaborators".into(),
+        ));
     }
 
-    let collaborator = state.global_store.add_collaborator(
-        id,
-        payload.user_id,
-        payload.role,
-    ).await?;
+    let collaborator = state
+        .global_store
+        .add_collaborator(id, payload.user_id, payload.role)
+        .await?;
 
     Ok(Json(CollaboratorResponse::from(collaborator)))
 }
@@ -244,15 +286,23 @@ async fn remove_collaborator(
     Path((project_id, user_id)): Path<(ProjectId, openre_core::ids::UserId)>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<()> {
-    let project = state.global_store.get_project(project_id).await?
+    let project = state
+        .global_store
+        .get_project(project_id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check ownership
     if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
-        return Err(crate::error::ApiError::Forbidden("Only owner can remove collaborators".into()));
+        return Err(crate::error::ApiError::Forbidden(
+            "Only owner can remove collaborators".into(),
+        ));
     }
 
-    state.global_store.remove_collaborator(project_id, user_id).await?;
+    state
+        .global_store
+        .remove_collaborator(project_id, user_id)
+        .await?;
 
     Ok(())
 }
@@ -263,17 +313,24 @@ async fn list_invites(
     Path(id): Path<ProjectId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<Vec<InviteResponse>>> {
-    let project = state.global_store.get_project(id).await?
+    let project = state
+        .global_store
+        .get_project(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check ownership
     if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
-        return Err(crate::error::ApiError::Forbidden("Only owner can view invites".into()));
+        return Err(crate::error::ApiError::Forbidden(
+            "Only owner can view invites".into(),
+        ));
     }
 
     let invites = state.global_store.list_invites(id).await?;
 
-    Ok(Json(invites.into_iter().map(InviteResponse::from).collect()))
+    Ok(Json(
+        invites.into_iter().map(InviteResponse::from).collect(),
+    ))
 }
 
 /// Create invite
@@ -283,20 +340,23 @@ async fn create_invite(
     Extension(claims): Extension<crate::auth::Claims>,
     Json(payload): Json<CreateInviteRequest>,
 ) -> ApiResult<Json<InviteResponse>> {
-    let project = state.global_store.get_project(id).await?
+    let project = state
+        .global_store
+        .get_project(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check ownership
     if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
-        return Err(crate::error::ApiError::Forbidden("Only owner can create invites".into()));
+        return Err(crate::error::ApiError::Forbidden(
+            "Only owner can create invites".into(),
+        ));
     }
 
-    let invite = state.global_store.create_invite(
-        id,
-        payload.email,
-        payload.role,
-        payload.expires_at,
-    ).await?;
+    let invite = state
+        .global_store
+        .create_invite(id, payload.email, payload.role, payload.expires_at)
+        .await?;
 
     Ok(Json(InviteResponse::from(invite)))
 }
@@ -307,15 +367,23 @@ async fn revoke_invite(
     Path((project_id, invite_id)): Path<(ProjectId, openre_core::ids::InviteId)>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<()> {
-    let project = state.global_store.get_project(project_id).await?
+    let project = state
+        .global_store
+        .get_project(project_id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check ownership
     if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
-        return Err(crate::error::ApiError::Forbidden("Only owner can revoke invites".into()));
+        return Err(crate::error::ApiError::Forbidden(
+            "Only owner can revoke invites".into(),
+        ));
     }
 
-    state.global_store.revoke_invite(project_id, invite_id).await?;
+    state
+        .global_store
+        .revoke_invite(project_id, invite_id)
+        .await?;
 
     Ok(())
 }
@@ -327,20 +395,23 @@ async fn create_share_link(
     Extension(claims): Extension<crate::auth::Claims>,
     Json(payload): Json<CreateShareLinkRequest>,
 ) -> ApiResult<Json<ShareLinkResponse>> {
-    let project = state.global_store.get_project(id).await?
+    let project = state
+        .global_store
+        .get_project(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check ownership
     if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
-        return Err(crate::error::ApiError::Forbidden("Only owner can create share links".into()));
+        return Err(crate::error::ApiError::Forbidden(
+            "Only owner can create share links".into(),
+        ));
     }
 
-    let link = state.global_store.create_share_link(
-        id,
-        payload.permission,
-        payload.expires_at,
-        payload.max_uses,
-    ).await?;
+    let link = state
+        .global_store
+        .create_share_link(id, payload.permission, payload.expires_at, payload.max_uses)
+        .await?;
 
     Ok(Json(ShareLinkResponse::from(link)))
 }
@@ -352,7 +423,10 @@ async fn export_project(
     Extension(claims): Extension<crate::auth::Claims>,
     Json(payload): Json<ExportProjectRequest>,
 ) -> ApiResult<Json<ExportResponse>> {
-    let project = state.global_store.get_project(id).await?
+    let project = state
+        .global_store
+        .get_project(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
 
     // Check access
@@ -362,12 +436,15 @@ async fn export_project(
         }
     }
 
-    let export = state.global_store.create_export(
-        id,
-        payload.format,
-        payload.include_files,
-        payload.include_analysis,
-    ).await?;
+    let export = state
+        .global_store
+        .create_export(
+            id,
+            payload.format,
+            payload.include_files,
+            payload.include_analysis,
+        )
+        .await?;
 
     Ok(Json(ExportResponse::from(export)))
 }
@@ -413,12 +490,12 @@ pub struct ProjectListResponse {
 pub struct CreateProjectRequest {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
-    
+
     #[validate(length(max = 500))]
     pub description: Option<String>,
-    
+
     pub is_public: Option<bool>,
-    
+
     pub settings: Option<serde_json::Value>,
 }
 
@@ -426,12 +503,12 @@ pub struct CreateProjectRequest {
 pub struct UpdateProjectRequest {
     #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,
-    
+
     #[validate(length(max = 500))]
     pub description: Option<String>,
-    
+
     pub is_public: Option<bool>,
-    
+
     pub settings: Option<serde_json::Value>,
 }
 
@@ -459,7 +536,7 @@ impl From<openre_storage::Collaborator> for CollaboratorResponse {
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct AddCollaboratorRequest {
     pub user_id: openre_core::ids::UserId,
-    
+
     #[validate(length(min = 1))]
     pub role: String,
 }
@@ -495,10 +572,10 @@ impl From<openre_storage::Invite> for InviteResponse {
 pub struct CreateInviteRequest {
     #[validate(email)]
     pub email: String,
-    
+
     #[validate(length(min = 1))]
     pub role: String,
-    
+
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
@@ -533,9 +610,9 @@ impl From<openre_storage::ShareLink> for ShareLinkResponse {
 pub struct CreateShareLinkRequest {
     #[validate(length(min = 1))]
     pub permission: String,
-    
+
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    
+
     pub max_uses: Option<u32>,
 }
 
@@ -543,9 +620,9 @@ pub struct CreateShareLinkRequest {
 pub struct ExportProjectRequest {
     #[validate(length(min = 1))]
     pub format: String,
-    
+
     pub include_files: Option<bool>,
-    
+
     pub include_analysis: Option<bool>,
 }
 

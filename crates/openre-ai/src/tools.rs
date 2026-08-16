@@ -1,13 +1,13 @@
 //! AI tools for open-re
 
 use crate::providers::*;
+use async_trait::async_trait;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_storage::{GlobalStore, ProjectStore, ObjectStore};
+use openre_storage::{GlobalStore, ObjectStore, ProjectStore};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_trait::async_trait;
 
 /// Tool trait
 #[async_trait]
@@ -50,11 +50,21 @@ pub struct ToolResult {
 
 impl ToolResult {
     pub fn success(output: serde_json::Value) -> Self {
-        Self { success: true, output, error: None, metadata: HashMap::new() }
+        Self {
+            success: true,
+            output,
+            error: None,
+            metadata: HashMap::new(),
+        }
     }
 
     pub fn error(error: String) -> Self {
-        Self { success: false, output: serde_json::Value::Null, error: Some(error), metadata: HashMap::new() }
+        Self {
+            success: false,
+            output: serde_json::Value::Null,
+            error: Some(error),
+            metadata: HashMap::new(),
+        }
     }
 }
 
@@ -65,7 +75,9 @@ pub struct ToolRegistry {
 
 impl ToolRegistry {
     pub fn new() -> Self {
-        let mut registry = Self { tools: HashMap::new() };
+        let mut registry = Self {
+            tools: HashMap::new(),
+        };
         registry.register_builtin_tools();
         registry
     }
@@ -98,7 +110,8 @@ impl ToolRegistry {
     }
 
     pub fn to_tool_definitions(&self) -> Vec<ToolDefinition> {
-        self.tools.values()
+        self.tools
+            .values()
             .map(|t| ToolDefinition {
                 name: t.name().to_string(),
                 description: t.description().to_string(),
@@ -120,8 +133,12 @@ pub struct ReadBinaryTool;
 
 #[async_trait]
 impl AiTool for ReadBinaryTool {
-    fn name(&self) -> &str { "read_binary" }
-    fn description(&self) -> &str { "Read raw bytes from the binary file at a given offset" }
+    fn name(&self) -> &str {
+        "read_binary"
+    }
+    fn description(&self) -> &str {
+        "Read raw bytes from the binary file at a given offset"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -135,22 +152,34 @@ impl AiTool for ReadBinaryTool {
     }
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
-        let offset = args["offset"].as_u64().ok_or_else(|| openre_core::Error::InvalidInput("offset required".into()))?;
-        let length = args["length"].as_u64().ok_or_else(|| openre_core::Error::InvalidInput("length required".into()))?;
-        let file_id = args["file_id"].as_str()
+        let offset = args["offset"]
+            .as_u64()
+            .ok_or_else(|| openre_core::Error::InvalidInput("offset required".into()))?;
+        let length = args["length"]
+            .as_u64()
+            .ok_or_else(|| openre_core::Error::InvalidInput("length required".into()))?;
+        let file_id = args["file_id"]
+            .as_str()
             .and_then(|s| s.parse().ok())
             .or(context.current_file);
 
-        let file_id = file_id.ok_or_else(|| openre_core::Error::InvalidInput("file_id required".into()))?;
+        let file_id =
+            file_id.ok_or_else(|| openre_core::Error::InvalidInput("file_id required".into()))?;
 
         // Read from object store
-        let data = context.object_store.read_file(file_id, offset, length).await?;
+        let data = context
+            .object_store
+            .read_file(file_id, offset, length)
+            .await?;
+
+        let b64 = base64::encode(&data);
+        let hex_str = hex::encode(&data);
 
         Ok(ToolResult::success(serde_json::json!({
             "offset": offset,
             "length": length,
-            "data": base64::encode(data),
-            "hex": hex::encode(data),
+            "data": b64,
+            "hex": hex_str,
         })))
     }
 }
@@ -160,8 +189,12 @@ pub struct WriteAnnotationTool;
 
 #[async_trait]
 impl AiTool for WriteAnnotationTool {
-    fn name(&self) -> &str { "write_annotation" }
-    fn description(&self) -> &str { "Write an annotation (comment, label, type) to the database" }
+    fn name(&self) -> &str {
+        "write_annotation"
+    }
+    fn description(&self) -> &str {
+        "Write an annotation (comment, label, type) to the database"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -178,37 +211,74 @@ impl AiTool for WriteAnnotationTool {
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
         if !context.permissions.write_annotation {
-            return Ok(ToolResult::error("Write annotation permission denied".into()));
+            return Ok(ToolResult::error(
+                "Write annotation permission denied".into(),
+            ));
         }
 
-        let project_store = context.project_store.as_ref()
+        let project_store = context
+            .project_store
+            .as_ref()
             .ok_or_else(|| openre_core::Error::InvalidInput("No project context".into()))?;
 
-        let target_type = args["target_type"].as_str().ok_or_else(|| openre_core::Error::InvalidInput("target_type required".into()))?;
-        let target_id = args["target_id"].as_str().ok_or_else(|| openre_core::Error::InvalidInput("target_id required".into()))?;
-        let annotation_type = args["annotation_type"].as_str().ok_or_else(|| openre_core::Error::InvalidInput("annotation_type required".into()))?;
-        let content = args["content"].as_str().ok_or_else(|| openre_core::Error::InvalidInput("content required".into()))?;
-        let confidence = args["confidence"].as_f64().unwrap_or(1.0);
+        let target_type = args["target_type"]
+            .as_str()
+            .ok_or_else(|| openre_core::Error::InvalidInput("target_type required".into()))?;
+        let target_id = args["target_id"]
+            .as_str()
+            .ok_or_else(|| openre_core::Error::InvalidInput("target_id required".into()))?;
+        let annotation_type = args["annotation_type"]
+            .as_str()
+            .ok_or_else(|| openre_core::Error::InvalidInput("annotation_type required".into()))?;
+        let content = args["content"]
+            .as_str()
+            .ok_or_else(|| openre_core::Error::InvalidInput("content required".into()))?;
+        let confidence = args["confidence"].as_f64().unwrap_or(1.0) as f32;
 
         // Store annotation based on target type
         match target_type {
             "function" => {
-                let func_id: FunctionId = target_id.parse()?;
-                project_store.add_function_annotation(func_id, annotation_type, content, confidence).await?;
+                let func_id: FunctionId = target_id.parse().map_err(|e| {
+                    openre_core::Error::InvalidInput(format!("Invalid function ID: {}", e))
+                })?;
+                project_store
+                    .add_function_annotation(func_id, annotation_type, content, confidence)
+                    .await?;
             }
             "instruction" => {
-                let inst_id: InstructionId = target_id.parse()?;
-                project_store.add_instruction_annotation(inst_id, annotation_type, content, confidence).await?;
+                let inst_id: InstructionId = target_id.parse().map_err(|e| {
+                    openre_core::Error::InvalidInput(format!("Invalid instruction ID: {}", e))
+                })?;
+                let inst_u64 =
+                    u64::from_le_bytes(inst_id.0.as_bytes()[0..8].try_into().unwrap_or([0; 8]));
+                project_store
+                    .add_instruction_annotation(inst_u64, annotation_type, content, confidence)
+                    .await?;
             }
             "variable" => {
-                let var_id: VariableId = target_id.parse()?;
-                project_store.add_variable_annotation(var_id, annotation_type, content, confidence).await?;
+                let var_id: VariableId = target_id.parse().map_err(|e| {
+                    openre_core::Error::InvalidInput(format!("Invalid variable ID: {}", e))
+                })?;
+                let var_u64 =
+                    u64::from_le_bytes(var_id.0.as_bytes()[0..8].try_into().unwrap_or([0; 8]));
+                project_store
+                    .add_variable_annotation(var_u64, annotation_type, content, confidence)
+                    .await?;
             }
             "address" => {
-                let addr: u64 = target_id.parse()?;
-                project_store.add_address_annotation(addr, annotation_type, content, confidence).await?;
+                let addr: u64 = target_id.parse().map_err(|e| {
+                    openre_core::Error::InvalidInput(format!("Invalid address: {}", e))
+                })?;
+                project_store
+                    .add_address_annotation(addr, annotation_type, content, confidence)
+                    .await?;
             }
-            _ => return Ok(ToolResult::error(format!("Unknown target type: {}", target_type))),
+            _ => {
+                return Ok(ToolResult::error(format!(
+                    "Unknown target type: {}",
+                    target_type
+                )))
+            }
         }
 
         Ok(ToolResult::success(serde_json::json!({
@@ -225,8 +295,12 @@ pub struct QueryDatabaseTool;
 
 #[async_trait]
 impl AiTool for QueryDatabaseTool {
-    fn name(&self) -> &str { "query_database" }
-    fn description(&self) -> &str { "Execute a read-only SQL query on the project database" }
+    fn name(&self) -> &str {
+        "query_database"
+    }
+    fn description(&self) -> &str {
+        "Execute a read-only SQL query on the project database"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -243,10 +317,14 @@ impl AiTool for QueryDatabaseTool {
             return Ok(ToolResult::error("Query database permission denied".into()));
         }
 
-        let project_store = context.project_store.as_ref()
+        let project_store = context
+            .project_store
+            .as_ref()
             .ok_or_else(|| openre_core::Error::InvalidInput("No project context".into()))?;
 
-        let query = args["query"].as_str().ok_or_else(|| openre_core::Error::InvalidInput("query required".into()))?;
+        let query = args["query"]
+            .as_str()
+            .ok_or_else(|| openre_core::Error::InvalidInput("query required".into()))?;
 
         // Validate it's a SELECT query
         let trimmed = query.trim().to_lowercase();
@@ -254,8 +332,9 @@ impl AiTool for QueryDatabaseTool {
             return Ok(ToolResult::error("Only SELECT queries allowed".into()));
         }
 
-        let params: Vec<String> = args["params"].as_array()
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        let params: Vec<serde_json::Value> = args["params"]
+            .as_array()
+            .map(|a| a.iter().cloned().collect())
             .unwrap_or_default();
 
         let results = project_store.execute_query(query, &params).await?;
@@ -272,8 +351,12 @@ pub struct GetFunctionInfoTool;
 
 #[async_trait]
 impl AiTool for GetFunctionInfoTool {
-    fn name(&self) -> &str { "get_function_info" }
-    fn description(&self) -> &str { "Get detailed information about a function" }
+    fn name(&self) -> &str {
+        "get_function_info"
+    }
+    fn description(&self) -> &str {
+        "Get detailed information about a function"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -285,14 +368,20 @@ impl AiTool for GetFunctionInfoTool {
     }
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
-        let project_store = context.project_store.as_ref()
+        let project_store = context
+            .project_store
+            .as_ref()
             .ok_or_else(|| openre_core::Error::InvalidInput("No project context".into()))?;
 
-        let function_id: FunctionId = args["function_id"].as_str()
+        let function_id: FunctionId = args["function_id"]
+            .as_str()
             .ok_or_else(|| openre_core::Error::InvalidInput("function_id required".into()))?
-            .parse()?;
+            .parse()
+            .map_err(|e| openre_core::Error::InvalidInput(format!("Invalid function ID: {}", e)))?;
 
-        let function = project_store.get_function(function_id).await?
+        let function = project_store
+            .get_function(function_id)
+            .await?
             .ok_or_else(|| openre_core::Error::NotFound("Function not found".into()))?;
 
         Ok(ToolResult::success(serde_json::to_value(function)?))
@@ -304,8 +393,12 @@ pub struct GetBasicBlocksTool;
 
 #[async_trait]
 impl AiTool for GetBasicBlocksTool {
-    fn name(&self) -> &str { "get_basic_blocks" }
-    fn description(&self) -> &str { "Get basic blocks for a function" }
+    fn name(&self) -> &str {
+        "get_basic_blocks"
+    }
+    fn description(&self) -> &str {
+        "Get basic blocks for a function"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -317,12 +410,16 @@ impl AiTool for GetBasicBlocksTool {
     }
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
-        let project_store = context.project_store.as_ref()
+        let project_store = context
+            .project_store
+            .as_ref()
             .ok_or_else(|| openre_core::Error::InvalidInput("No project context".into()))?;
 
-        let function_id: FunctionId = args["function_id"].as_str()
+        let function_id: FunctionId = args["function_id"]
+            .as_str()
             .ok_or_else(|| openre_core::Error::InvalidInput("function_id required".into()))?
-            .parse()?;
+            .parse()
+            .map_err(|e| openre_core::Error::InvalidInput(format!("Invalid function ID: {}", e)))?;
 
         let blocks = project_store.get_basic_blocks(function_id).await?;
 
@@ -335,8 +432,12 @@ pub struct GetInstructionsTool;
 
 #[async_trait]
 impl AiTool for GetInstructionsTool {
-    fn name(&self) -> &str { "get_instructions" }
-    fn description(&self) -> &str { "Get instructions for a basic block or function" }
+    fn name(&self) -> &str {
+        "get_instructions"
+    }
+    fn description(&self) -> &str {
+        "Get instructions for a basic block or function"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -348,15 +449,21 @@ impl AiTool for GetInstructionsTool {
     }
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
-        let project_store = context.project_store.as_ref()
+        let project_store = context
+            .project_store
+            .as_ref()
             .ok_or_else(|| openre_core::Error::InvalidInput("No project context".into()))?;
 
         if let Some(block_id_str) = args["block_id"].as_str() {
-            let block_id: BlockId = block_id_str.parse()?;
+            let block_id: BlockId = block_id_str.parse().map_err(|e| {
+                openre_core::Error::InvalidInput(format!("Invalid block ID: {}", e))
+            })?;
             let instructions = project_store.get_instructions(block_id).await?;
             Ok(ToolResult::success(serde_json::to_value(instructions)?))
         } else if let Some(function_id_str) = args["function_id"].as_str() {
-            let function_id: FunctionId = function_id_str.parse()?;
+            let function_id: FunctionId = function_id_str.parse().map_err(|e| {
+                openre_core::Error::InvalidInput(format!("Invalid function ID: {}", e))
+            })?;
             let blocks = project_store.get_basic_blocks(function_id).await?;
             let mut all_instructions = Vec::new();
             for block in blocks {
@@ -365,7 +472,9 @@ impl AiTool for GetInstructionsTool {
             }
             Ok(ToolResult::success(serde_json::to_value(all_instructions)?))
         } else {
-            Ok(ToolResult::error("Either block_id or function_id required".into()))
+            Ok(ToolResult::error(
+                "Either block_id or function_id required".into(),
+            ))
         }
     }
 }
@@ -375,8 +484,12 @@ pub struct GetCFGTool;
 
 #[async_trait]
 impl AiTool for GetCFGTool {
-    fn name(&self) -> &str { "get_cfg" }
-    fn description(&self) -> &str { "Get control flow graph for a function" }
+    fn name(&self) -> &str {
+        "get_cfg"
+    }
+    fn description(&self) -> &str {
+        "Get control flow graph for a function"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -388,12 +501,16 @@ impl AiTool for GetCFGTool {
     }
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
-        let project_store = context.project_store.as_ref()
+        let project_store = context
+            .project_store
+            .as_ref()
             .ok_or_else(|| openre_core::Error::InvalidInput("No project context".into()))?;
 
-        let function_id: FunctionId = args["function_id"].as_str()
+        let function_id: FunctionId = args["function_id"]
+            .as_str()
             .ok_or_else(|| openre_core::Error::InvalidInput("function_id required".into()))?
-            .parse()?;
+            .parse()
+            .map_err(|e| openre_core::Error::InvalidInput(format!("Invalid function ID: {}", e)))?;
 
         let cfg = project_store.get_cfg(function_id).await?;
 
@@ -406,8 +523,12 @@ pub struct GetXrefsTool;
 
 #[async_trait]
 impl AiTool for GetXrefsTool {
-    fn name(&self) -> &str { "get_xrefs" }
-    fn description(&self) -> &str { "Get cross-references to/from an address or function" }
+    fn name(&self) -> &str {
+        "get_xrefs"
+    }
+    fn description(&self) -> &str {
+        "Get cross-references to/from an address or function"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -421,32 +542,43 @@ impl AiTool for GetXrefsTool {
     }
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
-        let project_store = context.project_store.as_ref()
+        let project_store = context
+            .project_store
+            .as_ref()
             .ok_or_else(|| openre_core::Error::InvalidInput("No project context".into()))?;
 
-        let target_type = args["target_type"].as_str().ok_or_else(|| openre_core::Error::InvalidInput("target_type required".into()))?;
-        let target_id = args["target_id"].as_str().ok_or_else(|| openre_core::Error::InvalidInput("target_id required".into()))?;
+        let target_type = args["target_type"]
+            .as_str()
+            .ok_or_else(|| openre_core::Error::InvalidInput("target_type required".into()))?;
+        let target_id = args["target_id"]
+            .as_str()
+            .ok_or_else(|| openre_core::Error::InvalidInput("target_id required".into()))?;
         let direction = args["direction"].as_str().unwrap_or("both");
 
         let xrefs = match target_type {
             "address" => {
-                let addr: u64 = target_id.parse()?;
+                let addr: u64 = target_id.parse().map_err(|e| {
+                    openre_core::Error::InvalidInput(format!("Invalid address: {}", e))
+                })?;
                 project_store.get_xrefs_to_address(addr).await?
             }
             "function" => {
-                let func_id: FunctionId = target_id.parse()?;
+                let func_id: FunctionId = target_id.parse().map_err(|e| {
+                    openre_core::Error::InvalidInput(format!("Invalid function ID: {}", e))
+                })?;
                 project_store.get_xrefs_to_function(func_id).await?
             }
             _ => return Ok(ToolResult::error("Unknown target type".into())),
         };
 
-        let filtered: Vec<_> = xrefs.into_iter().filter(|x| {
-            match direction {
+        let filtered: Vec<_> = xrefs
+            .into_iter()
+            .filter(|x| match direction {
                 "to" => x.is_to,
                 "from" => !x.is_to,
                 _ => true,
-            }
-        }).collect();
+            })
+            .collect();
 
         Ok(ToolResult::success(serde_json::to_value(filtered)?))
     }
@@ -457,8 +589,12 @@ pub struct GetStringsTool;
 
 #[async_trait]
 impl AiTool for GetStringsTool {
-    fn name(&self) -> &str { "get_strings" }
-    fn description(&self) -> &str { "Get strings from the binary" }
+    fn name(&self) -> &str {
+        "get_strings"
+    }
+    fn description(&self) -> &str {
+        "Get strings from the binary"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -471,14 +607,18 @@ impl AiTool for GetStringsTool {
     }
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
-        let project_store = context.project_store.as_ref()
+        let project_store = context
+            .project_store
+            .as_ref()
             .ok_or_else(|| openre_core::Error::InvalidInput("No project context".into()))?;
 
         let min_length = args["min_length"].as_u64().unwrap_or(4) as usize;
         let encoding = args["encoding"].as_str().unwrap_or("ascii");
         let address = args["address"].as_u64();
 
-        let strings = project_store.get_strings(min_length, encoding, address).await?;
+        let strings = project_store
+            .get_strings(min_length, encoding, address)
+            .await?;
 
         Ok(ToolResult::success(serde_json::to_value(strings)?))
     }
@@ -489,8 +629,12 @@ pub struct GetSymbolsTool;
 
 #[async_trait]
 impl AiTool for GetSymbolsTool {
-    fn name(&self) -> &str { "get_symbols" }
-    fn description(&self) -> &str { "Get symbols from the binary" }
+    fn name(&self) -> &str {
+        "get_symbols"
+    }
+    fn description(&self) -> &str {
+        "Get symbols from the binary"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -502,7 +646,9 @@ impl AiTool for GetSymbolsTool {
     }
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
-        let project_store = context.project_store.as_ref()
+        let project_store = context
+            .project_store
+            .as_ref()
             .ok_or_else(|| openre_core::Error::InvalidInput("No project context".into()))?;
 
         let symbol_type = args["symbol_type"].as_str().unwrap_or("all");
@@ -519,8 +665,12 @@ pub struct SearchTool;
 
 #[async_trait]
 impl AiTool for SearchTool {
-    fn name(&self) -> &str { "search" }
-    fn description(&self) -> &str { "Search for patterns in the binary (bytes, instructions, strings)" }
+    fn name(&self) -> &str {
+        "search"
+    }
+    fn description(&self) -> &str {
+        "Search for patterns in the binary (bytes, instructions, strings)"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -534,10 +684,14 @@ impl AiTool for SearchTool {
     }
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
-        let project_store = context.project_store.as_ref()
+        let project_store = context
+            .project_store
+            .as_ref()
             .ok_or_else(|| openre_core::Error::InvalidInput("No project context".into()))?;
 
-        let query = args["query"].as_str().ok_or_else(|| openre_core::Error::InvalidInput("query required".into()))?;
+        let query = args["query"]
+            .as_str()
+            .ok_or_else(|| openre_core::Error::InvalidInput("query required".into()))?;
         let search_type = args["search_type"].as_str().unwrap_or("all");
         let limit = args["limit"].as_u64().unwrap_or(100) as usize;
 
@@ -552,8 +706,12 @@ pub struct ExecuteScriptTool;
 
 #[async_trait]
 impl AiTool for ExecuteScriptTool {
-    fn name(&self) -> &str { "execute_script" }
-    fn description(&self) -> &str { "Execute a Python script in the analysis environment" }
+    fn name(&self) -> &str {
+        "execute_script"
+    }
+    fn description(&self) -> &str {
+        "Execute a Python script in the analysis environment"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
@@ -570,7 +728,9 @@ impl AiTool for ExecuteScriptTool {
             return Ok(ToolResult::error("Execute script permission denied".into()));
         }
 
-        let script = args["script"].as_str().ok_or_else(|| openre_core::Error::InvalidInput("script required".into()))?;
+        let script = args["script"]
+            .as_str()
+            .ok_or_else(|| openre_core::Error::InvalidInput("script required".into()))?;
         let timeout = args["timeout_seconds"].as_u64().unwrap_or(30);
 
         // Execute script in sandboxed environment

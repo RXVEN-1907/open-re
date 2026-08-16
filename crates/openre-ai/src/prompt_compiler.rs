@@ -5,7 +5,6 @@ use openre_core::error::OpenreResult as Result;
 use openre_storage::ProjectStore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
 
 /// Prompt compiler
 pub struct PromptCompiler {
@@ -128,31 +127,42 @@ ret"#.to_string(),
         ]);
 
         // Recover variables examples
-        self.few_shot_examples.insert("recover_variables".to_string(), vec![
-            FewShotExample {
+        self.few_shot_examples.insert(
+            "recover_variables".to_string(),
+            vec![FewShotExample {
                 input: r#"Function: process_data
 Stack frame: 0x40 bytes
 Register usage: rdi=ptr, rsi=len, rdx=flags
-Calling convention: System V AMD64"#.to_string(),
+Calling convention: System V AMD64"#
+                    .to_string(),
                 output: r#"Variables:
 - arg1 (rdi): const char* data_ptr - input data pointer
 - arg2 (rsi): size_t data_len - length of input data
 - arg3 (rdx): uint32_t flags - processing flags
 - var_10 (rbp-0x10): size_t i - loop counter
-- var_8 (rbp-0x8): int result - return value"#.to_string(),
-            },
-        ]);
+- var_8 (rbp-0x8): int result - return value"#
+                    .to_string(),
+            }],
+        );
     }
 
     /// Compile a prompt from template
-    pub fn compile(&self, template_name: &str, variables: HashMap<String, String>) -> Result<CompiledPrompt> {
-        let template = self.templates.get(template_name)
-            .ok_or_else(|| openre_core::Error::NotFound(format!("Template not found: {}", template_name)))?;
+    pub fn compile(
+        &self,
+        template_name: &str,
+        variables: HashMap<String, String>,
+    ) -> Result<CompiledPrompt> {
+        let template = self.templates.get(template_name).ok_or_else(|| {
+            openre_core::Error::NotFound(format!("Template not found: {}", template_name))
+        })?;
 
         // Validate required variables
         for var in &template.variables {
             if !variables.contains_key(var) {
-                return Err(openre_core::Error::InvalidInput(format!("Missing required variable: {}", var)));
+                return Err(openre_core::Error::InvalidInput(format!(
+                    "Missing required variable: {}",
+                    var
+                )));
             }
         }
 
@@ -189,12 +199,18 @@ Calling convention: System V AMD64"#.to_string(),
 
         // Enrich with project data
         if let Ok(Some(func)) = project_store.get_function(function_id).await {
-            enriched_vars.insert("function_name".to_string(), func.name);
-            enriched_vars.insert("function_address".to_string(), format!("0x{:x}", func.address));
+            if let Some(name) = func.name {
+                enriched_vars.insert("function_name".to_string(), name);
+            }
+            enriched_vars.insert(
+                "function_address".to_string(),
+                format!("0x{:x}", func.address),
+            );
         }
 
         if let Ok(blocks) = project_store.get_basic_blocks(function_id).await {
-            let disassembly = blocks.iter()
+            let disassembly = blocks
+                .iter()
                 .flat_map(|b| &b.instructions)
                 .map(|i| format!("0x{:x}: {}", i.address, i.mnemonic))
                 .collect::<Vec<_>>()
@@ -202,14 +218,18 @@ Calling convention: System V AMD64"#.to_string(),
             enriched_vars.insert("disassembly".to_string(), disassembly);
         }
 
-        if let Ok(pseudocode) = project_store.get_pseudocode(function_id).await {
+        if let Ok(Some(pseudocode)) = project_store.get_pseudocode(function_id).await {
             enriched_vars.insert("pseudocode".to_string(), pseudocode);
         }
 
         self.compile(template_name, enriched_vars)
     }
 
-    fn render_template(&self, template: &str, variables: &HashMap<String, String>) -> Result<String> {
+    fn render_template(
+        &self,
+        template: &str,
+        variables: &HashMap<String, String>,
+    ) -> Result<String> {
         let mut result = template.to_string();
         for (key, value) in variables {
             result = result.replace(&format!("{{{{{}}}}}", key), value);
@@ -263,7 +283,11 @@ pub struct CompiledPrompt {
 
 impl CompiledPrompt {
     /// Convert to completion request
-    pub fn to_completion_request(&self, model: &str, temperature: Option<f32>) -> CompletionRequest {
+    pub fn to_completion_request(
+        &self,
+        model: &str,
+        temperature: Option<f32>,
+    ) -> CompletionRequest {
         let mut messages = vec![Message::system(self.system_prompt.clone())];
 
         // Add few-shot examples

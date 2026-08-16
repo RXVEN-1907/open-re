@@ -2,10 +2,10 @@
 
 use crate::binary::common::*;
 use crate::binary::traits::*;
-use openre_core::error::OpenreResult as Result;
 use async_trait::async_trait;
-use goblin::pe::{PE, PEHeader, SectionTable, Import, Export};
 use goblin::container::{Container, Endian};
+use goblin::pe::{Export, Import, PEHeader, SectionTable, PE};
+use openre_core::error::OpenreResult as Result;
 use std::collections::HashMap;
 
 /// PE binary identifier
@@ -22,24 +22,31 @@ impl BinaryIdentifier for PeIdentifier {
             .map_err(|e| openre_core::Error::Validation(format!("Failed to parse PE: {}", e)))?;
 
         let architecture = match pe.header.coff_header.machine {
-            0x014c => Architecture::X86,      // IMAGE_FILE_MACHINE_I386
-            0x8664 => Architecture::X86_64,   // IMAGE_FILE_MACHINE_AMD64
-            0x01c0 => Architecture::Arm,      // IMAGE_FILE_MACHINE_ARM
-            0xaa64 => Architecture::Arm64,    // IMAGE_FILE_MACHINE_ARM64
-            0x0166 => Architecture::Mips,     // IMAGE_FILE_MACHINE_MIPS16
-            0x01a2 => Architecture::PowerPc,  // IMAGE_FILE_MACHINE_POWERPC
+            0x014c => Architecture::X86,       // IMAGE_FILE_MACHINE_I386
+            0x8664 => Architecture::X86_64,    // IMAGE_FILE_MACHINE_AMD64
+            0x01c0 => Architecture::Arm,       // IMAGE_FILE_MACHINE_ARM
+            0xaa64 => Architecture::Arm64,     // IMAGE_FILE_MACHINE_ARM64
+            0x0166 => Architecture::Mips,      // IMAGE_FILE_MACHINE_MIPS16
+            0x01a2 => Architecture::PowerPc,   // IMAGE_FILE_MACHINE_POWERPC
             0x01f0 => Architecture::PowerPc64, // IMAGE_FILE_MACHINE_POWERPCFP
             _ => Architecture::Unknown,
         };
 
-        let bitness = if pe.is_64 { Bitness::Bit64 } else { Bitness::Bit32 };
-        
+        let bitness = if pe.is_64 {
+            Bitness::Bit64
+        } else {
+            Bitness::Bit32
+        };
+
         let endianness = Endianness::Little; // PE is always little-endian
 
         let os = OperatingSystem::Windows;
 
         let entry_point = if pe.header.optional_header.AddressOfEntryPoint != 0 {
-            Some(pe.header.optional_header.AddressOfEntryPoint as u64 + pe.header.optional_header.ImageBase)
+            Some(
+                pe.header.optional_header.AddressOfEntryPoint as u64
+                    + pe.header.optional_header.ImageBase,
+            )
         } else {
             None
         };
@@ -120,14 +127,16 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
                 readable: section.characteristics & 0x40000000 != 0, // IMAGE_SCN_MEM_READ
                 writable: section.characteristics & 0x80000000 != 0, // IMAGE_SCN_MEM_WRITE
                 executable: section.characteristics & 0x20000000 != 0, // IMAGE_SCN_MEM_EXECUTE
-                shared: section.characteristics & 0x10000000 != 0, // IMAGE_SCN_MEM_SHARED
+                shared: section.characteristics & 0x10000000 != 0,   // IMAGE_SCN_MEM_SHARED
                 discardable: section.characteristics & 0x02000000 != 0, // IMAGE_SCN_MEM_DISCARDABLE
                 not_cached: section.characteristics & 0x04000000 != 0, // IMAGE_SCN_MEM_NOT_CACHED
                 not_paged: section.characteristics & 0x08000000 != 0, // IMAGE_SCN_MEM_NOT_PAGED
             };
 
             // Calculate entropy for the section
-            let entropy = if section.size_of_raw_data > 0 && section.pointer_to_raw_data < data.len() as u32 {
+            let entropy = if section.size_of_raw_data > 0
+                && section.pointer_to_raw_data < data.len() as u32
+            {
                 let start = section.pointer_to_raw_data as usize;
                 let end = (start + section.size_of_raw_data as usize).min(data.len());
                 if start < end {
@@ -161,7 +170,8 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
 
         // PE doesn't have explicit segments like ELF, but we can derive them from sections
         // Group sections by their memory permissions
-        let mut segment_map: HashMap<(bool, bool, bool), Vec<&goblin::pe::SectionTable>> = HashMap::new();
+        let mut segment_map: HashMap<(bool, bool, bool), Vec<&goblin::pe::SectionTable>> =
+            HashMap::new();
 
         for section in &pe.sections {
             let key = (
@@ -177,10 +187,26 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
                 continue;
             }
 
-            let min_va = sections.iter().map(|s| s.virtual_address).min().unwrap_or(0);
-            let max_va = sections.iter().map(|s| s.virtual_address + s.virtual_size).max().unwrap_or(0);
-            let min_raw = sections.iter().map(|s| s.pointer_to_raw_data).min().unwrap_or(0);
-            let max_raw = sections.iter().map(|s| s.pointer_to_raw_data + s.size_of_raw_data).max().unwrap_or(0);
+            let min_va = sections
+                .iter()
+                .map(|s| s.virtual_address)
+                .min()
+                .unwrap_or(0);
+            let max_va = sections
+                .iter()
+                .map(|s| s.virtual_address + s.virtual_size)
+                .max()
+                .unwrap_or(0);
+            let min_raw = sections
+                .iter()
+                .map(|s| s.pointer_to_raw_data)
+                .min()
+                .unwrap_or(0);
+            let max_raw = sections
+                .iter()
+                .map(|s| s.pointer_to_raw_data + s.size_of_raw_data)
+                .max()
+                .unwrap_or(0);
 
             let permissions = SegmentPermissions {
                 readable,
@@ -252,7 +278,10 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
             let mut functions = Vec::new();
             for func in &import.functions {
                 functions.push(ImportedFunction {
-                    name: func.name.clone().unwrap_or_else(|| format!("ordinal_{}", func.ordinal.unwrap_or(0))),
+                    name: func
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| format!("ordinal_{}", func.ordinal.unwrap_or(0))),
                     address: Some(func.address as u64),
                     ordinal: func.ordinal,
                 });
@@ -305,7 +334,11 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
                 let start = section.pointer_to_raw_data as usize;
                 let end = (start + section.size_of_raw_data as usize).min(data.len());
                 if start < end {
-                    let section_strings = extract_strings_from_data(&data[start..end], section.virtual_address as u64, Some(name));
+                    let section_strings = extract_strings_from_data(
+                        &data[start..end],
+                        section.virtual_address as u64,
+                        Some(name),
+                    );
                     strings.extend(section_strings);
                 }
             }
@@ -450,7 +483,9 @@ fn extract_compiler_info(pe: &PE) -> Option<CompilerInfo> {
 
     // Check for Go (has specific section names)
     for section in &pe.sections {
-        let name = String::from_utf8_lossy(&section.name).trim_end_matches('\0').to_string();
+        let name = String::from_utf8_lossy(&section.name)
+            .trim_end_matches('\0')
+            .to_string();
         if name.starts_with(".go") || name == ".gopclntab" {
             return Some(CompilerInfo {
                 name: "Go".to_string(),
@@ -462,7 +497,9 @@ fn extract_compiler_info(pe: &PE) -> Option<CompilerInfo> {
 
     // Check for Rust (has specific section names)
     for section in &pe.sections {
-        let name = String::from_utf8_lossy(&section.name).trim_end_matches('\0').to_string();
+        let name = String::from_utf8_lossy(&section.name)
+            .trim_end_matches('\0')
+            .to_string();
         if name.contains("rust") {
             return Some(CompilerInfo {
                 name: "rustc".to_string(),
@@ -473,7 +510,8 @@ fn extract_compiler_info(pe: &PE) -> Option<CompilerInfo> {
     }
 
     // Check for .NET (has CLR header)
-    if pe.header.optional_header.DataDirectories[14].Size > 0 { // CLR Runtime Header
+    if pe.header.optional_header.DataDirectories[14].Size > 0 {
+        // CLR Runtime Header
         return Some(CompilerInfo {
             name: ".NET".to_string(),
             version: None,
@@ -509,7 +547,11 @@ fn calculate_entropy(data: &[u8]) -> f64 {
 }
 
 /// Extract strings from raw data
-fn extract_strings_from_data(data: &[u8], base_addr: u64, section: Option<String>) -> Vec<ExtractedString> {
+fn extract_strings_from_data(
+    data: &[u8],
+    base_addr: u64,
+    section: Option<String>,
+) -> Vec<ExtractedString> {
     let mut strings = Vec::new();
     let mut current_string = Vec::new();
     let mut start_addr = base_addr;

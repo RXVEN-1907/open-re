@@ -60,8 +60,6 @@ macro_rules! define_id {
                 id.0
             }
         }
-
-
     };
 }
 
@@ -297,9 +295,9 @@ impl Capability {
             | Capability::WriteConfig
             | Capability::CallAi => RiskLevel::Medium,
 
-            Capability::WriteBinary
-            | Capability::SpawnProcess
-            | Capability::NetworkAccess => RiskLevel::High,
+            Capability::WriteBinary | Capability::SpawnProcess | Capability::NetworkAccess => {
+                RiskLevel::High
+            }
 
             Capability::ReadUiState
             | Capability::WriteUiState
@@ -393,7 +391,9 @@ impl Architecture {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum JobStatus {
-    Queued { queued_at: chrono::DateTime<chrono::Utc> },
+    Queued {
+        queued_at: chrono::DateTime<chrono::Utc>,
+    },
     Running {
         worker_id: WorkerId,
         started_at: chrono::DateTime<chrono::Utc>,
@@ -411,7 +411,9 @@ pub enum JobStatus {
         cancelled_at: chrono::DateTime<chrono::Utc>,
         reason: String,
     },
-    Scheduled { run_at: chrono::DateTime<chrono::Utc> },
+    Scheduled {
+        run_at: chrono::DateTime<chrono::Utc>,
+    },
 }
 
 /// Job priority levels

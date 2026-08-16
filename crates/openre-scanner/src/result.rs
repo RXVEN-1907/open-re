@@ -1,27 +1,25 @@
 //! Result Aggregator - Re-exports core finding model for scanner with deduplication
 
 use crate::error::{ScannerError, ScannerResult};
-use openre_core::result::*;
+use chrono::{DateTime, Utc};
+use dashmap::DashMap;
 use openre_core::ids::FindingId;
+use openre_core::result::*;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use dashmap::DashMap;
-use sha2::{Sha256, Digest};
 
 // Re-export core types
 pub use openre_core::result::{
-    Severity, Confidence, Category, Evidence, EvidenceType, Reference, ReferenceType,
-    Finding, FindingFilter, FindingSort, FindingStats,
-    HttpRequestEvidence, HttpResponseEvidence, TlsInfo, CertificateInfo,
-    TimingEvidence, PayloadEvidence, ReproductionSteps, ReproductionDifficulty,
-    RemediationGuidance, CodeExample, RemediationEffort, RemediationPriority,
-    ExploitabilityAssessment, AttackVector, AttackComplexity, PrivilegesRequired,
-    UserInteraction, Scope, BusinessImpactAssessment, ImpactLevel, AssetCriticality,
-    RegulatoryImpact,
+    AssetCriticality, AttackComplexity, AttackVector, BusinessImpactAssessment, Category,
+    CertificateInfo, CodeExample, Confidence, Evidence, EvidenceType, ExploitabilityAssessment,
+    Finding, FindingFilter, FindingSort, FindingStats, HttpRequestEvidence, HttpResponseEvidence,
+    ImpactLevel, PayloadEvidence, PrivilegesRequired, Reference, ReferenceType, RegulatoryImpact,
+    RemediationEffort, RemediationGuidance, RemediationPriority, ReproductionDifficulty,
+    ReproductionSteps, Scope, Severity, TimingEvidence, TlsInfo, UserInteraction,
 };
 
 /// Result Aggregator - aggregates findings from multiple plugins with deduplication
@@ -63,7 +61,7 @@ impl ResultAggregator {
 
         let id = finding.id;
         let scan_id = finding.scan_id;
-        
+
         self.by_fingerprint.insert(fingerprint, id);
         self.by_scan.entry(scan_id).or_default().push(id);
         self.findings.insert(id, finding);
@@ -110,7 +108,8 @@ impl ResultAggregator {
 
     /// Get all findings for a scan
     pub fn get_findings_for_scan(&self, scan_id: &openre_core::ids::ScanId) -> Vec<Finding> {
-        self.by_scan.get(scan_id)
+        self.by_scan
+            .get(scan_id)
             .map(|ids| {
                 ids.iter()
                     .filter_map(|id| self.findings.get(id).map(|f| f.clone()))
@@ -120,8 +119,16 @@ impl ResultAggregator {
     }
 
     /// Get findings with filter
-    pub fn get_findings(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> Vec<Finding> {
-        let mut results: Vec<Finding> = self.findings.iter()
+    pub fn get_findings(
+        &self,
+        filter: FindingFilter,
+        sort: FindingSort,
+        limit: usize,
+        offset: usize,
+    ) -> Vec<Finding> {
+        let mut results: Vec<Finding> = self
+            .findings
+            .iter()
             .filter_map(|entry| {
                 let finding = entry.value();
                 if self.matches_filter(finding, &filter) {
@@ -199,7 +206,8 @@ impl ResultAggregator {
         if let Some(search) = &filter.search {
             let search_lower = search.to_lowercase();
             if !finding.title.to_lowercase().contains(&search_lower)
-                && !finding.description.to_lowercase().contains(&search_lower) {
+                && !finding.description.to_lowercase().contains(&search_lower)
+            {
                 return false;
             }
         }
@@ -244,22 +252,46 @@ impl ResultAggregator {
             }
         }
         if let Some(min_exp) = filter.min_exploitability_score {
-            if finding.exploitability.as_ref().map(|e| e.score).unwrap_or(0.0) < min_exp {
+            if finding
+                .exploitability
+                .as_ref()
+                .map(|e| e.score)
+                .unwrap_or(0.0)
+                < min_exp
+            {
                 return false;
             }
         }
         if let Some(max_exp) = filter.max_exploitability_score {
-            if finding.exploitability.as_ref().map(|e| e.score).unwrap_or(10.0) > max_exp {
+            if finding
+                .exploitability
+                .as_ref()
+                .map(|e| e.score)
+                .unwrap_or(10.0)
+                > max_exp
+            {
                 return false;
             }
         }
         if let Some(min_impact) = filter.min_business_impact_score {
-            if finding.business_impact.as_ref().map(|b| b.score).unwrap_or(0.0) < min_impact {
+            if finding
+                .business_impact
+                .as_ref()
+                .map(|b| b.score)
+                .unwrap_or(0.0)
+                < min_impact
+            {
                 return false;
             }
         }
         if let Some(max_impact) = filter.max_business_impact_score {
-            if finding.business_impact.as_ref().map(|b| b.score).unwrap_or(10.0) > max_impact {
+            if finding
+                .business_impact
+                .as_ref()
+                .map(|b| b.score)
+                .unwrap_or(10.0)
+                > max_impact
+            {
                 return false;
             }
         }
@@ -274,9 +306,9 @@ impl ResultAggregator {
             FindingSort::ConfidenceDesc => findings.sort_by(|a, b| b.confidence.cmp(&a.confidence)),
             FindingSort::TimestampDesc => findings.sort_by(|a, b| b.timestamp.cmp(&a.timestamp)),
             FindingSort::TimestampAsc => findings.sort_by(|a, b| a.timestamp.cmp(&b.timestamp)),
-            FindingSort::RiskScoreDesc => findings.sort_by(|a, b| {
-                b.risk_score.unwrap_or(0).cmp(&a.risk_score.unwrap_or(0))
-            }),
+            FindingSort::RiskScoreDesc => {
+                findings.sort_by(|a, b| b.risk_score.unwrap_or(0).cmp(&a.risk_score.unwrap_or(0)))
+            }
             FindingSort::TargetAsc => findings.sort_by(|a, b| a.target.cmp(&b.target)),
         }
     }
@@ -321,11 +353,17 @@ impl ResultAggregator {
             }
 
             if let Some(remediation) = &finding.remediation {
-                *by_remediation_priority.entry(remediation.priority).or_insert(0) += 1;
+                *by_remediation_priority
+                    .entry(remediation.priority)
+                    .or_insert(0) += 1;
             }
 
-            if finding.verified { verified += 1; }
-            if finding.false_positive { false_positives += 1; }
+            if finding.verified {
+                verified += 1;
+            }
+            if finding.false_positive {
+                false_positives += 1;
+            }
 
             if let Some(score) = finding.risk_score {
                 total_risk_score += score as u32;
@@ -338,8 +376,12 @@ impl ResultAggregator {
             max_advanced_risk_score = max_advanced_risk_score.max(advanced_score);
 
             if let Some(exploitability) = &finding.exploitability {
-                if exploitability.exploit_available { exploit_available_count += 1; }
-                if exploitability.exploited_in_wild { exploited_in_wild_count += 1; }
+                if exploitability.exploit_available {
+                    exploit_available_count += 1;
+                }
+                if exploitability.exploited_in_wild {
+                    exploited_in_wild_count += 1;
+                }
             }
         }
 
@@ -351,11 +393,19 @@ impl ResultAggregator {
             by_plugin,
             verified,
             false_positives,
-            avg_risk_score: if risk_score_count > 0 { total_risk_score as f32 / risk_score_count as f32 } else { 0.0 },
+            avg_risk_score: if risk_score_count > 0 {
+                total_risk_score as f32 / risk_score_count as f32
+            } else {
+                0.0
+            },
             max_risk_score,
             by_owasp_category,
             by_cwe,
-            avg_advanced_risk_score: if risk_score_count > 0 { total_advanced_risk_score as f32 / risk_score_count as f32 } else { 0.0 },
+            avg_advanced_risk_score: if risk_score_count > 0 {
+                total_advanced_risk_score as f32 / risk_score_count as f32
+            } else {
+                0.0
+            },
             max_advanced_risk_score,
             by_remediation_priority,
             exploit_available_count,
@@ -422,7 +472,10 @@ impl ResultAggregator {
 
         for entry in self.findings.iter() {
             let finding = entry.value();
-            let fingerprint = finding.fingerprint.clone().unwrap_or_else(|| finding.generate_fingerprint());
+            let fingerprint = finding
+                .fingerprint
+                .clone()
+                .unwrap_or_else(|| finding.generate_fingerprint());
             if let Some(existing_id) = seen.get(&fingerprint) {
                 // Merge into existing
                 if let Some(mut existing) = self.findings.get_mut(existing_id) {

@@ -1,7 +1,7 @@
 //! Core result types for the AI Security Analyst
 
-use openre_core::result::{Finding, Severity, Confidence, Category};
-use openre_core::ids::{ScanId, FindingId};
+use openre_core::ids::{FindingId, ScanId};
+use openre_core::result::{Category, Confidence, Finding, Severity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

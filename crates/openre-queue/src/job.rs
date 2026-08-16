@@ -1,12 +1,12 @@
 //! Job definitions for open-re queue system
 
-use openre_core::ids::{JobId, ProjectId, FileId, UserId};
+use chrono::{DateTime, Utc};
+use openre_core::ids::{FileId, JobId, ProjectId, UserId};
 use openre_core::traits::JobType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use chrono::{DateTime, Utc};
 
 /// Job status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -74,9 +74,11 @@ impl JobRetryPolicy {
         if self.retryable_errors.is_empty() {
             return true; // Default to retryable
         }
-        
+
         let error_str = error.to_string().to_lowercase();
-        self.retryable_errors.iter().any(|e| error_str.contains(&e.to_lowercase()))
+        self.retryable_errors
+            .iter()
+            .any(|e| error_str.contains(&e.to_lowercase()))
     }
 }
 
@@ -197,10 +199,11 @@ pub trait JobHandler: Send + Sync {
     async fn handle(&self, job: Job) -> Result<serde_json::Value>;
     fn should_retry(&self, error: &openre_core::Error) -> bool {
         // Default: retry on timeout, connection errors, resource exhaustion
-        matches!(error,
-            openre_core::Error::Timeout(_) |
-            openre_core::Error::ConnectionError(_) |
-            openre_core::Error::ResourceExhausted(_)
+        matches!(
+            error,
+            openre_core::Error::Timeout(_)
+                | openre_core::Error::ConnectionError(_)
+                | openre_core::Error::ResourceExhausted(_)
         )
     }
 }

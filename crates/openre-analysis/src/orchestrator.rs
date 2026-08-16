@@ -1,6 +1,6 @@
 //! Pipeline orchestrator for open-re
 
-use crate::{stages::*, incremental::*, progress::*, metrics::*};
+use crate::{incremental::*, metrics::*, progress::*, stages::*};
 use openre_config::QueueConfig;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 /// Pipeline context passed to stages
 #[derive(Clone)]
@@ -177,8 +177,13 @@ impl Orchestrator {
             ctx.cancellation.check()?;
 
             // Get stage
-            let stage = self.stages.iter().find(|s| s.id() == stage_id)
-                .ok_or_else(|| openre_core::Error::Internal(format!("Stage not found: {}", stage_id).into()))?;
+            let stage = self
+                .stages
+                .iter()
+                .find(|s| s.id() == stage_id)
+                .ok_or_else(|| {
+                    openre_core::Error::Internal(format!("Stage not found: {}", stage_id).into())
+                })?;
 
             // Check if stage can be skipped (incremental)
             if self.can_skip_stage(&ctx, stage_id, &stage_results).await? {
@@ -268,16 +273,22 @@ impl Orchestrator {
         let overall_progress = completed as f32 / total as f32;
 
         let current_stage_result = results.get(&stage_id);
-        let stage_progress = current_stage_result.map(|r| {
-            if r.status == StageStatus::Success { 1.0 } else { 0.5 }
-        }).unwrap_or(0.0);
+        let stage_progress = current_stage_result
+            .map(|r| {
+                if r.status == StageStatus::Success {
+                    1.0
+                } else {
+                    0.5
+                }
+            })
+            .unwrap_or(0.0);
 
         let progress = JobProgress {
             job_id: ctx.job.id,
-            status: JobStatus::Running { 
-                worker_id: ctx.worker_id.clone(), 
-                started_at: ctx.job.created_at, 
-                stage: stage_id 
+            status: JobStatus::Running {
+                worker_id: ctx.worker_id.clone(),
+                started_at: ctx.job.created_at,
+                stage: stage_id,
             },
             current_stage: Some(stage_id),
             stage_progress,
@@ -286,14 +297,32 @@ impl Orchestrator {
             started_at: ctx.job.created_at,
             updated_at: chrono::Utc::now(),
             estimated_remaining_secs: self.estimate_remaining(results).await,
-            stages: self.stages.iter().map(|s| StageProgress {
-                name: s.id(),
-                status: results.get(&s.id()).map(|r| r.status).unwrap_or(StageStatus::Pending),
-                progress: results.get(&s.id()).map(|r| if r.status == StageStatus::Success { 1.0 } else { 0.0 }).unwrap_or(0.0),
-                started_at: results.get(&s.id()).map(|r| r.started_at),
-                completed_at: results.get(&s.id()).map(|r| r.completed_at),
-                duration_ms: results.get(&s.id()).map(|r| (r.completed_at - r.started_at).num_milliseconds() as u64),
-            }).collect(),
+            stages: self
+                .stages
+                .iter()
+                .map(|s| StageProgress {
+                    name: s.id(),
+                    status: results
+                        .get(&s.id())
+                        .map(|r| r.status)
+                        .unwrap_or(StageStatus::Pending),
+                    progress: results
+                        .get(&s.id())
+                        .map(|r| {
+                            if r.status == StageStatus::Success {
+                                1.0
+                            } else {
+                                0.0
+                            }
+                        })
+                        .unwrap_or(0.0),
+                    started_at: results.get(&s.id()).map(|r| r.started_at),
+                    completed_at: results.get(&s.id()).map(|r| r.completed_at),
+                    duration_ms: results
+                        .get(&s.id())
+                        .map(|r| (r.completed_at - r.started_at).num_milliseconds() as u64),
+                })
+                .collect(),
         };
 
         self.queue.update_progress(progress).await?;
@@ -301,14 +330,19 @@ impl Orchestrator {
     }
 
     async fn estimate_remaining(&self, results: &HashMap<StageId, StageResult>) -> Option<u64> {
-        let completed_stages: Vec<_> = results.values().filter(|r| r.status == StageStatus::Success).collect();
+        let completed_stages: Vec<_> = results
+            .values()
+            .filter(|r| r.status == StageStatus::Success)
+            .collect();
         if completed_stages.is_empty() {
             return None;
         }
 
-        let avg_duration = completed_stages.iter()
+        let avg_duration = completed_stages
+            .iter()
             .map(|r| (r.completed_at - r.started_at).num_milliseconds())
-            .sum::<i64>() / completed_stages.len() as i64;
+            .sum::<i64>()
+            / completed_stages.len() as i64;
 
         let remaining_stages = self.stages.len() - results.len();
         Some((avg_duration * remaining_stages as i64 / 1000) as u64)
@@ -349,7 +383,9 @@ pub struct StageDag {
 
 impl StageDag {
     pub fn new() -> Self {
-        Self { stages: HashMap::new() }
+        Self {
+            stages: HashMap::new(),
+        }
     }
 
     pub fn add_stage(&mut self, stage_id: StageId, dependencies: Vec<StageId>) {
@@ -475,7 +511,8 @@ impl StageExecutor {
             let result = tokio::time::timeout(
                 Duration::from_secs(self.config.default_timeout_secs),
                 stage.execute(ctx.clone()),
-            ).await;
+            )
+            .await;
 
             match result {
                 Ok(Ok(stage_result)) => {
@@ -488,15 +525,20 @@ impl StageExecutor {
                     }
                     // Exponential backoff
                     let delay = Duration::from_secs(
-                        (self.config.retry_base_delay_secs as f64 * 2.0_f64.powi(attempt as i32 - 1)) as u64
-                    ).min(Duration::from_secs(self.config.retry_max_delay_secs));
+                        (self.config.retry_base_delay_secs as f64
+                            * 2.0_f64.powi(attempt as i32 - 1)) as u64,
+                    )
+                    .min(Duration::from_secs(self.config.retry_max_delay_secs));
                     tokio::time::sleep(delay).await;
                 }
                 Err(_) => {
                     // Timeout
                     attempt += 1;
                     if attempt >= self.config.max_retries {
-                        return Err(openre_core::Error::Timeout(format!("Stage {} timed out", stage.id())));
+                        return Err(openre_core::Error::Timeout(format!(
+                            "Stage {} timed out",
+                            stage.id()
+                        )));
                     }
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 }
@@ -589,7 +631,8 @@ impl CancellationToken {
     }
 
     pub fn cancel(&self) {
-        self.cancelled.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.cancelled
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn is_cancelled(&self) -> bool {

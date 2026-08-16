@@ -1,18 +1,17 @@
 //! Object storage (S3-compatible) for open-re
 
-use openre_config::{StorageConfig, S3Config, StorageBackend};
+use openre_config::StorageConfig;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::FileId;
 use openre_telemetry::metrics;
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
-use tracing::{info, warn};
+use tracing::info;
 
 /// Object store for binary and artifact storage
 #[derive(Clone)]
 pub struct ObjectStore {
+    #[allow(dead_code)]
     config: StorageConfig,
     local_base: PathBuf,
 }
@@ -25,7 +24,10 @@ impl ObjectStore {
             std::fs::create_dir_all(parent)?;
         }
 
-        info!("Object store initialized with backend: {:?}", config.backend);
+        info!(
+            "Object store initialized with backend: {:?}",
+            config.backend
+        );
 
         Ok(Self {
             config: config.clone(),
@@ -34,12 +36,16 @@ impl ObjectStore {
     }
 
     /// Store a file stream with SHA256 hashing
-    pub async fn put_stream(&self, file_id: FileId, stream: &mut (dyn AsyncRead + Unpin + Send)) -> Result<(u64, String)> {
+    pub async fn put_stream(
+        &self,
+        file_id: FileId,
+        stream: &mut (dyn AsyncRead + Unpin + Send),
+    ) -> Result<(u64, String)> {
         let start = std::time::Instant::now();
-        
+
         let path = self.object_path(file_id);
         let hash = self.write_stream_to_path(stream, &path).await?;
-        
+
         metrics::record_db_query(start.elapsed());
         Ok((hash.1, hash.0))
     }
@@ -55,13 +61,13 @@ impl ObjectStore {
     /// Put raw data to a path
     pub async fn put(&self, path: &str, data: Vec<u8>) -> Result<()> {
         let start = std::time::Instant::now();
-        
+
         let file_path = self.local_base.join(path);
         if let Some(parent) = file_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
         tokio::fs::write(&file_path, data).await?;
-        
+
         metrics::record_db_query(start.elapsed());
         Ok(())
     }
@@ -69,10 +75,10 @@ impl ObjectStore {
     /// Get raw data from a path
     pub async fn get(&self, path: &str) -> Result<Vec<u8>> {
         let start = std::time::Instant::now();
-        
+
         let file_path = self.local_base.join(path);
         let data = tokio::fs::read(&file_path).await?;
-        
+
         metrics::record_db_query(start.elapsed());
         Ok(data)
     }
@@ -80,10 +86,10 @@ impl ObjectStore {
     /// Delete an object
     pub async fn delete(&self, path: &str) -> Result<()> {
         let start = std::time::Instant::now();
-        
+
         let file_path = self.local_base.join(path);
         tokio::fs::remove_file(&file_path).await?;
-        
+
         metrics::record_db_query(start.elapsed());
         Ok(())
     }
@@ -93,37 +99,58 @@ impl ObjectStore {
         self.delete(&self.object_path(file_id)).await
     }
 
+    /// Read a portion of a file
+    pub async fn read_file(&self, file_id: FileId, offset: u64, length: u64) -> Result<Vec<u8>> {
+        let path = self.object_path(file_id);
+        let file_path = self.local_base.join(&path);
+        let mut file = tokio::fs::File::open(&file_path).await?;
+
+        use tokio::io::{AsyncReadExt, AsyncSeekExt};
+        file.seek(std::io::SeekFrom::Start(offset)).await?;
+
+        let mut buffer = vec![0u8; length as usize];
+        file.read_exact(&mut buffer).await?;
+
+        Ok(buffer)
+    }
+
     /// Generate object path for a file ID
     fn object_path(&self, file_id: FileId) -> String {
         let uuid_str = file_id.to_string();
         let (first, rest) = uuid_str.split_at(2);
-        let (second, rest) = rest.split_at(2);
+        let (second, _rest) = rest.split_at(2);
         format!("files/{}/{}/{}", first, second, uuid_str)
     }
 
     /// Write stream to path with SHA256 hashing
-    async fn write_stream_to_path(&self, stream: &mut (dyn AsyncRead + Unpin + Send), path: &str) -> Result<(String, u64)> {
+    async fn write_stream_to_path(
+        &self,
+        stream: &mut (dyn AsyncRead + Unpin + Send),
+        path: &str,
+    ) -> Result<(String, u64)> {
         use sha2::{Digest, Sha256};
-        
+
         let mut hasher = Sha256::new();
         let mut total_bytes = 0u64;
         let mut buffer = vec![0u8; 8192];
-        
+
         let file_path = self.local_base.join(path);
         if let Some(parent) = file_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
-        
+
         let mut file = tokio::fs::File::create(&file_path).await?;
         loop {
             let n = stream.read(&mut buffer).await?;
-            if n == 0 { break; }
+            if n == 0 {
+                break;
+            }
             hasher.update(&buffer[..n]);
             file.write_all(&buffer[..n]).await?;
             total_bytes += n as u64;
         }
         file.flush().await?;
-        
+
         let hash = format!("{:x}", hasher.finalize());
         Ok((hash, total_bytes))
     }

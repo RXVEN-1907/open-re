@@ -1,28 +1,27 @@
 //! HTTP server for open-re API
 
-use crate::{AppState, ApiError, ApiResult};
+use crate::{ApiError, ApiResult, AppState};
 use axum::{
-    Router,
-    routing::{get, post, put, delete, patch},
+    extract::{Extension, State},
     middleware,
-    extract::{State, Extension},
     response::{Html, IntoResponse},
-    Json,
+    routing::{delete, get, patch, post, put},
+    Json, Router,
 };
 use axum_extra::extract::CookieJar;
-use tower_http::{
-    cors::{CorsLayer, Any},
-    trace::TraceLayer,
-    compression::CompressionLayer,
-    limit::RequestBodyLimitLayer,
-    timeout::TimeoutLayer,
-};
-use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
-use tracing::{info, error};
+use tower_http::{
+    compression::CompressionLayer,
+    cors::{Any, CorsLayer},
+    limit::RequestBodyLimitLayer,
+    timeout::TimeoutLayer,
+    trace::TraceLayer,
+};
+use tracing::{error, info};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 /// Create the HTTP router
 pub fn create_router(state: Arc<AppState>) -> Router {
@@ -39,9 +38,18 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/health", get(health_check))
         .route("/ready", get(readiness_check))
-        .layer(middleware::from_fn_with_state(state.clone(), middleware::request_id))
-        .layer(middleware::from_fn_with_state(state.clone(), middleware::logging))
-        .layer(middleware::from_fn_with_state(state.clone(), middleware::rate_limit))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            middleware::request_id,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            middleware::logging,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            middleware::rate_limit,
+        ))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
         .layer(RequestBodyLimitLayer::new(50 * 1024 * 1024)) // 50MB
@@ -63,10 +71,10 @@ async fn health_check() -> impl IntoResponse {
 async fn readiness_check(State(state): State<Arc<AppState>>) -> ApiResult<impl IntoResponse> {
     // Check database connectivity
     state.global_store.health_check().await?;
-    
+
     // Check Redis connectivity
     state.queue_manager.health_check().await?;
-    
+
     Ok(Json(serde_json::json!({
         "status": "ready",
         "timestamp": chrono::Utc::now(),
@@ -159,8 +167,8 @@ struct ApiDoc;
 pub async fn start_server(state: Arc<AppState>, addr: &str) -> Result<(), std::io::Error> {
     let router = create_router(state);
     let listener = TcpListener::bind(addr).await?;
-    
+
     info!("HTTP server listening on {}", addr);
-    
+
     axum::serve(listener, router).await
 }

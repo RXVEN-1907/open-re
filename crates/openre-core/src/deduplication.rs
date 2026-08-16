@@ -326,12 +326,16 @@ impl DeduplicationEngine {
                 // Sort by confidence and severity (highest first)
                 let mut sorted = group.clone();
                 sorted.sort_by(|a, b| {
-                    b.confidence.cmp(&a.confidence)
+                    b.confidence
+                        .cmp(&a.confidence)
                         .then_with(|| b.severity.cmp(&a.severity))
                 });
 
                 let primary = sorted[0].clone();
-                let duplicates = sorted[1..].iter().map(|f| (*f).clone()).collect::<Vec<Finding>>();
+                let duplicates = sorted[1..]
+                    .iter()
+                    .map(|f| (*f).clone())
+                    .collect::<Vec<Finding>>();
 
                 for dup in &duplicates {
                     processed.insert(dup.id);
@@ -357,7 +361,8 @@ impl DeduplicationEngine {
         processed: &mut HashSet<FindingId>,
     ) -> Vec<DuplicateGroup> {
         let mut groups = Vec::new();
-        let unprocessed: Vec<&Finding> = findings.iter()
+        let unprocessed: Vec<&Finding> = findings
+            .iter()
             .filter(|f| !processed.contains(&f.id))
             .collect();
 
@@ -372,7 +377,8 @@ impl DeduplicationEngine {
                     continue;
                 }
 
-                let similarity = self.calculate_title_target_similarity(unprocessed[i], unprocessed[j]);
+                let similarity =
+                    self.calculate_title_target_similarity(unprocessed[i], unprocessed[j]);
                 if similarity >= self.config.similarity_threshold {
                     similar.push(unprocessed[j]);
                 }
@@ -381,12 +387,16 @@ impl DeduplicationEngine {
             if similar.len() > 1 {
                 // Sort by confidence and severity
                 similar.sort_by(|a, b| {
-                    b.confidence.cmp(&a.confidence)
+                    b.confidence
+                        .cmp(&a.confidence)
                         .then_with(|| b.severity.cmp(&a.severity))
                 });
 
                 let primary = similar[0].clone();
-                let duplicates = similar[1..].iter().map(|f| (*f).clone()).collect::<Vec<Finding>>();
+                let duplicates = similar[1..]
+                    .iter()
+                    .map(|f| (*f).clone())
+                    .collect::<Vec<Finding>>();
 
                 for dup in &duplicates {
                     processed.insert(dup.id);
@@ -419,10 +429,12 @@ impl DeduplicationEngine {
                 continue;
             }
             // Get location from first evidence
-            let location = finding.evidence.first()
+            let location = finding
+                .evidence
+                .first()
                 .and_then(|e| e.location.clone())
                 .unwrap_or_else(|| finding.target.clone());
-            
+
             let key = (location, finding.category.clone());
             location_category_map.entry(key).or_default().push(finding);
         }
@@ -431,12 +443,16 @@ impl DeduplicationEngine {
             if group.len() > 1 {
                 let mut sorted = group.clone();
                 sorted.sort_by(|a, b| {
-                    b.confidence.cmp(&a.confidence)
+                    b.confidence
+                        .cmp(&a.confidence)
                         .then_with(|| b.severity.cmp(&a.severity))
                 });
 
                 let primary = sorted[0].clone();
-                let duplicates = sorted[1..].iter().map(|f| (*f).clone()).collect::<Vec<Finding>>();
+                let duplicates = sorted[1..]
+                    .iter()
+                    .map(|f| (*f).clone())
+                    .collect::<Vec<Finding>>();
 
                 for dup in &duplicates {
                     processed.insert(dup.id);
@@ -458,8 +474,16 @@ impl DeduplicationEngine {
     /// Calculate similarity between two findings based on title and target
     fn calculate_title_target_similarity(&self, a: &Finding, b: &Finding) -> f32 {
         // Simple Jaccard similarity on words
-        let a_words: HashSet<&str> = a.title.split_whitespace().chain(a.target.split_whitespace()).collect();
-        let b_words: HashSet<&str> = b.title.split_whitespace().chain(b.target.split_whitespace()).collect();
+        let a_words: HashSet<&str> = a
+            .title
+            .split_whitespace()
+            .chain(a.target.split_whitespace())
+            .collect();
+        let b_words: HashSet<&str> = b
+            .title
+            .split_whitespace()
+            .chain(b.target.split_whitespace())
+            .collect();
 
         let intersection = a_words.intersection(&b_words).count();
         let union = a_words.union(&b_words).count();
@@ -481,8 +505,6 @@ impl CorrelationEngine {
     /// Correlate findings
     pub fn correlate(&self, findings: &[Finding]) -> CorrelationResult {
         let mut correlations = Vec::new();
-        let mut chains = Vec::new();
-        let mut attack_paths = Vec::new();
 
         // Temporal correlation
         if self.config.enable_temporal {
@@ -503,10 +525,10 @@ impl CorrelationEngine {
         correlations.extend(self.correlate_same_class(findings));
 
         // Build correlation chains
-        chains = self.build_chains(findings, &correlations);
+        let chains = self.build_chains(findings, &correlations);
 
         // Discover attack paths
-        attack_paths = self.discover_attack_paths(findings, &chains);
+        let attack_paths = self.discover_attack_paths(findings, &chains);
 
         CorrelationResult {
             correlations,
@@ -529,14 +551,20 @@ impl CorrelationEngine {
                 }
 
                 // Only correlate if same target or related
-                if sorted[i].target == sorted[j].target || self.are_targets_related(&sorted[i], &sorted[j]) {
-                    let strength = 1.0 - (time_diff as f32 / self.config.temporal_window_seconds as f32);
+                if sorted[i].target == sorted[j].target
+                    || self.are_targets_related(&sorted[i], &sorted[j])
+                {
+                    let strength =
+                        1.0 - (time_diff as f32 / self.config.temporal_window_seconds as f32);
                     correlations.push(FindingCorrelation {
                         finding_a: sorted[i].id,
                         finding_b: sorted[j].id,
                         correlation_type: CorrelationType::Temporal,
                         strength,
-                        description: format!("Findings within {} seconds on related targets", time_diff),
+                        description: format!(
+                            "Findings within {} seconds on related targets",
+                            time_diff
+                        ),
                         evidence: vec![
                             format!("Time difference: {}s", time_diff),
                             format!("Target A: {}", sorted[i].target),
@@ -557,13 +585,18 @@ impl CorrelationEngine {
         for i in 0..findings.len() {
             for j in (i + 1)..findings.len() {
                 // Correlate if same exact target or related targets (same domain)
-                if findings[i].target == findings[j].target || self.are_targets_related(&findings[i], &findings[j]) {
+                if findings[i].target == findings[j].target
+                    || self.are_targets_related(&findings[i], &findings[j])
+                {
                     correlations.push(FindingCorrelation {
                         finding_a: findings[i].id,
                         finding_b: findings[j].id,
                         correlation_type: CorrelationType::Spatial,
                         strength: 0.8,
-                        description: format!("Multiple findings on related targets: {} and {}", findings[i].target, findings[j].target),
+                        description: format!(
+                            "Multiple findings on related targets: {} and {}",
+                            findings[i].target, findings[j].target
+                        ),
                         evidence: vec![
                             format!("Target A: {}", findings[i].target),
                             format!("Category A: {}", findings[i].category),
@@ -585,18 +618,52 @@ impl CorrelationEngine {
         // Define causal patterns
         let causal_patterns = vec![
             // Recon -> Vulnerability
-            (Category::InformationDisclosure, Category::Injection, "Reconnaissance may lead to injection discovery"),
-            (Category::InformationDisclosure, Category::BrokenAccessControl, "Information disclosure may reveal access control issues"),
-            (Category::SecurityMisconfiguration, Category::BrokenAccessControl, "Misconfiguration may cause access control bypass"),
-            (Category::BrokenAuthentication, Category::BrokenAccessControl, "Broken auth may lead to access control bypass"),
-            (Category::Injection, Category::SensitiveDataExposure, "Injection may lead to data exposure"),
-            (Category::Xss, Category::BrokenAuthentication, "XSS may lead to session hijacking"),
-            (Category::Ssrf, Category::SensitiveDataExposure, "SSRF may lead to internal data exposure"),
+            (
+                Category::InformationDisclosure,
+                Category::Injection,
+                "Reconnaissance may lead to injection discovery",
+            ),
+            (
+                Category::InformationDisclosure,
+                Category::BrokenAccessControl,
+                "Information disclosure may reveal access control issues",
+            ),
+            (
+                Category::SecurityMisconfiguration,
+                Category::BrokenAccessControl,
+                "Misconfiguration may cause access control bypass",
+            ),
+            (
+                Category::BrokenAuthentication,
+                Category::BrokenAccessControl,
+                "Broken auth may lead to access control bypass",
+            ),
+            (
+                Category::Injection,
+                Category::SensitiveDataExposure,
+                "Injection may lead to data exposure",
+            ),
+            (
+                Category::Xss,
+                Category::BrokenAuthentication,
+                "XSS may lead to session hijacking",
+            ),
+            (
+                Category::Ssrf,
+                Category::SensitiveDataExposure,
+                "SSRF may lead to internal data exposure",
+            ),
         ];
 
         for (cause_cat, effect_cat, description) in causal_patterns {
-            let causes: Vec<&Finding> = findings.iter().filter(|f| f.category == cause_cat).collect();
-            let effects: Vec<&Finding> = findings.iter().filter(|f| f.category == effect_cat).collect();
+            let causes: Vec<&Finding> = findings
+                .iter()
+                .filter(|f| f.category == cause_cat)
+                .collect();
+            let effects: Vec<&Finding> = findings
+                .iter()
+                .filter(|f| f.category == effect_cat)
+                .collect();
 
             for cause in &causes {
                 for effect in &effects {
@@ -613,7 +680,10 @@ impl CorrelationEngine {
                                 evidence: vec![
                                     format!("Cause: {} on {}", cause.category, cause.target),
                                     format!("Effect: {} on {}", effect.category, effect.target),
-                                    format!("Time diff: {}s", (effect.timestamp - cause.timestamp).num_seconds()),
+                                    format!(
+                                        "Time diff: {}s",
+                                        (effect.timestamp - cause.timestamp).num_seconds()
+                                    ),
                                 ],
                             });
                         }
@@ -631,7 +701,10 @@ impl CorrelationEngine {
         let mut category_map: HashMap<Category, Vec<&Finding>> = HashMap::new();
 
         for finding in findings {
-            category_map.entry(finding.category.clone()).or_default().push(finding);
+            category_map
+                .entry(finding.category.clone())
+                .or_default()
+                .push(finding);
         }
 
         for (_category, group) in category_map {
@@ -643,7 +716,10 @@ impl CorrelationEngine {
                             finding_b: group[j].id,
                             correlation_type: CorrelationType::SameClass,
                             strength: 0.6,
-                            description: format!("Multiple findings of same category: {}", group[i].category),
+                            description: format!(
+                                "Multiple findings of same category: {}",
+                                group[i].category
+                            ),
                             evidence: vec![
                                 format!("Category: {}", group[i].category),
                                 format!("Target A: {}", group[i].target),
@@ -673,15 +749,23 @@ impl CorrelationEngine {
     }
 
     /// Build correlation chains
-    fn build_chains(&self, findings: &[Finding], correlations: &[FindingCorrelation]) -> Vec<CorrelationChain> {
+    fn build_chains(
+        &self,
+        findings: &[Finding],
+        correlations: &[FindingCorrelation],
+    ) -> Vec<CorrelationChain> {
         let mut chains = Vec::new();
         let mut visited = HashSet::new();
 
         // Build adjacency list
         let mut adj: HashMap<FindingId, Vec<(FindingId, CorrelationType)>> = HashMap::new();
         for corr in correlations {
-            adj.entry(corr.finding_a).or_default().push((corr.finding_b, corr.correlation_type));
-            adj.entry(corr.finding_b).or_default().push((corr.finding_a, corr.correlation_type));
+            adj.entry(corr.finding_a)
+                .or_default()
+                .push((corr.finding_b, corr.correlation_type));
+            adj.entry(corr.finding_b)
+                .or_default()
+                .push((corr.finding_a, corr.correlation_type));
         }
 
         // Find chains using DFS
@@ -696,7 +780,7 @@ impl CorrelationEngine {
             if chain.len() > 1 {
                 let chain_type = self.classify_chain(&chain, findings);
                 let confidence = self.calculate_chain_confidence(&chain, correlations);
-                
+
                 chains.push(CorrelationChain {
                     findings: chain.clone(),
                     chain_type,
@@ -731,36 +815,62 @@ impl CorrelationEngine {
 
     /// Classify chain type
     fn classify_chain(&self, chain: &[FindingId], findings: &[Finding]) -> ChainType {
-        let categories: Vec<Category> = chain.iter()
-            .filter_map(|id| findings.iter().find(|f| f.id == *id).map(|f| f.category.clone()))
+        let categories: Vec<Category> = chain
+            .iter()
+            .filter_map(|id| {
+                findings
+                    .iter()
+                    .find(|f| f.id == *id)
+                    .map(|f| f.category.clone())
+            })
             .collect();
 
         // Check for attack chain patterns
         if categories.windows(2).any(|w| {
-            matches!((&w[0], &w[1]),
-                (Category::InformationDisclosure, Category::Injection) |
-                (Category::InformationDisclosure, Category::BrokenAccessControl) |
-                (Category::BrokenAuthentication, Category::BrokenAccessControl) |
-                (Category::Injection, Category::SensitiveDataExposure) |
-                (Category::Xss, Category::BrokenAuthentication) |
-                (Category::Ssrf, Category::SensitiveDataExposure)
+            matches!(
+                (&w[0], &w[1]),
+                (Category::InformationDisclosure, Category::Injection)
+                    | (
+                        Category::InformationDisclosure,
+                        Category::BrokenAccessControl
+                    )
+                    | (
+                        Category::BrokenAuthentication,
+                        Category::BrokenAccessControl
+                    )
+                    | (Category::Injection, Category::SensitiveDataExposure)
+                    | (Category::Xss, Category::BrokenAuthentication)
+                    | (Category::Ssrf, Category::SensitiveDataExposure)
             )
         }) {
             return ChainType::AttackChain;
         }
 
         // Check for privilege escalation
-        if categories.iter().any(|c| matches!(c, Category::BrokenAuthentication | Category::BrokenAccessControl)) {
+        if categories.iter().any(|c| {
+            matches!(
+                c,
+                Category::BrokenAuthentication | Category::BrokenAccessControl
+            )
+        }) {
             return ChainType::PrivilegeEscalation;
         }
 
         // Check for data exfiltration
-        if categories.iter().any(|c| matches!(c, Category::SensitiveDataExposure | Category::InformationDisclosure)) {
+        if categories.iter().any(|c| {
+            matches!(
+                c,
+                Category::SensitiveDataExposure | Category::InformationDisclosure
+            )
+        }) {
             return ChainType::DataExfiltration;
         }
 
         // Check for lateral movement
-        if categories.iter().any(|c| matches!(c, Category::Ssrf | Category::BrokenAccessControl)) {
+        if categories
+            .iter()
+            .any(|c| matches!(c, Category::Ssrf | Category::BrokenAccessControl))
+        {
             return ChainType::LateralMovement;
         }
 
@@ -768,26 +878,35 @@ impl CorrelationEngine {
     }
 
     /// Calculate chain confidence
-    fn calculate_chain_confidence(&self, chain: &[FindingId], correlations: &[FindingCorrelation]) -> f32 {
+    fn calculate_chain_confidence(
+        &self,
+        chain: &[FindingId],
+        correlations: &[FindingCorrelation],
+    ) -> f32 {
         let mut total_strength = 0.0;
         let mut count = 0;
 
         for window in chain.windows(2) {
-            if let Some(corr) = correlations.iter().find(|c| 
-                (c.finding_a == window[0] && c.finding_b == window[1]) ||
-                (c.finding_a == window[1] && c.finding_b == window[0])
-            ) {
+            if let Some(corr) = correlations.iter().find(|c| {
+                (c.finding_a == window[0] && c.finding_b == window[1])
+                    || (c.finding_a == window[1] && c.finding_b == window[0])
+            }) {
                 total_strength += corr.strength;
                 count += 1;
             }
         }
 
-        if count == 0 { 0.5 } else { total_strength / count as f32 }
+        if count == 0 {
+            0.5
+        } else {
+            total_strength / count as f32
+        }
     }
 
     /// Describe chain
     fn describe_chain(&self, chain: &[FindingId], findings: &[Finding]) -> String {
-        let steps: Vec<String> = chain.iter()
+        let steps: Vec<String> = chain
+            .iter()
             .filter_map(|id| findings.iter().find(|f| f.id == *id))
             .map(|f| format!("{} ({})", f.title, f.category))
             .collect();
@@ -795,11 +914,20 @@ impl CorrelationEngine {
     }
 
     /// Discover attack paths
-    fn discover_attack_paths(&self, findings: &[Finding], chains: &[CorrelationChain]) -> Vec<AttackPath> {
+    fn discover_attack_paths(
+        &self,
+        findings: &[Finding],
+        chains: &[CorrelationChain],
+    ) -> Vec<AttackPath> {
         let mut attack_paths = Vec::new();
 
         for chain in chains {
-            if matches!(chain.chain_type, ChainType::AttackChain | ChainType::PrivilegeEscalation | ChainType::DataExfiltration) {
+            if matches!(
+                chain.chain_type,
+                ChainType::AttackChain
+                    | ChainType::PrivilegeEscalation
+                    | ChainType::DataExfiltration
+            ) {
                 let steps = self.build_attack_steps(&chain.findings, findings);
                 let risk_score = self.calculate_attack_path_risk(&steps, findings);
                 let (likelihood, impact) = self.assess_attack_path(&steps, findings);
@@ -821,22 +949,26 @@ impl CorrelationEngine {
 
     /// Build attack steps from chain
     fn build_attack_steps(&self, chain: &[FindingId], findings: &[Finding]) -> Vec<AttackStep> {
-        chain.iter().enumerate().filter_map(|(idx, id)| {
-            findings.iter().find(|f| f.id == *id).map(|f| AttackStep {
-                step: idx + 1,
-                finding_id: *id,
-                technique: f.category.to_string(),
-                description: f.description.clone(),
-                prerequisites: self.get_prerequisites(f, findings),
-                outcome: self.get_outcome(f),
+        chain
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, id)| {
+                findings.iter().find(|f| f.id == *id).map(|f| AttackStep {
+                    step: idx + 1,
+                    finding_id: *id,
+                    technique: f.category.to_string(),
+                    description: f.description.clone(),
+                    prerequisites: self.get_prerequisites(f, findings),
+                    outcome: self.get_outcome(f),
+                })
             })
-        }).collect()
+            .collect()
     }
 
     /// Get prerequisites for a finding
     fn get_prerequisites(&self, finding: &Finding, all_findings: &[Finding]) -> Vec<String> {
         let mut prereqs = Vec::new();
-        
+
         // Add related findings as prerequisites
         for related_id in &finding.related_findings {
             if let Some(related) = all_findings.iter().find(|f| f.id == *related_id) {
@@ -847,7 +979,9 @@ impl CorrelationEngine {
         // Add category-specific prerequisites
         match finding.category {
             Category::Injection => prereqs.push("Input validation bypass".to_string()),
-            Category::BrokenAuthentication => prereqs.push("Authentication mechanism access".to_string()),
+            Category::BrokenAuthentication => {
+                prereqs.push("Authentication mechanism access".to_string())
+            }
             Category::BrokenAccessControl => prereqs.push("Authenticated session".to_string()),
             Category::Ssrf => prereqs.push("Internal network access".to_string()),
             _ => {}
@@ -884,7 +1018,11 @@ impl CorrelationEngine {
     }
 
     /// Assess attack path likelihood and impact
-    fn assess_attack_path(&self, steps: &[AttackStep], findings: &[Finding]) -> (Likelihood, ImpactLevel) {
+    fn assess_attack_path(
+        &self,
+        steps: &[AttackStep],
+        findings: &[Finding],
+    ) -> (Likelihood, ImpactLevel) {
         let mut max_exploitability: f32 = 0.0;
         let mut max_impact = ImpactLevel::None;
 
@@ -944,7 +1082,13 @@ mod tests {
     use crate::ids::ScanId;
     use chrono::Utc;
 
-    fn create_test_finding(title: &str, target: &str, category: Category, severity: Severity, confidence: Confidence) -> Finding {
+    fn create_test_finding(
+        title: &str,
+        target: &str,
+        category: Category,
+        severity: Severity,
+        confidence: Confidence,
+    ) -> Finding {
         let scan_id = ScanId::new();
         Finding::new(FindingConfig {
             title: title.to_string(),
@@ -962,10 +1106,22 @@ mod tests {
 
     #[test]
     fn test_deduplication_exact_fingerprint() {
-        let mut engine = DeduplicationEngine::default();
+        let engine = DeduplicationEngine::default();
         let mut findings = vec![
-            create_test_finding("SQL Injection", "http://example.com", Category::Injection, Severity::High, Confidence::High),
-            create_test_finding("SQL Injection", "http://example.com", Category::Injection, Severity::Medium, Confidence::Medium),
+            create_test_finding(
+                "SQL Injection",
+                "http://example.com",
+                Category::Injection,
+                Severity::High,
+                Confidence::High,
+            ),
+            create_test_finding(
+                "SQL Injection",
+                "http://example.com",
+                Category::Injection,
+                Severity::Medium,
+                Confidence::Medium,
+            ),
         ];
 
         // Set same fingerprint
@@ -981,13 +1137,25 @@ mod tests {
 
     #[test]
     fn test_deduplication_similar_title() {
-        let mut engine = DeduplicationEngine::new(DeduplicationConfig {
+        let engine = DeduplicationEngine::new(DeduplicationConfig {
             similarity_threshold: 0.7,
             ..Default::default()
         });
         let mut findings = vec![
-            create_test_finding("SQL Injection in login", "http://example.com/login", Category::Injection, Severity::High, Confidence::High),
-            create_test_finding("SQL Injection in login form", "http://example.com/login", Category::Injection, Severity::Medium, Confidence::Medium),
+            create_test_finding(
+                "SQL Injection in login",
+                "http://example.com/login",
+                Category::Injection,
+                Severity::High,
+                Confidence::High,
+            ),
+            create_test_finding(
+                "SQL Injection in login form",
+                "http://example.com/login",
+                Category::Injection,
+                Severity::Medium,
+                Confidence::Medium,
+            ),
         ];
 
         let result = engine.deduplicate(&mut findings);
@@ -999,8 +1167,20 @@ mod tests {
     fn test_correlation_temporal() {
         let engine = CorrelationEngine::default();
         let mut findings = vec![
-            create_test_finding("Info Disclosure", "http://example.com", Category::InformationDisclosure, Severity::Low, Confidence::High),
-            create_test_finding("SQL Injection", "http://example.com", Category::Injection, Severity::High, Confidence::High),
+            create_test_finding(
+                "Info Disclosure",
+                "http://example.com",
+                Category::InformationDisclosure,
+                Severity::Low,
+                Confidence::High,
+            ),
+            create_test_finding(
+                "SQL Injection",
+                "http://example.com",
+                Category::Injection,
+                Severity::High,
+                Confidence::High,
+            ),
         ];
 
         // Set timestamps close together
@@ -1009,33 +1189,66 @@ mod tests {
 
         let result = engine.correlate(&findings);
         assert!(!result.correlations.is_empty());
-        assert!(result.correlations.iter().any(|c| c.correlation_type == CorrelationType::Temporal));
+        assert!(result
+            .correlations
+            .iter()
+            .any(|c| c.correlation_type == CorrelationType::Temporal));
     }
 
     #[test]
     fn test_correlation_spatial() {
         let engine = CorrelationEngine::default();
         let findings = vec![
-            create_test_finding("XSS", "http://example.com/page1", Category::Xss, Severity::Medium, Confidence::High),
-            create_test_finding("SQL Injection", "http://example.com/page2", Category::Injection, Severity::High, Confidence::High),
+            create_test_finding(
+                "XSS",
+                "http://example.com/page1",
+                Category::Xss,
+                Severity::Medium,
+                Confidence::High,
+            ),
+            create_test_finding(
+                "SQL Injection",
+                "http://example.com/page2",
+                Category::Injection,
+                Severity::High,
+                Confidence::High,
+            ),
         ];
 
         let result = engine.correlate(&findings);
-        assert!(result.correlations.iter().any(|c| c.correlation_type == CorrelationType::Spatial));
+        assert!(result
+            .correlations
+            .iter()
+            .any(|c| c.correlation_type == CorrelationType::Spatial));
     }
 
     #[test]
     fn test_correlation_causal() {
         let engine = CorrelationEngine::default();
         let mut findings = vec![
-            create_test_finding("Info Disclosure", "http://example.com", Category::InformationDisclosure, Severity::Low, Confidence::High),
-            create_test_finding("SQL Injection", "http://example.com", Category::Injection, Severity::High, Confidence::High),
+            create_test_finding(
+                "Info Disclosure",
+                "http://example.com",
+                Category::InformationDisclosure,
+                Severity::Low,
+                Confidence::High,
+            ),
+            create_test_finding(
+                "SQL Injection",
+                "http://example.com",
+                Category::Injection,
+                Severity::High,
+                Confidence::High,
+            ),
         ];
 
         findings[0].timestamp = Utc::now();
         findings[1].timestamp = Utc::now() + chrono::Duration::seconds(60);
 
         let result = engine.correlate(&findings);
-        assert!(result.correlations.iter().any(|c| c.correlation_type == CorrelationType::Causal));
+        assert!(result
+            .correlations
+            .iter()
+            .any(|c| c.correlation_type == CorrelationType::Causal));
     }
 }

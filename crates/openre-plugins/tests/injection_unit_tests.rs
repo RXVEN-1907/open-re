@@ -1,10 +1,10 @@
 //! Unit tests for injection testing framework components
 
 use openre_plugins::injection::{
-    BuiltinPayloadEngine, BuiltinResponseAnalyzer, ConfidenceScorer, SafetyConfig, SafetyController,
-    InjectionCategory, ParameterLocation, PayloadContext, PayloadEngine, ResponseAnalyzer,
-    DetectionMethod, Severity, Encoding, Payload, ErrorPattern,
-    create_payload_engine, create_response_analyzer, create_confidence_scorer, ConfidenceConfig,
+    create_confidence_scorer, create_payload_engine, create_response_analyzer,
+    BuiltinPayloadEngine, BuiltinResponseAnalyzer, ConfidenceConfig, ConfidenceScorer,
+    DetectionMethod, Encoding, ErrorPattern, InjectionCategory, ParameterLocation, Payload,
+    PayloadContext, PayloadEngine, ResponseAnalyzer, SafetyConfig, SafetyController, Severity,
 };
 use std::collections::HashMap;
 use std::time::Duration;
@@ -13,7 +13,7 @@ use std::time::Duration;
 fn test_payload_engine_creation() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     // Check all categories have payloads
     for category in [
         InjectionCategory::SqlInjection,
@@ -27,7 +27,11 @@ fn test_payload_engine_creation() {
         InjectionCategory::HeaderInjection,
     ] {
         let payloads = engine.get_all_payloads(category);
-        assert!(!payloads.is_empty(), "Category {:?} should have payloads", category);
+        assert!(
+            !payloads.is_empty(),
+            "Category {:?} should have payloads",
+            category
+        );
     }
 }
 
@@ -35,7 +39,7 @@ fn test_payload_engine_creation() {
 fn test_payload_encoding_none() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let payload = "test payload";
     let encoded = engine.encode_payload(payload, Encoding::None);
     assert_eq!(encoded, payload);
@@ -45,7 +49,7 @@ fn test_payload_encoding_none() {
 fn test_payload_encoding_url() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let payload = "<script>alert(1)</script>";
     let encoded = engine.encode_payload(payload, Encoding::Url);
     assert!(encoded.contains("%3C"));
@@ -58,7 +62,7 @@ fn test_payload_encoding_url() {
 fn test_payload_encoding_double_url() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let payload = "<script>";
     let encoded = engine.encode_payload(payload, Encoding::DoubleUrl);
     // Double encoded: < -> %3C -> %253C
@@ -69,7 +73,7 @@ fn test_payload_encoding_double_url() {
 fn test_payload_encoding_html_entity() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let payload = "<script>&\"'";
     let encoded = engine.encode_payload(payload, Encoding::HtmlEntity);
     assert!(encoded.contains("&lt;"));
@@ -83,7 +87,7 @@ fn test_payload_encoding_html_entity() {
 fn test_payload_encoding_unicode() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let payload = "AB";
     let encoded = engine.encode_payload(payload, Encoding::Unicode);
     assert_eq!(encoded, "\\u0041\\u0042");
@@ -93,7 +97,7 @@ fn test_payload_encoding_unicode() {
 fn test_payload_encoding_base64() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let payload = "test";
     let encoded = engine.encode_payload(payload, Encoding::Base64);
     assert_eq!(encoded, "dGVzdA==");
@@ -103,7 +107,7 @@ fn test_payload_encoding_base64() {
 fn test_payload_encoding_hex() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let payload = "AB";
     let encoded = engine.encode_payload(payload, Encoding::Hex);
     assert_eq!(encoded, "4142");
@@ -113,7 +117,7 @@ fn test_payload_encoding_hex() {
 fn test_payload_encoding_sql_comment() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let payload = "test";
     let encoded = engine.encode_payload(payload, Encoding::SqlComment);
     assert_eq!(encoded, "test--");
@@ -123,7 +127,7 @@ fn test_payload_encoding_sql_comment() {
 fn test_payload_encoding_xml() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let payload = "<test>&\"'";
     let encoded = engine.encode_payload(payload, Encoding::Xml);
     assert!(encoded.contains("&lt;"));
@@ -137,7 +141,7 @@ fn test_payload_encoding_xml() {
 fn test_payload_encoding_json() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let payload = "test\"value";
     let encoded = engine.encode_payload(payload, Encoding::Json);
     assert!(encoded.contains("\\\""));
@@ -147,7 +151,7 @@ fn test_payload_encoding_json() {
 fn test_supported_encodings() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
+
     let encodings = engine.supported_encodings();
     assert!(encodings.contains(&Encoding::None));
     assert!(encodings.contains(&Encoding::Url));
@@ -165,22 +169,20 @@ fn test_supported_encodings() {
 fn test_parameter_mutation_query() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
-    let payloads = vec![
-        Payload {
-            id: "test".to_string(),
-            category: InjectionCategory::SqlInjection,
-            raw: "'".to_string(),
-            description: "Test".to_string(),
-            tags: vec![],
-            risk_level: 1,
-            is_safe: true,
-            required_context: vec![],
-            compatible_encodings: vec![Encoding::None],
-            detection_method: DetectionMethod::ErrorBased,
-        },
-    ];
-    
+
+    let payloads = vec![Payload {
+        id: "test".to_string(),
+        category: InjectionCategory::SqlInjection,
+        raw: "'".to_string(),
+        description: "Test".to_string(),
+        tags: vec![],
+        risk_level: 1,
+        is_safe: true,
+        required_context: vec![],
+        compatible_encodings: vec![Encoding::None],
+        detection_method: DetectionMethod::ErrorBased,
+    }];
+
     let mutated = engine.mutate_parameter("original", &payloads, ParameterLocation::Query);
     assert!(mutated.contains(&"'".to_string()));
     assert!(mutated.contains(&"original'".to_string()));
@@ -190,22 +192,20 @@ fn test_parameter_mutation_query() {
 fn test_parameter_mutation_header() {
     let safety = SafetyConfig::default();
     let engine = BuiltinPayloadEngine::new(safety);
-    
-    let payloads = vec![
-        Payload {
-            id: "test".to_string(),
-            category: InjectionCategory::HeaderInjection,
-            raw: "\r\nX-Injected: test".to_string(),
-            description: "Test".to_string(),
-            tags: vec![],
-            risk_level: 1,
-            is_safe: true,
-            required_context: vec![],
-            compatible_encodings: vec![Encoding::None],
-            detection_method: DetectionMethod::Reflection,
-        },
-    ];
-    
+
+    let payloads = vec![Payload {
+        id: "test".to_string(),
+        category: InjectionCategory::HeaderInjection,
+        raw: "\r\nX-Injected: test".to_string(),
+        description: "Test".to_string(),
+        tags: vec![],
+        risk_level: 1,
+        is_safe: true,
+        required_context: vec![],
+        compatible_encodings: vec![Encoding::None],
+        detection_method: DetectionMethod::Reflection,
+    }];
+
     let mutated = engine.mutate_parameter("original", &payloads, ParameterLocation::Header);
     assert!(mutated.contains(&"\r\nX-Injected: test".to_string()));
 }
@@ -225,7 +225,7 @@ fn test_response_analyzer_creation() {
     ] {
         let analyzer = BuiltinResponseAnalyzer::new(category);
         assert_eq!(analyzer.category(), category);
-        
+
         let methods = analyzer.supported_methods();
         assert!(!methods.is_empty());
     }
@@ -234,7 +234,7 @@ fn test_response_analyzer_creation() {
 #[test]
 fn test_error_patterns_sql_injection() {
     let analyzer = BuiltinResponseAnalyzer::new(InjectionCategory::SqlInjection);
-    
+
     // Access private field through reflection-like test
     // We'll test via the analyze method instead
     let test_result = create_test_result(
@@ -245,7 +245,7 @@ fn test_error_patterns_sql_injection() {
         "You have an error in your SQL syntax",
         500,
     );
-    
+
     let findings = analyzer.analyze(&test_result, None);
     assert!(!findings.is_empty());
     assert_eq!(findings[0].detection_method, DetectionMethod::ErrorBased);
@@ -254,7 +254,7 @@ fn test_error_patterns_sql_injection() {
 #[test]
 fn test_error_patterns_xss() {
     let analyzer = BuiltinResponseAnalyzer::new(InjectionCategory::Xss);
-    
+
     let test_result = create_test_result(
         InjectionCategory::Xss,
         "search",
@@ -263,7 +263,7 @@ fn test_error_patterns_xss() {
         "<html><body><script>alert(1)</script></body></html>",
         200,
     );
-    
+
     let findings = analyzer.analyze(&test_result, None);
     assert!(!findings.is_empty());
     assert_eq!(findings[0].detection_method, DetectionMethod::Reflection);
@@ -272,32 +272,63 @@ fn test_error_patterns_xss() {
 #[test]
 fn test_confidence_scorer_creation() {
     let scorer = ConfidenceScorer::new();
-    
+
     // Test method weights
-    assert_eq!(scorer.method_weights.get(&DetectionMethod::ErrorBased), Some(&0.85));
-    assert_eq!(scorer.method_weights.get(&DetectionMethod::TimeBased), Some(&0.90));
-    assert_eq!(scorer.method_weights.get(&DetectionMethod::Reflection), Some(&0.95));
-    assert_eq!(scorer.method_weights.get(&DetectionMethod::OutOfBand), Some(&0.95));
-    assert_eq!(scorer.method_weights.get(&DetectionMethod::Heuristic), Some(&0.50));
-    
+    assert_eq!(
+        scorer.method_weights.get(&DetectionMethod::ErrorBased),
+        Some(&0.85)
+    );
+    assert_eq!(
+        scorer.method_weights.get(&DetectionMethod::TimeBased),
+        Some(&0.90)
+    );
+    assert_eq!(
+        scorer.method_weights.get(&DetectionMethod::Reflection),
+        Some(&0.95)
+    );
+    assert_eq!(
+        scorer.method_weights.get(&DetectionMethod::OutOfBand),
+        Some(&0.95)
+    );
+    assert_eq!(
+        scorer.method_weights.get(&DetectionMethod::Heuristic),
+        Some(&0.50)
+    );
+
     // Test severity weights
     assert_eq!(scorer.severity_weights.get(&Severity::Critical), Some(&1.0));
     assert_eq!(scorer.severity_weights.get(&Severity::High), Some(&0.9));
     assert_eq!(scorer.severity_weights.get(&Severity::Medium), Some(&0.7));
     assert_eq!(scorer.severity_weights.get(&Severity::Low), Some(&0.5));
     assert_eq!(scorer.severity_weights.get(&Severity::Info), Some(&0.3));
-    
+
     // Test category weights
-    assert_eq!(scorer.category_weights.get(&InjectionCategory::SqlInjection), Some(&1.0));
-    assert_eq!(scorer.category_weights.get(&InjectionCategory::Ssti), Some(&0.98));
-    assert_eq!(scorer.category_weights.get(&InjectionCategory::CommandInjection), Some(&0.98));
-    assert_eq!(scorer.category_weights.get(&InjectionCategory::Xxe), Some(&0.97));
+    assert_eq!(
+        scorer
+            .category_weights
+            .get(&InjectionCategory::SqlInjection),
+        Some(&1.0)
+    );
+    assert_eq!(
+        scorer.category_weights.get(&InjectionCategory::Ssti),
+        Some(&0.98)
+    );
+    assert_eq!(
+        scorer
+            .category_weights
+            .get(&InjectionCategory::CommandInjection),
+        Some(&0.98)
+    );
+    assert_eq!(
+        scorer.category_weights.get(&InjectionCategory::Xxe),
+        Some(&0.97)
+    );
 }
 
 #[test]
 fn test_confidence_scoring_high() {
     let scorer = ConfidenceScorer::new();
-    
+
     let finding = create_injection_test_result(
         InjectionCategory::SqlInjection,
         DetectionMethod::ErrorBased,
@@ -308,7 +339,7 @@ fn test_confidence_scoring_high() {
         true,
         2,
     );
-    
+
     let score = scorer.score(&finding);
     assert!(score > 0.7);
     assert!(score <= 1.0);
@@ -317,7 +348,7 @@ fn test_confidence_scoring_high() {
 #[test]
 fn test_confidence_scoring_low() {
     let scorer = ConfidenceScorer::new();
-    
+
     let finding = create_injection_test_result(
         InjectionCategory::Xss,
         DetectionMethod::Heuristic,
@@ -328,7 +359,7 @@ fn test_confidence_scoring_low() {
         false,
         0,
     );
-    
+
     let score = scorer.score(&finding);
     assert!(score < 0.5);
     assert!(score >= 0.0);
@@ -337,7 +368,7 @@ fn test_confidence_scoring_low() {
 #[test]
 fn test_confidence_labels() {
     let scorer = ConfidenceScorer::new();
-    
+
     assert_eq!(scorer.confidence_label(0.95), "Very High");
     assert_eq!(scorer.confidence_label(0.8), "High");
     assert_eq!(scorer.confidence_label(0.65), "Medium");
@@ -348,7 +379,7 @@ fn test_confidence_labels() {
 #[test]
 fn test_confidence_colors() {
     let scorer = ConfidenceScorer::new();
-    
+
     assert_eq!(scorer.confidence_color(0.95), "green");
     assert_eq!(scorer.confidence_color(0.8), "light_green");
     assert_eq!(scorer.confidence_color(0.65), "yellow");
@@ -359,7 +390,7 @@ fn test_confidence_colors() {
 #[test]
 fn test_confidence_breakdown() {
     let scorer = ConfidenceScorer::new();
-    
+
     let finding = create_injection_test_result(
         InjectionCategory::SqlInjection,
         DetectionMethod::TimeBased,
@@ -370,7 +401,7 @@ fn test_confidence_breakdown() {
         true,
         3,
     );
-    
+
     let breakdown = scorer.detailed_score(&finding);
     assert!(breakdown.final_score > 0.0);
     assert!(breakdown.final_score <= 1.0);
@@ -385,7 +416,7 @@ fn test_confidence_breakdown() {
 #[test]
 fn test_safety_config_defaults() {
     let config = SafetyConfig::default();
-    
+
     assert_eq!(config.max_requests_per_test, 100);
     assert_eq!(config.max_total_requests, 10000);
     assert_eq!(config.rate_limit_rps, 10.0);
@@ -400,7 +431,7 @@ fn test_safety_config_defaults() {
 #[test]
 fn test_injection_plugin_config_defaults() {
     let config = openre_plugins::injection::InjectionPluginConfig::default();
-    
+
     assert_eq!(config.request_timeout, 30);
     assert_eq!(config.max_concurrent_requests, 10);
     assert_eq!(config.user_agent, "open-re-injection-tester/1.0");
@@ -424,7 +455,7 @@ fn test_payload_context_defaults() {
         is_auth_context: false,
         custom: HashMap::new(),
     };
-    
+
     assert_eq!(context.parameter_name, "test");
     assert_eq!(context.location, ParameterLocation::Query);
     assert!(!context.is_id_parameter);
@@ -436,7 +467,7 @@ fn test_detection_method_serialization() {
     let method = DetectionMethod::ErrorBased;
     let json = serde_json::to_string(&method).unwrap();
     assert_eq!(json, "\"error_based\"");
-    
+
     let method = DetectionMethod::TimeBased;
     let json = serde_json::to_string(&method).unwrap();
     assert_eq!(json, "\"time_based\"");
@@ -447,7 +478,7 @@ fn test_severity_serialization() {
     let severity = Severity::Critical;
     let json = serde_json::to_string(&severity).unwrap();
     assert_eq!(json, "\"critical\"");
-    
+
     let severity = Severity::High;
     let json = serde_json::to_string(&severity).unwrap();
     assert_eq!(json, "\"high\"");
@@ -458,7 +489,7 @@ fn test_injection_category_serialization() {
     let category = InjectionCategory::SqlInjection;
     let json = serde_json::to_string(&category).unwrap();
     assert_eq!(json, "\"sql_injection\"");
-    
+
     let category = InjectionCategory::Xss;
     let json = serde_json::to_string(&category).unwrap();
     assert_eq!(json, "\"xss\"");
@@ -469,7 +500,7 @@ fn test_parameter_location_serialization() {
     let location = ParameterLocation::Query;
     let json = serde_json::to_string(&location).unwrap();
     assert_eq!(json, "\"query\"");
-    
+
     let location = ParameterLocation::Header;
     let json = serde_json::to_string(&location).unwrap();
     assert_eq!(json, "\"header\"");
@@ -480,7 +511,7 @@ fn test_encoding_serialization() {
     let encoding = Encoding::Url;
     let json = serde_json::to_string(&encoding).unwrap();
     assert_eq!(json, "\"url\"");
-    
+
     let encoding = Encoding::HtmlEntity;
     let json = serde_json::to_string(&encoding).unwrap();
     assert_eq!(json, "\"html_entity\"");
@@ -496,10 +527,10 @@ fn create_test_result(
     response_body: &str,
     status: u16,
 ) -> openre_plugins::injection::response_analyzer::TestResult {
+    use chrono::Utc;
     use openre_plugins::injection::{HttpRequestSnapshot, HttpResponseSnapshot, Payload};
     use std::collections::HashMap;
-    use chrono::Utc;
-    
+
     openre_plugins::injection::response_analyzer::TestResult {
         parameter: parameter.to_string(),
         location,
@@ -546,10 +577,13 @@ fn create_injection_test_result(
     has_diff: bool,
     pattern_count: usize,
 ) -> openre_plugins::injection::InjectionTestResult {
-    use openre_plugins::injection::{HttpRequestSnapshot, HttpResponseSnapshot, InjectionEvidence, ReproducibleRequest, ResponseDiff, TimingInfo, HeaderChange};
-    use std::collections::HashMap;
     use chrono::Utc;
-    
+    use openre_plugins::injection::{
+        HeaderChange, HttpRequestSnapshot, HttpResponseSnapshot, InjectionEvidence,
+        ReproducibleRequest, ResponseDiff, TimingInfo,
+    };
+    use std::collections::HashMap;
+
     let mut evidence = InjectionEvidence {
         original_request: Some(HttpRequestSnapshot {
             method: "GET".to_string(),
@@ -590,7 +624,9 @@ fn create_injection_test_result(
         } else {
             None
         },
-        matched_patterns: (0..pattern_count).map(|i| format!("pattern{}", i)).collect(),
+        matched_patterns: (0..pattern_count)
+            .map(|i| format!("pattern{}", i))
+            .collect(),
         timing_info: if has_timing {
             Some(TimingInfo {
                 baseline_ms: 50,
@@ -603,7 +639,7 @@ fn create_injection_test_result(
             None
         },
     };
-    
+
     openre_plugins::injection::InjectionTestResult {
         category,
         parameter: "test".to_string(),

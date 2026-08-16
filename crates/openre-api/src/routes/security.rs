@@ -1,16 +1,15 @@
 //! Security Findings Routes
-//! 
+//!
 //! API endpoints for retrieving security assessment findings
 
-use crate::{AppState, ApiResult};
+use crate::{ApiResult, AppState};
 use axum::{
     extract::{Path, Query, State},
     routing::get,
-    Json,
-    Router,
+    Json, Router,
 };
-use openre_core::ids::{ScanId, FindingId};
-use openre_scanner::result::{Finding, FindingFilter, FindingSort, Severity, Confidence, Category};
+use openre_core::ids::{FindingId, ScanId};
+use openre_scanner::result::{Category, Confidence, Finding, FindingFilter, FindingSort, Severity};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
@@ -22,7 +21,10 @@ pub fn routes(state: std::sync::Arc<AppState>) -> Router {
         .route("/findings/:id", get(get_finding))
         .route("/findings/stats", get(get_finding_stats))
         .route("/scans/:scan_id/findings", get(get_scan_findings))
-        .route("/scans/:scan_id/findings/stats", get(get_scan_finding_stats))
+        .route(
+            "/scans/:scan_id/findings/stats",
+            get(get_scan_finding_stats),
+        )
         // Injection-specific endpoints
         .route("/injection/findings", get(list_injection_findings))
         .route("/injection/findings/stats", get(get_injection_stats))
@@ -37,19 +39,40 @@ pub fn routes(state: std::sync::Arc<AppState>) -> Router {
         .route("/graphql/findings/stats", get(get_graphql_stats))
         // Rate limiting endpoints
         .route("/rate-limiting/findings", get(list_rate_limiting_findings))
-        .route("/rate-limiting/findings/stats", get(get_rate_limiting_stats))
+        .route(
+            "/rate-limiting/findings/stats",
+            get(get_rate_limiting_stats),
+        )
         // Access control endpoints
-        .route("/access-control/findings", get(list_access_control_findings))
-        .route("/access-control/findings/stats", get(get_access_control_stats))
+        .route(
+            "/access-control/findings",
+            get(list_access_control_findings),
+        )
+        .route(
+            "/access-control/findings/stats",
+            get(get_access_control_stats),
+        )
         // File upload endpoints
         .route("/file-upload/findings", get(list_file_upload_findings))
         .route("/file-upload/findings/stats", get(get_file_upload_stats))
         // Path traversal endpoints
-        .route("/path-traversal/findings", get(list_path_traversal_findings))
-        .route("/path-traversal/findings/stats", get(get_path_traversal_stats))
+        .route(
+            "/path-traversal/findings",
+            get(list_path_traversal_findings),
+        )
+        .route(
+            "/path-traversal/findings/stats",
+            get(get_path_traversal_stats),
+        )
         // Sensitive info endpoints
-        .route("/sensitive-info/findings", get(list_sensitive_info_findings))
-        .route("/sensitive-info/findings/stats", get(get_sensitive_info_stats))
+        .route(
+            "/sensitive-info/findings",
+            get(list_sensitive_info_findings),
+        )
+        .route(
+            "/sensitive-info/findings/stats",
+            get(get_sensitive_info_stats),
+        )
         .with_state(state)
 }
 
@@ -85,16 +108,19 @@ async fn list_findings(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -120,9 +146,12 @@ async fn get_finding(
     Path(id): Path<FindingId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<FindingResponse>> {
-    let finding = state.scan_storage.get_finding(id).await?
+    let finding = state
+        .scan_storage
+        .get_finding(id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Finding not found".into()))?;
-    
+
     Ok(Json(FindingResponse::from(finding)))
 }
 
@@ -158,9 +187,9 @@ async fn get_finding_stats(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
+
     let stats = state.scan_storage.get_finding_stats(filter).await?;
-    
+
     Ok(Json(FindingStatsResponse::from(stats)))
 }
 
@@ -183,12 +212,15 @@ async fn get_scan_findings(
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<FindingListResponse>> {
     // Verify scan access
-    let scan = state.scan_storage.get_scan(scan_id).await?
+    let scan = state
+        .scan_storage
+        .get_scan(scan_id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Scan not found".into()))?;
-    
+
     // Check access (simplified - in reality would check project ownership)
     // For now, allow all authenticated users to view scan findings
-    
+
     let filter = FindingFilter {
         scan_id: Some(scan_id),
         severity: params.severity,
@@ -202,16 +234,19 @@ async fn get_scan_findings(
         max_risk_score: params.max_risk_score,
         ..Default::default()
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -239,9 +274,12 @@ async fn get_scan_finding_stats(
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<FindingStatsResponse>> {
     // Verify scan access
-    let scan = state.scan_storage.get_scan(scan_id).await?
+    let scan = state
+        .scan_storage
+        .get_scan(scan_id)
+        .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Scan not found".into()))?;
-    
+
     let filter = FindingFilter {
         scan_id: Some(scan_id),
         severity: params.severity,
@@ -255,9 +293,9 @@ async fn get_scan_finding_stats(
         max_risk_score: params.max_risk_score,
         ..Default::default()
     };
-    
+
     let stats = state.scan_storage.get_finding_stats(filter).await?;
-    
+
     Ok(Json(FindingStatsResponse::from(stats)))
 }
 
@@ -267,7 +305,7 @@ async fn get_scan_finding_stats(
 pub struct FindingListParams {
     #[serde(flatten)]
     pub pagination: crate::routes::PaginationParams,
-    
+
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
     pub category: Option<Vec<Category>>,
@@ -307,7 +345,7 @@ pub struct FindingStatsParams {
 pub struct ScanFindingsParams {
     #[serde(flatten)]
     pub pagination: crate::routes::PaginationParams,
-    
+
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
     pub category: Option<Vec<Category>>,
@@ -378,7 +416,11 @@ impl From<Finding> for FindingResponse {
             target: f.target,
             target_type: f.target_type,
             evidence: f.evidence.into_iter().map(EvidenceResponse::from).collect(),
-            references: f.references.into_iter().map(ReferenceResponse::from).collect(),
+            references: f
+                .references
+                .into_iter()
+                .map(ReferenceResponse::from)
+                .collect(),
             plugin_source: f.plugin_source,
             plugin_version: f.plugin_version,
             timestamp: f.timestamp,
@@ -451,9 +493,21 @@ impl From<openre_scanner::result::FindingStats> for FindingStatsResponse {
     fn from(s: openre_scanner::result::FindingStats) -> Self {
         Self {
             total: s.total,
-            by_severity: s.by_severity.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-            by_confidence: s.by_confidence.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-            by_category: s.by_category.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
+            by_severity: s
+                .by_severity
+                .into_iter()
+                .map(|(k, v)| (format!("{:?}", k), v))
+                .collect(),
+            by_confidence: s
+                .by_confidence
+                .into_iter()
+                .map(|(k, v)| (format!("{:?}", k), v))
+                .collect(),
+            by_category: s
+                .by_category
+                .into_iter()
+                .map(|(k, v)| (format!("{:?}", k), v))
+                .collect(),
             by_plugin: s.by_plugin,
             verified_count: s.verified_count,
             false_positive_count: s.false_positive_count,
@@ -468,7 +522,7 @@ impl From<openre_scanner::result::FindingStats> for FindingStatsResponse {
 pub struct InjectionFindingListParams {
     #[serde(flatten)]
     pub pagination: crate::routes::PaginationParams,
-    
+
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
     pub injection_category: Option<Vec<String>>,
@@ -570,16 +624,19 @@ async fn list_injection_findings(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -620,30 +677,45 @@ async fn get_injection_stats(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
+
     let stats = state.scan_storage.get_finding_stats(filter).await?;
-    
+
     // Convert to injection-specific stats
     let mut by_category = std::collections::HashMap::new();
     let mut by_detection_method = std::collections::HashMap::new();
-    
+
     // Extract injection-specific metadata from findings
-    let findings = state.scan_storage.list_findings(filter, FindingSort::SeverityDesc, 0, 10000).await?;
+    let findings = state
+        .scan_storage
+        .list_findings(filter, FindingSort::SeverityDesc, 0, 10000)
+        .await?;
     for finding in findings {
         if let Some(category) = finding.metadata.get("injection_category") {
-            *by_category.entry(category.as_str().unwrap_or("unknown").to_string()).or_insert(0) += 1;
+            *by_category
+                .entry(category.as_str().unwrap_or("unknown").to_string())
+                .or_insert(0) += 1;
         }
         if let Some(method) = finding.metadata.get("detection_method") {
-            *by_detection_method.entry(method.as_str().unwrap_or("unknown").to_string()).or_insert(0) += 1;
+            *by_detection_method
+                .entry(method.as_str().unwrap_or("unknown").to_string())
+                .or_insert(0) += 1;
         }
     }
-    
+
     Ok(Json(InjectionStatsResponse {
         total: stats.total,
         by_category,
         by_detection_method,
-        by_severity: stats.by_severity.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_confidence: stats.by_confidence.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
+        by_severity: stats
+            .by_severity
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_confidence: stats
+            .by_confidence
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
         verified_count: stats.verified_count,
         false_positive_count: stats.false_positive_count,
         avg_confidence: 0.0, // Would need to calculate from findings
@@ -737,7 +809,7 @@ async fn get_injection_categories(
             owasp_refs: vec!["A03:2021".to_string()],
         },
     ];
-    
+
     Ok(Json(categories))
 }
 
@@ -804,7 +876,7 @@ async fn get_detection_methods(
             reliability: "Low".to_string(),
         },
     ];
-    
+
     Ok(Json(methods))
 }
 
@@ -813,7 +885,7 @@ async fn get_detection_methods(
 pub struct ApiFindingListParams {
     #[serde(flatten)]
     pub pagination: crate::routes::PaginationParams,
-    
+
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
     pub target: Option<String>,
@@ -890,16 +962,19 @@ async fn list_api_findings(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -940,14 +1015,26 @@ async fn get_api_stats(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
+
     let stats = state.scan_storage.get_finding_stats(filter).await?;
-    
+
     Ok(Json(ApiStatsResponse {
         total: stats.total,
-        by_severity: stats.by_severity.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_confidence: stats.by_confidence.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_category: stats.by_category.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
+        by_severity: stats
+            .by_severity
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_confidence: stats
+            .by_confidence
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_category: stats
+            .by_category
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
         verified_count: stats.verified_count,
         false_positive_count: stats.false_positive_count,
         avg_confidence: 0.0,
@@ -986,16 +1073,19 @@ async fn list_api_endpoints(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -1009,7 +1099,7 @@ async fn list_api_endpoints(
 pub struct GraphqlFindingListParams {
     #[serde(flatten)]
     pub pagination: crate::routes::PaginationParams,
-    
+
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
     pub target: Option<String>,
@@ -1086,16 +1176,19 @@ async fn list_graphql_findings(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -1136,14 +1229,26 @@ async fn get_graphql_stats(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
+
     let stats = state.scan_storage.get_finding_stats(filter).await?;
-    
+
     Ok(Json(GraphqlStatsResponse {
         total: stats.total,
-        by_severity: stats.by_severity.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_confidence: stats.by_confidence.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_category: stats.by_category.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
+        by_severity: stats
+            .by_severity
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_confidence: stats
+            .by_confidence
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_category: stats
+            .by_category
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
         verified_count: stats.verified_count,
         false_positive_count: stats.false_positive_count,
         avg_confidence: 0.0,
@@ -1155,7 +1260,7 @@ async fn get_graphql_stats(
 pub struct RateLimitingFindingListParams {
     #[serde(flatten)]
     pub pagination: crate::routes::PaginationParams,
-    
+
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
     pub target: Option<String>,
@@ -1232,16 +1337,19 @@ async fn list_rate_limiting_findings(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -1282,14 +1390,26 @@ async fn get_rate_limiting_stats(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
+
     let stats = state.scan_storage.get_finding_stats(filter).await?;
-    
+
     Ok(Json(RateLimitingStatsResponse {
         total: stats.total,
-        by_severity: stats.by_severity.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_confidence: stats.by_confidence.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_category: stats.by_category.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
+        by_severity: stats
+            .by_severity
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_confidence: stats
+            .by_confidence
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_category: stats
+            .by_category
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
         verified_count: stats.verified_count,
         false_positive_count: stats.false_positive_count,
         avg_confidence: 0.0,
@@ -1301,7 +1421,7 @@ async fn get_rate_limiting_stats(
 pub struct AccessControlFindingListParams {
     #[serde(flatten)]
     pub pagination: crate::routes::PaginationParams,
-    
+
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
     pub target: Option<String>,
@@ -1378,16 +1498,19 @@ async fn list_access_control_findings(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -1428,14 +1551,26 @@ async fn get_access_control_stats(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
+
     let stats = state.scan_storage.get_finding_stats(filter).await?;
-    
+
     Ok(Json(AccessControlStatsResponse {
         total: stats.total,
-        by_severity: stats.by_severity.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_confidence: stats.by_confidence.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_category: stats.by_category.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
+        by_severity: stats
+            .by_severity
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_confidence: stats
+            .by_confidence
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_category: stats
+            .by_category
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
         verified_count: stats.verified_count,
         false_positive_count: stats.false_positive_count,
         avg_confidence: 0.0,
@@ -1447,7 +1582,7 @@ async fn get_access_control_stats(
 pub struct FileUploadFindingListParams {
     #[serde(flatten)]
     pub pagination: crate::routes::PaginationParams,
-    
+
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
     pub target: Option<String>,
@@ -1524,16 +1659,19 @@ async fn list_file_upload_findings(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -1574,14 +1712,26 @@ async fn get_file_upload_stats(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
+
     let stats = state.scan_storage.get_finding_stats(filter).await?;
-    
+
     Ok(Json(FileUploadStatsResponse {
         total: stats.total,
-        by_severity: stats.by_severity.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_confidence: stats.by_confidence.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_category: stats.by_category.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
+        by_severity: stats
+            .by_severity
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_confidence: stats
+            .by_confidence
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_category: stats
+            .by_category
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
         verified_count: stats.verified_count,
         false_positive_count: stats.false_positive_count,
         avg_confidence: 0.0,
@@ -1593,7 +1743,7 @@ async fn get_file_upload_stats(
 pub struct PathTraversalFindingListParams {
     #[serde(flatten)]
     pub pagination: crate::routes::PaginationParams,
-    
+
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
     pub target: Option<String>,
@@ -1670,16 +1820,19 @@ async fn list_path_traversal_findings(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -1720,14 +1873,26 @@ async fn get_path_traversal_stats(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
+
     let stats = state.scan_storage.get_finding_stats(filter).await?;
-    
+
     Ok(Json(PathTraversalStatsResponse {
         total: stats.total,
-        by_severity: stats.by_severity.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_confidence: stats.by_confidence.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_category: stats.by_category.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
+        by_severity: stats
+            .by_severity
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_confidence: stats
+            .by_confidence
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_category: stats
+            .by_category
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
         verified_count: stats.verified_count,
         false_positive_count: stats.false_positive_count,
         avg_confidence: 0.0,
@@ -1739,7 +1904,7 @@ async fn get_path_traversal_stats(
 pub struct SensitiveInfoFindingListParams {
     #[serde(flatten)]
     pub pagination: crate::routes::PaginationParams,
-    
+
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
     pub target: Option<String>,
@@ -1816,16 +1981,19 @@ async fn list_sensitive_info_findings(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
-    let findings = state.scan_storage.list_findings(
-        filter,
-        params.sort.unwrap_or(FindingSort::SeverityDesc),
-        params.offset(),
-        params.limit(),
-    ).await?;
-    
+
+    let findings = state
+        .scan_storage
+        .list_findings(
+            filter,
+            params.sort.unwrap_or(FindingSort::SeverityDesc),
+            params.offset(),
+            params.limit(),
+        )
+        .await?;
+
     let total = state.scan_storage.count_findings(filter).await?;
-    
+
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
@@ -1866,14 +2034,26 @@ async fn get_sensitive_info_stats(
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
     };
-    
+
     let stats = state.scan_storage.get_finding_stats(filter).await?;
-    
+
     Ok(Json(SensitiveInfoStatsResponse {
         total: stats.total,
-        by_severity: stats.by_severity.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_confidence: stats.by_confidence.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
-        by_category: stats.by_category.into_iter().map(|(k, v)| (format!("{:?}", k), v)).collect(),
+        by_severity: stats
+            .by_severity
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_confidence: stats
+            .by_confidence
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
+        by_category: stats
+            .by_category
+            .into_iter()
+            .map(|(k, v)| (format!("{:?}", k), v))
+            .collect(),
         verified_count: stats.verified_count,
         false_positive_count: stats.false_positive_count,
         avg_confidence: 0.0,

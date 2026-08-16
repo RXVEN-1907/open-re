@@ -4,15 +4,21 @@
 //! missing authentication, improper authorization, insecure HTTP methods,
 //! and sensitive endpoint exposure.
 
+use crate::sdk::{
+    AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin, PluginId, Result,
+};
 use crate::security::{SecurityPlugin, SecurityPluginConfig, SecurityReference};
-use crate::sdk::{CapabilityRequest, CapabilityResponse, AnalysisContext, Capability, Result, PluginId, Plugin};
-use openre_core::result::{Finding, Severity, Confidence, Category, Evidence, EvidenceType, Reference, ReferenceType};
+use async_trait::async_trait;
+use chrono::Utc;
+use openre_core::result::{
+    Category, Confidence, Evidence, EvidenceType, Finding, FindingConfig, Reference, ReferenceType,
+    Severity,
+};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_trait::async_trait;
 use tracing::{debug, info, warn};
-use reqwest::Client;
 
 /// REST API Security Plugin
 pub struct RestApiPlugin {
@@ -26,25 +32,27 @@ impl RestApiPlugin {
         let client = Arc::new(
             reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(config.request_timeout))
-                .redirect(reqwest::redirect::Policy::limited(config.max_redirects as usize))
+                .redirect(reqwest::redirect::Policy::limited(
+                    config.max_redirects as usize,
+                ))
                 .user_agent(&config.user_agent)
                 .build()
-                .map_err(|e| format!("Failed to create HTTP client: {}", e))?
+                .map_err(|e| format!("Failed to create HTTP client: {}", e))?,
         );
-        
+
         Ok(Self { config, client })
     }
-    
+
     /// Get plugin version
     fn version(&self) -> &'static str {
         "1.0.0"
     }
-    
+
     /// Get plugin description
     fn description(&self) -> &'static str {
         "Discovers and analyzes REST API endpoints for security issues including missing authentication, improper authorization, insecure HTTP methods, and sensitive endpoint exposure"
     }
-    
+
     /// Get plugin references
     fn references(&self) -> Vec<SecurityReference> {
         vec![
@@ -80,7 +88,7 @@ impl RestApiPlugin {
             },
         ]
     }
-    
+
     /// Validate configuration
     fn validate_config(&self, config: &RestApiConfig) -> std::result::Result<(), String> {
         if config.request_timeout == 0 {
@@ -91,61 +99,87 @@ impl RestApiPlugin {
         }
         Ok(())
     }
-    
+
     /// Discover API endpoints from common paths and OpenAPI specs
     async fn discover_endpoints(&self, base_url: &str) -> Vec<ApiEndpoint> {
         let mut endpoints = Vec::new();
-        
+
         // Common API paths to check
         let common_paths = vec![
-            "/api", "/api/v1", "/api/v2", "/api/v3",
-            "/rest", "/rest/v1", "/rest/v2",
-            "/v1", "/v2", "/v3",
-            "/graphql", "/graphql/",
-            "/swagger", "/swagger.json", "/swagger.yaml",
-            "/openapi", "/openapi.json", "/openapi.yaml",
-            "/api-docs", "/api-docs.json",
-            "/docs", "/redoc",
+            "/api",
+            "/api/v1",
+            "/api/v2",
+            "/api/v3",
+            "/rest",
+            "/rest/v1",
+            "/rest/v2",
+            "/v1",
+            "/v2",
+            "/v3",
+            "/graphql",
+            "/graphql/",
+            "/swagger",
+            "/swagger.json",
+            "/swagger.yaml",
+            "/openapi",
+            "/openapi.json",
+            "/openapi.yaml",
+            "/api-docs",
+            "/api-docs.json",
+            "/docs",
+            "/redoc",
         ];
-        
+
         for path in common_paths {
             let url = format!("{}{}", base_url.trim_end_matches('/'), path);
             if let Ok(resp) = self.client.get(&url).send().await {
-                if resp.status().is_success() || resp.status().as_u16() == 401 || resp.status().as_u16() == 403 {
-                    let content_type = resp.headers().get("content-type")
+                if resp.status().is_success()
+                    || resp.status().as_u16() == 401
+                    || resp.status().as_u16() == 403
+                {
+                    let content_type = resp
+                        .headers()
+                        .get("content-type")
                         .and_then(|v| v.to_str().ok())
                         .unwrap_or("")
                         .to_string();
-                    
+
                     endpoints.push(ApiEndpoint {
                         url: url.clone(),
                         path: path.to_string(),
                         method: "GET".to_string(),
                         status: resp.status().as_u16(),
                         content_type,
-                        requires_auth: resp.status().as_u16() == 401 || resp.status().as_u16() == 403,
+                        requires_auth: resp.status().as_u16() == 401
+                            || resp.status().as_u16() == 403,
                     });
                 }
             }
         }
-        
+
         // Try to fetch OpenAPI spec
         if let Some(spec_endpoints) = self.fetch_openapi_spec(base_url).await {
             endpoints.extend(spec_endpoints);
         }
-        
+
         endpoints
     }
-    
+
     /// Fetch and parse OpenAPI/Swagger specification
     async fn fetch_openapi_spec(&self, base_url: &str) -> Option<Vec<ApiEndpoint>> {
         let spec_paths = vec![
-            "/openapi.json", "/openapi.yaml", "/openapi.yml",
-            "/swagger.json", "/swagger.yaml", "/swagger.yml",
-            "/api-docs", "/api-docs.json",
-            "/v3/api-docs", "/v2/api-docs",
+            "/openapi.json",
+            "/openapi.yaml",
+            "/openapi.yml",
+            "/swagger.json",
+            "/swagger.yaml",
+            "/swagger.yml",
+            "/api-docs",
+            "/api-docs.json",
+            "/v3/api-docs",
+            "/v2/api-docs",
         ];
-        
+
         for path in spec_paths {
             let url = format!("{}{}", base_url.trim_end_matches('/'), path);
             if let Ok(resp) = self.client.get(&url).send().await {
@@ -157,18 +191,20 @@ impl RestApiPlugin {
         }
         None
     }
-    
+
     /// Parse OpenAPI specification and extract endpoints
     fn parse_openapi_spec(&self, spec: &str, base_url: &str) -> Option<Vec<ApiEndpoint>> {
         let mut endpoints = Vec::new();
-        
+
         // Try JSON first
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(spec) {
             if let Some(paths) = json.get("paths").and_then(|p| p.as_object()) {
                 for (path, methods) in paths {
                     if let Some(methods_obj) = methods.as_object() {
                         for (method, _details) in methods_obj {
-                            if ["get", "post", "put", "patch", "delete", "head", "options"].contains(&method.as_str()) {
+                            if ["get", "post", "put", "patch", "delete", "head", "options"]
+                                .contains(&method.as_str())
+                            {
                                 endpoints.push(ApiEndpoint {
                                     url: format!("{}{}", base_url.trim_end_matches('/'), path),
                                     path: path.clone(),
@@ -184,7 +220,7 @@ impl RestApiPlugin {
             }
             return Some(endpoints);
         }
-        
+
         // Try YAML (basic parsing)
         if spec.contains("openapi:") || spec.contains("swagger:") {
             // Simple YAML parsing for paths
@@ -206,104 +242,146 @@ impl RestApiPlugin {
             }
             return Some(endpoints);
         }
-        
+
         None
     }
-    
+
     /// Test endpoint for security issues
-    async fn test_endpoint(&self, endpoint: &ApiEndpoint) -> Vec<Finding> {
+    async fn test_endpoint(
+        &self,
+        endpoint: &ApiEndpoint,
+        scan_id: openre_core::ids::ScanId,
+    ) -> Vec<Finding> {
         let mut findings = Vec::new();
-        
+
         // Test 1: Missing authentication on sensitive endpoints
         if self.is_sensitive_endpoint(&endpoint.path) && !endpoint.requires_auth {
             findings.push(self.create_finding(
                 "Missing Authentication on Sensitive Endpoint",
-                &format!("Endpoint {} {} does not require authentication", endpoint.method, endpoint.path),
+                &format!(
+                    "Endpoint {} {} does not require authentication",
+                    endpoint.method, endpoint.path
+                ),
                 Severity::High,
                 Confidence::High,
                 Category::BrokenAuthentication,
                 endpoint,
                 vec!["missing-auth".to_string(), "sensitive-endpoint".to_string()],
                 vec!["Verify authentication is required for this endpoint".to_string()],
+                scan_id,
             ));
         }
-        
+
         // Test 2: Insecure HTTP methods
-        if matches!(endpoint.method.as_str(), "PUT" | "DELETE" | "PATCH" | "TRACE" | "CONNECT") {
+        if matches!(
+            endpoint.method.as_str(),
+            "PUT" | "DELETE" | "PATCH" | "TRACE" | "CONNECT"
+        ) {
             if !endpoint.requires_auth {
                 findings.push(self.create_finding(
                     "Insecure HTTP Method Without Authentication",
-                    &format!("Endpoint {} {} allows {} without authentication", endpoint.method, endpoint.path, endpoint.method),
+                    &format!(
+                        "Endpoint {} {} allows {} without authentication",
+                        endpoint.method, endpoint.path, endpoint.method
+                    ),
                     Severity::Medium,
                     Confidence::Medium,
                     Category::SecurityMisconfiguration,
                     endpoint,
                     vec!["insecure-method".to_string(), "missing-auth".to_string()],
                     vec!["Restrict dangerous HTTP methods to authenticated users".to_string()],
+                    scan_id,
                 ));
             }
         }
-        
+
         // Test 3: TRACE method enabled
         if endpoint.method == "TRACE" {
             findings.push(self.create_finding(
                 "TRACE Method Enabled",
-                &format!("Endpoint {} {} has TRACE method enabled", endpoint.method, endpoint.path),
+                &format!(
+                    "Endpoint {} {} has TRACE method enabled",
+                    endpoint.method, endpoint.path
+                ),
                 Severity::Low,
                 Confidence::High,
                 Category::SecurityMisconfiguration,
                 endpoint,
                 vec!["trace-method".to_string()],
                 vec!["Disable TRACE method in server configuration".to_string()],
+                scan_id,
             ));
         }
-        
+
         // Test 4: OPTIONS method information disclosure
         if endpoint.method == "OPTIONS" {
             // Would need to check Allow header
             findings.push(self.create_finding(
                 "OPTIONS Method Information Disclosure",
-                &format!("Endpoint {} {} exposes allowed methods via OPTIONS", endpoint.method, endpoint.path),
+                &format!(
+                    "Endpoint {} {} exposes allowed methods via OPTIONS",
+                    endpoint.method, endpoint.path
+                ),
                 Severity::Info,
                 Confidence::Medium,
                 Category::InformationDisclosure,
                 endpoint,
                 vec!["options-method".to_string(), "info-disclosure".to_string()],
                 vec!["Review if OPTIONS response reveals sensitive information".to_string()],
+                scan_id,
             ));
         }
-        
+
         // Test 5: API versioning issues
         if endpoint.path.contains("/v1/") || endpoint.path.contains("/v2/") {
             // Check for deprecated versions
             findings.push(self.create_finding(
                 "Potential Deprecated API Version",
-                &format!("Endpoint {} {} uses potentially deprecated API version", endpoint.method, endpoint.path),
+                &format!(
+                    "Endpoint {} {} uses potentially deprecated API version",
+                    endpoint.method, endpoint.path
+                ),
                 Severity::Info,
                 Confidence::Low,
                 Category::SecurityMisconfiguration,
                 endpoint,
                 vec!["api-versioning".to_string()],
                 vec!["Verify API version is current and supported".to_string()],
+                scan_id,
             ));
         }
-        
+
         findings
     }
-    
+
     /// Check if endpoint path is sensitive
     fn is_sensitive_endpoint(&self, path: &str) -> bool {
         let sensitive_patterns = [
-            "/admin", "/management", "/actuator", "/metrics", "/health",
-            "/config", "/env", "/debug", "/trace", "/dump",
-            "/users", "/accounts", "/profile", "/password",
-            "/api/users", "/api/admin", "/api/config",
-            "/internal", "/private", "/secret",
+            "/admin",
+            "/management",
+            "/actuator",
+            "/metrics",
+            "/health",
+            "/config",
+            "/env",
+            "/debug",
+            "/trace",
+            "/dump",
+            "/users",
+            "/accounts",
+            "/profile",
+            "/password",
+            "/api/users",
+            "/api/admin",
+            "/api/config",
+            "/internal",
+            "/private",
+            "/secret",
         ];
-        
+
         sensitive_patterns.iter().any(|p| path.contains(p))
     }
-    
+
     /// Create a finding from endpoint test
     fn create_finding(
         &self,
@@ -315,23 +393,27 @@ impl RestApiPlugin {
         endpoint: &ApiEndpoint,
         tags: Vec<String>,
         verification_steps: Vec<String>,
+        scan_id: openre_core::ids::ScanId,
     ) -> Finding {
-        let mut finding = Finding::new(
-            title.to_string(),
-            description.to_string(),
+        let mut finding = Finding::new(FindingConfig {
+            title: title.to_string(),
+            description: description.to_string(),
             severity,
             confidence,
             category,
-            endpoint.url.clone(),
-            "web_api".to_string(),
-            "rest_api_security".to_string(),
-            self.version().to_string(),
-            openre_core::ids::ScanId::new(), // Would be passed from context
-        );
-        
+            target: endpoint.url.clone(),
+            target_type: "web_api".to_string(),
+            plugin_source: "rest_api_security".to_string(),
+            plugin_version: self.version().to_string(),
+            scan_id,
+        });
+
         finding = finding.with_evidence(Evidence {
             evidence_type: EvidenceType::HttpResponse,
-            description: format!("REST API endpoint test for {} {}", endpoint.method, endpoint.path),
+            description: format!(
+                "REST API endpoint test for {} {}",
+                endpoint.method, endpoint.path
+            ),
             data: Some(serde_json::json!({
                 "endpoint": {
                     "url": endpoint.url,
@@ -344,8 +426,15 @@ impl RestApiPlugin {
             })),
             location: Some(endpoint.url.clone()),
             metadata: HashMap::new(),
+            http_request: None,
+            http_response: None,
+            timing: None,
+            payload: None,
+            reproduction_steps: None,
+            plugin_source: Some("rest_api_security".to_string()),
+            timestamp: Utc::now(),
         });
-        
+
         for reference in self.references() {
             finding = finding.with_reference(Reference {
                 reference_type: match reference.ref_type.as_str() {
@@ -359,12 +448,12 @@ impl RestApiPlugin {
                 description: Some(reference.description.clone()),
             });
         }
-        
+
         for tag in tags {
             finding = finding.with_tag(tag);
         }
         finding = finding.with_tag("rest-api".to_string());
-        
+
         finding
     }
 }
@@ -372,40 +461,40 @@ impl RestApiPlugin {
 #[async_trait]
 impl Plugin for RestApiPlugin {
     type Config = RestApiConfig;
-    
+
     fn new(config: Self::Config) -> Self {
         Self::new(config).expect("Failed to create REST API plugin")
     }
-    
+
     fn capabilities(&self) -> Vec<Capability> {
-        vec![
-            Capability::NetworkAccess,
-            Capability::ReadConfig,
-        ]
+        vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
-    
+
     async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
         let context = request.context;
-        let target_url = request.input.get("target_url")
+        let scan_id = openre_core::ids::ScanId::from_uuid(context.job_id.as_uuid());
+        let target_url = request
+            .input
+            .get("target_url")
             .and_then(|v| v.as_str())
             .unwrap_or("http://localhost");
-        
+
         info!("Starting REST API security analysis for {}", target_url);
-        
+
         // Discover endpoints
         let endpoints = self.discover_endpoints(target_url).await;
         let endpoints_count = endpoints.len();
         info!("Discovered {} endpoints", endpoints_count);
-        
+
         // Test each endpoint
         let mut all_findings = Vec::new();
         for endpoint in endpoints {
-            let findings = self.test_endpoint(&endpoint).await;
+            let findings = self.test_endpoint(&endpoint, scan_id).await;
             all_findings.extend(findings);
         }
-        
+
         info!("Found {} security issues", all_findings.len());
-        
+
         Ok(CapabilityResponse::success(serde_json::json!({
             "findings": all_findings,
             "endpoints_tested": endpoints_count,

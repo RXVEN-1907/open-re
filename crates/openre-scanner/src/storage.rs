@@ -1,15 +1,17 @@
 //! Storage layer for persisting scans, targets, plugin executions, findings, logs, and timing information
 
 use crate::error::{ScannerError, ScannerResult};
-use crate::result::{Finding, FindingId, FindingFilter, FindingSort, FindingStats};
-use crate::scan::{ScanSession, ScanId, ScanProgress, ScanStatus, PluginExecutionRecord, ScanLogEntry};
-use crate::target::{Target, TargetId, TargetMetadata, ScanConfig};
-use crate::plugin::{PluginInfo, PluginId, PluginConfig};
-use openre_core::ids::ProjectId;
+use crate::plugin::{PluginConfig, PluginId, PluginInfo};
+use crate::result::{Finding, FindingFilter, FindingId, FindingSort, FindingStats};
+use crate::scan::{
+    PluginExecutionRecord, ScanId, ScanLogEntry, ScanProgress, ScanSession, ScanStatus,
+};
+use crate::target::{ScanConfig, Target, TargetId, TargetMetadata};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use openre_core::ids::ProjectId;
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Sqlite, Row};
+use sqlx::{Pool, Row, Sqlite};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -102,12 +104,29 @@ pub struct TargetRecord {
 pub trait ScanStorage: Send + Sync {
     async fn save_scan(&self, session: &ScanSession) -> ScannerResult<()>;
     async fn get_scan(&self, scan_id: &ScanId) -> ScannerResult<Option<ScanSession>>;
-    async fn list_scans(&self, limit: usize, offset: usize, project_id: Option<ProjectId>) -> ScannerResult<Vec<ScanSession>>;
+    async fn list_scans(
+        &self,
+        limit: usize,
+        offset: usize,
+        project_id: Option<ProjectId>,
+    ) -> ScannerResult<Vec<ScanSession>>;
     async fn delete_scan(&self, scan_id: &ScanId) -> ScannerResult<bool>;
     async fn save_finding(&self, scan_id: ScanId, finding: &Finding) -> ScannerResult<()>;
     async fn get_findings(&self, scan_id: &ScanId) -> ScannerResult<Vec<Finding>>;
-    async fn get_findings_filtered(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>>;
-    async fn list_findings(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>>;
+    async fn get_findings_filtered(
+        &self,
+        filter: FindingFilter,
+        sort: FindingSort,
+        limit: usize,
+        offset: usize,
+    ) -> ScannerResult<Vec<Finding>>;
+    async fn list_findings(
+        &self,
+        filter: FindingFilter,
+        sort: FindingSort,
+        limit: usize,
+        offset: usize,
+    ) -> ScannerResult<Vec<Finding>>;
     async fn count_findings(&self, filter: FindingFilter) -> ScannerResult<u64>;
     async fn get_finding(&self, finding_id: &FindingId) -> ScannerResult<Option<Finding>>;
     async fn get_finding_stats(&self, filter: FindingFilter) -> ScannerResult<FindingStats>;
@@ -118,7 +137,10 @@ pub trait ScanStorage: Send + Sync {
     async fn list_targets(&self, project_id: Option<ProjectId>) -> ScannerResult<Vec<Target>>;
     async fn delete_target(&self, target_id: &TargetId) -> ScannerResult<bool>;
     async fn save_plugin_execution(&self, record: &PluginExecutionRecord) -> ScannerResult<()>;
-    async fn get_plugin_executions(&self, scan_id: &ScanId) -> ScannerResult<Vec<PluginExecutionRecord>>;
+    async fn get_plugin_executions(
+        &self,
+        scan_id: &ScanId,
+    ) -> ScannerResult<Vec<PluginExecutionRecord>>;
 }
 
 /// SQLite-based scan storage implementation
@@ -258,16 +280,36 @@ impl SqliteScanStorage {
         .await?;
 
         // Create indexes
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scans_project_id ON scans(project_id)").execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scans_target_id ON scans(target_id)").execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scans_status ON scans(status)").execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_findings_scan_id ON findings(scan_id)").execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_findings_severity ON findings(severity)").execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_findings_category ON findings(category)").execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_findings_plugin_source ON findings(plugin_source)").execute(&self.pool).await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scans_project_id ON scans(project_id)")
+            .execute(&self.pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scans_target_id ON scans(target_id)")
+            .execute(&self.pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scans_status ON scans(status)")
+            .execute(&self.pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_findings_scan_id ON findings(scan_id)")
+            .execute(&self.pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_findings_severity ON findings(severity)")
+            .execute(&self.pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_findings_category ON findings(category)")
+            .execute(&self.pool)
+            .await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_findings_plugin_source ON findings(plugin_source)",
+        )
+        .execute(&self.pool)
+        .await?;
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_plugin_executions_scan_id ON plugin_executions(scan_id)").execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_targets_project_id ON targets(project_id)").execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scan_logs_scan_id ON scan_logs(scan_id)").execute(&self.pool).await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_targets_project_id ON targets(project_id)")
+            .execute(&self.pool)
+            .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scan_logs_scan_id ON scan_logs(scan_id)")
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }
@@ -286,9 +328,10 @@ impl SqliteScanStorage {
             created_at: session.created_at,
             started_at: session.started_at,
             completed_at: session.completed_at,
-            duration: session.completed_at.zip(session.started_at).map(|(end, start)| {
-                (end - start).to_std().unwrap_or_default()
-            }),
+            duration: session
+                .completed_at
+                .zip(session.started_at)
+                .map(|(end, start)| (end - start).to_std().unwrap_or_default()),
             tags: session.config.tags.clone(),
         }
     }
@@ -298,12 +341,15 @@ impl SqliteScanStorage {
         ScanSession {
             id: record.id,
             config: record.config,
-            target: Target::new(record.target_id, TargetMetadata::new("".to_string(), record.config.target_id.into())), // Placeholder
+            target: Target::new(
+                record.target_id,
+                TargetMetadata::new("".to_string(), record.config.target_id.into()),
+            ), // Placeholder
             status: record.status,
             progress: record.progress,
-            findings: Vec::new(), // Loaded separately
+            findings: Vec::new(),          // Loaded separately
             plugin_executions: Vec::new(), // Loaded separately
-            logs: Vec::new(), // Loaded separately
+            logs: Vec::new(),              // Loaded separately
             created_at: record.created_at,
             started_at: record.started_at,
             completed_at: record.completed_at,
@@ -354,17 +400,30 @@ impl ScanStorage for SqliteScanStorage {
         if let Some(row) = row {
             let record = ScanRecord {
                 id: ScanId::from_string(&row.get::<String, _>("id"))?,
-                project_id: row.get::<Option<String>, _>("project_id").map(|s| ProjectId::from_string(&s).unwrap()),
+                project_id: row
+                    .get::<Option<String>, _>("project_id")
+                    .map(|s| ProjectId::from_string(&s).unwrap()),
                 target_id: TargetId::from_string(&row.get::<String, _>("target_id"))?,
                 name: row.get("name"),
                 description: row.get("description"),
                 status: row.get::<String, _>("status").parse()?,
                 config: serde_json::from_str(&row.get::<String, _>("config"))?,
                 progress: serde_json::from_str(&row.get::<String, _>("progress"))?,
-                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?.with_timezone(&Utc),
-                started_at: row.get::<Option<String>, _>("started_at").map(|s| DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&Utc)),
-                completed_at: row.get::<Option<String>, _>("completed_at").map(|s| DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&Utc)),
-                duration: row.get::<Option<i64>, _>("duration_ms").map(|ms| std::time::Duration::from_millis(ms as u64)),
+                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
+                    .with_timezone(&Utc),
+                started_at: row.get::<Option<String>, _>("started_at").map(|s| {
+                    DateTime::parse_from_rfc3339(&s)
+                        .unwrap()
+                        .with_timezone(&Utc)
+                }),
+                completed_at: row.get::<Option<String>, _>("completed_at").map(|s| {
+                    DateTime::parse_from_rfc3339(&s)
+                        .unwrap()
+                        .with_timezone(&Utc)
+                }),
+                duration: row
+                    .get::<Option<i64>, _>("duration_ms")
+                    .map(|ms| std::time::Duration::from_millis(ms as u64)),
                 tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
             };
 
@@ -386,7 +445,12 @@ impl ScanStorage for SqliteScanStorage {
         }
     }
 
-    async fn list_scans(&self, limit: usize, offset: usize, project_id: Option<ProjectId>) -> ScannerResult<Vec<ScanSession>> {
+    async fn list_scans(
+        &self,
+        limit: usize,
+        offset: usize,
+        project_id: Option<ProjectId>,
+    ) -> ScannerResult<Vec<ScanSession>> {
         let query = if project_id.is_some() {
             "SELECT * FROM scans WHERE project_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
         } else {
@@ -405,17 +469,30 @@ impl ScanStorage for SqliteScanStorage {
         for row in rows {
             let record = ScanRecord {
                 id: ScanId::from_string(&row.get::<String, _>("id"))?,
-                project_id: row.get::<Option<String>, _>("project_id").map(|s| ProjectId::from_string(&s).unwrap()),
+                project_id: row
+                    .get::<Option<String>, _>("project_id")
+                    .map(|s| ProjectId::from_string(&s).unwrap()),
                 target_id: TargetId::from_string(&row.get::<String, _>("target_id"))?,
                 name: row.get("name"),
                 description: row.get("description"),
                 status: row.get::<String, _>("status").parse()?,
                 config: serde_json::from_str(&row.get::<String, _>("config"))?,
                 progress: serde_json::from_str(&row.get::<String, _>("progress"))?,
-                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?.with_timezone(&Utc),
-                started_at: row.get::<Option<String>, _>("started_at").map(|s| DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&Utc)),
-                completed_at: row.get::<Option<String>, _>("completed_at").map(|s| DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&Utc)),
-                duration: row.get::<Option<i64>, _>("duration_ms").map(|ms| std::time::Duration::from_millis(ms as u64)),
+                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
+                    .with_timezone(&Utc),
+                started_at: row.get::<Option<String>, _>("started_at").map(|s| {
+                    DateTime::parse_from_rfc3339(&s)
+                        .unwrap()
+                        .with_timezone(&Utc)
+                }),
+                completed_at: row.get::<Option<String>, _>("completed_at").map(|s| {
+                    DateTime::parse_from_rfc3339(&s)
+                        .unwrap()
+                        .with_timezone(&Utc)
+                }),
+                duration: row
+                    .get::<Option<i64>, _>("duration_ms")
+                    .map(|ms| std::time::Duration::from_millis(ms as u64)),
                 tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
             };
 
@@ -499,7 +576,8 @@ impl ScanStorage for SqliteScanStorage {
                 references: serde_json::from_str(&row.get::<String, _>("references"))?,
                 plugin_source: row.get("plugin_source"),
                 plugin_version: row.get("plugin_version"),
-                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?.with_timezone(&Utc),
+                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?
+                    .with_timezone(&Utc),
                 metadata: serde_json::from_str(&row.get::<String, _>("metadata"))?,
                 tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
                 verified: row.get("verified"),
@@ -514,7 +592,13 @@ impl ScanStorage for SqliteScanStorage {
         Ok(findings)
     }
 
-    async fn get_findings_filtered(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>> {
+    async fn get_findings_filtered(
+        &self,
+        filter: FindingFilter,
+        sort: FindingSort,
+        limit: usize,
+        offset: usize,
+    ) -> ScannerResult<Vec<Finding>> {
         let mut query = "SELECT * FROM findings WHERE 1=1".to_string();
         let mut params: Vec<String> = Vec::new();
 
@@ -527,7 +611,11 @@ impl ScanStorage for SqliteScanStorage {
         }
 
         if let Some(confidences) = filter.confidence {
-            let placeholders = confidences.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let placeholders = confidences
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(",");
             query.push_str(&format!(" AND confidence IN ({})", placeholders));
             for c in confidences {
                 params.push(c.to_string());
@@ -623,7 +711,8 @@ impl ScanStorage for SqliteScanStorage {
                 references: serde_json::from_str(&row.get::<String, _>("references"))?,
                 plugin_source: row.get("plugin_source"),
                 plugin_version: row.get("plugin_version"),
-                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?.with_timezone(&Utc),
+                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?
+                    .with_timezone(&Utc),
                 metadata: serde_json::from_str(&row.get::<String, _>("metadata"))?,
                 tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
                 verified: row.get("verified"),
@@ -638,8 +727,15 @@ impl ScanStorage for SqliteScanStorage {
         Ok(findings)
     }
 
-    async fn list_findings(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>> {
-        self.get_findings_filtered(filter, sort, limit, offset).await
+    async fn list_findings(
+        &self,
+        filter: FindingFilter,
+        sort: FindingSort,
+        limit: usize,
+        offset: usize,
+    ) -> ScannerResult<Vec<Finding>> {
+        self.get_findings_filtered(filter, sort, limit, offset)
+            .await
     }
 
     async fn count_findings(&self, filter: FindingFilter) -> ScannerResult<u64> {
@@ -655,7 +751,11 @@ impl ScanStorage for SqliteScanStorage {
         }
 
         if let Some(confidences) = filter.confidence {
-            let placeholders = confidences.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let placeholders = confidences
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(",");
             query.push_str(&format!(" AND confidence IN ({})", placeholders));
             for c in confidences {
                 params.push(c.to_string());
@@ -751,7 +851,8 @@ impl ScanStorage for SqliteScanStorage {
                 references: serde_json::from_str(&row.get::<String, _>("references"))?,
                 plugin_source: row.get("plugin_source"),
                 plugin_version: row.get("plugin_version"),
-                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?.with_timezone(&Utc),
+                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?
+                    .with_timezone(&Utc),
                 metadata: serde_json::from_str(&row.get::<String, _>("metadata"))?,
                 tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
                 verified: row.get("verified"),
@@ -779,7 +880,11 @@ impl ScanStorage for SqliteScanStorage {
         }
 
         if let Some(confidences) = filter.confidence {
-            let placeholders = confidences.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let placeholders = confidences
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(",");
             query.push_str(&format!(" AND confidence IN ({})", placeholders));
             for c in confidences {
                 params.push(c.to_string());
@@ -875,8 +980,12 @@ impl ScanStorage for SqliteScanStorage {
             *by_category.entry(category.parse()?).or_insert(0) += 1;
             *by_plugin.entry(plugin).or_insert(0) += 1;
 
-            if verified_flag { verified += 1; }
-            if fp_flag { false_positives += 1; }
+            if verified_flag {
+                verified += 1;
+            }
+            if fp_flag {
+                false_positives += 1;
+            }
             if let Some(score) = risk_score {
                 total_risk_score += score as u32;
                 risk_score_count += 1;
@@ -891,7 +1000,11 @@ impl ScanStorage for SqliteScanStorage {
             by_plugin,
             verified,
             false_positives,
-            avg_risk_score: if risk_score_count > 0 { total_risk_score as f32 / risk_score_count as f32 } else { 0.0 },
+            avg_risk_score: if risk_score_count > 0 {
+                total_risk_score as f32 / risk_score_count as f32
+            } else {
+                0.0
+            },
         })
     }
 
@@ -925,7 +1038,8 @@ impl ScanStorage for SqliteScanStorage {
         let mut logs = Vec::new();
         for row in rows {
             logs.push(ScanLogEntry {
-                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?.with_timezone(&Utc),
+                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?
+                    .with_timezone(&Utc),
                 level: row.get("level"),
                 plugin: row.get("plugin"),
                 message: row.get("message"),
@@ -939,10 +1053,30 @@ impl ScanStorage for SqliteScanStorage {
     async fn save_target(&self, target: &Target) -> ScannerResult<()> {
         let headers_json = serde_json::to_string(&target.metadata.headers)?;
         let cookies_json = serde_json::to_string(&target.metadata.cookies)?;
-        let auth_json = target.metadata.auth.as_ref().map(serde_json::to_string).transpose()?;
-        let rate_limit_json = target.metadata.rate_limit.as_ref().map(serde_json::to_string).transpose()?;
-        let tls_json = target.metadata.tls_config.as_ref().map(serde_json::to_string).transpose()?;
-        let proxy_json = target.metadata.proxy.as_ref().map(serde_json::to_string).transpose()?;
+        let auth_json = target
+            .metadata
+            .auth
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()?;
+        let rate_limit_json = target
+            .metadata
+            .rate_limit
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()?;
+        let tls_json = target
+            .metadata
+            .tls_config
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()?;
+        let proxy_json = target
+            .metadata
+            .proxy
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()?;
         let custom_json = serde_json::to_string(&target.metadata.custom)?;
         let tags_json = serde_json::to_string(&target.metadata.tags)?;
 
@@ -990,18 +1124,34 @@ impl ScanStorage for SqliteScanStorage {
                     base_url: row.get::<String, _>("base_url").parse()?,
                     headers: serde_json::from_str(&row.get::<String, _>("headers"))?,
                     cookies: serde_json::from_str(&row.get::<String, _>("cookies"))?,
-                    auth: row.get::<Option<String>, _>("auth").map(|s| serde_json::from_str(&s)).transpose()?,
-                    rate_limit: row.get::<Option<String>, _>("rate_limit").map(|s| serde_json::from_str(&s)).transpose()?,
-                    tls_config: row.get::<Option<String>, _>("tls_config").map(|s| serde_json::from_str(&s)).transpose()?,
-                    proxy: row.get::<Option<String>, _>("proxy").map(|s| serde_json::from_str(&s)).transpose()?,
+                    auth: row
+                        .get::<Option<String>, _>("auth")
+                        .map(|s| serde_json::from_str(&s))
+                        .transpose()?,
+                    rate_limit: row
+                        .get::<Option<String>, _>("rate_limit")
+                        .map(|s| serde_json::from_str(&s))
+                        .transpose()?,
+                    tls_config: row
+                        .get::<Option<String>, _>("tls_config")
+                        .map(|s| serde_json::from_str(&s))
+                        .transpose()?,
+                    proxy: row
+                        .get::<Option<String>, _>("proxy")
+                        .map(|s| serde_json::from_str(&s))
+                        .transpose()?,
                     custom: serde_json::from_str(&row.get::<String, _>("custom"))?,
                     tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
-                    created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?.with_timezone(&Utc),
-                    updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?.with_timezone(&Utc),
+                    created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
+                        .with_timezone(&Utc),
+                    updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?
+                        .with_timezone(&Utc),
                 },
                 scan_configs: Vec::new(),
-                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?.with_timezone(&Utc),
-                updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?.with_timezone(&Utc),
+                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
+                    .with_timezone(&Utc),
+                updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?
+                    .with_timezone(&Utc),
             };
             Ok(Some(target))
         } else {
@@ -1034,18 +1184,34 @@ impl ScanStorage for SqliteScanStorage {
                     base_url: row.get::<String, _>("base_url").parse()?,
                     headers: serde_json::from_str(&row.get::<String, _>("headers"))?,
                     cookies: serde_json::from_str(&row.get::<String, _>("cookies"))?,
-                    auth: row.get::<Option<String>, _>("auth").map(|s| serde_json::from_str(&s)).transpose()?,
-                    rate_limit: row.get::<Option<String>, _>("rate_limit").map(|s| serde_json::from_str(&s)).transpose()?,
-                    tls_config: row.get::<Option<String>, _>("tls_config").map(|s| serde_json::from_str(&s)).transpose()?,
-                    proxy: row.get::<Option<String>, _>("proxy").map(|s| serde_json::from_str(&s)).transpose()?,
+                    auth: row
+                        .get::<Option<String>, _>("auth")
+                        .map(|s| serde_json::from_str(&s))
+                        .transpose()?,
+                    rate_limit: row
+                        .get::<Option<String>, _>("rate_limit")
+                        .map(|s| serde_json::from_str(&s))
+                        .transpose()?,
+                    tls_config: row
+                        .get::<Option<String>, _>("tls_config")
+                        .map(|s| serde_json::from_str(&s))
+                        .transpose()?,
+                    proxy: row
+                        .get::<Option<String>, _>("proxy")
+                        .map(|s| serde_json::from_str(&s))
+                        .transpose()?,
                     custom: serde_json::from_str(&row.get::<String, _>("custom"))?,
                     tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
-                    created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?.with_timezone(&Utc),
-                    updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?.with_timezone(&Utc),
+                    created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
+                        .with_timezone(&Utc),
+                    updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?
+                        .with_timezone(&Utc),
                 },
                 scan_configs: Vec::new(),
-                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?.with_timezone(&Utc),
-                updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?.with_timezone(&Utc),
+                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
+                    .with_timezone(&Utc),
+                updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?
+                    .with_timezone(&Utc),
             });
         }
 
@@ -1084,11 +1250,16 @@ impl ScanStorage for SqliteScanStorage {
         Ok(())
     }
 
-    async fn get_plugin_executions(&self, scan_id: &ScanId) -> ScannerResult<Vec<PluginExecutionRecord>> {
-        let rows = sqlx::query("SELECT * FROM plugin_executions WHERE scan_id = ? ORDER BY started_at ASC")
-            .bind(scan_id.to_string())
-            .fetch_all(&self.pool)
-            .await?;
+    async fn get_plugin_executions(
+        &self,
+        scan_id: &ScanId,
+    ) -> ScannerResult<Vec<PluginExecutionRecord>> {
+        let rows = sqlx::query(
+            "SELECT * FROM plugin_executions WHERE scan_id = ? ORDER BY started_at ASC",
+        )
+        .bind(scan_id.to_string())
+        .fetch_all(&self.pool)
+        .await?;
 
         let mut executions = Vec::new();
         for row in rows {
@@ -1097,12 +1268,19 @@ impl ScanStorage for SqliteScanStorage {
                 scan_id: ScanId::from_string(&row.get::<String, _>("scan_id"))?,
                 plugin_id: PluginId::from_string(&row.get::<String, _>("plugin_id"))?,
                 plugin_name: row.get("plugin_name"),
-                started_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("started_at"))?.with_timezone(&Utc),
-                completed_at: row.get::<Option<String>, _>("completed_at").map(|s| DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&Utc)),
+                started_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("started_at"))?
+                    .with_timezone(&Utc),
+                completed_at: row.get::<Option<String>, _>("completed_at").map(|s| {
+                    DateTime::parse_from_rfc3339(&s)
+                        .unwrap()
+                        .with_timezone(&Utc)
+                }),
                 status: row.get("status"),
                 findings_count: row.get::<i64, _>("findings_count") as usize,
                 error: row.get("error"),
-                duration: row.get::<Option<i64>, _>("duration_ms").map(|ms| std::time::Duration::from_millis(ms as u64)),
+                duration: row
+                    .get::<Option<i64>, _>("duration_ms")
+                    .map(|ms| std::time::Duration::from_millis(ms as u64)),
             });
         }
 
@@ -1145,7 +1323,12 @@ impl ScanStorage for MemoryScanStorage {
         Ok(self.scans.get(scan_id).map(|s| s.clone()))
     }
 
-    async fn list_scans(&self, limit: usize, offset: usize, _project_id: Option<ProjectId>) -> ScannerResult<Vec<ScanSession>> {
+    async fn list_scans(
+        &self,
+        limit: usize,
+        offset: usize,
+        _project_id: Option<ProjectId>,
+    ) -> ScannerResult<Vec<ScanSession>> {
         let mut scans: Vec<ScanSession> = self.scans.iter().map(|s| s.clone()).collect();
         scans.sort_by(|a, b| b.created_at.cmp(&a.created_at));
         Ok(scans.into_iter().skip(offset).take(limit).collect())
@@ -1160,21 +1343,40 @@ impl ScanStorage for MemoryScanStorage {
 
     async fn save_finding(&self, scan_id: ScanId, finding: &Finding) -> ScannerResult<()> {
         self.findings.insert(finding.id, finding.clone());
-        self.findings_by_scan.entry(scan_id).or_default().push(finding.id);
+        self.findings_by_scan
+            .entry(scan_id)
+            .or_default()
+            .push(finding.id);
         Ok(())
     }
 
     async fn get_findings(&self, scan_id: &ScanId) -> ScannerResult<Vec<Finding>> {
-        let ids = self.findings_by_scan.get(scan_id).map(|v| v.clone()).unwrap_or_default();
-        Ok(ids.iter().filter_map(|id| self.findings.get(id).map(|f| f.clone())).collect())
+        let ids = self
+            .findings_by_scan
+            .get(scan_id)
+            .map(|v| v.clone())
+            .unwrap_or_default();
+        Ok(ids
+            .iter()
+            .filter_map(|id| self.findings.get(id).map(|f| f.clone()))
+            .collect())
     }
 
-    async fn list_findings(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>> {
-        self.get_findings_filtered(filter, sort, limit, offset).await
+    async fn list_findings(
+        &self,
+        filter: FindingFilter,
+        sort: FindingSort,
+        limit: usize,
+        offset: usize,
+    ) -> ScannerResult<Vec<Finding>> {
+        self.get_findings_filtered(filter, sort, limit, offset)
+            .await
     }
 
     async fn count_findings(&self, filter: FindingFilter) -> ScannerResult<u64> {
-        let findings = self.get_findings_filtered(filter, FindingSort::SeverityDesc, usize::MAX, 0).await?;
+        let findings = self
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, usize::MAX, 0)
+            .await?;
         Ok(findings.len() as u64)
     }
 
@@ -1182,55 +1384,89 @@ impl ScanStorage for MemoryScanStorage {
         Ok(self.findings.get(finding_id).map(|f| f.clone()))
     }
 
-    async fn get_findings_filtered(&self, filter: FindingFilter, sort: FindingSort, limit: usize, offset: usize) -> ScannerResult<Vec<Finding>> {
+    async fn get_findings_filtered(
+        &self,
+        filter: FindingFilter,
+        sort: FindingSort,
+        limit: usize,
+        offset: usize,
+    ) -> ScannerResult<Vec<Finding>> {
         let mut findings: Vec<Finding> = self.findings.iter().map(|f| f.clone()).collect();
 
         // Apply filter
         findings.retain(|f| {
             if let Some(severities) = &filter.severity {
-                if !severities.contains(&f.severity) { return false; }
+                if !severities.contains(&f.severity) {
+                    return false;
+                }
             }
             if let Some(confidences) = &filter.confidence {
-                if !confidences.contains(&f.confidence) { return false; }
+                if !confidences.contains(&f.confidence) {
+                    return false;
+                }
             }
             if let Some(categories) = &filter.category {
-                if !categories.contains(&f.category) { return false; }
+                if !categories.contains(&f.category) {
+                    return false;
+                }
             }
             if let Some(target) = &filter.target {
-                if !f.target.contains(target) { return false; }
+                if !f.target.contains(target) {
+                    return false;
+                }
             }
             if let Some(plugin) = &filter.plugin_source {
-                if f.plugin_source != *plugin { return false; }
+                if f.plugin_source != *plugin {
+                    return false;
+                }
             }
             if let Some(scan_id) = &filter.scan_id {
-                if f.scan_id != *scan_id { return false; }
+                if f.scan_id != *scan_id {
+                    return false;
+                }
             }
             if let Some(verified) = filter.verified {
-                if f.verified != verified { return false; }
+                if f.verified != verified {
+                    return false;
+                }
             }
             if let Some(false_positive) = filter.false_positive {
-                if f.false_positive != false_positive { return false; }
+                if f.false_positive != false_positive {
+                    return false;
+                }
             }
             if let Some(tags) = &filter.tags {
-                if !tags.iter().all(|t| f.tags.contains(t)) { return false; }
+                if !tags.iter().all(|t| f.tags.contains(t)) {
+                    return false;
+                }
             }
             if let Some(date_from) = filter.date_from {
-                if f.timestamp < date_from { return false; }
+                if f.timestamp < date_from {
+                    return false;
+                }
             }
             if let Some(date_to) = filter.date_to {
-                if f.timestamp > date_to { return false; }
+                if f.timestamp > date_to {
+                    return false;
+                }
             }
             if let Some(search) = &filter.search {
                 let search_lower = search.to_lowercase();
-                if !f.title.to_lowercase().contains(&search_lower) && !f.description.to_lowercase().contains(&search_lower) {
+                if !f.title.to_lowercase().contains(&search_lower)
+                    && !f.description.to_lowercase().contains(&search_lower)
+                {
                     return false;
                 }
             }
             if let Some(min_score) = filter.min_risk_score {
-                if f.risk_score.unwrap_or(0) < min_score { return false; }
+                if f.risk_score.unwrap_or(0) < min_score {
+                    return false;
+                }
             }
             if let Some(max_score) = filter.max_risk_score {
-                if f.risk_score.unwrap_or(100) > max_score { return false; }
+                if f.risk_score.unwrap_or(100) > max_score {
+                    return false;
+                }
             }
             true
         });
@@ -1242,7 +1478,9 @@ impl ScanStorage for MemoryScanStorage {
             FindingSort::ConfidenceDesc => findings.sort_by(|a, b| b.confidence.cmp(&a.confidence)),
             FindingSort::TimestampDesc => findings.sort_by(|a, b| b.timestamp.cmp(&a.timestamp)),
             FindingSort::TimestampAsc => findings.sort_by(|a, b| a.timestamp.cmp(&b.timestamp)),
-            FindingSort::RiskScoreDesc => findings.sort_by(|a, b| b.risk_score.unwrap_or(0).cmp(&a.risk_score.unwrap_or(0))),
+            FindingSort::RiskScoreDesc => {
+                findings.sort_by(|a, b| b.risk_score.unwrap_or(0).cmp(&a.risk_score.unwrap_or(0)))
+            }
             FindingSort::TargetAsc => findings.sort_by(|a, b| a.target.cmp(&b.target)),
         }
 
@@ -1250,7 +1488,9 @@ impl ScanStorage for MemoryScanStorage {
     }
 
     async fn get_finding_stats(&self, filter: FindingFilter) -> ScannerResult<FindingStats> {
-        let findings = self.get_findings_filtered(filter, FindingSort::SeverityDesc, usize::MAX, 0).await?;
+        let findings = self
+            .get_findings_filtered(filter, FindingSort::SeverityDesc, usize::MAX, 0)
+            .await?;
 
         let mut by_severity = HashMap::new();
         let mut by_confidence = HashMap::new();
@@ -1266,8 +1506,12 @@ impl ScanStorage for MemoryScanStorage {
             *by_confidence.entry(finding.confidence).or_insert(0) += 1;
             *by_category.entry(finding.category.clone()).or_insert(0) += 1;
             *by_plugin.entry(finding.plugin_source.clone()).or_insert(0) += 1;
-            if finding.verified { verified += 1; }
-            if finding.false_positive { false_positives += 1; }
+            if finding.verified {
+                verified += 1;
+            }
+            if finding.false_positive {
+                false_positives += 1;
+            }
             if let Some(score) = finding.risk_score {
                 total_risk_score += score as u32;
                 risk_score_count += 1;
@@ -1282,7 +1526,11 @@ impl ScanStorage for MemoryScanStorage {
             by_plugin,
             verified,
             false_positives,
-            avg_risk_score: if risk_score_count > 0 { total_risk_score as f32 / risk_score_count as f32 } else { 0.0 },
+            avg_risk_score: if risk_score_count > 0 {
+                total_risk_score as f32 / risk_score_count as f32
+            } else {
+                0.0
+            },
         })
     }
 
@@ -1292,7 +1540,11 @@ impl ScanStorage for MemoryScanStorage {
     }
 
     async fn get_logs(&self, scan_id: &ScanId) -> ScannerResult<Vec<ScanLogEntry>> {
-        Ok(self.logs.get(scan_id).map(|l| l.clone()).unwrap_or_default())
+        Ok(self
+            .logs
+            .get(scan_id)
+            .map(|l| l.clone())
+            .unwrap_or_default())
     }
 
     async fn save_target(&self, target: &Target) -> ScannerResult<()> {
@@ -1313,12 +1565,22 @@ impl ScanStorage for MemoryScanStorage {
     }
 
     async fn save_plugin_execution(&self, record: &PluginExecutionRecord) -> ScannerResult<()> {
-        self.plugin_executions.entry(record.scan_id).or_default().push(record.clone());
+        self.plugin_executions
+            .entry(record.scan_id)
+            .or_default()
+            .push(record.clone());
         Ok(())
     }
 
-    async fn get_plugin_executions(&self, scan_id: &ScanId) -> ScannerResult<Vec<PluginExecutionRecord>> {
-        Ok(self.plugin_executions.get(scan_id).map(|v| v.clone()).unwrap_or_default())
+    async fn get_plugin_executions(
+        &self,
+        scan_id: &ScanId,
+    ) -> ScannerResult<Vec<PluginExecutionRecord>> {
+        Ok(self
+            .plugin_executions
+            .get(scan_id)
+            .map(|v| v.clone())
+            .unwrap_or_default())
     }
 }
 
@@ -1340,7 +1602,10 @@ mod tests {
 
         let target = Target::new(
             crate::target::TargetType::RestApi,
-            crate::target::TargetMetadata::new("Test".to_string(), "https://example.com".parse().unwrap()),
+            crate::target::TargetMetadata::new(
+                "Test".to_string(),
+                "https://example.com".parse().unwrap(),
+            ),
         );
 
         storage.save_target(&target).await.unwrap();

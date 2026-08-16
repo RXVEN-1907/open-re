@@ -1,7 +1,10 @@
 //! Metrics for queue system
 
-use openre_telemetry::{MetricsRegistry, MetricsCounter as Counter, MetricsGauge as Gauge, MetricsHistogram as Histogram};
 use metrics::{counter, gauge, histogram};
+use openre_telemetry::{
+    MetricsCounter as Counter, MetricsGauge as Gauge, MetricsHistogram as Histogram,
+    MetricsRegistry,
+};
 
 /// Queue metrics
 pub struct QueueMetrics {

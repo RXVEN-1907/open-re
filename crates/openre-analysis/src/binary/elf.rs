@@ -2,10 +2,10 @@
 
 use crate::binary::common::*;
 use crate::binary::traits::*;
-use openre_core::error::OpenreResult as Result;
 use async_trait::async_trait;
-use goblin::elf::{Elf, SectionHeader, Sym, Dynamic};
 use goblin::container::{Container, Endian};
+use goblin::elf::{Dynamic, Elf, SectionHeader, Sym};
+use openre_core::error::OpenreResult as Result;
 use std::collections::HashMap;
 
 /// ELF binary identifier
@@ -31,13 +31,21 @@ impl BinaryIdentifier for ElfIdentifier {
             goblin::elf::header::EM_PPC => Architecture::PowerPc,
             goblin::elf::header::EM_PPC64 => Architecture::PowerPc64,
             goblin::elf::header::EM_RISCV => {
-                if elf.is_64 { Architecture::RiscV64 } else { Architecture::RiscV32 }
+                if elf.is_64 {
+                    Architecture::RiscV64
+                } else {
+                    Architecture::RiscV32
+                }
             }
             _ => Architecture::Unknown,
         };
 
-        let bitness = if elf.is_64 { Bitness::Bit64 } else { Bitness::Bit32 };
-        
+        let bitness = if elf.is_64 {
+            Bitness::Bit64
+        } else {
+            Bitness::Bit32
+        };
+
         let endianness = match elf.container().endian() {
             Endian::Little => Endianness::Little,
             Endian::Big => Endianness::Big,
@@ -126,7 +134,7 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
 
         for section in &elf.section_headers {
             let name = strtab.get_at(section.sh_name).unwrap_or("").to_string();
-            
+
             let characteristics = SectionCharacteristics {
                 readable: section.sh_flags & goblin::elf::section_header::SHF_ALLOC != 0,
                 writable: section.sh_flags & goblin::elf::section_header::SHF_WRITE != 0,
@@ -237,7 +245,11 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
                 symbol_type,
                 binding,
                 visibility,
-                section_index: if sym.st_shndx != 0 { Some(sym.st_shndx) } else { None },
+                section_index: if sym.st_shndx != 0 {
+                    Some(sym.st_shndx)
+                } else {
+                    None
+                },
             });
         }
 
@@ -254,7 +266,11 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
         // Extract needed libraries from dynamic section
         for dyn_entry in &elf.dynamic {
             if dyn_entry.d_tag == goblin::elf::dynamic::DT_NEEDED {
-                if let Some(name) = elf.dynstrtab.as_deref().and_then(|s| s.get_at(dyn_entry.d_val as usize)) {
+                if let Some(name) = elf
+                    .dynstrtab
+                    .as_deref()
+                    .and_then(|s| s.get_at(dyn_entry.d_val as usize))
+                {
                     lib_map.entry(name.to_string()).or_default();
                 }
             }
@@ -330,7 +346,11 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
                     let start = section.sh_offset as usize;
                     let end = (start + section.sh_size as usize).min(data.len());
                     if start < end {
-                        let section_strings = extract_strings_from_data(&data[start..end], section.sh_addr, Some(name.to_string()));
+                        let section_strings = extract_strings_from_data(
+                            &data[start..end],
+                            section.sh_addr,
+                            Some(name.to_string()),
+                        );
                         strings.extend(section_strings);
                     }
                 }
@@ -345,7 +365,11 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
                     let start = section.sh_offset as usize;
                     let end = (start + section.sh_size as usize).min(data.len());
                     if start < end {
-                        let section_strings = extract_strings_from_data(&data[start..end], section.sh_addr, Some(name.to_string()));
+                        let section_strings = extract_strings_from_data(
+                            &data[start..end],
+                            section.sh_addr,
+                            Some(name.to_string()),
+                        );
                         strings.extend(section_strings);
                     }
                 }
@@ -451,7 +475,8 @@ fn parse_compiler_comment(comment: &str) -> Option<CompilerInfo> {
     // GCC: "GCC: (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0"
     // Clang: "clang version 14.0.0-1ubuntu1"
     if comment.contains("GCC:") || comment.contains("gcc") {
-        let version = comment.split_whitespace()
+        let version = comment
+            .split_whitespace()
             .find(|s| s.chars().next().map_or(false, |c| c.is_ascii_digit()))
             .map(|s| s.to_string());
         Some(CompilerInfo {
@@ -460,7 +485,8 @@ fn parse_compiler_comment(comment: &str) -> Option<CompilerInfo> {
             language: Some("C/C++".to_string()),
         })
     } else if comment.contains("clang") {
-        let version = comment.split_whitespace()
+        let version = comment
+            .split_whitespace()
             .find(|s| s.chars().next().map_or(false, |c| c.is_ascii_digit()))
             .map(|s| s.to_string());
         Some(CompilerInfo {
@@ -469,7 +495,8 @@ fn parse_compiler_comment(comment: &str) -> Option<CompilerInfo> {
             language: Some("C/C++".to_string()),
         })
     } else if comment.contains("rustc") {
-        let version = comment.split_whitespace()
+        let version = comment
+            .split_whitespace()
             .find(|s| s.chars().next().map_or(false, |c| c.is_ascii_digit()))
             .map(|s| s.to_string());
         Some(CompilerInfo {
@@ -507,7 +534,11 @@ fn calculate_entropy(data: &[u8]) -> f64 {
 }
 
 /// Extract strings from raw data
-fn extract_strings_from_data(data: &[u8], base_addr: u64, section: Option<String>) -> Vec<ExtractedString> {
+fn extract_strings_from_data(
+    data: &[u8],
+    base_addr: u64,
+    section: Option<String>,
+) -> Vec<ExtractedString> {
     let mut strings = Vec::new();
     let mut current_string = Vec::new();
     let mut start_addr = base_addr;

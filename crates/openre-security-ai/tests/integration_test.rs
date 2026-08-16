@@ -1,16 +1,16 @@
 //! Integration test for the AI Security Analyst
 
+use openre_core::ids::{FindingId, ScanId};
+use openre_core::result::{Category, Confidence, Finding, Severity};
 use openre_security_ai::{
     analyst::{SecurityAnalyst, SecurityAnalystImpl},
-    finding_provider::MockFindingProvider,
-    test_utils::ScanMetadata,
-    prompts::PromptCompiler,
-    context::ContextBuilder,
     cache::AnalysisCache,
+    context::ContextBuilder,
+    finding_provider::MockFindingProvider,
+    prompts::PromptCompiler,
     safety::SafetyGuard,
+    test_utils::ScanMetadata,
 };
-use openre_core::result::{Finding, Severity, Confidence, Category};
-use openre_core::ids::{ScanId, FindingId};
 use std::sync::Arc;
 
 #[tokio::test]
@@ -78,7 +78,7 @@ impl MockModelProvider {
 }
 
 use async_trait::async_trait;
-use openre_ai::providers::{ModelProvider, CompletionRequest, CompletionResponse, AiError};
+use openre_ai::providers::{AiError, CompletionRequest, CompletionResponse, ModelProvider};
 
 #[async_trait]
 impl ModelProvider for MockModelProvider {
@@ -101,16 +101,25 @@ impl ModelProvider for MockModelProvider {
         })
     }
 
-    async fn stream(&self, _request: CompletionRequest) -> Result<openre_ai::providers::StreamingResponse, AiError> {
+    async fn stream(
+        &self,
+        _request: CompletionRequest,
+    ) -> Result<openre_ai::providers::StreamingResponse, AiError> {
         // Create a simple streaming response for testing
         let (tx, rx) = tokio::sync::mpsc::channel(10);
-        
+
         // Send a simple response
-        tx.send(openre_ai::providers::StreamChunk::Content("Mock streaming response".to_string())).await.unwrap();
-        tx.send(openre_ai::providers::StreamChunk::Finish(openre_ai::providers::FinishReason::Stop)).await.unwrap();
-        
-        Ok(openre_ai::providers::StreamingResponse {
-            stream: rx,
-        })
+        tx.send(openre_ai::providers::StreamChunk::Content(
+            "Mock streaming response".to_string(),
+        ))
+        .await
+        .unwrap();
+        tx.send(openre_ai::providers::StreamChunk::Finish(
+            openre_ai::providers::FinishReason::Stop,
+        ))
+        .await
+        .unwrap();
+
+        Ok(openre_ai::providers::StreamingResponse { stream: rx })
     }
 }

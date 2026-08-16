@@ -3,29 +3,27 @@
 //! Implements the `HistoryStorage` trait from `openre-core::history` using SQLite/rusqlite.
 
 use openre_core::error::OpenreResult;
-use openre_core::ids::{ScanId, ProjectId, FindingId};
+use openre_core::ids::{FindingId, ProjectId, ScanId};
 // Types defined in history.rs module itself
+#[allow(unused_imports)]
 use openre_core::history::{
-    HistoryStorage, HistoryError, ScanSummary, ReportArtifact, StoredEvidence, RiskMetrics,
+    HistoryError, HistoryStorage, ReportArtifact, RiskMetrics, RiskMetricsSummary,
+    ScanConfigSummary, ScanProgressSummary, ScanSummary, StoredEvidence,
 };
-// Types from result.rs (accessible at top level via pub use result::*;)
-use openre_core::{
-    FindingStats, RiskMetricsSummary, ScanConfigSummary, ScanProgressSummary, PluginExecutionSummary,
-    RiskTrends, TrendDirection, ImpactLevel, EvidenceType, HttpRequestEvidence, HttpResponseEvidence,
-    TimingEvidence, PayloadEvidence, ReproductionSteps, Finding, SeverityChange, EvidenceChange, ComparisonSummary,
-};
-use openre_core::reporting::{ScanComparison, ReportFormat};
-use rusqlite::{Connection, OptionalExtension, params};
+use openre_core::reporting::ScanComparison;
+#[allow(unused_imports)]
+use openre_core::{Finding, FindingStats, RiskTrends, TrendDirection};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::info;
 use uuid::Uuid;
 
 /// SQLite-backed implementation of the HistoryStorage trait.
 /// Stores scan summaries, report artifacts, evidence objects, deduplicated findings,
 /// comparisons, and risk metrics in a local SQLite database file.
 pub struct SqliteHistoryStorage {
+    #[allow(dead_code)]
     db_path: PathBuf,
     conn: Arc<Mutex<Connection>>,
 }
@@ -98,8 +96,14 @@ impl SqliteHistoryStorage {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_scan_summaries_project ON scan_summaries(project_id)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_scan_summaries_target ON scan_summaries(target_id)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_scan_summaries_project ON scan_summaries(project_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_scan_summaries_target ON scan_summaries(target_id)",
+            [],
+        )?;
         conn.execute("CREATE INDEX IF NOT EXISTS idx_scan_summaries_created ON scan_summaries(created_at DESC)", [])?;
 
         // Report artifacts table
@@ -121,7 +125,10 @@ impl SqliteHistoryStorage {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_report_artifacts_scan ON report_artifacts(scan_id)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_report_artifacts_scan ON report_artifacts(scan_id)",
+            [],
+        )?;
         conn.execute("CREATE INDEX IF NOT EXISTS idx_report_artifacts_project ON report_artifacts(project_id)", [])?;
 
         // Evidence table
@@ -146,8 +153,14 @@ impl SqliteHistoryStorage {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_finding ON evidence(finding_id)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_scan ON evidence(scan_id)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_evidence_finding ON evidence(finding_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_evidence_scan ON evidence(scan_id)",
+            [],
+        )?;
 
         // Deduplicated findings table (stored as JSON per scan)
         conn.execute(
@@ -205,9 +218,18 @@ impl SqliteHistoryStorage {
             [],
         )?;
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_risk_metrics_project ON risk_metrics(project_id)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_risk_metrics_timestamp ON risk_metrics(timestamp DESC)", [])?;
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_risk_metrics_scan ON risk_metrics(scan_id)", [])?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_risk_metrics_project ON risk_metrics(project_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_risk_metrics_timestamp ON risk_metrics(timestamp DESC)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_risk_metrics_scan ON risk_metrics(scan_id)",
+            [],
+        )?;
 
         Ok(())
     }
@@ -225,8 +247,11 @@ impl SqliteHistoryStorage {
 
         Ok(ScanSummary {
             scan_id: ScanId::from_uuid(uuid::Uuid::parse_str(&id_str).unwrap_or_default()),
-            project_id: project_id_str.map(|s| ProjectId::from_uuid(uuid::Uuid::parse_str(&s).unwrap_or_default())),
-            target_id: openre_core::ids::TargetId::from_uuid(uuid::Uuid::parse_str(&target_str).unwrap_or_default()),
+            project_id: project_id_str
+                .map(|s| ProjectId::from_uuid(uuid::Uuid::parse_str(&s).unwrap_or_default())),
+            target_id: openre_core::ids::TargetId::from_uuid(
+                uuid::Uuid::parse_str(&target_str).unwrap_or_default(),
+            ),
             name: row.get("name")?,
             description: row.get("description")?,
             status: row.get("status")?,
@@ -238,27 +263,45 @@ impl SqliteHistoryStorage {
             created_at: row.get("created_at")?,
             started_at: row.get("started_at")?,
             completed_at: row.get("completed_at")?,
-            duration_seconds: row.get::<_, Option<i64>>("duration_seconds")?
+            duration_seconds: row
+                .get::<_, Option<i64>>("duration_seconds")?
                 .map(|v| v as u64),
             tags: serde_json::from_str(&tags_json).unwrap(),
         })
     }
 
-    fn list_all_summaries(conn: &Connection, limit: usize, offset: usize) -> std::result::Result<Vec<ScanSummary>, HistoryError> {
+    fn list_all_summaries(
+        conn: &Connection,
+        limit: usize,
+        offset: usize,
+    ) -> std::result::Result<Vec<ScanSummary>, HistoryError> {
         let sql = r#"SELECT id, project_id, target_id, name, description, status, config_json, progress_json, finding_stats_json, risk_metrics_json, plugin_executions_json, created_at, started_at, completed_at, duration_seconds, tags_json FROM scan_summaries ORDER BY created_at DESC LIMIT ?1 OFFSET ?2"#;
-        Ok(conn.prepare(sql)
+        Ok(conn
+            .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(params![limit as i64, offset as i64], Self::deserialize_scan_summary)
+            .query_map(
+                params![limit as i64, offset as i64],
+                Self::deserialize_scan_summary,
+            )
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
     }
 
-    fn list_summaries_with_project(conn: &Connection, project_id_str: &str, limit: usize, offset: usize) -> std::result::Result<Vec<ScanSummary>, HistoryError> {
+    fn list_summaries_with_project(
+        conn: &Connection,
+        project_id_str: &str,
+        limit: usize,
+        offset: usize,
+    ) -> std::result::Result<Vec<ScanSummary>, HistoryError> {
         let sql = r#"SELECT id, project_id, target_id, name, description, status, config_json, progress_json, finding_stats_json, risk_metrics_json, plugin_executions_json, created_at, started_at, completed_at, duration_seconds, tags_json FROM scan_summaries WHERE project_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3"#;
-        Ok(conn.prepare(sql)
+        Ok(conn
+            .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(params![project_id_str, limit as i64, offset as i64], Self::deserialize_scan_summary)
+            .query_map(
+                params![project_id_str, limit as i64, offset as i64],
+                Self::deserialize_scan_summary,
+            )
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -273,7 +316,8 @@ impl SqliteHistoryStorage {
         Ok(ReportArtifact {
             id: row.get("id")?,
             scan_id: ScanId::from_uuid(uuid::Uuid::parse_str(&scan_id_str).unwrap_or_default()),
-            project_id: row.get::<_, Option<String>>("project_id")?
+            project_id: row
+                .get::<_, Option<String>>("project_id")?
                 .map(|s| ProjectId::from_uuid(uuid::Uuid::parse_str(&s).unwrap_or_default())),
             format: serde_json::from_str(&format_str).unwrap(),
             title: row.get("title")?,
@@ -287,21 +331,38 @@ impl SqliteHistoryStorage {
         })
     }
 
-    fn list_all_artifacts(conn: &Connection, limit: usize, offset: usize) -> std::result::Result<Vec<ReportArtifact>, HistoryError> {
+    fn list_all_artifacts(
+        conn: &Connection,
+        limit: usize,
+        offset: usize,
+    ) -> std::result::Result<Vec<ReportArtifact>, HistoryError> {
         let sql = "SELECT id, scan_id, project_id, format, title, storage_path, size_bytes, checksum, generated_at, generated_by, config_json, metadata_json FROM report_artifacts ORDER BY generated_at DESC LIMIT ?1 OFFSET ?2";
-        Ok(conn.prepare(sql)
+        Ok(conn
+            .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(params![limit as i64, offset as i64], Self::deserialize_report_artifact)
+            .query_map(
+                params![limit as i64, offset as i64],
+                Self::deserialize_report_artifact,
+            )
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
     }
 
-    fn list_artifacts_with_scan(conn: &Connection, scan_id_str: &str, limit: usize, offset: usize) -> std::result::Result<Vec<ReportArtifact>, HistoryError> {
+    fn list_artifacts_with_scan(
+        conn: &Connection,
+        scan_id_str: &str,
+        limit: usize,
+        offset: usize,
+    ) -> std::result::Result<Vec<ReportArtifact>, HistoryError> {
         let sql = "SELECT id, scan_id, project_id, format, title, storage_path, size_bytes, checksum, generated_at, generated_by, config_json, metadata_json FROM report_artifacts WHERE scan_id = ?1 ORDER BY generated_at DESC LIMIT ?2 OFFSET ?3";
-        Ok(conn.prepare(sql)
+        Ok(conn
+            .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(params![scan_id_str, limit as i64, offset as i64], Self::deserialize_report_artifact)
+            .query_map(
+                params![scan_id_str, limit as i64, offset as i64],
+                Self::deserialize_report_artifact,
+            )
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -312,22 +373,38 @@ impl SqliteHistoryStorage {
 
         Ok(StoredEvidence {
             id: row.get("id")?,
-            finding_id: FindingId::from_uuid(uuid::Uuid::parse_str(&row.get::<_, String>("finding_id")?).unwrap_or_default()),
-            scan_id: ScanId::from_uuid(uuid::Uuid::parse_str(&row.get::<_, String>("scan_id")?).unwrap_or_default()),
+            finding_id: FindingId::from_uuid(
+                uuid::Uuid::parse_str(&row.get::<_, String>("finding_id")?).unwrap_or_default(),
+            ),
+            scan_id: ScanId::from_uuid(
+                uuid::Uuid::parse_str(&row.get::<_, String>("scan_id")?).unwrap_or_default(),
+            ),
             evidence_type: serde_json::from_str(&evidence_type_str).unwrap(),
             description: row.get("description")?,
             data: row.get::<_, Option<Vec<u8>>>("data").ok().flatten(),
             location: row.get("location").ok().flatten(),
-            metadata: serde_json::from_str(row.get::<_, Option<String>>("metadata_json").ok().flatten().as_deref().unwrap_or("{}")).unwrap_or_default(),
-            http_request: row.get::<_, Option<String>>("http_request_json")?
+            metadata: serde_json::from_str(
+                row.get::<_, Option<String>>("metadata_json")
+                    .ok()
+                    .flatten()
+                    .as_deref()
+                    .unwrap_or("{}"),
+            )
+            .unwrap_or_default(),
+            http_request: row
+                .get::<_, Option<String>>("http_request_json")?
                 .and_then(|s| serde_json::from_str(&s).ok()),
-            http_response: row.get::<_, Option<String>>("http_response_json")?
+            http_response: row
+                .get::<_, Option<String>>("http_response_json")?
                 .and_then(|s| serde_json::from_str(&s).ok()),
-            timing: row.get::<_, Option<String>>("timing_json")?
+            timing: row
+                .get::<_, Option<String>>("timing_json")?
                 .and_then(|s| serde_json::from_str(&s).ok()),
-            payload: row.get::<_, Option<String>>("payload_json")?
+            payload: row
+                .get::<_, Option<String>>("payload_json")?
                 .and_then(|s| serde_json::from_str(&s).ok()),
-            reproduction_steps: row.get::<_, Option<String>>("reproduction_steps_json")?
+            reproduction_steps: row
+                .get::<_, Option<String>>("reproduction_steps_json")?
                 .and_then(|s| serde_json::from_str(&s).ok()),
             captured_at: row.get("captured_at")?,
             plugin_source: row.get("plugin_source")?,
@@ -340,14 +417,19 @@ impl SqliteHistoryStorage {
 
         Ok(RiskMetrics {
             id: row.get("id")?,
-            project_id: ProjectId::from_uuid(uuid::Uuid::parse_str(&row.get::<_, String>("project_id")?).unwrap_or_default()),
-            scan_id: row.get::<_, Option<String>>("scan_id")?
+            project_id: ProjectId::from_uuid(
+                uuid::Uuid::parse_str(&row.get::<_, String>("project_id")?).unwrap_or_default(),
+            ),
+            scan_id: row
+                .get::<_, Option<String>>("scan_id")?
                 .map(|s| ScanId::from_uuid(uuid::Uuid::parse_str(&s).unwrap_or_default())),
             timestamp: row.get("timestamp")?,
             overall_risk_score: row.get::<_, i64>("overall_risk_score")? as u8,
             risk_level: serde_json::from_str(&risk_level_str).unwrap(),
-            by_severity: serde_json::from_str(row.get::<_, String>("by_severity_json")?.as_str()).unwrap_or_default(),
-            by_category: serde_json::from_str(row.get::<_, String>("by_category_json")?.as_str()).unwrap_or_default(),
+            by_severity: serde_json::from_str(row.get::<_, String>("by_severity_json")?.as_str())
+                .unwrap_or_default(),
+            by_category: serde_json::from_str(row.get::<_, String>("by_category_json")?.as_str())
+                .unwrap_or_default(),
             avg_risk_score: row.get("avg_risk_score")?,
             max_risk_score: row.get::<_, i64>("max_risk_score")? as u8,
             critical_count: row.get::<_, i64>("critical_count")? as usize,
@@ -359,20 +441,35 @@ impl SqliteHistoryStorage {
             false_positive_count: row.get::<_, i64>("false_positive_count")? as usize,
             exploit_available_count: row.get::<_, i64>("exploit_available_count")? as usize,
             exploited_in_wild_count: row.get::<_, i64>("exploited_in_wild_count")? as usize,
-            top_cwes: serde_json::from_str(row.get::<_, String>("top_cwes_json")?.as_str()).unwrap_or_default(),
-            top_owasp: serde_json::from_str(row.get::<_, String>("top_owasp_json")?.as_str()).unwrap_or_default(),
-            remediation_priority: serde_json::from_str(row.get::<_, String>("remediation_priority_json")?.as_str()).unwrap_or_default(),
-            trends: serde_json::from_str(trends_json_val.as_deref().unwrap_or("{}")).unwrap_or_else(|_| RiskTrends {
-                risk_score_change: 0, critical_change: 0, high_change: 0,
-                new_findings: 0, fixed_findings: 0, regressed_findings: 0,
-                trend_direction: TrendDirection::Unknown,
-            }),
+            top_cwes: serde_json::from_str(row.get::<_, String>("top_cwes_json")?.as_str())
+                .unwrap_or_default(),
+            top_owasp: serde_json::from_str(row.get::<_, String>("top_owasp_json")?.as_str())
+                .unwrap_or_default(),
+            remediation_priority: serde_json::from_str(
+                row.get::<_, String>("remediation_priority_json")?.as_str(),
+            )
+            .unwrap_or_default(),
+            trends: serde_json::from_str(trends_json_val.as_deref().unwrap_or("{}")).unwrap_or(
+                RiskTrends {
+                    risk_score_change: 0,
+                    critical_change: 0,
+                    high_change: 0,
+                    new_findings: 0,
+                    fixed_findings: 0,
+                    regressed_findings: 0,
+                    trend_direction: TrendDirection::Unknown,
+                },
+            ),
         })
     }
 
-    fn query_all_risk_metrics(conn: &Connection, project_id_str: &str) -> std::result::Result<Vec<RiskMetrics>, HistoryError> {
+    fn query_all_risk_metrics(
+        conn: &Connection,
+        project_id_str: &str,
+    ) -> std::result::Result<Vec<RiskMetrics>, HistoryError> {
         let sql = r#"SELECT id, project_id, scan_id, timestamp, overall_risk_score, risk_level, by_severity_json, by_category_json, avg_risk_score, max_risk_score, critical_count, high_count, medium_count, low_count, info_count, verified_count, false_positive_count, exploit_available_count, exploited_in_wild_count, top_cwes_json, top_owasp_json, remediation_priority_json, trends_json FROM risk_metrics WHERE project_id = ?1 ORDER BY timestamp DESC"#;
-        Ok(conn.prepare(sql)
+        Ok(conn
+            .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .query_map(params![project_id_str], Self::deserialize_risk_metrics_row)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
@@ -380,31 +477,56 @@ impl SqliteHistoryStorage {
             .collect::<Vec<_>>())
     }
 
-    fn query_risk_metrics_range(conn: &Connection, project_id_str: &str, date_from: chrono::DateTime<chrono::Utc>, date_to: chrono::DateTime<chrono::Utc>) -> std::result::Result<Vec<RiskMetrics>, HistoryError> {
+    fn query_risk_metrics_range(
+        conn: &Connection,
+        project_id_str: &str,
+        date_from: chrono::DateTime<chrono::Utc>,
+        date_to: chrono::DateTime<chrono::Utc>,
+    ) -> std::result::Result<Vec<RiskMetrics>, HistoryError> {
         let sql = r#"SELECT id, project_id, scan_id, timestamp, overall_risk_score, risk_level, by_severity_json, by_category_json, avg_risk_score, max_risk_score, critical_count, high_count, medium_count, low_count, info_count, verified_count, false_positive_count, exploit_available_count, exploited_in_wild_count, top_cwes_json, top_owasp_json, remediation_priority_json, trends_json FROM risk_metrics WHERE project_id = ?1 AND timestamp >= ?2 AND timestamp <= ?3 ORDER BY timestamp DESC"#;
-        Ok(conn.prepare(sql)
+        Ok(conn
+            .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(params![project_id_str, date_from, date_to], Self::deserialize_risk_metrics_row)
+            .query_map(
+                params![project_id_str, date_from, date_to],
+                Self::deserialize_risk_metrics_row,
+            )
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
     }
 
-    fn query_risk_metrics_since(conn: &Connection, project_id_str: &str, date_from: chrono::DateTime<chrono::Utc>) -> std::result::Result<Vec<RiskMetrics>, HistoryError> {
+    fn query_risk_metrics_since(
+        conn: &Connection,
+        project_id_str: &str,
+        date_from: chrono::DateTime<chrono::Utc>,
+    ) -> std::result::Result<Vec<RiskMetrics>, HistoryError> {
         let sql = r#"SELECT id, project_id, scan_id, timestamp, overall_risk_score, risk_level, by_severity_json, by_category_json, avg_risk_score, max_risk_score, critical_count, high_count, medium_count, low_count, info_count, verified_count, false_positive_count, exploit_available_count, exploited_in_wild_count, top_cwes_json, top_owasp_json, remediation_priority_json, trends_json FROM risk_metrics WHERE project_id = ?1 AND timestamp >= ?2 ORDER BY timestamp DESC"#;
-        Ok(conn.prepare(sql)
+        Ok(conn
+            .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(params![project_id_str, date_from], Self::deserialize_risk_metrics_row)
+            .query_map(
+                params![project_id_str, date_from],
+                Self::deserialize_risk_metrics_row,
+            )
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
     }
 
-    fn query_risk_metrics_until(conn: &Connection, project_id_str: &str, date_to: chrono::DateTime<chrono::Utc>) -> std::result::Result<Vec<RiskMetrics>, HistoryError> {
+    fn query_risk_metrics_until(
+        conn: &Connection,
+        project_id_str: &str,
+        date_to: chrono::DateTime<chrono::Utc>,
+    ) -> std::result::Result<Vec<RiskMetrics>, HistoryError> {
         let sql = r#"SELECT id, project_id, scan_id, timestamp, overall_risk_score, risk_level, by_severity_json, by_category_json, avg_risk_score, max_risk_score, critical_count, high_count, medium_count, low_count, info_count, verified_count, false_positive_count, exploit_available_count, exploited_in_wild_count, top_cwes_json, top_owasp_json, remediation_priority_json, trends_json FROM risk_metrics WHERE project_id = ?1 AND timestamp <= ?2 ORDER BY timestamp DESC"#;
-        Ok(conn.prepare(sql)
+        Ok(conn
+            .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(params![project_id_str, date_to], Self::deserialize_risk_metrics_row)
+            .query_map(
+                params![project_id_str, date_to],
+                Self::deserialize_risk_metrics_row,
+            )
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -419,12 +541,18 @@ impl HistoryStorage for SqliteHistoryStorage {
         let conn = self.conn().await;
         let id_str = summary.scan_id.to_string();
         let project_id = summary.project_id.map(|p| p.to_string());
-        let config_json = serde_json::to_string(&summary.config).map_err(HistoryError::Serialization)?;
-        let progress_json = serde_json::to_string(&summary.progress).map_err(HistoryError::Serialization)?;
-        let finding_stats_json = serde_json::to_string(&summary.finding_stats).map_err(HistoryError::Serialization)?;
-        let risk_metrics_json = serde_json::to_string(&summary.risk_metrics).map_err(HistoryError::Serialization)?;
-        let plugin_executions_json = serde_json::to_string(&summary.plugin_executions).map_err(HistoryError::Serialization)?;
-        let tags_json = serde_json::to_string(&summary.tags).map_err(HistoryError::Serialization)?;
+        let config_json =
+            serde_json::to_string(&summary.config).map_err(HistoryError::Serialization)?;
+        let progress_json =
+            serde_json::to_string(&summary.progress).map_err(HistoryError::Serialization)?;
+        let finding_stats_json =
+            serde_json::to_string(&summary.finding_stats).map_err(HistoryError::Serialization)?;
+        let risk_metrics_json =
+            serde_json::to_string(&summary.risk_metrics).map_err(HistoryError::Serialization)?;
+        let plugin_executions_json = serde_json::to_string(&summary.plugin_executions)
+            .map_err(HistoryError::Serialization)?;
+        let tags_json =
+            serde_json::to_string(&summary.tags).map_err(HistoryError::Serialization)?;
 
         conn.execute(
             r#"INSERT OR REPLACE INTO scan_summaries (
@@ -443,7 +571,10 @@ impl HistoryStorage for SqliteHistoryStorage {
         Ok(())
     }
 
-    async fn get_scan_summary(&self, scan_id: &ScanId) -> Result<Option<ScanSummary>, HistoryError> {
+    async fn get_scan_summary(
+        &self,
+        scan_id: &ScanId,
+    ) -> Result<Option<ScanSummary>, HistoryError> {
         let conn = self.conn().await;
         let id_str = scan_id.to_string();
 
@@ -472,15 +603,18 @@ impl HistoryStorage for SqliteHistoryStorage {
     async fn delete_scan_summary(&self, scan_id: &ScanId) -> Result<bool, HistoryError> {
         let conn = self.conn().await;
         let id_str = scan_id.to_string();
-        let deleted = conn.execute("DELETE FROM scan_summaries WHERE id = ?1", params![id_str])
+        let deleted = conn
+            .execute("DELETE FROM scan_summaries WHERE id = ?1", params![id_str])
             .map_err(|e| HistoryError::Storage(e.to_string()))?;
         Ok(deleted > 0)
     }
 
     async fn save_report_artifact(&self, artifact: &ReportArtifact) -> Result<(), HistoryError> {
         let conn = self.conn().await;
-        let config_json = serde_json::to_string(&artifact.config).map_err(HistoryError::Serialization)?;
-        let metadata_json = serde_json::to_string(&artifact.metadata).map_err(HistoryError::Serialization)?;
+        let config_json =
+            serde_json::to_string(&artifact.config).map_err(HistoryError::Serialization)?;
+        let metadata_json =
+            serde_json::to_string(&artifact.metadata).map_err(HistoryError::Serialization)?;
 
         conn.execute(
             r#"INSERT OR REPLACE INTO report_artifacts (
@@ -488,17 +622,29 @@ impl HistoryStorage for SqliteHistoryStorage {
                 generated_at, generated_by, config_json, metadata_json
             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"#,
             params![
-                &artifact.id, artifact.scan_id.to_string(), artifact.project_id.map(|p| p.to_string()),
-                serde_json::to_string(&artifact.format).unwrap_or_default(), &artifact.title,
-                &artifact.storage_path, artifact.size_bytes as i64, &artifact.checksum,
-                artifact.generated_at, &artifact.generated_by, config_json, metadata_json
+                &artifact.id,
+                artifact.scan_id.to_string(),
+                artifact.project_id.map(|p| p.to_string()),
+                serde_json::to_string(&artifact.format).unwrap_or_default(),
+                &artifact.title,
+                &artifact.storage_path,
+                artifact.size_bytes as i64,
+                &artifact.checksum,
+                artifact.generated_at,
+                &artifact.generated_by,
+                config_json,
+                metadata_json
             ],
-        ).map_err(|e| HistoryError::Storage(e.to_string()))?;
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
 
         Ok(())
     }
 
-    async fn get_report_artifact(&self, artifact_id: &str) -> Result<Option<ReportArtifact>, HistoryError> {
+    async fn get_report_artifact(
+        &self,
+        artifact_id: &str,
+    ) -> Result<Option<ReportArtifact>, HistoryError> {
         let conn = self.conn().await;
         conn.query_row(
             "SELECT id, scan_id, project_id, format, title, storage_path, size_bytes, checksum, generated_at, generated_by, config_json, metadata_json FROM report_artifacts WHERE id = ?1",
@@ -524,7 +670,11 @@ impl HistoryStorage for SqliteHistoryStorage {
 
     async fn delete_report_artifact(&self, artifact_id: &str) -> Result<bool, HistoryError> {
         let conn = self.conn().await;
-        let deleted = conn.execute("DELETE FROM report_artifacts WHERE id = ?1", params![artifact_id])
+        let deleted = conn
+            .execute(
+                "DELETE FROM report_artifacts WHERE id = ?1",
+                params![artifact_id],
+            )
             .map_err(|e| HistoryError::Storage(e.to_string()))?;
         Ok(deleted > 0)
     }
@@ -533,17 +683,38 @@ impl HistoryStorage for SqliteHistoryStorage {
         let conn = self.conn().await;
 
         let evidence_type_str = serde_json::to_string(&evidence.evidence_type).unwrap_or_default();
-        let metadata_json = serde_json::to_string(&evidence.metadata).map_err(HistoryError::Serialization)?;
-        let http_request_json = evidence.http_request.as_ref()
-            .map(|r| serde_json::to_string(r)).transpose().map_err(HistoryError::Serialization)?;
-        let http_response_json = evidence.http_response.as_ref()
-            .map(|r| serde_json::to_string(r)).transpose().map_err(HistoryError::Serialization)?;
-        let timing_json = evidence.timing.as_ref()
-            .map(|t| serde_json::to_string(t)).transpose().map_err(HistoryError::Serialization)?;
-        let payload_json = evidence.payload.as_ref()
-            .map(|p| serde_json::to_string(p)).transpose().map_err(HistoryError::Serialization)?;
-        let reproduction_steps_json = evidence.reproduction_steps.as_ref()
-            .map(|r| serde_json::to_string(r)).transpose().map_err(HistoryError::Serialization)?;
+        let metadata_json =
+            serde_json::to_string(&evidence.metadata).map_err(HistoryError::Serialization)?;
+        let http_request_json = evidence
+            .http_request
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(HistoryError::Serialization)?;
+        let http_response_json = evidence
+            .http_response
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(HistoryError::Serialization)?;
+        let timing_json = evidence
+            .timing
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(HistoryError::Serialization)?;
+        let payload_json = evidence
+            .payload
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(HistoryError::Serialization)?;
+        let reproduction_steps_json = evidence
+            .reproduction_steps
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(HistoryError::Serialization)?;
 
         conn.execute(
             r#"INSERT OR REPLACE INTO evidence (
@@ -563,7 +734,10 @@ impl HistoryStorage for SqliteHistoryStorage {
         Ok(())
     }
 
-    async fn get_evidence(&self, evidence_id: &str) -> Result<Option<StoredEvidence>, HistoryError> {
+    async fn get_evidence(
+        &self,
+        evidence_id: &str,
+    ) -> Result<Option<StoredEvidence>, HistoryError> {
         let conn = self.conn().await;
         conn.query_row(
             r#"SELECT id, finding_id, scan_id, evidence_type, description, data, location, metadata_json, http_request_json, http_response_json, timing_json, payload_json, reproduction_steps_json, captured_at, plugin_source FROM evidence WHERE id = ?1"#,
@@ -572,14 +746,18 @@ impl HistoryStorage for SqliteHistoryStorage {
         ).optional().map_err(|e| HistoryError::Storage(e.to_string()))
     }
 
-    async fn list_evidence_for_finding(&self, finding_id: &FindingId) -> Result<Vec<StoredEvidence>, HistoryError> {
+    async fn list_evidence_for_finding(
+        &self,
+        finding_id: &FindingId,
+    ) -> Result<Vec<StoredEvidence>, HistoryError> {
         let conn = self.conn().await;
         let fid_str = finding_id.to_string();
         let mut stmt = conn.prepare(
             r#"SELECT id, finding_id, scan_id, evidence_type, description, data, location, metadata_json, http_request_json, http_response_json, timing_json, payload_json, reproduction_steps_json, captured_at, plugin_source FROM evidence WHERE finding_id = ?1 ORDER BY captured_at DESC"#
         ).map_err(|e| HistoryError::Storage(e.to_string()))?;
 
-        let rows: Vec<StoredEvidence> = stmt.query_map(params![fid_str], Self::deserialize_evidence_row)
+        let rows: Vec<StoredEvidence> = stmt
+            .query_map(params![fid_str], Self::deserialize_evidence_row)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect();
@@ -587,24 +765,35 @@ impl HistoryStorage for SqliteHistoryStorage {
         Ok(rows)
     }
 
-    async fn save_deduplicated_findings(&self, scan_id: &ScanId, findings: &[Finding]) -> Result<(), HistoryError> {
+    async fn save_deduplicated_findings(
+        &self,
+        scan_id: &ScanId,
+        findings: &[Finding],
+    ) -> Result<(), HistoryError> {
         let conn = self.conn().await;
         let id_str = Uuid::new_v4().to_string();
         let sid_str = scan_id.to_string();
         let data_json = serde_json::to_string(findings).map_err(HistoryError::Serialization)?;
 
-        conn.execute("DELETE FROM deduplicated_findings WHERE scan_id = ?1", params![sid_str])
-            .map_err(|e| HistoryError::Storage(e.to_string()))?;
+        conn.execute(
+            "DELETE FROM deduplicated_findings WHERE scan_id = ?1",
+            params![sid_str],
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
 
         conn.execute(
             "INSERT INTO deduplicated_findings (id, scan_id, data_json) VALUES (?1, ?2, ?3)",
             params![id_str, sid_str, data_json],
-        ).map_err(|e| HistoryError::Storage(e.to_string()))?;
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
 
         Ok(())
     }
 
-    async fn get_deduplicated_findings(&self, scan_id: &ScanId) -> Result<Vec<Finding>, HistoryError> {
+    async fn get_deduplicated_findings(
+        &self,
+        scan_id: &ScanId,
+    ) -> Result<Vec<Finding>, HistoryError> {
         let conn = self.conn().await;
         let sid_str = scan_id.to_string();
         let data_json: String = conn.query_row(
@@ -630,13 +819,17 @@ impl HistoryStorage for SqliteHistoryStorage {
         Ok(())
     }
 
-    async fn get_comparison(&self, comparison_id: &str) -> Result<Option<ScanComparison>, HistoryError> {
+    async fn get_comparison(
+        &self,
+        comparison_id: &str,
+    ) -> Result<Option<ScanComparison>, HistoryError> {
         let conn = self.conn().await;
         conn.query_row(
             "SELECT data_json FROM scan_comparisons WHERE id = ?1",
             params![comparison_id],
             |row| row.get::<_, String>(0),
-        ).optional()
+        )
+        .optional()
         .map_err(|e| HistoryError::Storage(e.to_string()))?
         .map(|data_json| serde_json::from_str(&data_json).map_err(HistoryError::Serialization))
         .transpose()
@@ -653,24 +846,35 @@ impl HistoryStorage for SqliteHistoryStorage {
             "SELECT data_json FROM scan_comparisons ORDER BY created_at DESC LIMIT ?1 OFFSET ?2"
         ).map_err(|e| HistoryError::Storage(e.to_string()))?;
 
-        let rows: Vec<String> = stmt.query_map(params![limit as i64, offset as i64], |row| {
-            row.get::<_, String>(0)
-        }).map_err(|e| HistoryError::Storage(e.to_string()))?
-        .filter_map(|r| r.ok())
-        .collect();
+        let rows: Vec<String> = stmt
+            .query_map(params![limit as i64, offset as i64], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(|e| HistoryError::Storage(e.to_string()))?
+            .filter_map(|r| r.ok())
+            .collect();
 
-        Ok(rows.iter().filter_map(|json| serde_json::from_str(json).ok()).collect())
+        Ok(rows
+            .iter()
+            .filter_map(|json| serde_json::from_str(json).ok())
+            .collect())
     }
 
     async fn save_risk_metrics(&self, metrics: &RiskMetrics) -> Result<(), HistoryError> {
         let conn = self.conn().await;
 
-        let by_severity_json = serde_json::to_string(&metrics.by_severity).map_err(HistoryError::Serialization)?;
-        let by_category_json = serde_json::to_string(&metrics.by_category).map_err(HistoryError::Serialization)?;
-        let top_cwes_json = serde_json::to_string(&metrics.top_cwes).map_err(HistoryError::Serialization)?;
-        let top_owasp_json = serde_json::to_string(&metrics.top_owasp).map_err(HistoryError::Serialization)?;
-        let remediation_priority_json = serde_json::to_string(&metrics.remediation_priority).map_err(HistoryError::Serialization)?;
-        let trends_json = serde_json::to_string(&metrics.trends).map_err(HistoryError::Serialization)?;
+        let by_severity_json =
+            serde_json::to_string(&metrics.by_severity).map_err(HistoryError::Serialization)?;
+        let by_category_json =
+            serde_json::to_string(&metrics.by_category).map_err(HistoryError::Serialization)?;
+        let top_cwes_json =
+            serde_json::to_string(&metrics.top_cwes).map_err(HistoryError::Serialization)?;
+        let top_owasp_json =
+            serde_json::to_string(&metrics.top_owasp).map_err(HistoryError::Serialization)?;
+        let remediation_priority_json = serde_json::to_string(&metrics.remediation_priority)
+            .map_err(HistoryError::Serialization)?;
+        let trends_json =
+            serde_json::to_string(&metrics.trends).map_err(HistoryError::Serialization)?;
 
         conn.execute(
             r#"INSERT OR REPLACE INTO risk_metrics (
@@ -703,18 +907,18 @@ impl HistoryStorage for SqliteHistoryStorage {
         let conn = self.conn().await;
         let pid_str = project_id.to_string();
 
-        if date_from.is_some() && date_to.is_some() {
-            Self::query_risk_metrics_range(&conn, &pid_str, date_from.unwrap(), date_to.unwrap())
-        } else if date_from.is_some() {
-            Self::query_risk_metrics_since(&conn, &pid_str, date_from.unwrap())
-        } else if date_to.is_some() {
-            Self::query_risk_metrics_until(&conn, &pid_str, date_to.unwrap())
-        } else {
-            Self::query_all_risk_metrics(&conn, &pid_str)
+        match (date_from, date_to) {
+            (Some(from), Some(to)) => Self::query_risk_metrics_range(&conn, &pid_str, from, to),
+            (Some(from), None) => Self::query_risk_metrics_since(&conn, &pid_str, from),
+            (None, Some(to)) => Self::query_risk_metrics_until(&conn, &pid_str, to),
+            (None, None) => Self::query_all_risk_metrics(&conn, &pid_str),
         }
     }
 
-    async fn get_latest_risk_metrics(&self, project_id: &ProjectId) -> Result<Option<RiskMetrics>, HistoryError> {
+    async fn get_latest_risk_metrics(
+        &self,
+        project_id: &ProjectId,
+    ) -> Result<Option<RiskMetrics>, HistoryError> {
         let conn = self.conn().await;
         let pid_str = project_id.to_string();
 
@@ -729,8 +933,8 @@ impl HistoryStorage for SqliteHistoryStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openre_core::ids::{ProjectId, TargetId};
     use chrono::Utc;
+    use openre_core::ids::{ProjectId, TargetId};
     use tempfile::tempdir;
 
     async fn create_test_storage() -> (SqliteHistoryStorage, tempfile::TempDir) {
@@ -766,12 +970,22 @@ mod tests {
                 percentage: 100.0,
             },
             finding_stats: FindingStats {
-                total: 5, by_severity: HashMap::new(), by_confidence: HashMap::new(),
-                by_category: HashMap::new(), by_plugin: HashMap::new(), verified: 3,
-                false_positives: 1, avg_risk_score: 65.0, max_risk_score: 90,
-                by_owasp_category: HashMap::new(), by_cwe: HashMap::new(),
-                avg_advanced_risk_score: 70.0, max_advanced_risk_score: 95,
-                by_remediation_priority: HashMap::new(), exploit_available_count: 2, exploited_in_wild_count: 1,
+                total: 5,
+                by_severity: HashMap::new(),
+                by_confidence: HashMap::new(),
+                by_category: HashMap::new(),
+                by_plugin: HashMap::new(),
+                verified: 3,
+                false_positives: 1,
+                avg_risk_score: 65.0,
+                max_risk_score: 90,
+                by_owasp_category: HashMap::new(),
+                by_cwe: HashMap::new(),
+                avg_advanced_risk_score: 70.0,
+                max_advanced_risk_score: 95,
+                by_remediation_priority: HashMap::new(),
+                exploit_available_count: 2,
+                exploited_in_wild_count: 1,
             },
             risk_metrics: RiskMetricsSummary {
                 overall_risk_score: 70,

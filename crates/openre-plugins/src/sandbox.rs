@@ -2,8 +2,8 @@
 
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::Capability;
-use std::path::PathBuf;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 /// Sandbox configuration
 #[derive(Debug, Clone)]
@@ -46,9 +46,10 @@ pub struct PluginSandbox {
 
 impl PluginSandbox {
     pub fn new(config: SandboxConfig) -> Self {
-        let granted_capabilities = Self::permissions_to_capabilities(&config.filesystem, &config.network);
+        let granted_capabilities =
+            Self::permissions_to_capabilities(&config.filesystem, &config.network);
         let capability_enforcer = CapabilityEnforcer::new(granted_capabilities);
-        
+
         Self {
             config,
             capability_enforcer,
@@ -60,7 +61,7 @@ impl PluginSandbox {
         net: &NetworkPermission,
     ) -> Vec<Capability> {
         let mut caps = Vec::new();
-        
+
         match fs {
             FilesystemPermission::Read { .. } => caps.push(Capability::ReadBinary),
             FilesystemPermission::Write { .. } => {
@@ -72,39 +73,50 @@ impl PluginSandbox {
             }
             FilesystemPermission::None => {}
         }
-        
+
         match net {
             NetworkPermission::Localhost { .. } | NetworkPermission::Egress { .. } => {
                 caps.push(Capability::NetworkAccess);
             }
             NetworkPermission::None => {}
         }
-        
+
         caps
     }
 
     pub fn check_filesystem_read(&self, path: &PathBuf) -> Result<()> {
         match &self.config.filesystem {
-            FilesystemPermission::None => Err(openre_core::Error::Forbidden("Filesystem access denied".into())),
+            FilesystemPermission::None => Err(openre_core::Error::Forbidden(
+                "Filesystem access denied".into(),
+            )),
             FilesystemPermission::Read { paths } => {
                 if paths.iter().any(|p| path.starts_with(p)) {
                     Ok(())
                 } else {
-                    Err(openre_core::Error::Forbidden(format!("Path not allowed: {}", path.display())))
+                    Err(openre_core::Error::Forbidden(format!(
+                        "Path not allowed: {}",
+                        path.display()
+                    )))
                 }
             }
             FilesystemPermission::Write { paths } => {
                 if paths.iter().any(|p| path.starts_with(p)) {
                     Ok(())
                 } else {
-                    Err(openre_core::Error::Forbidden(format!("Path not allowed: {}", path.display())))
+                    Err(openre_core::Error::Forbidden(format!(
+                        "Path not allowed: {}",
+                        path.display()
+                    )))
                 }
             }
             FilesystemPermission::Sandbox { mount_points } => {
                 if mount_points.iter().any(|m| path.starts_with(&m.guest_path)) {
                     Ok(())
                 } else {
-                    Err(openre_core::Error::Forbidden(format!("Path not allowed: {}", path.display())))
+                    Err(openre_core::Error::Forbidden(format!(
+                        "Path not allowed: {}",
+                        path.display()
+                    )))
                 }
             }
         }
@@ -116,14 +128,23 @@ impl PluginSandbox {
                 if paths.iter().any(|p| path.starts_with(p)) {
                     Ok(())
                 } else {
-                    Err(openre_core::Error::Forbidden(format!("Path not allowed for write: {}", path.display())))
+                    Err(openre_core::Error::Forbidden(format!(
+                        "Path not allowed for write: {}",
+                        path.display()
+                    )))
                 }
             }
             FilesystemPermission::Sandbox { mount_points } => {
-                if mount_points.iter().any(|m| path.starts_with(&m.guest_path) && !m.readonly) {
+                if mount_points
+                    .iter()
+                    .any(|m| path.starts_with(&m.guest_path) && !m.readonly)
+                {
                     Ok(())
                 } else {
-                    Err(openre_core::Error::Forbidden(format!("Path not allowed for write: {}", path.display())))
+                    Err(openre_core::Error::Forbidden(format!(
+                        "Path not allowed for write: {}",
+                        path.display()
+                    )))
                 }
             }
             _ => Err(openre_core::Error::Forbidden("Write access denied".into())),
@@ -132,19 +153,27 @@ impl PluginSandbox {
 
     pub fn check_network(&self, host: &str, port: u16) -> Result<()> {
         match &self.config.network {
-            NetworkPermission::None => Err(openre_core::Error::Forbidden("Network access denied".into())),
+            NetworkPermission::None => Err(openre_core::Error::Forbidden(
+                "Network access denied".into(),
+            )),
             NetworkPermission::Localhost { ports } => {
                 if (host == "localhost" || host == "127.0.0.1") && ports.contains(&port) {
                     Ok(())
                 } else {
-                    Err(openre_core::Error::Forbidden(format!("Network access denied: {}:{}", host, port)))
+                    Err(openre_core::Error::Forbidden(format!(
+                        "Network access denied: {}:{}",
+                        host, port
+                    )))
                 }
             }
             NetworkPermission::Egress { domains } => {
                 if domains.iter().any(|d| host.ends_with(d)) {
                     Ok(())
                 } else {
-                    Err(openre_core::Error::Forbidden(format!("Domain not allowed: {}", host)))
+                    Err(openre_core::Error::Forbidden(format!(
+                        "Domain not allowed: {}",
+                        host
+                    )))
                 }
             }
         }
@@ -171,7 +200,10 @@ impl CapabilityEnforcer {
         if self.granted.contains(&capability) {
             Ok(())
         } else {
-            Err(openre_core::Error::Forbidden(format!("Capability not granted: {:?}", capability)))
+            Err(openre_core::Error::Forbidden(format!(
+                "Capability not granted: {:?}",
+                capability
+            )))
         }
     }
 

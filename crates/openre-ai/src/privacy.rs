@@ -1,10 +1,10 @@
 //! Privacy controls for open-re AI
 
 use crate::providers::*;
-use openre_core::error::OpenreResult as Result;
 use openre_config::PrivacyConfig;
+use openre_core::error::OpenreResult as Result;
 use regex::Regex;
-use std::collections::HashSet;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -18,14 +18,29 @@ pub struct PrivacyController {
 impl PrivacyController {
     pub fn new(config: PrivacyConfig) -> Result<Self> {
         let mut patterns = Vec::new();
-        
+
         // Default redaction patterns
-        patterns.push(Regex::new(r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*\S+")?);
-        patterns.push(Regex::new(r"(?i)bearer\s+[a-zA-Z0-9\-_]+")?);
-        patterns.push(Regex::new(r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b")?); // Credit cards
-        patterns.push(Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")?); // Emails
-        patterns.push(Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")?); // IP addresses
-        
+        patterns.push(
+            Regex::new(r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*\S+)")
+                .map_err(|e| anyhow::anyhow!("Invalid regex: {}", e))?,
+        );
+        patterns.push(
+            Regex::new(r"(?i)bearer\s+[a-zA-Z0-9\-_]+")
+                .map_err(|e| anyhow::anyhow!("Invalid regex: {}", e))?,
+        );
+        patterns.push(
+            Regex::new(r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b")
+                .map_err(|e| anyhow::anyhow!("Invalid regex: {}", e))?,
+        ); // Credit cards
+        patterns.push(
+            Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
+                .map_err(|e| anyhow::anyhow!("Invalid regex: {}", e))?,
+        ); // Emails
+        patterns.push(
+            Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+                .map_err(|e| anyhow::anyhow!("Invalid regex: {}", e))?,
+        ); // IP addresses
+
         // Add custom patterns from config
         for pattern in &config.custom_redaction_patterns {
             if let Ok(re) = Regex::new(pattern) {
@@ -87,7 +102,10 @@ impl PrivacyController {
                 for (k, v) in map {
                     // Skip known sensitive keys
                     if self.is_sensitive_key(k) {
-                        new_map.insert(k.clone(), serde_json::Value::String("[REDACTED]".to_string()));
+                        new_map.insert(
+                            k.clone(),
+                            serde_json::Value::String("[REDACTED]".to_string()),
+                        );
                     } else {
                         new_map.insert(k.clone(), self.redact_json(v));
                     }
@@ -103,16 +121,27 @@ impl PrivacyController {
 
     fn is_sensitive_key(&self, key: &str) -> bool {
         let sensitive_keys = [
-            "api_key", "apikey", "secret", "password", "token", "authorization",
-            "auth", "credential", "private_key", "access_token", "refresh_token",
+            "api_key",
+            "apikey",
+            "secret",
+            "password",
+            "token",
+            "authorization",
+            "auth",
+            "credential",
+            "private_key",
+            "access_token",
+            "refresh_token",
         ];
-        sensitive_keys.iter().any(|k| key.to_lowercase().contains(k))
+        sensitive_keys
+            .iter()
+            .any(|k| key.to_lowercase().contains(k))
     }
 
     /// Check if request should be allowed based on privacy settings
     pub fn check_request_allowed(&self, request: &CompletionRequest) -> Result<PrivacyDecision> {
         // Check if local-only mode and request would go to remote
-        if self.config.local_only {
+        if self.config.local_only_mode {
             // This would be checked by the router, but we can validate here too
             return Ok(PrivacyDecision::Allowed);
         }
@@ -120,7 +149,9 @@ impl PrivacyController {
         // Check data classification
         let classification = self.classify_request(request);
         if classification == DataClassification::Restricted && !self.config.allow_restricted_data {
-            return Ok(PrivacyDecision::Denied("Restricted data detected".to_string()));
+            return Ok(PrivacyDecision::Denied(
+                "Restricted data detected".to_string(),
+            ));
         }
 
         Ok(PrivacyDecision::Allowed)
@@ -135,12 +166,12 @@ impl PrivacyController {
         for msg in &request.messages {
             if let Some(content) = &msg.content {
                 let lower = content.to_lowercase();
-                
+
                 // Check for PII
                 if self.contains_pii(content) {
                     has_pii = true;
                 }
-                
+
                 // Check for secrets
                 if self.contains_secrets(content) {
                     has_secrets = true;
@@ -166,11 +197,17 @@ impl PrivacyController {
 
     fn contains_pii(&self, text: &str) -> bool {
         // Email
-        if Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b").unwrap().is_match(text) {
+        if Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
+            .unwrap()
+            .is_match(text)
+        {
             return true;
         }
         // Phone
-        if Regex::new(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b").unwrap().is_match(text) {
+        if Regex::new(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b")
+            .unwrap()
+            .is_match(text)
+        {
             return true;
         }
         // SSN
@@ -187,7 +224,7 @@ impl PrivacyController {
             r"-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----",
             r"ssh-rsa\s+[A-Za-z0-9+/]+",
         ];
-        
+
         for pattern in &secret_patterns {
             if Regex::new(pattern).unwrap().is_match(text) {
                 return true;
@@ -199,22 +236,39 @@ impl PrivacyController {
     fn contains_code(&self, text: &str) -> bool {
         // Simple heuristic: contains common code patterns
         let code_indicators = [
-            "function", "class", "def ", "fn ", "public ", "private ",
-            "import ", "include ", "#include", "using namespace",
-            "{", "}", "();", "->", "=>", "::", "::",
+            "function",
+            "class",
+            "def ",
+            "fn ",
+            "public ",
+            "private ",
+            "import ",
+            "include ",
+            "#include",
+            "using namespace",
+            "{",
+            "}",
+            "();",
+            "->",
+            "=>",
+            "::",
+            "::",
         ];
-        
-        code_indicators.iter().any(|indicator| text.contains(indicator))
+
+        code_indicators
+            .iter()
+            .any(|indicator| text.contains(indicator))
     }
 
     /// Log privacy audit entry
     pub async fn audit(&self, entry: PrivacyAuditEntry) {
         let mut log = self.audit_log.write().await;
         log.push(entry);
-        
+
         // Keep only last 10000 entries
         if log.len() > 10000 {
-            log.drain(0..log.len() - 10000);
+            let drain_end = log.len() - 10000;
+            log.drain(0..drain_end);
         }
     }
 
@@ -234,7 +288,7 @@ pub enum PrivacyDecision {
 }
 
 /// Data classification levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DataClassification {
     Public,
     Internal,

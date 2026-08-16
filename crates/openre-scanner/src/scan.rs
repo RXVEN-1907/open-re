@@ -1,17 +1,17 @@
 //! Scan Manager - Starting scans, stopping scans, scheduling plugins, tracking progress, timeouts, retries, cancellation
 
+use crate::context::ScanContext;
 use crate::error::{ScannerError, ScannerResult};
-use crate::plugin::{PluginManager, PluginInfo};
+use crate::plugin::{PluginInfo, PluginManager};
 use crate::result::{Finding, FindingId};
 use crate::target::{ScanConfig, Target, TargetId};
-use crate::context::ScanContext;
-use openre_core::ids::{ScanId, JobId};
-use openre_queue::{QueueManager, Job, JobStatus, Priority, JobType};
+use openre_core::ids::{JobId, ScanId};
+use openre_queue::{Job, JobStatus, JobType, Priority, QueueManager};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, broadcast, mpsc};
+use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::time::{timeout, Instant};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -43,7 +43,10 @@ impl ScanStatus {
     pub fn is_terminal(&self) -> bool {
         matches!(
             self,
-            ScanStatus::Completed | ScanStatus::Failed(_) | ScanStatus::Cancelled | ScanStatus::TimedOut
+            ScanStatus::Completed
+                | ScanStatus::Failed(_)
+                | ScanStatus::Cancelled
+                | ScanStatus::TimedOut
         )
     }
 
@@ -131,7 +134,10 @@ impl ScanProgress {
     /// Add finding
     pub fn add_finding(&mut self, severity: &str) {
         self.total_findings += 1;
-        *self.findings_by_severity.entry(severity.to_string()).or_insert(0) += 1;
+        *self
+            .findings_by_severity
+            .entry(severity.to_string())
+            .or_insert(0) += 1;
     }
 
     /// Set current plugin
@@ -326,7 +332,8 @@ impl ScanManager {
         progress.total_plugins = plugins.len();
 
         // Update status to running
-        self.update_scan_status(scan_id, ScanStatus::Running).await?;
+        self.update_scan_status(scan_id, ScanStatus::Running)
+            .await?;
         progress.status = ScanStatus::Running;
         progress.started_at = Some(chrono::Utc::now());
         self.broadcast_progress(progress.clone());
@@ -335,9 +342,14 @@ impl ScanManager {
         let scan_manager = self.clone();
         let cancellation_token_clone = cancellation_token.clone();
         tokio::spawn(async move {
-            if let Err(e) = scan_manager.execute_scan(scan_id, config, target, plugins, cancellation_token_clone).await {
+            if let Err(e) = scan_manager
+                .execute_scan(scan_id, config, target, plugins, cancellation_token_clone)
+                .await
+            {
                 error!("Scan {} failed: {}", scan_id, e);
-                let _ = scan_manager.update_scan_status(scan_id, ScanStatus::Failed(e.to_string())).await;
+                let _ = scan_manager
+                    .update_scan_status(scan_id, ScanStatus::Failed(e.to_string()))
+                    .await;
             }
         });
 
@@ -369,7 +381,8 @@ impl ScanManager {
         for plugin in plugins {
             // Check cancellation
             if cancellation_token.is_cancelled() {
-                self.update_scan_status(scan_id, ScanStatus::Cancelled).await?;
+                self.update_scan_status(scan_id, ScanStatus::Cancelled)
+                    .await?;
                 return Ok(());
             }
 
@@ -398,7 +411,11 @@ impl ScanManager {
                 };
 
                 // Run plugin with timeout
-                let result = timeout(plugin_timeout, plugin_manager.execute_plugin(&plugin_id, &context)).await;
+                let result = timeout(
+                    plugin_timeout,
+                    plugin_manager.execute_plugin(&plugin_id, &context),
+                )
+                .await;
 
                 execution.completed_at = Some(chrono::Utc::now());
                 execution.duration = Some(execution_start.elapsed());
@@ -417,7 +434,14 @@ impl ScanManager {
                     Err(_) => {
                         execution.status = PluginExecutionStatus::TimedOut;
                         execution.error = Some("Plugin execution timed out".to_string());
-                        (Vec::new(), execution, Some(ScannerError::Timeout(format!("Plugin {} timed out", plugin_name))))
+                        (
+                            Vec::new(),
+                            execution,
+                            Some(ScannerError::Timeout(format!(
+                                "Plugin {} timed out",
+                                plugin_name
+                            ))),
+                        )
                     }
                 }
             });
@@ -432,7 +456,14 @@ impl ScanManager {
 
             if let Some(e) = error {
                 failed += 1;
-                self.add_log(scan_id, "error", Some(execution.plugin_name.clone()), &e.to_string(), HashMap::new()).await?;
+                self.add_log(
+                    scan_id,
+                    "error",
+                    Some(execution.plugin_name.clone()),
+                    &e.to_string(),
+                    HashMap::new(),
+                )
+                .await?;
             } else {
                 completed += 1;
                 findings.extend(plugin_findings);
@@ -442,7 +473,8 @@ impl ScanManager {
             }
 
             // Update progress
-            self.update_scan_progress(scan_id, completed, failed, plugins.len()).await?;
+            self.update_scan_progress(scan_id, completed, failed, plugins.len())
+                .await?;
         }
 
         // Finalize scan
@@ -454,13 +486,24 @@ impl ScanManager {
             ScanStatus::Completed
         };
 
-        self.finalize_scan(scan_id, final_status, findings, plugin_executions, start_time.elapsed()).await?;
+        self.finalize_scan(
+            scan_id,
+            final_status,
+            findings,
+            plugin_executions,
+            start_time.elapsed(),
+        )
+        .await?;
 
         Ok(())
     }
 
     /// Get plugins compatible with scan config and target
-    async fn get_plugins_for_scan(&self, config: &ScanConfig, target: &Target) -> ScannerResult<Vec<PluginInfo>> {
+    async fn get_plugins_for_scan(
+        &self,
+        config: &ScanConfig,
+        target: &Target,
+    ) -> ScannerResult<Vec<PluginInfo>> {
         let all_plugins = self.plugin_manager.list_plugins().await?;
 
         let mut compatible = Vec::new();
@@ -476,7 +519,11 @@ impl ScanManager {
             }
 
             // Check if plugin supports target type
-            if plugin.capabilities.iter().any(|c| c.target_types.contains(&target.target_type)) {
+            if plugin
+                .capabilities
+                .iter()
+                .any(|c| c.target_types.contains(&target.target_type))
+            {
                 compatible.push(plugin);
             }
         }
@@ -507,10 +554,15 @@ impl ScanManager {
         total: usize,
     ) -> ScannerResult<()> {
         if let Some(mut session) = self.active_scans.get_mut(&scan_id) {
-            session.progress.update(session.status.clone(), completed, total);
+            session
+                .progress
+                .update(session.status.clone(), completed, total);
             session.progress.failed_plugins = failed;
             session.progress.elapsed = session.started_at.map_or(Duration::ZERO, |start| {
-                chrono::Utc::now().signed_duration_since(start).to_std().unwrap_or(Duration::ZERO)
+                chrono::Utc::now()
+                    .signed_duration_since(start)
+                    .to_std()
+                    .unwrap_or(Duration::ZERO)
             });
             self.storage.save_scan(&session).await?;
             self.broadcast_progress(session.progress.clone());
@@ -608,7 +660,8 @@ impl ScanManager {
             if let Some(token) = &session.cancellation_token {
                 token.cancel();
             }
-            self.update_scan_status(*scan_id, ScanStatus::Cancelled).await?;
+            self.update_scan_status(*scan_id, ScanStatus::Cancelled)
+                .await?;
             Ok(())
         } else {
             Err(ScannerError::ScanNotFound(scan_id.to_string()))
@@ -624,7 +677,8 @@ impl ScanManager {
     pub async fn resume_scan(&self, scan_id: &ScanId) -> ScannerResult<()> {
         if let Some(session) = self.active_scans.get(scan_id) {
             if session.status == ScanStatus::Paused {
-                self.update_scan_status(*scan_id, ScanStatus::Running).await?;
+                self.update_scan_status(*scan_id, ScanStatus::Running)
+                    .await?;
                 Ok(())
             } else {
                 Err(ScannerError::Scan("Scan is not paused".to_string()))
@@ -641,12 +695,18 @@ impl ScanManager {
 
     /// Get scan findings
     pub fn get_findings(&self, scan_id: &ScanId) -> Vec<Finding> {
-        self.active_scans.get(scan_id).map(|s| s.findings.clone()).unwrap_or_default()
+        self.active_scans
+            .get(scan_id)
+            .map(|s| s.findings.clone())
+            .unwrap_or_default()
     }
 
     /// Get scan logs
     pub fn get_logs(&self, scan_id: &ScanId) -> Vec<ScanLogEntry> {
-        self.active_scans.get(scan_id).map(|s| s.logs.clone()).unwrap_or_default()
+        self.active_scans
+            .get(scan_id)
+            .map(|s| s.logs.clone())
+            .unwrap_or_default()
     }
 }
 

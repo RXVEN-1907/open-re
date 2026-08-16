@@ -1,11 +1,11 @@
 //! Binary upload handling
 
 use crate::binary::common::*;
-use crate::binary::traits::*;
 use crate::binary::elf::ElfIdentifier;
 use crate::binary::elf::ElfMetadataExtractor;
 use crate::binary::pe::PeIdentifier;
 use crate::binary::pe::PeMetadataExtractor;
+use crate::binary::traits::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_storage::GlobalStore;
@@ -34,19 +34,22 @@ impl BinaryUploadService {
     }
 
     /// Upload and analyze a binary file
-    pub async fn upload_binary(&self, request: BinaryUploadRequest) -> Result<BinaryUploadResponse> {
+    pub async fn upload_binary(
+        &self,
+        request: BinaryUploadRequest,
+    ) -> Result<BinaryUploadResponse> {
         let start = std::time::Instant::now();
-        
+
         // Calculate hashes
         let hashes = calculate_hashes(&request.file_data);
-        
+
         // Identify binary format
         let format = BinaryFormat::from_bytes(&request.file_data);
-        
+
         // Validate format
         if format == BinaryFormat::Unknown {
             return Err(openre_core::Error::Validation(
-                "Unsupported binary format".to_string()
+                "Unsupported binary format".to_string(),
             ));
         }
 
@@ -63,40 +66,50 @@ impl BinaryUploadService {
 
         // Store file in object storage
         let object_path = format!("binaries/{}/{}.bin", request.project_id, hashes.sha256);
-        self.global_store.object_store().put(&object_path, &request.file_data).await?;
+        self.global_store
+            .object_store()
+            .put(&object_path, &request.file_data)
+            .await?;
 
         // Create file record
         let file_id = FileId::new();
         let identification = self.identify_binary(&request.file_data).await?;
-        
-        self.global_store.create_file(
-            file_id,
-            request.project_id,
-            request.file_name,
-            object_path.clone(),
-            request.file_data.len() as u64,
-            hashes.sha256.clone(),
-            identification.format,
-            identification.architecture,
-            identification.bitness,
-            identification.os,
-            identification.entry_point,
-            identification.compiler_info.map(|c| serde_json::to_value(c).unwrap_or_default()),
-            "completed".to_string(),
-            request.uploaded_by,
-        ).await?;
+
+        self.global_store
+            .create_file(
+                file_id,
+                request.project_id,
+                request.file_name,
+                object_path.clone(),
+                request.file_data.len() as u64,
+                hashes.sha256.clone(),
+                identification.format,
+                identification.architecture,
+                identification.bitness,
+                identification.os,
+                identification.entry_point,
+                identification
+                    .compiler_info
+                    .map(|c| serde_json::to_value(c).unwrap_or_default()),
+                "completed".to_string(),
+                request.uploaded_by,
+            )
+            .await?;
 
         // Create analysis session
         let analysis_id = AnalysisId::new();
-        self.global_store.create_analysis_session(
-            analysis_id,
-            file_id,
-            request.project_id,
-            AnalysisStatus::Pending,
-        ).await?;
+        self.global_store
+            .create_analysis_session(
+                analysis_id,
+                file_id,
+                request.project_id,
+                AnalysisStatus::Pending,
+            )
+            .await?;
 
         // Queue analysis job
-        self.queue_analysis(analysis_id, file_id, request.project_id, request.file_data).await?;
+        self.queue_analysis(analysis_id, file_id, request.project_id, request.file_data)
+            .await?;
 
         metrics::record_http_request("POST", 201, start.elapsed());
 
@@ -111,11 +124,13 @@ impl BinaryUploadService {
     /// Identify binary format and extract basic info
     async fn identify_binary(&self, data: &[u8]) -> Result<BinaryIdentification> {
         let format = BinaryFormat::from_bytes(data);
-        
+
         match format {
             BinaryFormat::Elf => self.elf_identifier.identify(data).await,
             BinaryFormat::Pe => self.pe_identifier.identify(data).await,
-            _ => Err(openre_core::Error::Validation("Unsupported format".to_string())),
+            _ => Err(openre_core::Error::Validation(
+                "Unsupported format".to_string(),
+            )),
         }
     }
 
@@ -129,7 +144,10 @@ impl BinaryUploadService {
     ) -> Result<()> {
         // Store file data temporarily for analysis
         let object_path = format!("analysis/{}/input.bin", analysis_id);
-        self.global_store.object_store().put(&object_path, &file_data).await?;
+        self.global_store
+            .object_store()
+            .put(&object_path, &file_data)
+            .await?;
 
         // Create analysis job
         let job = crate::orchestrator::AnalysisJob::new(
@@ -140,7 +158,7 @@ impl BinaryUploadService {
         );
 
         self.global_store.create_job(&job).await?;
-        
+
         // Queue the job
         self.global_store.queue_job(job.id, job.priority).await?;
 
@@ -151,7 +169,11 @@ impl BinaryUploadService {
     pub async fn get_binary_metadata(&self, file_id: FileId) -> Result<Option<BinaryMetadata>> {
         let file = self.global_store.get_file(file_id).await?;
         if let Some(file) = file {
-            let data = self.global_store.object_store().get(&file.object_path).await?;
+            let data = self
+                .global_store
+                .object_store()
+                .get(&file.object_path)
+                .await?;
             self.extract_metadata(&data, file_id).await
         } else {
             Ok(None)
@@ -159,9 +181,13 @@ impl BinaryUploadService {
     }
 
     /// Extract full metadata from binary data
-    async fn extract_metadata(&self, data: &[u8], file_id: FileId) -> Result<Option<BinaryMetadata>> {
+    async fn extract_metadata(
+        &self,
+        data: &[u8],
+        file_id: FileId,
+    ) -> Result<Option<BinaryMetadata>> {
         let format = BinaryFormat::from_bytes(data);
-        
+
         let metadata = match format {
             BinaryFormat::Elf => self.elf_extractor.extract_metadata(data).await?,
             BinaryFormat::Pe => self.pe_extractor.extract_metadata(data).await?,
