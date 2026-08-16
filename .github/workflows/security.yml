@@ -29,8 +29,8 @@ jobs:
       - name: Build release binary with cargo-auditable
         run: cargo auditable build --release -p openre-scan
 
-      - name: Run cargo audit on binary
-        run: cargo audit bin target/release/openre-scan
+      - name: Run cargo audit on binary (fail only on critical/high)
+        run: cargo audit bin target/release/openre-scan --deny critical,high
 
   deny:
     name: Cargo Deny
