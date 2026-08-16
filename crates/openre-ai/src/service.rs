@@ -26,6 +26,7 @@ pub struct AiService {
     router: Arc<ModelRouter>,
     cache: Arc<AiCache>,
     privacy: Arc<PrivacyController>,
+    #[allow(dead_code)]
     config: AiConfig,
     global_store: Arc<GlobalStore>,
     object_store: Arc<ObjectStore>,
@@ -190,11 +191,8 @@ impl AiService {
     pub async fn stream(&self, request: CompletionRequest) -> Result<StreamingResponse> {
         // Check privacy
         let decision = self.privacy.check_request_allowed(&request)?;
-        match decision {
-            crate::privacy::PrivacyDecision::Denied(reason) => {
-                return Err(openre_core::Error::Forbidden(reason));
-            }
-            _ => {}
+        if let crate::privacy::PrivacyDecision::Denied(reason) = decision {
+            return Err(openre_core::Error::Forbidden(reason));
         }
 
         // Sanitize request

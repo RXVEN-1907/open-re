@@ -11,14 +11,15 @@ class TestHandler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'text/html')
             self.send_header('Server', 'TestServer/1.0')
             self.send_header('X-Powered-By', 'TestFramework')
-            self.send_header('Strict-Transport-Security', 'max-age=31536000')
-            self.send_header('X-Frame-Options', 'DENY')
-            self.send_header('X-Content-Type-Options', 'nosniff')
-            self.send_header('Content-Security-Policy', "default-src 'self'")
-            self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
-            self.send_header('Permissions-Policy', 'geolocation=()')
-            self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
-            self.send_header('Cross-Origin-Resource-Policy', 'same-origin')
+            # Missing security headers that should be detected:
+            # - Strict-Transport-Security (HSTS)
+            # - X-Frame-Options
+            # - X-Content-Type-Options
+            # - Content-Security-Policy
+            # - Referrer-Policy
+            # - Permissions-Policy
+            # - Cross-Origin-Opener-Policy
+            # - Cross-Origin-Resource-Policy
             self.end_headers()
             self.wfile.write(b'<html><body><form method="GET"><input type="password" name="pass"></form></body></html>')
         elif self.path == '/robots.txt':

@@ -334,7 +334,7 @@ impl AiTool for QueryDatabaseTool {
 
         let params: Vec<serde_json::Value> = args["params"]
             .as_array()
-            .map(|a| a.iter().cloned().collect())
+            .map(|a| a.to_vec())
             .unwrap_or_default();
 
         let results = project_store.execute_query(query, &params).await?;

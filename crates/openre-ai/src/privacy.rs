@@ -21,7 +21,7 @@ impl PrivacyController {
 
         // Default redaction patterns
         patterns.push(
-            Regex::new(r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*\S+)")
+            Regex::new(r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*\S+")
                 .map_err(|e| anyhow::anyhow!("Invalid regex: {}", e))?,
         );
         patterns.push(

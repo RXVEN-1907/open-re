@@ -170,6 +170,7 @@ impl ModelRouter {
     }
 
     /// Performance-optimized selection
+    #[allow(dead_code)]
     async fn select_performance_optimized(&self, candidates: &[ProviderId]) -> Result<ProviderId> {
         let stats = self.usage_stats.read().await;
 
@@ -177,7 +178,7 @@ impl ModelRouter {
         let mut best_latency = u64::MAX;
 
         for id in candidates {
-            if let Some(provider) = self.registry.get(id) {
+            if let Some(_provider) = self.registry.get(id) {
                 let latency = stats.get(id).map(|s| s.avg_latency_ms).unwrap_or(0);
                 if latency < best_latency {
                     best_latency = latency;
@@ -190,6 +191,7 @@ impl ModelRouter {
     }
 
     /// Round-robin selection
+    #[allow(dead_code)]
     async fn select_round_robin(&self, candidates: &[ProviderId]) -> Result<ProviderId> {
         let mut stats = self.usage_stats.write().await;
 

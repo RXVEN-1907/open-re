@@ -292,8 +292,7 @@ fn parse_sse_chunk(chunk: std::result::Result<Bytes, reqwest::Error>) -> Option<
     let text = String::from_utf8_lossy(&chunk);
 
     for line in text.lines() {
-        if line.starts_with("data: ") {
-            let data = &line[6..];
+        if let Some(data) = line.strip_prefix("data: ") {
             if data == "[DONE]" {
                 return Some(StreamChunk::Finish(FinishReason::Stop));
             }
