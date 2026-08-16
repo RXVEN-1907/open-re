@@ -3,6 +3,7 @@
 use openre_scan::{
     build_client, run_scan_internal, Check, Confidence, OutputFormat, ScanProfile, Severity,
 };
+use std::env;
 use std::time::Duration;
 use tokio::process::Command;
 use url::Url;
@@ -11,7 +12,7 @@ use url::Url;
 async fn start_test_server() -> (String, tokio::process::Child) {
     let child = Command::new("python3")
         .arg("test_server.py")
-        .current_dir("/home/jupyter-24b11cs489@adityau-1219b/project/open-re")
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
@@ -332,7 +333,7 @@ async fn test_severity_and_confidence() {
 async fn test_cli_version_command() {
     let output = Command::new("cargo")
         .args(["run", "--release", "-p", "openre-scan", "--", "version"])
-        .current_dir("/home/jupyter-24b11cs489@adityau-1219b/project/open-re")
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
         .await
         .expect("Failed to run version command");
@@ -362,7 +363,7 @@ async fn test_cli_scan_json_output() {
             "--format",
             "json",
         ])
-        .current_dir("/home/jupyter-24b11cs489@adityau-1219b/project/open-re")
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
         .await
         .expect("Failed to run scan command");
@@ -397,7 +398,7 @@ async fn test_cli_scan_sarif_output() {
             "--format",
             "sarif",
         ])
-        .current_dir("/home/jupyter-24b11cs489@adityau-1219b/project/open-re")
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
         .await
         .expect("Failed to run scan command");

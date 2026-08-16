@@ -3,7 +3,7 @@
 use crate::{ApiResult, AppState, ValidatedJson};
 use axum::{
     extract::{Extension, State},
-    routing::{get, post, put, delete},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
