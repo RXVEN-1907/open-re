@@ -23,8 +23,14 @@ jobs:
       - name: Install cargo-audit
         run: cargo install cargo-audit
 
-      - name: Run cargo audit
-        run: cargo audit -p openre-scan
+      - name: Install cargo-auditable
+        run: cargo install cargo-auditable
+
+      - name: Build release binary with cargo-auditable
+        run: cargo auditable build --release -p openre-scan
+
+      - name: Run cargo audit on binary
+        run: cargo audit bin target/release/openre-scan
 
   deny:
     name: Cargo Deny
