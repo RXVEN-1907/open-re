@@ -1,10 +1,9 @@
 //! Deduplication and correlation engine for findings
 
+use crate::ids::FindingId;
 use crate::result::*;
-use crate::ids::{FindingId, ScanId};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use sha2::{Sha256, Digest};
 
 /// Deduplication engine for findings
 pub struct DeduplicationEngine {
@@ -520,7 +519,7 @@ impl CorrelationEngine {
     fn correlate_temporal(&self, findings: &[Finding]) -> Vec<FindingCorrelation> {
         let mut correlations = Vec::new();
         let mut sorted = findings.to_vec();
-        sorted.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+        sorted.sort_by_key(|a| a.timestamp);
 
         for i in 0..sorted.len() {
             for j in (i + 1)..sorted.len() {
@@ -942,23 +941,23 @@ impl Default for CorrelationEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ids::{FindingId, ScanId};
+    use crate::ids::ScanId;
     use chrono::Utc;
 
     fn create_test_finding(title: &str, target: &str, category: Category, severity: Severity, confidence: Confidence) -> Finding {
         let scan_id = ScanId::new();
-        Finding::new(
-            title.to_string(),
-            "Test description".to_string(),
+        Finding::new(FindingConfig {
+            title: title.to_string(),
+            description: "Test description".to_string(),
             severity,
             confidence,
             category,
-            target.to_string(),
-            "web".to_string(),
-            "test-plugin".to_string(),
-            "1.0".to_string(),
+            target: target.to_string(),
+            target_type: "web".to_string(),
+            plugin_source: "test-plugin".to_string(),
+            plugin_version: "1.0".to_string(),
             scan_id,
-        )
+        })
     }
 
     #[test]

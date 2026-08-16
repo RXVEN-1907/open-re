@@ -6,24 +6,20 @@ Brief description of changes.
 
 ## Type of Change
 
-- [ ] Documentation update (typo, clarification, formatting)
-- [ ] New documentation section
-- [ ] Research analysis addition
-- [ ] Architecture proposal
-- [ ] Process improvement
+- [ ] Security check (new detection)
+- [ ] Bug fix
+- [ ] Feature (CLI, output, AI, etc.)
+- [ ] Refactoring (no behavior change)
+- [ ] Documentation update
+- [ ] Tests
+- [ ] CI/CD
+- [ ] Dependencies
 - [ ] Other: ___________
 
 ## Related Issues
 
 Closes #(issue number)
 Relates to #(issue number)
-
-## Phase
-
-- [ ] Phase 0 - Research & Documentation (current)
-- [ ] Phase 1 - Core Architecture & MVP
-- [ ] Phase 2 - AI Integration & Advanced Features
-- [ ] Phase 3 - Ecosystem & Community Features
 
 ## Changes Made
 
@@ -33,35 +29,43 @@ Relates to #(issue number)
 
 ## Checklist
 
-### Content Quality
-- [ ] Follows project writing style guide
-- [ ] No implementation code (Phase 0 only)
-- [ ] All claims are sourced or clearly marked as opinion
-- [ ] Acronyms defined on first use
-- [ ] Inclusive language used
+### Code Quality
+- [ ] All tests pass (`cargo test -p openre-scan`)
+- [ ] Code formatted (`cargo fmt --all -- --check`)
+- [ ] Zero clippy warnings (`cargo clippy -p openre-scan -- -D warnings`)
+- [ ] Release build succeeds (`cargo build --release -p openre-scan`)
 
-### Formatting
-- [ ] Markdown renders correctly
-- [ ] Headings follow hierarchy (H1 → H2 → H3)
-- [ ] Code blocks have language specified
-- [ ] Tables are properly formatted
-- [ ] Mermaid diagrams render (if applicable)
+### If Adding a Security Check
+- [ ] Check module in `crates/openre-scan/src/checks/`
+- [ ] Implements `Check` trait with `name()` and `run()`
+- [ ] Registered in `checks/mod.rs`
+- [ ] Added to appropriate scan profile(s) in `get_all_checks()`
+- [ ] Integration test added in `tests/integration.rs`
+- [ ] Evidence included in findings
+- [ ] Remediation guidance included
+- [ ] Appropriate severity and confidence
 
-### Links & References
-- [ ] All internal links resolve
-- [ ] External links are accessible
-- [ ] References cited properly
-- [ ] No broken anchors
+### If Changing CLI
+- [ ] Help text updated (`--help` shows new option)
+- [ ] Integration test for new CLI behavior
+- [ ] Documentation updated (README, INSTALLATION_GUIDE)
 
-### Process
-- [ ] Branch named correctly (feature/*, research/*, docs/*)
-- [ ] Commits follow conventional format
-- [ ] No merge conflicts with develop
-- [ ] Self-review completed
+### Documentation
+- [ ] CHANGELOG.md updated (for user-facing changes)
+- [ ] README.md updated (if new feature)
+- [ ] Code comments for complex logic
+
+### Testing
+- [ ] Unit tests pass
+- [ ] Integration tests pass
+- [ ] Manual test: `./target/release/openre-scan scan https://example.com --profile standard`
 
 ## Screenshots/Previews
 
-If applicable, add screenshots of rendered documentation.
+If applicable, add screenshots of:
+- CLI output changes
+- New findings
+- TUI changes
 
 ## Additional Notes
 

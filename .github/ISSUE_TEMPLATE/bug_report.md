@@ -1,8 +1,8 @@
 ---
 name: Bug Report
-about: Report an issue with documentation or research
+about: Report a bug in openre-scan
 title: '[BUG] '
-labels: ['bug', 'documentation']
+labels: ['bug', 'needs-triage']
 assignees: ''
 ---
 
@@ -10,50 +10,42 @@ assignees: ''
 
 A clear and concise description of what the bug is.
 
-## Location
+## Environment
 
-Where is the bug located?
-- [ ] Vision.md
-- [ ] ProductRequirements.md
-- [ ] CompetitiveAnalysis.md
-- [ ] MarketResearch.md
-- [ ] UserPersonas.md
-- [ ] FeatureBrainstorm.md
-- [ ] Risks.md
-- [ ] SuccessMetrics.md
-- [ ] Roadmap.md
-- [ ] README.md
-- [ ] CONTRIBUTING.md
-- [ ] CODE_OF_CONDUCT.md
-- [ ] SECURITY.md
-- [ ] Other: ___________
-
-## Expected Behavior
-
-What should happen or what should the content say?
-
-## Actual Behavior
-
-What currently happens or what does the content currently say?
+- **openre-scan version**: (run `openre-scan --version`)
+- **OS**: (e.g., Ubuntu 22.04, macOS 14, Windows 11)
+- **Rust version** (if building from source): (run `rustc --version`)
+- **Installation method**: (binary download / cargo install / homebrew / docker / source)
 
 ## Steps to Reproduce
 
-1. Go to '...'
-2. Click on '...'
-3. Scroll to '...'
-4. See error
+1. Run command: `openre-scan scan <target> --profile <profile> ...`
+2. Observe behavior
+3. Expected vs actual
 
-## Screenshots
+## Expected Behavior
 
-If applicable, add screenshots to help explain the problem.
+What should happen?
+
+## Actual Behavior
+
+What actually happens? Include error messages, stack traces, or screenshots.
+
+## Target Information (if applicable)
+
+- Target URL: (sanitized if sensitive)
+- Target type: (web app / API / localhost / etc.)
+- Profile used: (quick / standard / full)
 
 ## Additional Context
 
-Add any other context about the problem here.
+- Logs (run with `-v` for verbose)
+- Configuration (if any)
+- Related issues or PRs
 
 ## Severity
 
-- [ ] Critical - Factually incorrect information that could mislead
-- [ ] High - Broken links, missing critical sections
-- [ ] Medium - Unclear explanations, formatting issues
-- [ ] Low - Typos, minor formatting, style inconsistencies
+- [ ] Critical — Crash, data loss, security issue
+- [ ] High — Major feature broken, incorrect findings
+- [ ] Medium — Minor feature broken, usability issue
+- [ ] Low — Cosmetic, documentation, minor annoyance

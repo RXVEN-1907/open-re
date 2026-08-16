@@ -524,7 +524,7 @@ impl ReportGenerator {
             });
         }
 
-        let overall_risk_score = if risk_count > 0 { (total_risk / risk_count) as u8 } else { 0 };
+        let overall_risk_score = if risk_count > 0 { (total_risk.checked_div(risk_count).unwrap_or(0)) as u8 } else { 0 };
         let risk_level = Self::calculate_risk_level(overall_risk_score, critical_count, high_count);
 
         let scan_coverage = ScanCoverage {
@@ -686,15 +686,13 @@ impl ReportGenerator {
     /// Sort findings according to config
     fn sort_findings(&self, findings: &mut [Finding]) {
         match self.config.sort_by {
-            FindingSort::SeverityDesc => findings.sort_by(|a, b| b.severity.cmp(&a.severity)),
-            FindingSort::SeverityAsc => findings.sort_by(|a, b| a.severity.cmp(&b.severity)),
-            FindingSort::ConfidenceDesc => findings.sort_by(|a, b| b.confidence.cmp(&a.confidence)),
-            FindingSort::TimestampDesc => findings.sort_by(|a, b| b.timestamp.cmp(&a.timestamp)),
-            FindingSort::TimestampAsc => findings.sort_by(|a, b| a.timestamp.cmp(&b.timestamp)),
-            FindingSort::RiskScoreDesc => findings.sort_by(|a, b| {
-                b.risk_score.unwrap_or(0).cmp(&a.risk_score.unwrap_or(0))
-            }),
-            FindingSort::TargetAsc => findings.sort_by(|a, b| a.target.cmp(&b.target)),
+            FindingSort::SeverityDesc => findings.sort_by_key(|b| std::cmp::Reverse(b.severity)),
+            FindingSort::SeverityAsc => findings.sort_by_key(|a| a.severity),
+            FindingSort::ConfidenceDesc => findings.sort_by_key(|b| std::cmp::Reverse(b.confidence)),
+            FindingSort::TimestampDesc => findings.sort_by_key(|b| std::cmp::Reverse(b.timestamp)),
+            FindingSort::TimestampAsc => findings.sort_by_key(|a| a.timestamp),
+            FindingSort::RiskScoreDesc => findings.sort_by_key(|b| std::cmp::Reverse(b.risk_score.unwrap_or(0))),
+            FindingSort::TargetAsc => findings.sort_by_key(|a| a.target.clone()),
         }
     }
 

@@ -30,9 +30,9 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/RXVEN-1907/open-re"
-description = "open-re: Open-source reverse engineering platform"
-categories = ["development-tools", "debugging", "security"]
-keywords = ["reverse-engineering", "binary-analysis", "disassembler", "decompiler", "malware-analysis"]
+description = "openre-scan: Lightweight standalone web security scanner with optional AI analysis"
+categories = ["command-line-utilities", "security"]
+keywords = ["security", "scanner", "vulnerability", "web", "sarif", "cli"]
 
 [workspace.dependencies]
 # Core

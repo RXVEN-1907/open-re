@@ -1,164 +1,354 @@
 # Installation Guide
 
-## System Requirements
+## openre-scan — Lightweight Web Security Scanner
 
-- Rust 1.78 or higher
-- Cargo package manager
-- Git (for cloning the repository)
+Single binary (~7 MB), zero dependencies, runs anywhere.
 
-## Installation Options
+---
 
-### Option 1: Build from Source (Recommended)
+## Quick Install (Recommended)
 
-1. **Install Rust** (if not already installed):
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   source ~/.cargo/env
-   ```
-
-2. **Clone the repository**:
-   ```bash
-   git clone https://github.com/RXVEN-1907/open-re.git
-   cd open-re
-   ```
-
-3. **Build the scanner**:
-   ```bash
-   ./build.sh
-   ```
-
-4. **Verify installation**:
-   ```bash
-   ./run.sh version
-   ```
-
-### Option 2: Direct Cargo Installation
-
-If you want to install directly with Cargo:
+### Linux (x86_64)
 
 ```bash
-cargo install --path crates/openre-scanner
+curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64
+chmod +x openre-scan
+./openre-scan --help
 ```
 
-Then run with:
+### macOS (x86_64 / Apple Silicon)
+
 ```bash
-sentinel --help
+# Intel Mac
+curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-macos-x86_64
+chmod +x openre-scan
+
+# Apple Silicon (coming soon)
+# curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-macos-aarch64
+chmod +x openre-scan
 ```
 
-## Platform-Specific Instructions
+### Windows (x86_64)
+
+```powershell
+# PowerShell
+Invoke-WebRequest -Uri "https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-windows-x86_64.exe" -OutFile "openre-scan.exe"
+.\openre-scan.exe --help
+```
+
+### Verify Download
+
+```bash
+# Download checksum
+curl -L -o openre-scan.sha256 https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64.sha256
+
+# Verify
+sha256sum -c openre-scan.sha256
+```
+
+---
+
+## Package Managers
+
+### Cargo (Rust)
+
+```bash
+cargo install openre-scan
+openre-scan --help
+```
+
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap rxven-1907/tap
+brew install openre-scan
+```
+
+### Docker
+
+```bash
+# Pull image
+docker pull ghcr.io/rxven-1907/openre-scan:latest
+
+# Run scan
+docker run --rm ghcr.io/rxven-1907/openre-scan:latest scan https://example.com --profile standard
+
+# With output file
+docker run --rm -v $(pwd):/data ghcr.io/rxven-1907/openre-scan:latest \
+  scan https://example.com --format sarif --output /data/results.sarif
+```
+
+---
+
+## Build from Source
+
+### Prerequisites
+
+- **Rust 1.78+** (install via `rustup.rs`)
+- **Git**
+
+### Build Steps
+
+```bash
+# Clone repository
+git clone https://github.com/RXVEN-1907/open-re.git
+cd open-re
+
+# Build release binary (CLI only)
+cargo build --release -p openre-scan
+
+# Binary at ./target/release/openre-scan
+./target/release/openre-scan --help
+```
+
+### With TUI (Experimental)
+
+```bash
+cargo build --release -p openre-scan --features tui
+./target/release/openre-scan tui
+```
+
+### Minimal Build (No Default Features)
+
+```bash
+cargo build --release -p openre-scan --no-default-features
+```
+
+---
+
+## Platform-Specific Notes
 
 ### Linux (Ubuntu/Debian)
 
 ```bash
-# Install dependencies
-sudo apt update
-sudo apt install build-essential git curl
-
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source ~/.cargo/env
 
-# Clone and build
+# Build
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
-./build.sh
+cargo build --release -p openre-scan
 ```
 
 ### macOS
 
 ```bash
-# Install Homebrew (if not already installed)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Install Rust
+brew install rust
 
-# Install dependencies
-brew install rust git
+# Or via rustup
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
 
-# Clone and build
+# Build
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
-./build.sh
+cargo build --release -p openre-scan
 ```
 
-### Windows (WSL)
+### Windows
 
-1. Install Windows Subsystem for Linux (WSL2)
-2. Install Ubuntu from Microsoft Store
-3. Follow the Linux instructions above
+**Option 1: WSL2 (Recommended)**
+1. Install WSL2 + Ubuntu from Microsoft Store
+2. Follow Linux instructions above
+
+**Option 2: Native (MSVC)**
+1. Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with "C++ build tools"
+2. Install Rust via [rustup-init.exe](https://rustup.rs)
+3. Build in Developer Command Prompt
+
+---
+
+## First Scan
+
+```bash
+# Quick scan (6 checks, ~2-3s)
+openre-scan scan https://example.com --profile quick
+
+# Standard scan (15 checks, ~10-15s) — Recommended
+openre-scan scan https://example.com --profile standard
+
+# Full scan (18 checks, ~30-60s)
+openre-scan scan https://example.com --profile full
+
+# JSON output for automation
+openre-scan scan https://example.com --format json
+
+# SARIF for GitHub Code Scanning / CI/CD
+openre-scan scan https://example.com --format sarif --output results.sarif
+
+# Save to file
+openre-scan scan https://example.com --output results.json
+```
+
+---
+
+## Configuration
+
+No config file needed. All options via CLI:
+
+```bash
+# Custom timeout (default: 10s)
+openre-scan scan https://example.com --timeout 30
+
+# Follow redirects (default: no)
+openre-scan scan https://example.com --follow-redirects
+
+# Custom headers (e.g., auth)
+openre-scan scan https://example.com --header "Authorization=Bearer token"
+
+# Select specific checks
+openre-scan scan https://example.com --checks http-headers,security-headers
+
+# Exclude slow checks
+openre-scan scan https://example.com --exclude sensitive-files
+
+# Disable progress bar
+openre-scan scan https://example.com --no-progress
+
+# Verbose logging
+openre-scan -v scan https://example.com
+```
+
+---
+
+## AI Features (Optional)
+
+Requires API key for OpenAI, Anthropic, or vLLM:
+
+```bash
+export OPENAI_API_KEY=sk-...
+
+# Explain findings
+openre-scan scan https://example.com --profile standard --ai explain
+
+# Generate remediation
+openre-scan scan https://example.com --profile standard --ai remediate
+
+# Correlate findings
+openre-scan scan https://example.com --profile standard --ai correlate
+```
+
+> **AI is optional**. The scanner works fully without any API keys.
+
+---
 
 ## Verifying Installation
 
-After installation, verify that everything works:
-
 ```bash
 # Check version
-./run.sh version
+openre-scan --version
+# openre-scan 0.1.0
 
 # Show help
-./run.sh --help
+openre-scan --help
 
-# Run a quick scan on a test target
-./run.sh scan https://httpbin.org --profile quick
+# Test scan (safe public target)
+openre-scan scan https://httpbin.org --profile quick
 ```
+
+---
+
+## Updating
+
+### Binary Download
+
+```bash
+# Re-download latest release
+curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64
+chmod +x openre-scan
+```
+
+### Cargo
+
+```bash
+cargo install --force openre-scan
+```
+
+### Homebrew
+
+```bash
+brew upgrade openre-scan
+```
+
+### Source
+
+```bash
+cd open-re
+git pull origin main
+cargo build --release -p openre-scan
+```
+
+---
+
+## Uninstalling
+
+### Binary
+
+```bash
+rm openre-scan  # or openre-scan.exe
+```
+
+### Cargo
+
+```bash
+cargo uninstall openre-scan
+```
+
+### Homebrew
+
+```bash
+brew uninstall openre-scan
+```
+
+### Source
+
+```bash
+cd ..
+rm -rf open-re/
+```
+
+---
 
 ## Troubleshooting
 
 ### Build Errors
 
-If you encounter build errors:
-
-1. **Update Rust**:
-   ```bash
-   rustup update
-   ```
-
-2. **Clear Cargo cache**:
-   ```bash
-   cargo clean
-   ```
-
-3. **Check dependencies**:
-   Make sure you have build essentials installed (build-essential on Ubuntu, Xcode Command Line Tools on macOS)
+| Error | Fix |
+|-------|-----|
+| `linker 'cc' not found` | Install build tools: `sudo apt install build-essential` (Debian/Ubuntu), `xcode-select --install` (macOS) |
+| `openssl` missing | `sudo apt install libssl-dev pkg-config` |
+| Rust version too old | `rustup update` |
 
 ### Runtime Issues
 
-If the scanner fails to run:
+| Issue | Fix |
+|-------|-----|
+| `Permission denied` | `chmod +x openre-scan` |
+| `Certificate verification failed` | Target uses self-signed cert — use `--timeout` and verify manually |
+| `Connection timeout` | Increase `--timeout` or check network/firewall |
+| `Too many redirects` | Use `--max-redirects 0` to disable |
 
-1. **Check permissions**:
-   ```bash
-   chmod +x ./run.sh
-   ```
-
-2. **Verify binary exists**:
-   ```bash
-   ls -la target/release/sentinel
-   ```
-
-3. **Check network connectivity**:
-   Some scans require internet access for CVE lookups and external services
-
-## Updating
-
-To update to the latest version:
+### Getting Help
 
 ```bash
-# Pull latest changes
-git pull origin main
-
-# Rebuild
-./build.sh
+openre-scan --help
+openre-scan scan --help
 ```
 
-## Uninstalling
+- **GitHub Issues**: Bug reports and feature requests
+- **GitHub Discussions**: Questions and ideas
+- **Security**: security@open-re.org
 
-To uninstall:
+---
 
-1. Remove the cloned repository:
-   ```bash
-   cd ../
-   rm -rf open-re/
-   ```
+## Requirements Summary
 
-2. If installed via Cargo directly:
-   ```bash
-   cargo uninstall sentinel
-   ```
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| Rust | 1.78 | Latest stable |
+| OS | Linux/macOS/Windows | Any |
+| Arch | x86_64 | x86_64 (ARM64 coming) |
+| Memory | 10 MB | 20 MB |
+| Disk | 7 MB | 10 MB |

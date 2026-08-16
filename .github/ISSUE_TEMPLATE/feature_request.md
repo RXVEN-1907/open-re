@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest a new feature or research topic
+about: Suggest a new feature for openre-scan
 title: '[FEATURE] '
 labels: ['enhancement', 'needs-triage']
 assignees: ''
@@ -8,7 +8,7 @@ assignees: ''
 
 ## Feature Summary
 
-A clear and concise description of the feature or research topic.
+A clear and concise description of the feature.
 
 ## Problem Statement
 
@@ -16,38 +16,39 @@ What problem does this solve? What user need does it address?
 
 ## Proposed Solution
 
-Describe the solution you'd like to see implemented or researched.
+Describe the solution you'd like to see implemented.
 
 ## Alternatives Considered
 
 Describe any alternative solutions or approaches you've considered.
 
-## Target Phase
-
-- [ ] Phase 0 - Research & Documentation (current)
-- [ ] Phase 1 - Core Architecture & MVP
-- [ ] Phase 2 - AI Integration & Advanced Features
-- [ ] Phase 3 - Ecosystem & Community Features
-- [ ] Future - Long-term vision
-
 ## User Value
 
-How does this benefit users? Which personas benefit most?
+How does this benefit users? Which use cases does it enable?
 
 ## Technical Considerations
 
 Any known technical challenges, dependencies, or architectural impacts?
 
+- Does this require new dependencies?
+- Does it affect the binary size?
+- Does it change the CLI interface?
+- Does it require AI integration?
+
 ## Priority
 
-- [ ] Critical - Blocking other work
-- [ ] High - Significant user value
-- [ ] Medium - Nice to have
-- [ ] Low - Future consideration
+- [ ] Critical — Blocking other work
+- [ ] High — Significant user value
+- [ ] Medium — Nice to have
+- [ ] Low — Future consideration
 
-## Additional Context
+## Implementation Ideas
 
-Add any other context, mockups, references, or examples here.
+If you have thoughts on how to implement:
+- New check module in `crates/openre-scan/src/checks/`
+- New CLI flag in `main.rs`
+- New output format
+- AI integration point
 
 ## Related Issues
 

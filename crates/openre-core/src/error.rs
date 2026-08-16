@@ -1,6 +1,5 @@
 //! Core error types for open-re
 
-use std::fmt;
 use thiserror::Error;
 
 /// Result type alias for open-re operations

@@ -425,7 +425,6 @@ impl Priority {
     pub const CRITICAL: Priority = Priority(100);
 }
 
-/// Additional ID types for binary analysis
 define_id!(FunctionId);
 define_id!(BasicBlockId);
 define_id!(InstructionId);

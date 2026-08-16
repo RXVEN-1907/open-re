@@ -1,8 +1,8 @@
 //! History and artifacts persistence layer for scan tracking
 
 use crate::result::*;
-use crate::ids::{ScanId, ProjectId, FindingId, TargetId};
-use crate::reporting::{ScanComparison, RiskLevel, ReportFormat, ReportConfig, ScanInfo};
+use crate::ids::{ScanId, ProjectId, TargetId};
+use crate::reporting::{ScanComparison, RiskLevel, ReportFormat, ReportConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
@@ -509,9 +509,10 @@ impl HistoryManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ids::{ScanId, ProjectId, TargetId, FindingId};
+    use crate::ids::{ScanId, ProjectId, TargetId};
     use chrono::Utc;
 
+    #[allow(dead_code)]
     fn create_test_scan_summary() -> ScanSummary {
         ScanSummary {
             scan_id: ScanId::new(),
@@ -616,7 +617,7 @@ mod tests {
 
     #[test]
     fn test_trend_direction_degrading() {
-        let mut previous = RiskMetrics {
+        let previous = RiskMetrics {
             id: "1".to_string(),
             project_id: ProjectId::new(),
             scan_id: None,

@@ -1,438 +1,300 @@
-# Contributing to open-re
+# Contributing to openre-scan
 
-Thank you for your interest in contributing to open-re! This document provides guidelines for contributing to the project.
+Thank you for contributing to **openre-scan** — a lightweight, standalone web security scanner.
 
-## Table of Contents
+We welcome:
+- **Security checks** (new vulnerability detections)
+- **Bug fixes** and **improvements**
+- **Documentation** updates
+- **Tests** and **CI** improvements
+- **AI integration** enhancements
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [Development Workflow](#development-workflow)
-- [Pull Request Process](#pull-request-process)
-- [Coding Standards](#coding-standards)
-- [Testing](#testing)
-- [Documentation](#documentation)
-- [Community](#community)
+---
 
-## Code of Conduct
-
-This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
-
-## Getting Started
-
-### Prerequisites
-
-- Rust 1.78+
-- Node.js 20+
-- pnpm 9+
-- Python 3.11+
-- PostgreSQL 16+
-- Redis 7+
-
-### Setup Development Environment
+## Quick Start for Contributors
 
 ```bash
-# Clone the repository
-git clone https://github.com/RXVEN-1907/open-re.git
+# 1. Fork and clone
+git clone https://github.com/YOUR_USERNAME/open-re.git
 cd open-re
 
-# Install Rust dependencies
-cargo build --workspace
+# 2. Build the scanner
+cargo build --release -p openre-scan
 
-# Install frontend dependencies
-cd frontend && pnpm install && cd ..
+# 3. Run tests
+cargo test -p openre-scan
 
-# Install Python dependencies
-cd python && pip install -e . && cd ..
-
-# Start development services
-docker compose up -d postgres redis minio
-
-# Run database migrations
-cargo run --bin openre-cli -- db migrate
+# 4. Try it
+./target/release/openre-scan scan https://example.com --profile standard
 ```
 
-## Development Workflow
+---
 
-### 1. Create an Issue
+## Adding a Security Check
 
-Before starting work, create or find an issue that describes the work to be done. This helps avoid duplicate effort and allows for discussion.
+This is the most common contribution. A check is a self-contained module that detects a specific vulnerability or misconfiguration.
 
-### 2. Create a Branch
+### 1. Create the Check File
 
 ```bash
-git checkout -b feature/your-feature-name
-# or
-git checkout -b fix/your-bug-fix
+# Create new check module
+touch crates/openre-scan/src/checks/my_new_check.rs
 ```
 
-Use descriptive branch names:
-- `feat/add-new-analysis-stage`
-- `fix/memory-leak-in-parser`
-- `docs/update-installation-guide`
-- `refactor/plugin-registry`
+### 2. Implement the Check
 
-### 3. Make Changes
+```rust
+// crates/openre-scan/src/checks/my_new_check.rs
+use crate::{Check, Finding, Severity, Confidence, Category};
+use reqwest::Client;
+use url::Url;
+use anyhow::Result;
 
-Follow the coding standards below. Make small, focused commits with clear messages.
+pub struct MyNewCheck;
 
-### 4. Run Tests
+impl Check for MyNewCheck {
+    fn name(&self) -> &'static str {
+        "my-new-check"
+    }
 
-```bash
-# Rust tests
-cargo test --workspace
+    async fn run(&self, client: &Client, target: &Url) -> Result<Vec<Finding>> {
+        let mut findings = Vec::new();
 
-# Frontend tests
-cd frontend && pnpm test
+        // Your detection logic here
+        let response = client.get(target.as_str()).send().await?;
 
-# Python tests
-cd python && pytest
+        if some_vulnerable_condition {
+            findings.push(Finding::new(
+                "Descriptive Title".to_string(),
+                "Human-readable explanation with context".to_string(),
+                Severity::Medium,        // Critical/High/Medium/Low/Info
+                Confidence::High,        // VeryHigh/High/Medium/Low
+                Category::SecurityMisconfiguration,
+                target.to_string(),
+                "web".to_string(),
+                self.name().to_string(),
+                "1.0".to_string(),
+                crate::scan_id(),
+            ).with_evidence(evidence).with_remediation(remediation));
+        }
 
-# Integration tests
-cargo test --test integration_tests
+        Ok(findings)
+    }
+}
 ```
 
-### 5. Check Code Quality
+### 3. Register the Check
+
+Add to `crates/openre-scan/src/checks/mod.rs`:
+```rust
+pub mod my_new_check;
+```
+
+Add to `get_all_checks()` in `main.rs`:
+```rust
+ScanProfile::Standard => vec![
+    // ... existing checks
+    Check::MyNewCheck,  // Add here for Standard profile
+    // or
+    Check::MyNewCheck,  // Add to Full profile only
+],
+```
+
+### 4. Add a Test
+
+```rust
+// crates/openre-scan/tests/integration.rs
+#[tokio::test]
+async fn test_my_new_check() {
+    let (base_url, server) = start_test_server().await;
+    let target = format!("{}/", base_url);
+    let client = build_client(10, 10, false, "test".to_string(), None).unwrap();
+    let target_url = target.parse::<Url>().unwrap();
+
+    let findings = Check::MyNewCheck.run(&client, &target_url).await.unwrap();
+    assert!(findings.iter().any(|f| f.title.contains("Expected Title")));
+    stop_test_server(server).await;
+}
+```
+
+### 5. Run Tests
 
 ```bash
-# Rust formatting
+cargo test -p openre-scan --test integration test_my_new_check
+```
+
+### 6. Submit PR
+
+```bash
+git checkout -b feat/my-new-check
+git add .
+git commit -m "feat: add my-new-check for detecting X vulnerability"
+git push origin feat/my-new-check
+# Open PR on GitHub
+```
+
+---
+
+## Check Design Guidelines
+
+| Principle | Details |
+|-----------|---------|
+| **Single responsibility** | One check = one vulnerability class |
+| **Evidence required** | Every finding must include `Evidence` (HTTP headers, body snippets, locations) |
+| **Remediation included** | Provide actionable steps with effort/priority |
+| **Severity accuracy** | Critical = immediate exploit, High = likely exploit, Medium = config issue, Low = info leak, Info = fingerprint |
+| **Confidence honesty** | VeryHigh = deterministic, High = strong signal, Medium = heuristic, Low = speculative |
+| **Performance** | Checks must complete in < 5s; use timeouts |
+| **No false positives** | Prefer missing a finding over reporting a false one |
+
+---
+
+## Running Tests
+
+```bash
+# All openre-scan tests (unit + integration)
+cargo test -p openre-scan
+
+# Just integration tests
+cargo test -p openre-scan --test integration
+
+# With output
+cargo test -p openre-scan --test integration -- --nocapture
+
+# Core crate tests
+cargo test -p openre-core -p openre-config -p openre-telemetry -p openre-storage
+```
+
+---
+
+## Code Quality
+
+```bash
+# Format
 cargo fmt --all -- --check
 
-# Rust linting
-cargo clippy --workspace --all-targets --all-features -- -D warnings
+# Lint (must pass with zero warnings)
+cargo clippy -p openre-scan -- -D warnings
 
-# Frontend linting
-cd frontend && pnpm lint
-
-# Frontend type checking
-cd frontend && pnpm typecheck
+# Build release
+cargo build --release -p openre-scan
 ```
 
-### 6. Submit Pull Request
-
-Push your branch and create a pull request against `main`.
+---
 
 ## Pull Request Process
 
-### PR Requirements
-
-- [ ] All tests pass
-- [ ] Code follows style guidelines
-- [ ] No new clippy warnings
-- [ ] Documentation updated if needed
-- [ ] CHANGELOG.md updated (for significant changes)
-- [ ] Linked to relevant issue(s)
-
 ### PR Title Format
 
-Use conventional commit format:
-
+Use conventional commits:
 ```
-feat: add new analysis stage for control flow recovery
-fix: resolve memory leak in ELF parser
-docs: update installation guide for macOS
-refactor: simplify plugin registry implementation
-test: add unit tests for incremental analyzer
+feat: add check for X vulnerability
+fix: resolve false positive in security-headers check
+docs: update installation guide for Windows
+refactor: extract check trait for pluggable architecture
+test: add integration test for CORS check
 chore: update dependencies
 ```
 
+### PR Requirements
+
+- [ ] All tests pass (`cargo test -p openre-scan`)
+- [ ] Code formatted (`cargo fmt --all -- --check`)
+- [ ] Zero clippy warnings (`cargo clippy -p openre-scan -- -D warnings`)
+- [ ] Release build succeeds (`cargo build --release -p openre-scan`)
+- [ ] Documentation updated if CLI changes
+- [ ] CHANGELOG.md updated for user-facing changes
+- [ ] Linked to relevant issue
+
 ### Review Process
 
-1. Automated checks must pass (CI)
-2. At least one maintainer review required
+1. Automated CI checks must pass
+2. At least one maintainer review
 3. Address review comments
 4. Maintainer merges after approval
 
-## Coding Standards
+---
 
-### Rust
+## Architecture Overview (for contributors)
 
-- Follow [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
-- Use `cargo fmt` and `cargo clippy` defaults
-- Prefer `anyhow::Result` for application errors
-- Use `thiserror` for library error types
-- Document public APIs with `///` comments
-- Use `#[must_use]` for functions returning important values
-- Prefer `async`/`await` over blocking calls
-- Use `tokio` for async runtime
-- Use `serde` for serialization
+```
+openre-scan/
+├── src/
+│   ├── main.rs           # CLI entry point, check orchestration, output formats
+│   ├── checks/           # Security check implementations (one file per check)
+│   │   ├── mod.rs        # Check registration
+│   │   ├── http_headers.rs
+│   │   ├── security_headers.rs
+│   │   └── ...           # Add new checks here
+│   └── tui/              # Experimental terminal UI
+├── tests/
+│   └── integration.rs    # End-to-end tests against test_server.py
+```
 
-### TypeScript/React
+### Key Types (from `openre-core`)
 
-- Use functional components with hooks
-- Follow [React TypeScript Cheatsheet](https://react-typescript-cheatsheet.netlify.app/)
-- Use `zod` for runtime validation
-- Prefer `tanstack-query` for server state
-- Use `zustand` for client state
-- Follow Tailwind CSS conventions
-- Use `clsx` + `tailwind-merge` for class names
+- `Finding` — Core finding with severity, confidence, category, evidence, remediation
+- `Evidence` — Proof: HTTP request/response, location, timing, payload
+- `Severity` — Critical, High, Medium, Low, Info
+- `Confidence` — VeryHigh, High, Medium, Low
+- `Category` — SecurityMisconfiguration, InformationDisclosure, etc.
+- `RemediationGuidance` — Summary, steps, effort (Low/Medium/High), priority (Immediate/High/Medium/Low)
 
-### Python
+---
 
-- Follow [PEP 8](https://pep8.org/)
-- Use type hints everywhere
-- Use `pydantic` for data validation
-- Follow [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
-- Use `ruff` for linting
-- Use `mypy` for type checking
+## Reporting Bugs
 
-### Git Conventions
-
-- Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
-- Keep commits atomic and focused
-- Write descriptive commit messages
-- Reference issues: `fixes #123`
-
-## Testing
-
-### Unit Tests
-
-- Place unit tests in the same file as the code (Rust) or `__tests__` directory (TypeScript/Python)
-- Test edge cases and error conditions
-- Use descriptive test names: `test_function_name_scenario_expected_result`
-
-### Integration Tests
-
-- Place in `tests/` directory
-- Test complete workflows
-- Use `tempfile` for temporary resources
-- Mock external services
-
-### Test Coverage
-
-- Aim for >80% coverage on new code
-- Run `cargo llvm-cov` for Rust coverage
-- Run `pnpm test --coverage` for frontend coverage
-
-## Documentation
-
-### Code Documentation
-
-- Document all public APIs
-- Use `///` for Rust, JSDoc for TypeScript, docstrings for Python
-- Include examples for complex functions
-
-### User Documentation
-
-- Update relevant `.md` files in `docs/`
-- Keep installation guide current
-- Document new features and configuration options
-
-### Architecture Documentation
-
-- Update architecture docs for significant changes
-- Document new components and their interactions
-- Keep diagrams current
-
-## Community
-
-### Communication Channels
-
-- **GitHub Issues**: Bug reports, feature requests
-- **GitHub Discussions**: Questions, ideas, announcements
-- **Discord**: Real-time chat (invite link in repo description)
-
-### Getting Help
-
-- Check existing issues and discussions first
-- Search documentation
-- Ask in Discussions or Discord
-
-### Reporting Bugs
-
-Use the bug report template and include:
-
-- Clear description of the issue
+Use the **Bug Report** template and include:
+- Clear description
 - Steps to reproduce
 - Expected vs actual behavior
-- Environment details (OS, versions)
-- Logs or screenshots if applicable
+- Target URL (if safe to share)
+- Scanner version (`openre-scan --version`)
+- OS/Rust version
 
-### Feature Requests
+---
 
-Use the feature request template and include:
+## Feature Requests
 
+Use the **Feature Request** template:
 - Problem statement
 - Proposed solution
-- Alternatives considered
-- Use cases
+- User value / use cases
+- Technical considerations
+
+---
+
+## Security Issues
+
+**Do not** open public issues for security vulnerabilities.
+
+Email: **security@open-re.org** (or use GitHub Security Advisories)
+
+Include:
+- Description and impact
+- Reproduction steps
+- Affected versions
+- Suggested fix (if any)
+
+---
 
 ## Recognition
 
 Contributors are recognized in:
-
-- [CONTRIBUTORS.md](CONTRIBUTORS.md)
+- `CONTRIBUTORS.md`
 - Release notes
 - GitHub contributor graphs
 
-Thank you for contributing to open-re!
-4. **Code** - Implementation (Phase 1+ only)
-5. **Testing** - Writing tests, reporting bugs, verifying fixes
-6. **Community** - Answering questions, reviewing PRs, triaging issues
-
-### Current Phase: Phase 0 - Research & Documentation
-
-**Important**: We are currently in Phase 0. No implementation code should be written yet. Contributions should focus on:
-
-- Researching existing reverse engineering tools
-- Writing and improving documentation
-- Defining requirements and specifications
-- Creating architecture proposals
-- Identifying risks and mitigation strategies
-
-## Development Process
-
-### Branching Strategy
-
-- `main` - Stable, reviewed documentation only
-- `develop` - Ongoing documentation work
-- `feature/*` - Feature-specific documentation branches
-- `research/*` - Research and analysis branches
-
-### Commit Messages
-
-Follow conventional commits format:
-
-```
-type(scope): description
-
-[optional body]
-
-[optional footer]
-```
-
-Types: `docs`, `research`, `design`, `feat`, `fix`, `refactor`, `test`, `chore`
-
-Examples:
-```
-docs(vision): add mission statement and core philosophy
-research(competitors): analyze Ghidra's plugin architecture
-design(architecture): propose plugin system interface
-```
-
-## Pull Request Guidelines
-
-### Before Submitting
-
-1. Ensure your branch is up to date with `develop`
-2. Run any documentation linting/formatting tools
-3. Verify all links work
-4. Check for spelling/grammar errors
-
-### PR Requirements
-
-- Clear title following conventional commits
-- Description explaining the change and rationale
-- Reference related issues
-- No implementation code (Phase 0)
-- Documentation follows project style guide
-
-### Review Process
-
-1. Automated checks (link validation, formatting)
-2. Maintainer review for content quality
-3. Community feedback period (48 hours minimum)
-4. Approval from at least one maintainer
-5. Merge to `develop` branch
-
-## Issue Reporting
-
-### Bug Reports (Documentation)
-
-Use the bug report template for:
-- Broken links
-- Factual errors
-- Unclear explanations
-- Missing information
-
-### Feature Requests
-
-Use the feature request template for:
-- New documentation sections
-- Research topics to explore
-- Process improvements
-
-### Research Tasks
-
-Use the research task template for:
-- Tool analysis assignments
-- Technology evaluations
-- Architecture comparisons
-
-## Documentation Standards
-
-### Writing Style
-
-- Clear, concise, professional tone
-- Active voice preferred
-- Define acronyms on first use
-- Use inclusive language
-- Avoid jargon without explanation
-
-### Formatting
-
-- Markdown with consistent heading levels
-- Code blocks with language specification
-- Tables for structured comparisons
-- Diagrams using Mermaid syntax where helpful
-- Relative links for internal references
-
-### Structure
-
-Each document should have:
-- Clear title and purpose
-- Table of contents for long documents
-- Introduction/summary
-- Detailed content organized logically
-- Conclusion or next steps
-- References/sources
-
-## Testing
-
-### Documentation Testing
-
-- All internal links must resolve
-- External links should be accessible
-- Code examples (if any) should be syntactically correct
-- Diagrams should render correctly
-
-### Future Code Testing (Phase 1+)
-
-- Unit tests for all new functionality
-- Integration tests for major features
-- Performance benchmarks for critical paths
-- Security testing for analysis features
-
-## Community
-
-### Communication Channels
-
-- **GitHub Discussions** - General questions, ideas, announcements
-- **GitHub Issues** - Bug reports, feature requests, tasks
-- **Pull Requests** - Code/documentation reviews
-
-### Getting Help
-
-- Check existing documentation first
-- Search closed issues and discussions
-- Ask in GitHub Discussions for general questions
-- Tag maintainers for urgent matters
-
-### Recognition
-
-Contributors are recognized in:
-- CONTRIBUTORS.md file
-- Release notes
-- Project website (future)
-- Annual contributor highlights
-
-## Legal
-
-By contributing, you agree that your contributions will be licensed under the project's [MIT License](LICENSE).
+---
 
 ## Questions?
 
-Open a GitHub Discussion or contact the maintainers directly.
+- **GitHub Discussions** for questions and ideas
+- **GitHub Issues** for bugs and feature requests
+- **Pull Requests** for code reviews
 
 ---
 
-*This document is a living document and will evolve as the project progresses through phases.*
+## License
+
+By contributing, you agree your contributions are licensed under the project's [MIT License](LICENSE).
