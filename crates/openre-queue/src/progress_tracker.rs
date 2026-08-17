@@ -89,7 +89,8 @@ impl ProgressTracker {
                 if let Some(started_at) = progress.started_at {
                     let elapsed = chrono::Utc::now() - started_at;
                     let elapsed_seconds = elapsed.num_seconds() as f64;
-                    let estimated_total_seconds = elapsed_seconds / progress.overall_progress as f64;
+                    let estimated_total_seconds =
+                        elapsed_seconds / progress.overall_progress as f64;
                     let estimated_total = chrono::Duration::seconds(estimated_total_seconds as i64);
                     progress.estimated_remaining = Some(estimated_total - elapsed);
                 }
