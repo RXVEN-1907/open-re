@@ -10,9 +10,19 @@ use url::Url;
 
 /// Start a test HTTP server and return its base URL
 async fn start_test_server() -> (String, tokio::process::Child) {
+    // Use workspace root (two levels up from crate manifest dir)
+    let workspace_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+
     let child = Command::new("python3")
         .arg("test_server.py")
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .current_dir(&workspace_root)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
