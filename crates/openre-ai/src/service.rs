@@ -11,7 +11,6 @@ use crate::{
     router::ModelRouter,
     tools::{ToolContext, ToolPermissions, ToolRegistry},
 };
-use anyhow::anyhow;
 use openre_config::AiConfig;
 use openre_core::error::OpenreResult as Result;
 use openre_storage::{GlobalStore, ObjectStore, ProjectStore};

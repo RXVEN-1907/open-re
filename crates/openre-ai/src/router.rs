@@ -193,7 +193,7 @@ impl ModelRouter {
     /// Round-robin selection
     #[allow(dead_code)]
     async fn select_round_robin(&self, candidates: &[ProviderId]) -> Result<ProviderId> {
-        let mut stats = self.usage_stats.write().await;
+        let stats = self.usage_stats.write().await;
 
         // Find least used
         let mut best: Option<ProviderId> = None;

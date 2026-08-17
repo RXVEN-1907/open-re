@@ -2,6 +2,7 @@
 
 use crate::providers::*;
 use async_trait::async_trait;
+use base64::Engine;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_storage::{GlobalStore, ObjectStore, ProjectStore};
@@ -172,7 +173,7 @@ impl AiTool for ReadBinaryTool {
             .read_file(file_id, offset, length)
             .await?;
 
-        let b64 = base64::encode(&data);
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&data);
         let hex_str = hex::encode(&data);
 
         Ok(ToolResult::success(serde_json::json!({
