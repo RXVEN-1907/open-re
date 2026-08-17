@@ -158,7 +158,7 @@ impl ModelRouter {
     fn estimate_cost(
         &self,
         provider: &dyn ModelProvider,
-        stats: &HashMap<ProviderId, ProviderStats>,
+        _stats: &HashMap<ProviderId, ProviderStats>,
     ) -> f64 {
         // Simple cost estimation based on provider type and usage
         match provider.id().provider_type.as_str() {

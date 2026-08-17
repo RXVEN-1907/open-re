@@ -165,7 +165,7 @@ impl PrivacyController {
 
         for msg in &request.messages {
             if let Some(content) = &msg.content {
-                let lower = content.to_lowercase();
+                let _lower = content.to_lowercase();
 
                 // Check for PII
                 if self.contains_pii(content) {

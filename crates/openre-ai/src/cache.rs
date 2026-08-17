@@ -166,8 +166,8 @@ impl AiCache {
     async fn save_to_disk(
         &self,
         path: &PathBuf,
-        key: &str,
-        response: &CompletionResponse,
+        _key: &str,
+        _response: &CompletionResponse,
     ) -> Result<()> {
         let cache = self.memory_cache.read().await;
         let data = serde_json::to_vec(&*cache)?;

@@ -285,7 +285,7 @@ impl CompiledPrompt {
     /// Convert to completion request
     pub fn to_completion_request(
         &self,
-        model: &str,
+        _model: &str,
         temperature: Option<f32>,
     ) -> CompletionRequest {
         let mut messages = vec![Message::system(self.system_prompt.clone())];
