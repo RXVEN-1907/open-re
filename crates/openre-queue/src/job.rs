@@ -34,11 +34,12 @@ pub enum StageStatus {
 }
 
 /// Job priority
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Priority {
     High,
     Default,
+    #[default]
     Low,
 }
 
@@ -49,12 +50,6 @@ impl Priority {
             Priority::Default => "DEFAULT",
             Priority::Low => "LOW",
         }
-    }
-}
-
-impl Default for Priority {
-    fn default() -> Self {
-        Priority::Default
     }
 }
 

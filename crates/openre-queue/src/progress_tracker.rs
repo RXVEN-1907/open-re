@@ -85,12 +85,14 @@ impl ProgressTracker {
             }
 
             // Estimate remaining time
-            if progress.overall_progress > 0.0 && progress.started_at.is_some() {
-                let elapsed = chrono::Utc::now() - progress.started_at.unwrap();
-                let elapsed_seconds = elapsed.num_seconds() as f64;
-                let estimated_total_seconds = elapsed_seconds / progress.overall_progress as f64;
-                let estimated_total = chrono::Duration::seconds(estimated_total_seconds as i64);
-                progress.estimated_remaining = Some(estimated_total - elapsed);
+            if progress.overall_progress > 0.0 {
+                if let Some(started_at) = progress.started_at {
+                    let elapsed = chrono::Utc::now() - started_at;
+                    let elapsed_seconds = elapsed.num_seconds() as f64;
+                    let estimated_total_seconds = elapsed_seconds / progress.overall_progress as f64;
+                    let estimated_total = chrono::Duration::seconds(estimated_total_seconds as i64);
+                    progress.estimated_remaining = Some(estimated_total - elapsed);
+                }
             }
 
             let progress_clone = progress.clone();
