@@ -3348,6 +3348,7 @@ dependencies = [
  "notify",
  "once_cell",
  "opentelemetry 0.27.1",
+ "redis",
  "rusqlite",
  "serde",
  "serde_json",

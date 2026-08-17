@@ -35,6 +35,9 @@ pub enum Error {
     #[error("Tracing error: {0}")]
     Tracing(#[from] opentelemetry::trace::TraceError),
 
+    #[error("Redis error: {0}")]
+    Redis(#[from] redis::RedisError),
+
     #[error("Internal error: {0}")]
     Internal(#[from] anyhow::Error),
 
@@ -85,6 +88,7 @@ impl Error {
             Error::Io(_) => "IO_ERROR",
             Error::Notify(_) => "NOTIFY_ERROR",
             Error::Tracing(_) => "TRACING_ERROR",
+            Error::Redis(_) => "REDIS_ERROR",
             Error::Internal(_) => "INTERNAL_ERROR",
             Error::Cancelled => "CANCELLED",
             Error::Timeout(_) => "TIMEOUT",
@@ -109,6 +113,7 @@ impl Error {
                 | Error::ServiceUnavailable(_)
                 | Error::Notify(_)
                 | Error::Tracing(_)
+                | Error::Redis(_)
                 | Error::Rusqlite(_)
                 | Error::ConnectionError(_)
                 | Error::ResourceExhausted(_)
@@ -125,6 +130,7 @@ impl Error {
                 | Error::Io(_)
                 | Error::Notify(_)
                 | Error::Tracing(_)
+                | Error::Redis(_)
                 | Error::Rusqlite(_)
                 | Error::ConnectionError(_)
                 | Error::ResourceExhausted(_)

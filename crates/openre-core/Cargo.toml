@@ -25,3 +25,4 @@ tracing = { workspace = true }
 sha2 = { workspace = true }
 rusqlite = { workspace = true }
 url = { workspace = true }
+redis = { workspace = true }
