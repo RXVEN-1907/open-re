@@ -22,7 +22,7 @@ pub struct CancellationManager {
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-struct CancellationInfo {
+pub struct CancellationInfo {
     job_id: JobId,
     requested_at: chrono::DateTime<chrono::Utc>,
     requested_by: String,
