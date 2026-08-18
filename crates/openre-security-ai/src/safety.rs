@@ -2,7 +2,6 @@
 
 use crate::{AiAnalystError, AiResult};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// Source of a claim in AI analysis
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

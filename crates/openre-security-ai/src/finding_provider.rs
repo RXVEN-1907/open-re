@@ -1,6 +1,6 @@
 //! FindingProvider trait for resolving scan data
 
-use crate::{AiAnalystError, AiResult};
+use crate::AiResult;
 use async_trait::async_trait;
 use openre_core::ids::{FindingId, ScanId};
 use openre_core::result::{Finding, FindingFilter};

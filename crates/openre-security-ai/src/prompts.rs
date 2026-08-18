@@ -1,7 +1,5 @@
 //! Prompt compiler and template management for AI Security Analyst
 
-use crate::AiAnalystError;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// A prompt template with versioning

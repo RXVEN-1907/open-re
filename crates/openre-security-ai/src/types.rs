@@ -1,9 +1,8 @@
 //! Core result types for the AI Security Analyst
 
 use openre_core::ids::{FindingId, ScanId};
-use openre_core::result::{Category, Confidence, Finding, Severity};
+use openre_core::result::Severity;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Explanation of a security finding
 #[derive(Debug, Clone, Serialize, Deserialize)]

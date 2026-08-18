@@ -209,7 +209,7 @@ async fn run_scan_with_progress(
     let all_checks = crate::get_all_checks(&profile);
     let checks_to_run: Vec<Check> = all_checks
         .into_iter()
-        .filter(|c| c.name().to_string() != "sensitive-files") // Skip slow check by default
+        .filter(|c| c.name() != "sensitive-files") // Skip slow check by default
         .collect();
 
     let checks_count = checks_to_run.len();
@@ -333,7 +333,7 @@ fn ui(f: &mut ratatui::Frame, app: &mut App) {
     f.render_widget(title, chunks[0]);
 
     // Tabs
-    let tabs = vec!["Target", "Profile", "Output"];
+    let tabs = ["Target", "Profile", "Output"];
     let tab_items: Vec<ListItem> = tabs
         .iter()
         .enumerate()
@@ -410,7 +410,7 @@ fn render_target_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
 
 #[cfg(feature = "tui")]
 fn render_profile_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
-    let profiles = vec![
+    let profiles = [
         ("Quick", "Fast scan with essential checks (~6 checks)"),
         (
             "Standard",
@@ -460,7 +460,7 @@ fn render_profile_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
 
 #[cfg(feature = "tui")]
 fn render_output_tab(f: &mut ratatui::Frame, app: &App, area: Rect) {
-    let formats = vec![
+    let formats = [
         ("Table", "Human-readable table output"),
         ("JSON", "Machine-readable JSON output"),
         ("SARIF", "Static Analysis Results Interchange Format"),
