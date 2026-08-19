@@ -148,5 +148,3 @@ docker-compose*.yml
 *.tar.gz
 *.zip
 
-# Cargo registry cache (not needed in container)
-**/Cargo.lock
