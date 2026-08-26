@@ -68,7 +68,6 @@ define_id!(ProjectId);
 define_id!(FileId);
 define_id!(JobId);
 define_id!(AnalysisId);
-define_id!(StageId);
 define_id!(PluginId);
 define_id!(WorkerId);
 define_id!(SessionId);
@@ -80,36 +79,47 @@ define_id!(FindingId);
 define_id!(ScanId);
 define_id!(TargetId);
 
+/// Identifier for a pipeline stage (human-readable name)
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Default)]
+#[serde(transparent)]
+pub struct StageId(String);
+
 impl StageId {
-    pub fn all_ordered() -> Vec<StageId> {
-        vec![
-            StageId::from_str("identification").unwrap(),
-            StageId::from_str("loading").unwrap(),
-            StageId::from_str("disassembly").unwrap(),
-            StageId::from_str("control_flow").unwrap(),
-            StageId::from_str("data_flow").unwrap(),
-            StageId::from_str("type_recovery").unwrap(),
-            StageId::from_str("decompilation").unwrap(),
-            StageId::from_str("ai_enrichment").unwrap(),
-            StageId::from_str("finalization").unwrap(),
-        ]
+    /// Create a stage id from its canonical name (e.g. "disassembly")
+    pub fn new(name: &str) -> Self {
+        Self(name.to_string())
     }
 
-    pub fn as_str(&self) -> &'static str {
-        // Map UUID to stage name - this is a simplified version
-        // In practice, you'd want a proper mapping
-        match self.to_string().as_str() {
-            s if s.starts_with("identification") => "identification",
-            s if s.starts_with("loading") => "loading",
-            s if s.starts_with("disassembly") => "disassembly",
-            s if s.starts_with("control_flow") => "control_flow",
-            s if s.starts_with("data_flow") => "data_flow",
-            s if s.starts_with("type_recovery") => "type_recovery",
-            s if s.starts_with("decompilation") => "decompilation",
-            s if s.starts_with("ai_enrichment") => "ai_enrichment",
-            s if s.starts_with("finalization") => "finalization",
-            _ => "unknown",
-        }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn all_ordered() -> Vec<StageId> {
+        vec![
+            StageId::new("identification"),
+            StageId::new("loading"),
+            StageId::new("disassembly"),
+            StageId::new("control_flow"),
+            StageId::new("data_flow"),
+            StageId::new("type_recovery"),
+            StageId::new("decompilation"),
+            StageId::new("ai_enrichment"),
+            StageId::new("finalization"),
+        ]
+    }
+}
+
+impl fmt::Display for StageId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl FromStr for StageId {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.to_string()))
     }
 }
 
