@@ -92,7 +92,7 @@ pub struct UpdateTargetRequest {
 }
 
 /// Pagination parameters
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct PaginationParams {
     #[serde(default = "default_limit")]
     pub limit: usize,
@@ -104,11 +104,26 @@ fn default_limit() -> usize {
     50
 }
 
+/// Parse a `FindingSort` from its snake_case name (defaults to severity desc)
+fn parse_finding_sort(sort: Option<&str>) -> FindingSort {
+    match sort {
+        Some("severity_asc") => FindingSort::SeverityAsc,
+        Some("confidence_desc") => FindingSort::ConfidenceDesc,
+        Some("timestamp_desc") => FindingSort::TimestampDesc,
+        Some("timestamp_asc") => FindingSort::TimestampAsc,
+        Some("risk_score_desc") => FindingSort::RiskScoreDesc,
+        Some("target_asc") => FindingSort::TargetAsc,
+        _ => FindingSort::SeverityDesc,
+    }
+}
+
 /// Finding query parameters
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct FindingQueryParams {
-    #[serde(flatten)]
-    pub pagination: PaginationParams,
+    #[serde(default = "default_limit")]
+    pub limit: usize,
+    #[serde(default)]
+    pub offset: usize,
     pub severity: Option<Vec<String>>,
     pub confidence: Option<Vec<String>>,
     pub category: Option<Vec<String>>,
@@ -123,7 +138,8 @@ pub struct FindingQueryParams {
     pub search: Option<String>,
     pub min_risk_score: Option<u8>,
     pub max_risk_score: Option<u8>,
-    pub sort: Option<FindingSort>,
+    /// Sort order (snake_case name of a `FindingSort` variant)
+    pub sort: Option<String>,
 }
 
 /// Scan response
@@ -312,9 +328,6 @@ pub struct ErrorResponse {
         ErrorResponse,
         ScanProgress,
         ScanStatus,
-        FindingFilter,
-        FindingSort,
-        FindingStats,
         PaginationParams,
         FindingQueryParams,
     )),
@@ -846,17 +859,13 @@ async fn get_scan_findings(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
-    let sort = params.sort.unwrap_or(FindingSort::SeverityDesc);
+    let sort = parse_finding_sort(params.sort.as_deref());
     let findings = state
         .storage
-        .get_findings_filtered(
-            filter,
-            sort,
-            params.pagination.limit,
-            params.pagination.offset,
-        )
+        .get_findings_filtered(filter, sort, params.limit, params.offset)
         .await
         .map_err(|e| {
             (
@@ -1457,7 +1466,7 @@ async fn set_plugin_config(
         ("scan_id" = Option<ScanId>, Query, description = "Optional scan ID to filter stats"),
     ),
     responses(
-        (status = 200, description = "Finding statistics", body = FindingStats),
+        (status = 200, description = "Finding statistics"),
     ),
     tag = "findings"
 )]
@@ -1468,7 +1477,10 @@ async fn get_finding_stats(
     let scan_id = params.get("scan_id").and_then(|s| s.parse().ok());
     let stats = state
         .storage
-        .get_finding_stats(scan_id)
+        .get_finding_stats(FindingFilter {
+            scan_id,
+            ..Default::default()
+        })
         .await
         .map_err(|e| {
             (

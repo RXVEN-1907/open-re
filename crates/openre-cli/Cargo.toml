@@ -33,4 +33,9 @@ chrono = { workspace = true }
 reqwest = { workspace = true }
 indicatif = "0.17"
 colored = "2.0"
-tabled = "0.16"
+tabled = { workspace = true }
+serde_yaml = { workspace = true }
+toml = "0.8"
+urlencoding = { workspace = true }
+dirs = "5.0"
+futures = { workspace = true }

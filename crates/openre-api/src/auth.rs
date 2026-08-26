@@ -324,10 +324,9 @@ pub fn require_permission(permission: &str) -> impl Fn(Extension<Claims>) -> Api
 }
 
 /// Require specific role
-pub fn require_role(role: &str) -> impl Fn(Extension<Claims>) -> ApiResult<()> + Clone {
-    let r = role.to_string();
+pub fn require_role(role: &'static str) -> impl Fn(Extension<Claims>) -> ApiResult<()> + Clone {
     move |Extension(claims): Extension<Claims>| {
-        if claims.roles.contains(&r) || claims.roles.contains(&"admin".to_string()) {
+        if claims.roles.contains(&role.to_string()) || claims.roles.contains(&"admin".to_string()) {
             Ok(())
         } else {
             Err(ApiError::Forbidden(format!("Role required: {}", role)))

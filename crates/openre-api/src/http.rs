@@ -1,5 +1,7 @@
 //! HTTP server for open-re API
 
+use crate::middleware as api_middleware;
+use crate::routes;
 use crate::{ApiError, ApiResult, AppState};
 use axum::{
     extract::{Extension, State},
@@ -31,31 +33,35 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .allow_headers(Any)
         .allow_credentials(true);
 
-    let api_routes = routes::create_routes(state.clone());
+    let api_routes = crate::routes::create_routes(state.clone());
 
-    Router::new()
-        .merge(api_routes)
-        .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
+    let health_routes = Router::new()
         .route("/health", get(health_check))
         .route("/ready", get(readiness_check))
+        .with_state(state.clone());
+
+    let router: Router = Router::new()
+        .merge(api_routes)
+        .merge(health_routes)
+        .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(middleware::from_fn_with_state(
             state.clone(),
-            middleware::request_id,
+            api_middleware::request_id,
         ))
         .layer(middleware::from_fn_with_state(
             state.clone(),
-            middleware::logging,
+            api_middleware::logging,
         ))
         .layer(middleware::from_fn_with_state(
             state.clone(),
-            middleware::rate_limit,
+            api_middleware::rate_limit,
         ))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
         .layer(RequestBodyLimitLayer::new(50 * 1024 * 1024)) // 50MB
         .layer(TimeoutLayer::new(Duration::from_secs(30)))
-        .layer(cors)
-        .with_state(state)
+        .layer(cors);
+    router
 }
 
 /// Health check endpoint
@@ -72,15 +78,11 @@ async fn readiness_check(State(state): State<Arc<AppState>>) -> ApiResult<impl I
     // Check database connectivity
     state.global_store.health_check().await?;
 
-    // Check Redis connectivity
-    state.queue_manager.health_check().await?;
-
     Ok(Json(serde_json::json!({
         "status": "ready",
         "timestamp": chrono::Utc::now(),
         "checks": {
             "database": "ok",
-            "queue": "ok",
         }
     })))
 }
@@ -89,29 +91,26 @@ async fn readiness_check(State(state): State<Arc<AppState>>) -> ApiResult<impl I
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        routes::projects::list_projects,
-        routes::projects::create_project,
-        routes::projects::get_project,
-        routes::projects::update_project,
-        routes::projects::delete_project,
-        routes::files::upload_file,
-        routes::files::list_files,
-        routes::files::get_file,
-        routes::files::delete_file,
-        routes::analysis::start_analysis,
-        routes::analysis::get_analysis_status,
-        routes::analysis::get_analysis_results,
-        routes::functions::list_functions,
-        routes::functions::get_function,
-        routes::functions::get_function_pseudocode,
-        routes::functions::get_function_cfg,
-        routes::ai::chat_completion,
-        routes::ai::analyze_function,
-        routes::plugins::list_plugins,
-        routes::plugins::install_plugin,
-        routes::auth::login,
-        routes::auth::register,
-        routes::auth::refresh_token,
+        crate::routes::projects::list_projects,
+        crate::routes::projects::create_project,
+        crate::routes::projects::get_project,
+        crate::routes::projects::update_project,
+        crate::routes::projects::delete_project,
+        crate::routes::files::upload_file,
+        crate::routes::files::list_files,
+        crate::routes::files::get_file,
+        crate::routes::files::delete_file,
+        crate::routes::analysis::start_analysis,
+        crate::routes::analysis::get_analysis_status,
+        crate::routes::analysis::get_analysis_results,
+        crate::routes::functions::list_functions,
+        crate::routes::functions::get_function,
+        crate::routes::ai::chat_completion,
+        crate::routes::ai::analyze_function,
+        crate::routes::plugins::list_plugins,
+        crate::routes::plugins::install_plugin,
+        crate::routes::auth::login,
+        crate::routes::auth::register,
     ),
     components(schemas(
         crate::routes::projects::ProjectResponse,
@@ -145,7 +144,7 @@ async fn readiness_check(State(state): State<Arc<AppState>>) -> ApiResult<impl I
     ),
     info(
         title = "open-re API",
-        version = env!("CARGO_PKG_VERSION"),
+        version = "0.1.0",
         description = "Reverse engineering platform API",
         contact(
             name = "open-re Team",

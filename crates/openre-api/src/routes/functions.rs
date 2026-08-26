@@ -1,6 +1,8 @@
 //! Function routes
 
+use crate::validation::{IdParam, PaginationParams};
 use crate::{ApiResult, AppState};
+use axum::Extension;
 use axum::{
     extract::{Path, Query, State},
     routing::get,
@@ -40,14 +42,16 @@ async fn list_functions(
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<FunctionListResponse>> {
     // Get project store for the project
-    let project_id = filter.project_id.as_deref().and_then(|s| s.parse().ok());
-    let file_id = filter.file_id.as_deref().and_then(|s| s.parse().ok());
+    let project_id: Option<ProjectId> = filter.project_id.as_deref().and_then(|s| s.parse().ok());
+    let file_id: Option<FileId> = filter.file_id.as_deref().and_then(|s| s.parse().ok());
 
     if project_id.is_none() && file_id.is_none() {
         return Err(crate::error::ApiError::BadRequest(
             "project_id or file_id required".into(),
         ));
     }
+
+    let _ = (state, claims);
 
     // For now, return empty list - would need project store
     Ok(Json(FunctionListResponse {

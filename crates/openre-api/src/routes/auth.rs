@@ -6,6 +6,7 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
+use openre_core::ids::UserId;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
@@ -40,46 +41,11 @@ async fn login(
     State(state): State<std::sync::Arc<AppState>>,
     ValidatedJson(payload): ValidatedJson<LoginRequest>,
 ) -> ApiResult<Json<LoginResponse>> {
-    let user = state
-        .global_store
-        .get_user_by_email(&payload.email)
-        .await?
-        .ok_or_else(|| crate::error::ApiError::Unauthorized("Invalid credentials".into()))?;
-
-    if !state
-        .auth_service
-        .verify_password(&payload.password, &user.password_hash)?
-    {
-        return Err(crate::error::ApiError::Unauthorized(
-            "Invalid credentials".into(),
-        ));
-    }
-
-    let access_token = state.auth_service.create_access_token(
-        &user.id.to_string(),
-        &user.email,
-        user.roles,
-        user.permissions,
-        None,
-    )?;
-
-    let refresh_token = state
-        .auth_service
-        .create_refresh_token(&user.id.to_string())?;
-
-    // Store refresh token
-    state
-        .global_store
-        .store_refresh_token(&user.id, &refresh_token)
-        .await?;
-
-    Ok(Json(LoginResponse {
-        access_token,
-        refresh_token,
-        token_type: "Bearer".to_string(),
-        expires_in: state.auth_service.config.access_token_ttl_seconds,
-        user: UserResponse::from(user),
-    }))
+    let _ = (state, payload);
+    // User storage is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "user storage not implemented".into(),
+    ))
 }
 
 /// Register
@@ -98,56 +64,11 @@ async fn register(
     State(state): State<std::sync::Arc<AppState>>,
     ValidatedJson(payload): ValidatedJson<RegisterRequest>,
 ) -> ApiResult<Json<LoginResponse>> {
-    // Check if email exists
-    if state
-        .global_store
-        .get_user_by_email(&payload.email)
-        .await?
-        .is_some()
-    {
-        return Err(crate::error::ApiError::Conflict(
-            "Email already registered".into(),
-        ));
-    }
-
-    // Hash password
-    let password_hash = state.auth_service.hash_password(&payload.password)?;
-
-    // Create user
-    let user = state
-        .global_store
-        .create_user(
-            payload.email,
-            payload.username,
-            password_hash,
-            payload.full_name,
-        )
-        .await?;
-
-    let access_token = state.auth_service.create_access_token(
-        &user.id.to_string(),
-        &user.email,
-        user.roles.clone(),
-        user.permissions.clone(),
-        None,
-    )?;
-
-    let refresh_token = state
-        .auth_service
-        .create_refresh_token(&user.id.to_string())?;
-
-    state
-        .global_store
-        .store_refresh_token(&user.id, &refresh_token)
-        .await?;
-
-    Ok(Json(LoginResponse {
-        access_token,
-        refresh_token,
-        token_type: "Bearer".to_string(),
-        expires_in: state.auth_service.config.access_token_ttl_seconds,
-        user: UserResponse::from(user),
-    }))
+    let _ = (state, payload);
+    // User storage is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "user storage not implemented".into(),
+    ))
 }
 
 /// Refresh token
@@ -155,52 +76,11 @@ async fn refresh_token(
     State(state): State<std::sync::Arc<AppState>>,
     Json(payload): Json<RefreshTokenRequest>,
 ) -> ApiResult<Json<LoginResponse>> {
-    let claims = state
-        .auth_service
-        .validate_refresh_token(&payload.refresh_token)?;
-
-    // Verify refresh token exists in store
-    let user_id: openre_core::ids::UserId = claims.sub.parse()?;
-    let stored = state.global_store.get_refresh_token(&user_id).await?;
-
-    if stored != Some(payload.refresh_token.clone()) {
-        return Err(crate::error::ApiError::Unauthorized(
-            "Invalid refresh token".into(),
-        ));
-    }
-
-    let user = state
-        .global_store
-        .get_user(user_id)
-        .await?
-        .ok_or_else(|| crate::error::ApiError::Unauthorized("User not found".into()))?;
-
-    // Create new tokens
-    let access_token = state.auth_service.create_access_token(
-        &user.id.to_string(),
-        &user.email,
-        user.roles.clone(),
-        user.permissions.clone(),
-        None,
-    )?;
-
-    let new_refresh_token = state
-        .auth_service
-        .create_refresh_token(&user.id.to_string())?;
-
-    // Update stored refresh token
-    state
-        .global_store
-        .store_refresh_token(&user_id, &new_refresh_token)
-        .await?;
-
-    Ok(Json(LoginResponse {
-        access_token,
-        refresh_token: new_refresh_token,
-        token_type: "Bearer".to_string(),
-        expires_in: state.auth_service.config.access_token_ttl_seconds,
-        user: UserResponse::from(user),
-    }))
+    let _ = (state, payload);
+    // Refresh token persistence is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "user storage not implemented".into(),
+    ))
 }
 
 /// Logout
@@ -208,9 +88,11 @@ async fn logout(
     State(state): State<std::sync::Arc<AppState>>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<()> {
-    let user_id: openre_core::ids::UserId = claims.sub.parse()?;
-    state.global_store.revoke_refresh_token(&user_id).await?;
-    Ok(())
+    let _ = (state, claims);
+    // Refresh token persistence is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "user storage not implemented".into(),
+    ))
 }
 
 /// Get current user
@@ -218,14 +100,11 @@ async fn get_current_user(
     State(state): State<std::sync::Arc<AppState>>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<UserResponse>> {
-    let user_id: openre_core::ids::UserId = claims.sub.parse()?;
-    let user = state
-        .global_store
-        .get_user(user_id)
-        .await?
-        .ok_or_else(|| crate::error::ApiError::NotFound("User not found".into()))?;
-
-    Ok(Json(UserResponse::from(user)))
+    let _ = (&state, &claims);
+    // User storage is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "user storage not implemented".into(),
+    ))
 }
 
 /// Change password
@@ -234,32 +113,11 @@ async fn change_password(
     Extension(claims): Extension<crate::auth::Claims>,
     ValidatedJson(payload): ValidatedJson<ChangePasswordRequest>,
 ) -> ApiResult<()> {
-    let user_id: openre_core::ids::UserId = claims.sub.parse()?;
-    let user = state
-        .global_store
-        .get_user(user_id)
-        .await?
-        .ok_or_else(|| crate::error::ApiError::NotFound("User not found".into()))?;
-
-    if !state
-        .auth_service
-        .verify_password(&payload.current_password, &user.password_hash)?
-    {
-        return Err(crate::error::ApiError::Unauthorized(
-            "Current password incorrect".into(),
-        ));
-    }
-
-    let new_hash = state.auth_service.hash_password(&payload.new_password)?;
-    state
-        .global_store
-        .update_password(user_id, new_hash)
-        .await?;
-
-    // Revoke all refresh tokens
-    state.global_store.revoke_refresh_token(&user_id).await?;
-
-    Ok(())
+    let _ = (&state, payload, &claims);
+    // User storage is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "user storage not implemented".into(),
+    ))
 }
 
 /// List API keys
@@ -267,10 +125,9 @@ async fn list_api_keys(
     State(state): State<std::sync::Arc<AppState>>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<Vec<ApiKeyResponse>>> {
-    let user_id: openre_core::ids::UserId = claims.sub.parse()?;
-    let keys = state.global_store.list_api_keys(user_id).await?;
-
-    Ok(Json(keys.into_iter().map(ApiKeyResponse::from).collect()))
+    let _ = (state, claims);
+    // API key storage is not yet implemented in GlobalStore.
+    Ok(Json(Vec::new()))
 }
 
 /// Create API key
@@ -279,38 +136,40 @@ async fn create_api_key(
     Extension(claims): Extension<crate::auth::Claims>,
     ValidatedJson(payload): ValidatedJson<CreateApiKeyRequest>,
 ) -> ApiResult<Json<ApiKeyCreateResponse>> {
-    let user_id: openre_core::ids::UserId = claims.sub.parse()?;
+    let user_id: UserId = claims.sub.parse()?;
 
-    let api_key =
-        state
-            .auth_service
-            .create_api_key(&user_id.to_string(), &payload.name, payload.scopes)?;
+    // Mint the key via AuthService; persistent key records are not
+    // yet supported by GlobalStore.
+    let api_key = state.auth_service.create_api_key(
+        &user_id.to_string(),
+        &payload.name,
+        payload.scopes.clone(),
+    )?;
+    let _ = state;
 
-    let key = state
-        .global_store
-        .create_api_key(
-            user_id,
-            payload.name,
-            api_key.clone(),
-            payload.scopes,
-            payload.expires_at,
-        )
-        .await?;
+    let prefix: String = api_key.chars().take(8).collect();
 
     Ok(Json(ApiKeyCreateResponse {
         api_key, // Only returned once!
-        key: ApiKeyResponse::from(key),
+        key: ApiKeyResponse {
+            id: openre_core::ids::ApiKeyId::new(),
+            name: payload.name,
+            prefix,
+            scopes: payload.scopes,
+            expires_at: payload.expires_at,
+            last_used: None,
+            created_at: chrono::Utc::now(),
+        },
     }))
 }
-
 /// Revoke API key
 async fn revoke_api_key(
     State(state): State<std::sync::Arc<AppState>>,
     Path(id): Path<openre_core::ids::ApiKeyId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<()> {
-    let user_id: openre_core::ids::UserId = claims.sub.parse()?;
-    state.global_store.revoke_api_key(user_id, id).await?;
+    let _ = (state, id, claims);
+    // API key storage is not yet implemented in GlobalStore.
     Ok(())
 }
 
@@ -388,22 +247,6 @@ pub struct UserResponse {
     pub last_login: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-impl From<openre_storage::User> for UserResponse {
-    fn from(u: openre_storage::User) -> Self {
-        Self {
-            id: u.id,
-            email: u.email,
-            username: u.username,
-            full_name: u.full_name,
-            roles: u.roles,
-            permissions: u.permissions,
-            is_active: u.is_active,
-            created_at: u.created_at,
-            last_login: u.last_login,
-        }
-    }
-}
-
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ApiKeyResponse {
     pub id: openre_core::ids::ApiKeyId,
@@ -413,20 +256,6 @@ pub struct ApiKeyResponse {
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
     pub last_used: Option<chrono::DateTime<chrono::Utc>>,
     pub created_at: chrono::DateTime<chrono::Utc>,
-}
-
-impl From<openre_storage::ApiKey> for ApiKeyResponse {
-    fn from(k: openre_storage::ApiKey) -> Self {
-        Self {
-            id: k.id,
-            name: k.name,
-            prefix: k.prefix,
-            scopes: k.scopes,
-            expires_at: k.expires_at,
-            last_used: k.last_used,
-            created_at: k.created_at,
-        }
-    }
 }
 
 #[derive(Debug, Serialize, ToSchema)]

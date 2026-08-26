@@ -5,22 +5,24 @@
 
 use crate::{ApiError, ApiResult, AppState, ValidatedJson};
 use axum::{
-    extract::{Extension, Path, Query, State},
+    extract::{Extension, Query, State},
     response::{sse::Event, Sse},
     routing::{get, post},
     Json, Router,
 };
 use futures::stream::Stream;
+use futures::StreamExt;
 use openre_core::ids::{FindingId, ScanId};
 use openre_core::result::FindingFilter;
+use openre_security_ai::analyst::SummaryAudience as AnalystAudience;
 use openre_security_ai::{
     CorrelationReport, ExecutiveSummary, FindingExplanation, PrioritizedFindings, QueryResponse,
-    RemediationPlan, ScanComparison, SecurityAnalyst, SummaryAudience as AnalystAudience,
+    RemediationPlan, ScanComparison,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::convert::Infallible;
 use std::sync::Arc;
-use utoipa::{IntoParams, ToSchema};
+use utoipa::ToSchema;
 use validator::Validate;
 
 /// Security AI analyst routes
@@ -77,7 +79,7 @@ pub struct GenerateRemediationRequest {
 }
 
 /// Request to correlate findings
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CorrelateFindingsRequest {
     /// Scan ID to analyze
     #[validate(custom(function = "crate::validation::rules::validate_uuid"))]

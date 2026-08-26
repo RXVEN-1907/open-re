@@ -4,6 +4,7 @@
 
 use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use openre_core::error::OpenreResult as Result;
+use openre_core::result::FindingConfig;
 use openre_plugins::sdk::{
     AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
 };
@@ -35,7 +36,8 @@ impl RobotsSitemapPlugin {
             .redirect(reqwest::redirect::Policy::limited(config.max_redirects))
             .user_agent(&config.user_agent)
             .danger_accept_invalid_certs(!config.verify_tls)
-            .build()?;
+            .build()
+            .map_err(crate::internal_err)?;
 
         Ok(Self { config, client })
     }
@@ -47,7 +49,7 @@ impl RobotsSitemapPlugin {
 
         match self.client.get(&robots_url).send().await {
             Ok(response) if response.status().is_success() => {
-                let content = response.text().await?;
+                let content = response.text().await.map_err(crate::internal_err)?;
                 result.found = true;
                 result.content = Some(content.clone());
                 result.parsed = self.parse_robots(&content);
@@ -122,11 +124,11 @@ impl RobotsSitemapPlugin {
         for sitemap_url in sitemap_urls {
             match self.client.get(&sitemap_url).send().await {
                 Ok(response) if response.status().is_success() => {
-                    let content = response.text().await?;
+                    let content = response.text().await.map_err(crate::internal_err)?;
                     result.found = true;
                     result.sitemap_url = Some(sitemap_url.clone());
                     result.content = Some(content.clone());
-                    result.parsed = self.parse_sitemap(&content);
+                    result.parsed = self.parse_sitemap(&content)?;
                     break;
                 }
                 Ok(_) => continue,
@@ -141,10 +143,10 @@ impl RobotsSitemapPlugin {
     }
 
     /// Parse sitemap.xml content
-    fn parse_sitemap(&self, content: &str) -> ParsedSitemap {
+    fn parse_sitemap(&self, content: &str) -> Result<ParsedSitemap> {
         let mut parsed = ParsedSitemap::default();
 
-        let doc = Document::from(content.as_bytes());
+        let doc = crate::parse_html(content)?;
 
         // Parse URL entries
         for url_node in doc.find(Name("url")) {
@@ -180,7 +182,7 @@ impl RobotsSitemapPlugin {
             parsed.sitemaps.push(entry);
         }
 
-        parsed
+        Ok(parsed)
     }
 }
 
@@ -239,12 +241,14 @@ impl Plugin for RobotsSitemapPlugin {
         vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
-    async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
-        let context = request.context;
-        let findings = self.recon(&context).await?;
+    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
+        let _ = request;
 
+        // Recon plugins perform their work through the scan pipeline, which
+        // supplies a full ScanContext. Capability execution has no scan context,
+        // so report an empty result set instead.
         Ok(CapabilityResponse::success(serde_json::json!({
-            "findings": findings,
+            "findings": [],
             "recon_type": ReconType::RobotsSitemap,
         })))
     }
@@ -265,9 +269,9 @@ impl ReconPlugin for RobotsSitemapPlugin {
         ]
     }
 
-    async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
+    async fn recon(&self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
-        let target_url = context.target.to_string();
+        let target_url = context.target.metadata.base_url.as_str().to_string();
 
         info!(
             "Starting robots.txt & sitemap discovery for: {}",
@@ -279,18 +283,18 @@ impl ReconPlugin for RobotsSitemapPlugin {
 
         if robots.found {
             findings.push(
-                Finding::new(
-                    "robots.txt Found".to_string(),
-                    "robots.txt file is accessible".to_string(),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "robots_sitemap".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "robots.txt Found".to_string(),
+                    description: "robots.txt file is accessible".to_string(),
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "robots_sitemap".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "robots.txt found".to_string(),
@@ -302,6 +306,13 @@ impl ReconPlugin for RobotsSitemapPlugin {
                     })),
                     location: Some(format!("{}/robots.txt", target_url.trim_end_matches('/'))),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
 
@@ -313,18 +324,21 @@ impl ReconPlugin for RobotsSitemapPlugin {
                     || path.contains("secret")
                 {
                     findings.push(
-                        Finding::new(
-                            "Sensitive Path in robots.txt".to_string(),
-                            format!("Disallowed path may indicate sensitive area: {}", path),
-                            Severity::Low,
-                            Confidence::Medium,
-                            Category::InformationDisclosure,
-                            target_url.clone(),
-                            "web_application".to_string(),
-                            "robots_sitemap".to_string(),
-                            "0.1.0".to_string(),
-                            context.scan_id,
-                        )
+                        Finding::new(FindingConfig {
+                            title: "Sensitive Path in robots.txt".to_string(),
+                            description: format!(
+                                "Disallowed path may indicate sensitive area: {}",
+                                path
+                            ),
+                            severity: Severity::Low,
+                            confidence: Confidence::Medium,
+                            category: Category::InformationDisclosure,
+                            target: target_url.clone(),
+                            target_type: "web_application".to_string(),
+                            plugin_source: "robots_sitemap".to_string(),
+                            plugin_version: "0.1.0".to_string(),
+                            scan_id: context.scan_id,
+                        })
                         .with_evidence(Evidence {
                             evidence_type: EvidenceType::HttpResponse,
                             description: "Potentially sensitive path in robots.txt".to_string(),
@@ -334,6 +348,13 @@ impl ReconPlugin for RobotsSitemapPlugin {
                                 target_url.trim_end_matches('/')
                             )),
                             metadata: HashMap::new(),
+                            http_request: None,
+                            http_response: None,
+                            timing: None,
+                            payload: None,
+                            reproduction_steps: None,
+                            plugin_source: None,
+                            timestamp: chrono::Utc::now(),
                         }),
                     );
                 }
@@ -347,21 +368,21 @@ impl ReconPlugin for RobotsSitemapPlugin {
 
         if sitemap.found {
             findings.push(
-                Finding::new(
-                    "Sitemap Found".to_string(),
-                    format!(
+                Finding::new(FindingConfig {
+                    title: "Sitemap Found".to_string(),
+                    description: format!(
                         "Sitemap discovered at: {}",
                         sitemap.sitemap_url.as_deref().unwrap_or("unknown")
                     ),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "robots_sitemap".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "robots_sitemap".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Sitemap.xml found".to_string(),
@@ -371,24 +392,31 @@ impl ReconPlugin for RobotsSitemapPlugin {
                     })),
                     location: sitemap.sitemap_url,
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
 
             // List discovered URLs (limit to first 50)
             for entry in sitemap.parsed.urls.iter().take(50) {
                 findings.push(
-                    Finding::new(
-                        "Endpoint Discovered via Sitemap".to_string(),
-                        format!("URL found in sitemap: {}", entry.url),
-                        Severity::Info,
-                        Confidence::High,
-                        Category::InformationDisclosure,
-                        target_url.clone(),
-                        "web_application".to_string(),
-                        "robots_sitemap".to_string(),
-                        "0.1.0".to_string(),
-                        context.scan_id,
-                    )
+                    Finding::new(FindingConfig {
+                        title: "Endpoint Discovered via Sitemap".to_string(),
+                        description: format!("URL found in sitemap: {}", entry.url),
+                        severity: Severity::Info,
+                        confidence: Confidence::High,
+                        category: Category::InformationDisclosure,
+                        target: target_url.clone(),
+                        target_type: "web_application".to_string(),
+                        plugin_source: "robots_sitemap".to_string(),
+                        plugin_version: "0.1.0".to_string(),
+                        scan_id: context.scan_id,
+                    })
                     .with_evidence(Evidence {
                         evidence_type: EvidenceType::HttpResponse,
                         description: "Endpoint from sitemap".to_string(),
@@ -400,6 +428,13 @@ impl ReconPlugin for RobotsSitemapPlugin {
                         })),
                         location: Some(entry.url.clone()),
                         metadata: HashMap::new(),
+                        http_request: None,
+                        http_response: None,
+                        timing: None,
+                        payload: None,
+                        reproduction_steps: None,
+                        plugin_source: None,
+                        timestamp: chrono::Utc::now(),
                     }),
                 );
             }
@@ -415,6 +450,7 @@ impl ReconPlugin for RobotsSitemapPlugin {
 }
 
 /// Plugin entry point
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     if config_ptr.is_null() || config_len == 0 {
@@ -429,6 +465,7 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_execute(
     request_ptr: *const u8,
@@ -439,6 +476,7 @@ pub extern "C" fn plugin_execute(
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_shutdown() -> i32 {
     0

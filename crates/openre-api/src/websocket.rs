@@ -278,11 +278,11 @@ impl WsManager {
         }
     }
 
-    pub fn register(&self, connection_id: String, tx: broadcast::Sender<WsMessage>) {
+    pub async fn register(&self, connection_id: String, tx: broadcast::Sender<WsMessage>) {
         self.connections.write().await.insert(connection_id, tx);
     }
 
-    pub fn unregister(&self, connection_id: &str) {
+    pub async fn unregister(&self, connection_id: &str) {
         self.connections.write().await.remove(connection_id);
     }
 

@@ -1,15 +1,23 @@
 //! Integration test for the AI Security Analyst
 
+mod mock_provider;
+
+use async_trait::async_trait;
+use mock_provider::MockFindingProvider;
+use openre_ai::providers::{
+    CompletionRequest, CompletionResponse, FinishReason, HealthStatus, Message, ModelProvider,
+    ProviderCapabilities, ProviderId, StreamChunk, StreamingResponse, Usage,
+};
+use openre_core::error::OpenreResult;
 use openre_core::ids::{FindingId, ScanId};
-use openre_core::result::{Category, Confidence, Finding, Severity};
+use openre_core::result::{Category, Confidence, Finding, FindingConfig, Severity};
 use openre_security_ai::{
     analyst::{SecurityAnalyst, SecurityAnalystImpl},
     cache::AnalysisCache,
     context::ContextBuilder,
-    finding_provider::MockFindingProvider,
     prompts::PromptCompiler,
     safety::SafetyGuard,
-    test_utils::ScanMetadata,
+    ScanMetadata,
 };
 use std::sync::Arc;
 
@@ -27,18 +35,18 @@ async fn test_security_analyst_basic_functionality() {
     let finding_id = FindingId::new();
 
     // Create a mock finding
-    let finding = Finding::new(
-        "SQL Injection Test".to_string(),
-        "User input is not properly sanitized in login form".to_string(),
-        Severity::High,
-        Confidence::Medium,
-        Category::Injection,
-        "http://example.com/login".to_string(),
-        "web_application".to_string(),
-        "sql_injection_test".to_string(),
-        "1.0.0".to_string(),
+    let finding = Finding::new(FindingConfig {
+        title: "SQL Injection Test".to_string(),
+        description: "User input is not properly sanitized in login form".to_string(),
+        severity: Severity::High,
+        confidence: Confidence::Medium,
+        category: Category::Injection,
+        target: "http://example.com/login".to_string(),
+        target_type: "web_application".to_string(),
+        plugin_source: "sql_injection_test".to_string(),
+        plugin_version: "1.0.0".to_string(),
         scan_id,
-    );
+    });
 
     // Add finding to mock provider
     finding_provider.add_finding(scan_id, finding).await;
@@ -77,22 +85,45 @@ impl MockModelProvider {
     }
 }
 
-use async_trait::async_trait;
-use openre_ai::providers::{AiError, CompletionRequest, CompletionResponse, ModelProvider};
-
 #[async_trait]
 impl ModelProvider for MockModelProvider {
-    async fn complete(&self, _request: CompletionRequest) -> Result<CompletionResponse, AiError> {
-        // Return a simple mock response
+    fn id(&self) -> ProviderId {
+        ProviderId::new("mock", "mock-model")
+    }
+
+    fn name(&self) -> &str {
+        "mock"
+    }
+
+    fn capabilities(&self) -> ProviderCapabilities {
+        ProviderCapabilities {
+            chat: true,
+            ..Default::default()
+        }
+    }
+
+    fn max_context_tokens(&self) -> usize {
+        4096
+    }
+
+    fn supports_streaming(&self) -> bool {
+        true
+    }
+
+    fn supports_tools(&self) -> bool {
+        false
+    }
+
+    async fn complete(&self, _request: CompletionRequest) -> OpenreResult<CompletionResponse> {
         Ok(CompletionResponse {
             id: "mock-response".to_string(),
             model: "mock-model".to_string(),
             choices: vec![openre_ai::providers::Choice {
                 index: 0,
-                message: openre_ai::providers::Message::assistant("Mock response".to_string()),
-                finish_reason: openre_ai::providers::FinishReason::Stop,
+                message: Message::assistant("Mock response".to_string()),
+                finish_reason: FinishReason::Stop,
             }],
-            usage: openre_ai::providers::Usage {
+            usage: Usage {
                 prompt_tokens: 10,
                 completion_tokens: 5,
                 total_tokens: 15,
@@ -101,25 +132,28 @@ impl ModelProvider for MockModelProvider {
         })
     }
 
-    async fn stream(
-        &self,
-        _request: CompletionRequest,
-    ) -> Result<openre_ai::providers::StreamingResponse, AiError> {
-        // Create a simple streaming response for testing
+    async fn stream(&self, _request: CompletionRequest) -> OpenreResult<StreamingResponse> {
         let (tx, rx) = tokio::sync::mpsc::channel(10);
 
-        // Send a simple response
-        tx.send(openre_ai::providers::StreamChunk::Content(
-            "Mock streaming response".to_string(),
-        ))
-        .await
-        .unwrap();
-        tx.send(openre_ai::providers::StreamChunk::Finish(
-            openre_ai::providers::FinishReason::Stop,
-        ))
-        .await
-        .unwrap();
+        tx.send(StreamChunk::Content("Mock streaming response".to_string()))
+            .await
+            .unwrap();
+        tx.send(StreamChunk::Finish(FinishReason::Stop))
+            .await
+            .unwrap();
 
-        Ok(openre_ai::providers::StreamingResponse { stream: rx })
+        Ok(StreamingResponse { stream: rx })
+    }
+
+    async fn embed(&self, texts: Vec<String>) -> OpenreResult<Vec<Vec<f32>>> {
+        Ok(texts.iter().map(|t| vec![t.len() as f32]).collect())
+    }
+
+    async fn health_check(&self) -> OpenreResult<HealthStatus> {
+        Ok(HealthStatus {
+            healthy: true,
+            message: None,
+            latency_ms: None,
+        })
     }
 }

@@ -6,46 +6,47 @@ This guide covers installing open-re in various environments.
 
 ### Prerequisites
 
-- Docker 24+
-- Docker Compose 2+
+-   Docker 24+
+-   Docker Compose 2+
 
 ### One-Command Install
 
 ```bash
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
-docker compose up -d
+Docker compose up -d
 ```
 
 This starts:
-- PostgreSQL on port 5432
-- Redis on port 6379
-- MinIO on ports 9000/9001
-- API server on port 8080
-- Frontend on port 3000
-- Prometheus on port 9090
-- Grafana on port 3001
+
+-   PostgreSQL on port 5432
+-   Redis on port 6379
+-   MinIO on ports 9000/9001
+-   API server on port 8080
+-   Frontend on port 3000
+-   Prometheus on port 9090
+-   Grafana on port 3001
 
 ### Access Points
 
 | Service | URL | Credentials |
-|---------|-----|-------------|
-| Frontend | http://localhost:3000 | - |
-| API | http://localhost:8080 | - |
-| API Docs | http://localhost:8080/docs | - |
-| MinIO Console | http://localhost:9001 | openre / openre_dev_password |
-| Grafana | http://localhost:3001 | admin / admin |
-| Prometheus | http://localhost:9090 | - |
+| --------- | ----- | ------------- |
+| Frontend | <http://localhost:3000> | - |
+| API | <http://localhost:8080> | - |
+| API Docs | <http://localhost:8080/docs> | - |
+| MinIO Console | <http://localhost:9001> | openre / openre_dev_password |
+| Grafana | <http://localhost:3001> | admin / admin |
+| Prometheus | <http://localhost:9090> | - |
 
 ## Manual Installation
 
 ### System Requirements
 
-- **OS**: Linux (Ubuntu 22.04+, Debian 12+, Arch, Fedora 38+), macOS 13+, Windows 10/11 (WSL2)
-- **CPU**: x86_64 or ARM64 (2+ cores recommended)
-- **RAM**: 4 GB minimum, 8 GB+ recommended
-- **Storage**: 10 GB+ free space
-- **GPU**: Optional (NVIDIA CUDA for AI acceleration)
+-   **OS**: Linux (Ubuntu 22.04+, Debian 12+, Arch, Fedora 38+), macOS 13+, Windows 10/11 (WSL2)
+-   **CPU**: x86_64 or ARM64 (2+ cores recommended)
+-   **RAM**: 4 GB minimum, 8 GB+ recommended
+-   **Storage**: 10 GB+ free space
+-   **GPU**: Optional (NVIDIA CUDA for AI acceleration)
 
 ### Install Dependencies
 
@@ -63,30 +64,30 @@ sudo apt update && sudo apt install -y \
     libssl-dev \
     libclang-dev \
     clang \
-    cmake \
-    protobuf-compiler \
+    CMake \
+    Protobuf-compiler \
     python3 \
     python3-pip \
     nodejs \
     npm
 
 # Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-source "$HOME/.cargo/env"
+curl --proto '=HTTPS' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.Cargo/env"
 
 # Install pnpm
 npm install -g pnpm@9
 
 # Install Docker (optional)
 curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
+sudo usermod -aG Docker $USER
 ```
 
 #### macOS
 
 ```bash
 # Using Homebrew
-brew install postgresql@16 redis git rust node pnpm docker
+brew install postgresql@16 redis git Rust node pnpm Docker
 
 # Start services
 brew services start postgresql@16
@@ -96,8 +97,8 @@ brew services start redis
 #### Arch Linux
 
 ```bash
-sudo pacman -S postgresql redis git rust nodejs npm pnpm docker clang cmake protobuf python
-sudo systemctl enable --now postgresql redis docker
+sudo pacman -S postgresql redis git Rust nodejs npm pnpm Docker clang CMake Protobuf Python
+sudo systemctl enable --now postgresql redis Docker
 ```
 
 ### Database Setup
@@ -113,12 +114,12 @@ EOF
 # Run migrations
 cd open-re
 DATABASE_URL=postgresql://openre:your_secure_password@localhost:5432/openre \
-cargo run --bin openre-cli -- db migrate
+Cargo run --bin openre-cli -- db migrate
 ```
 
 ### Configuration
 
-Create `config.toml`:
+Create `config.TOML`:
 
 ```toml
 [server]
@@ -143,7 +144,7 @@ local_path = "./data/storage"
 # openai_api_key = "sk-..."
 
 # Optional: Local models directory
-# onnx_models_dir = "./models/onnx"
+# onnx_models_dir = "./models/ONNX"
 # llama_cpp_models_dir = "./models/llama"
 
 [plugins]
@@ -151,7 +152,7 @@ plugins_dir = "./plugins"
 
 [telemetry]
 log_level = "info"
-log_format = "json"
+log_format = "JSON"
 otlp_endpoint = ""  # Optional: OpenTelemetry collector
 
 [auth]
@@ -167,7 +168,7 @@ requests_per_minute = 100
 
 ```bash
 # Build all components
-cargo build --workspace --release
+Cargo build --workspace --release
 
 # Build frontend
 cd frontend && pnpm install && pnpm build && cd ..
@@ -188,7 +189,7 @@ cd frontend && pnpm install && pnpm build && cd ..
 
 ```bash
 # Copy production config
-cp docker-compose.prod.yml docker-compose.yml
+cp Docker-compose.prod.yml Docker-compose.yml
 
 # Create .env file with secrets
 cat > .env <<EOF
@@ -205,13 +206,13 @@ VLLM_BASE_URL=http://your-vllm-server:8000
 EOF
 
 # Deploy
-docker compose -f docker-compose.prod.yml up -d
+Docker compose -f Docker-compose.prod.yml up -d
 ```
 
 ### Kubernetes Deployment
 
 ```yaml
-# k8s/deployment.yaml
+# k8s/deployment.YAML
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -263,7 +264,7 @@ server {
     server_name your-domain.com;
     
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass HTTP://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -272,7 +273,7 @@ server {
     }
     
     location /api/ {
-        proxy_pass http://localhost:8080;
+        proxy_pass HTTP://localhost:8080;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -283,7 +284,7 @@ server {
     }
     
     location /ws/ {
-        proxy_pass http://localhost:8080;
+        proxy_pass HTTP://localhost:8080;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -311,23 +312,23 @@ sudo systemctl enable certbot.timer
 
 ```bash
 # Create models directory
-mkdir -p models/onnx models/llama
+mkdir -p models/ONNX models/llama
 
 # Download ONNX models (example)
-wget -P models/onnx https://huggingface.co/.../model.onnx
+wget -P models/ONNX https://huggingface.co/.../model.onnx
 
 # Download llama.cpp models (example)
 wget -P models/llama https://huggingface.co/.../model.gguf
 
-# Update config.toml
-# ai.onnx_models_dir = "./models/onnx"
+# Update config.TOML
+# ai.onnx_models_dir = "./models/ONNX"
 # ai.llama_cpp_models_dir = "./models/llama"
 ```
 
 ### Remote API (OpenAI/vLLM)
 
 ```toml
-# config.toml
+# config.TOML
 [ai]
 openai_api_key = "sk-..."
 # or
@@ -339,7 +340,7 @@ vllm_api_key = "your-vllm-key"
 
 ```bash
 # Install from registry
-openre plugin install registry:ghidra-loader
+openre plugin install registry:Ghidra-loader
 
 # Install from local path
 openre plugin install local:./my-plugin
@@ -362,7 +363,7 @@ curl http://localhost:8080/ready
 
 # Test authentication
 curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: application/JSON" \
   -d '{"email":"admin@example.com","password":"password"}'
 
 # Test file upload
@@ -376,8 +377,8 @@ curl -X POST http://localhost:8080/api/files \
 ### Common Issues
 
 | Issue | Solution |
-|-------|----------|
-| Port 8080 in use | Change `server.port` in config.toml |
+| ------- | ---------- |
+| Port 8080 in use | Change `server.port` in config.TOML |
 | Database connection failed | Check PostgreSQL is running and credentials |
 | Redis connection failed | Check Redis is running on port 6379 |
 | Frontend not loading | Check API server is running and CORS settings |
@@ -388,13 +389,13 @@ curl -X POST http://localhost:8080/api/files \
 
 ```bash
 # API logs
-docker compose logs -f api
+Docker compose logs -f api
 
 # Worker logs
-docker compose logs -f worker
+Docker compose logs -f worker
 
 # All logs
-docker compose logs -f
+Docker compose logs -f
 
 # Native logs
 RUST_LOG=debug ./target/release/openre-api
@@ -404,7 +405,7 @@ RUST_LOG=debug ./target/release/openre-api
 
 ```bash
 # Database
-psql $DATABASE_URL -c "SELECT 1;"
+psql $DATABASE_URL -C "SELECT 1;"
 
 # Redis
 redis-cli ping
@@ -423,16 +424,16 @@ curl http://localhost:8080/health
 git pull origin main
 
 # Update dependencies
-cargo update
+Cargo update
 
 # Rebuild
-cargo build --workspace --release
+Cargo build --workspace --release
 
 # Run migrations
-cargo run --bin openre-cli -- db migrate
+Cargo run --bin openre-cli -- db migrate
 
 # Restart services
-docker compose restart
+Docker compose restart
 # or
 systemctl restart openre-api openre-worker
 ```
@@ -441,7 +442,7 @@ systemctl restart openre-api openre-worker
 
 ```bash
 # Docker
-docker compose down -v
+Docker compose down -v
 
 # Native
 # Stop services

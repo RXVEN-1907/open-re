@@ -488,7 +488,9 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
                             "Standard".to_string(),
                         ),
                         title: format!("{} - {}", standard.standard, standard.controls.join(", ")),
-                        url: standard.url.clone(),
+                        url: standard.url.clone().unwrap_or_else(|| {
+                            format!("https://cwe.mitre.org/{}", standard.standard)
+                        }),
                         description: None,
                     });
                 }
@@ -607,6 +609,16 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
         self.cwe_database.get(cwe_id)
     }
 
+    /// Number of CWE entries in the database
+    pub fn cwe_entry_count(&self) -> usize {
+        self.cwe_database.len()
+    }
+
+    /// Number of categories with OWASP mappings
+    pub fn owasp_mapping_count(&self) -> usize {
+        self.owasp_mappings.len()
+    }
+
     /// Get CAPEC information by ID
     pub fn get_capec_info(&self, capec_id: &str) -> Option<&CapecEntry> {
         self.capec_database.get(capec_id)
@@ -681,7 +693,7 @@ mod tests {
 
     fn create_test_finding(title: &str, category: Category, description: &str) -> Finding {
         Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: title.to_string(),
             description: description.to_string(),
             severity: Severity::Medium,
@@ -694,7 +706,7 @@ mod tests {
             plugin_source: "test".to_string(),
             plugin_version: "1.0".to_string(),
             timestamp: Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: HashMap::new(),
             tags: Vec::new(),
             verified: false,
@@ -723,7 +735,8 @@ mod tests {
             "The application reflects user input directly into the HTML response without proper encoding."
         );
 
-        let entries = kb.enrich_findings(&mut [finding.clone()]).unwrap();
+        let mut enriched = [finding.clone()];
+        let entries = kb.enrich_findings(&mut enriched).unwrap();
         assert_eq!(entries.len(), 1);
 
         let entry = &entries[0];
@@ -732,8 +745,8 @@ mod tests {
         assert!(!entry.capec_ids.is_empty());
 
         // Check that references were added to the finding
-        assert!(!finding.references.is_empty());
-        assert!(finding.cwe_ids.contains(&"CWE-79".to_string()));
+        assert!(!enriched[0].references.is_empty());
+        assert!(enriched[0].cwe_ids.contains(&"CWE-79".to_string()));
     }
 
     #[test]
@@ -745,7 +758,8 @@ mod tests {
             "The application constructs SQL queries using string concatenation with user input.",
         );
 
-        let entries = kb.enrich_findings(&mut [finding.clone()]).unwrap();
+        let mut enriched = [finding.clone()];
+        let entries = kb.enrich_findings(&mut enriched).unwrap();
         assert_eq!(entries.len(), 1);
 
         let entry = &entries[0];
@@ -754,8 +768,8 @@ mod tests {
         assert!(!entry.capec_ids.is_empty());
 
         // Check that references were added to the finding
-        assert!(!finding.references.is_empty());
-        assert!(finding.cwe_ids.contains(&"CWE-89".to_string()));
+        assert!(!enriched[0].references.is_empty());
+        assert!(enriched[0].cwe_ids.contains(&"CWE-89".to_string()));
     }
 
     #[test]

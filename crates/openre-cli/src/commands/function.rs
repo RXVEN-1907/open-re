@@ -1,10 +1,10 @@
 //! Function commands
 
+use crate::{print_output, CliError, Context};
 use clap::{Parser, Subcommand};
-use crate::{Context, CliError, print_output};
 use openre_core::ids::FunctionId;
 use serde::{Deserialize, Serialize};
-use tabled::{Table, settings::Style};
+use tabled::{settings::Style, Table};
 
 #[derive(Subcommand)]
 pub enum FunctionCommands {
@@ -12,47 +12,47 @@ pub enum FunctionCommands {
     List {
         #[arg(short, long, default_value = "1")]
         page: u32,
-        
+
         #[arg(short, long, default_value = "50")]
         per_page: u32,
-        
+
         #[arg(long)]
         project_id: Option<String>,
-        
+
         #[arg(long)]
         file_id: Option<String>,
-        
+
         #[arg(long)]
         name: Option<String>,
     },
-    
+
     /// Get function details
     Get {
         #[arg(short, long)]
         id: String,
     },
-    
+
     /// Get pseudocode
     Pseudocode {
         #[arg(short, long)]
         id: String,
     },
-    
+
     /// Get CFG
     Cfg {
         #[arg(short, long)]
         id: String,
     },
-    
+
     /// Get xrefs
     Xrefs {
         #[arg(short, long)]
         id: String,
-        
+
         #[arg(long)]
         direction: Option<String>,
     },
-    
+
     /// Get annotations
     Annotations {
         #[arg(short, long)]
@@ -61,9 +61,15 @@ pub enum FunctionCommands {
 }
 
 impl FunctionCommands {
-    pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
+    pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            FunctionCommands::List { page, per_page, project_id, file_id, name } => {
+            FunctionCommands::List {
+                page,
+                per_page,
+                project_id,
+                file_id,
+                name,
+            } => {
                 let mut url = format!("/api/functions?page={}&per_page={}", page, per_page);
                 if let Some(project_id) = project_id {
                     url.push_str(&format!("&project_id={}", project_id));
@@ -74,49 +80,58 @@ impl FunctionCommands {
                 if let Some(name) = name {
                     url.push_str(&format!("&name={}", urlencoding::encode(&name)));
                 }
-                
+
                 let response = ctx.get(&url).await?;
                 let list: FunctionListResponse = response.json().await?;
                 print_output(&list.functions, &ctx.output_format)?;
-                println!("Page {} of {} (total: {})", list.page, (list.total + list.per_page - 1) / list.per_page, list.total);
+                println!(
+                    "Page {} of {} (total: {})",
+                    list.page,
+                    (list.total + list.per_page as u64 - 1) / list.per_page as u64,
+                    list.total
+                );
             }
-            
+
             FunctionCommands::Get { id } => {
                 let response = ctx.get(&format!("/api/functions/{}", id)).await?;
                 let function: FunctionResponse = response.json().await?;
                 print_output(&function, &ctx.output_format)?;
             }
-            
+
             FunctionCommands::Pseudocode { id } => {
-                let response = ctx.get(&format!("/api/functions/{}/pseudocode", id)).await?;
+                let response = ctx
+                    .get(&format!("/api/functions/{}/pseudocode", id))
+                    .await?;
                 let pseudocode: PseudocodeResponse = response.json().await?;
                 println!("{}", pseudocode.pseudocode);
             }
-            
+
             FunctionCommands::Cfg { id } => {
                 let response = ctx.get(&format!("/api/functions/{}/cfg", id)).await?;
                 let cfg: CfgResponse = response.json().await?;
                 print_output(&cfg, &ctx.output_format)?;
             }
-            
+
             FunctionCommands::Xrefs { id, direction } => {
                 let mut url = format!("/api/functions/{}/xrefs", id);
                 if let Some(direction) = direction {
                     url.push_str(&format!("?direction={}", direction));
                 }
-                
+
                 let response = ctx.get(&url).await?;
                 let xrefs: XrefResponse = response.json().await?;
                 print_output(&xrefs.xrefs, &ctx.output_format)?;
             }
-            
+
             FunctionCommands::Annotations { id } => {
-                let response = ctx.get(&format!("/api/functions/{}/annotations", id)).await?;
+                let response = ctx
+                    .get(&format!("/api/functions/{}/annotations", id))
+                    .await?;
                 let annotations: AnnotationsResponse = response.json().await?;
                 print_output(&annotations.annotations, &ctx.output_format)?;
             }
         }
-        
+
         Ok(())
     }
 }
@@ -131,7 +146,7 @@ pub struct FunctionListResponse {
     pub per_page: u32,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct FunctionResponse {
     pub id: FunctionId,
     pub file_id: String,
@@ -149,14 +164,14 @@ pub struct FunctionResponse {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ParameterInfo {
     pub name: String,
     pub type_: String,
     pub location: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PseudocodeResponse {
     pub function_id: FunctionId,
     pub pseudocode: String,
@@ -164,14 +179,14 @@ pub struct PseudocodeResponse {
     pub generated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CfgResponse {
     pub function_id: FunctionId,
     pub nodes: Vec<CfgNode>,
     pub edges: Vec<CfgEdge>,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CfgNode {
     pub id: String,
     pub address: u64,
@@ -180,7 +195,7 @@ pub struct CfgNode {
     pub is_exit: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CfgEdge {
     pub from: String,
     pub to: String,
@@ -193,7 +208,7 @@ pub struct XrefResponse {
     pub xrefs: Vec<XrefInfo>,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct XrefInfo {
     pub from_address: u64,
     pub to_address: u64,
@@ -208,7 +223,7 @@ pub struct AnnotationsResponse {
     pub annotations: Vec<AnnotationInfo>,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct AnnotationInfo {
     pub id: String,
     pub type_: String,

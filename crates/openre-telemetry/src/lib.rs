@@ -38,3 +38,15 @@ pub struct TelemetryGuards {
     _tracing: TracingGuard,
     _audit: AuditGuard,
 }
+
+/// Cheaply cloneable handle for creating spans and recording metrics
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TelemetryHandle;
+
+impl TelemetryHandle {
+    /// Create a new span for the given operation
+    pub fn span(&self, name: &str, job: impl std::fmt::Debug) -> ::tracing::Span {
+        let _ = job;
+        ::tracing::info_span!("telemetry_span", name = %name)
+    }
+}

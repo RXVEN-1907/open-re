@@ -3,15 +3,12 @@
 use crate::error::{ScannerError, ScannerResult};
 use crate::plugin::{PluginConfig, PluginId, PluginInfo};
 use crate::result::{Finding, FindingFilter, FindingId, FindingSort, FindingStats};
-use crate::scan::{
-    PluginExecutionRecord, ScanId, ScanLogEntry, ScanProgress, ScanSession, ScanStatus,
-};
+use crate::scan::{ScanId, ScanLogEntry, ScanProgress, ScanSession, ScanStatus};
 use crate::target::{ScanConfig, Target, TargetId, TargetMetadata};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use openre_core::ids::ProjectId;
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Row, Sqlite};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -144,587 +141,74 @@ pub trait ScanStorage: Send + Sync {
 }
 
 /// SQLite-based scan storage implementation
+///
+/// NOTE: the SQLite backend is not wired up yet. This workspace links
+/// `rusqlite` (via `openre-core`) and Cargo only allows one package to link
+/// the native `sqlite3` library, so sqlx's `sqlite` feature cannot be enabled
+/// here. The public type is kept so callers keep compiling; every persistence
+/// operation currently returns a clear "not yet supported" error. Use
+/// [`MemoryScanStorage`] in the meantime.
+#[derive(Clone)]
 pub struct SqliteScanStorage {
-    pool: Pool<Sqlite>,
+    #[allow(dead_code)]
+    database_url: String,
 }
 
 impl SqliteScanStorage {
     /// Create a new SQLite scan storage
     pub async fn new(database_url: &str) -> ScannerResult<Self> {
-        let pool = Pool::<Sqlite>::connect(database_url).await?;
-        let storage = Self { pool };
-        storage.migrate().await?;
-        Ok(storage)
+        Ok(Self {
+            database_url: database_url.to_string(),
+        })
     }
 
-    /// Run database migrations
-    async fn migrate(&self) -> ScannerResult<()> {
-        // Create scans table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS scans (
-                id TEXT PRIMARY KEY,
-                project_id TEXT,
-                target_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                description TEXT,
-                status TEXT NOT NULL,
-                config TEXT NOT NULL,
-                progress TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                started_at TEXT,
-                completed_at TEXT,
-                duration_ms INTEGER,
-                tags TEXT
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create findings table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS findings (
-                id TEXT PRIMARY KEY,
-                scan_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                severity TEXT NOT NULL,
-                confidence TEXT NOT NULL,
-                category TEXT NOT NULL,
-                target TEXT NOT NULL,
-                target_type TEXT NOT NULL,
-                evidence TEXT NOT NULL,
-                references TEXT NOT NULL,
-                plugin_source TEXT NOT NULL,
-                plugin_version TEXT NOT NULL,
-                timestamp TEXT NOT NULL,
-                metadata TEXT NOT NULL,
-                tags TEXT NOT NULL,
-                verified BOOLEAN NOT NULL DEFAULT 0,
-                false_positive BOOLEAN NOT NULL DEFAULT 0,
-                risk_score INTEGER,
-                cvss_vector TEXT,
-                cvss_score REAL,
-                FOREIGN KEY (scan_id) REFERENCES scans(id) ON DELETE CASCADE
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create plugin_executions table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS plugin_executions (
-                id TEXT PRIMARY KEY,
-                scan_id TEXT NOT NULL,
-                plugin_id TEXT NOT NULL,
-                plugin_name TEXT NOT NULL,
-                started_at TEXT NOT NULL,
-                completed_at TEXT,
-                status TEXT NOT NULL,
-                findings_count INTEGER NOT NULL DEFAULT 0,
-                error TEXT,
-                duration_ms INTEGER,
-                FOREIGN KEY (scan_id) REFERENCES scans(id) ON DELETE CASCADE
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create targets table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS targets (
-                id TEXT PRIMARY KEY,
-                project_id TEXT,
-                target_type TEXT NOT NULL,
-                name TEXT NOT NULL,
-                description TEXT,
-                base_url TEXT NOT NULL,
-                headers TEXT NOT NULL,
-                cookies TEXT NOT NULL,
-                auth TEXT,
-                rate_limit TEXT,
-                tls_config TEXT,
-                proxy TEXT,
-                custom TEXT NOT NULL,
-                tags TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create scan_logs table
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS scan_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scan_id TEXT NOT NULL,
-                timestamp TEXT NOT NULL,
-                level TEXT NOT NULL,
-                plugin TEXT,
-                message TEXT NOT NULL,
-                metadata TEXT NOT NULL,
-                FOREIGN KEY (scan_id) REFERENCES scans(id) ON DELETE CASCADE
-            )
-            "#,
-        )
-        .execute(&self.pool)
-        .await?;
-
-        // Create indexes
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scans_project_id ON scans(project_id)")
-            .execute(&self.pool)
-            .await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scans_target_id ON scans(target_id)")
-            .execute(&self.pool)
-            .await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scans_status ON scans(status)")
-            .execute(&self.pool)
-            .await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_findings_scan_id ON findings(scan_id)")
-            .execute(&self.pool)
-            .await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_findings_severity ON findings(severity)")
-            .execute(&self.pool)
-            .await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_findings_category ON findings(category)")
-            .execute(&self.pool)
-            .await?;
-        sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_findings_plugin_source ON findings(plugin_source)",
-        )
-        .execute(&self.pool)
-        .await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_plugin_executions_scan_id ON plugin_executions(scan_id)").execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_targets_project_id ON targets(project_id)")
-            .execute(&self.pool)
-            .await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_scan_logs_scan_id ON scan_logs(scan_id)")
-            .execute(&self.pool)
-            .await?;
-
-        Ok(())
-    }
-
-    /// Convert ScanSession to ScanRecord
-    fn session_to_record(&self, session: &ScanSession) -> ScanRecord {
-        ScanRecord {
-            id: session.id,
-            project_id: None, // Would be set from context
-            target_id: session.target.id,
-            name: session.config.name.clone(),
-            description: session.config.description.clone(),
-            status: session.status.clone(),
-            config: session.config.clone(),
-            progress: session.progress.clone(),
-            created_at: session.created_at,
-            started_at: session.started_at,
-            completed_at: session.completed_at,
-            duration: session
-                .completed_at
-                .zip(session.started_at)
-                .map(|(end, start)| (end - start).to_std().unwrap_or_default()),
-            tags: session.config.tags.clone(),
-        }
-    }
-
-    /// Convert ScanRecord to ScanSession
-    fn record_to_session(&self, record: ScanRecord) -> ScanSession {
-        ScanSession {
-            id: record.id,
-            config: record.config,
-            target: Target::new(
-                record.target_id,
-                TargetMetadata::new("".to_string(), record.config.target_id.into()),
-            ), // Placeholder
-            status: record.status,
-            progress: record.progress,
-            findings: Vec::new(),          // Loaded separately
-            plugin_executions: Vec::new(), // Loaded separately
-            logs: Vec::new(),              // Loaded separately
-            created_at: record.created_at,
-            started_at: record.started_at,
-            completed_at: record.completed_at,
-            cancellation_token: None,
-        }
+    /// Placeholder error until the SQLite backend is implemented
+    fn unsupported<T>() -> ScannerResult<T> {
+        Err(ScannerError::Internal(
+            "SQLite persistence is not yet supported; use MemoryScanStorage".to_string(),
+        ))
     }
 }
 
 #[async_trait]
 impl ScanStorage for SqliteScanStorage {
-    async fn save_scan(&self, session: &ScanSession) -> ScannerResult<()> {
-        let record = self.session_to_record(session);
-        let config_json = serde_json::to_string(&record.config)?;
-        let progress_json = serde_json::to_string(&record.progress)?;
-        let tags_json = serde_json::to_string(&record.tags)?;
-
-        sqlx::query(
-            r#"
-            INSERT OR REPLACE INTO scans (id, project_id, target_id, name, description, status, config, progress, created_at, started_at, completed_at, duration_ms, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(record.id.to_string())
-        .bind(record.project_id.map(|p| p.to_string()))
-        .bind(record.target_id.to_string())
-        .bind(&record.name)
-        .bind(&record.description)
-        .bind(record.status.to_string())
-        .bind(&config_json)
-        .bind(&progress_json)
-        .bind(record.created_at.to_rfc3339())
-        .bind(record.started_at.map(|dt| dt.to_rfc3339()))
-        .bind(record.completed_at.map(|dt| dt.to_rfc3339()))
-        .bind(record.duration.map(|d| d.as_millis() as i64))
-        .bind(&tags_json)
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+    async fn save_scan(&self, _session: &ScanSession) -> ScannerResult<()> {
+        Self::unsupported()
     }
 
-    async fn get_scan(&self, scan_id: &ScanId) -> ScannerResult<Option<ScanSession>> {
-        let row = sqlx::query("SELECT * FROM scans WHERE id = ?")
-            .bind(scan_id.to_string())
-            .fetch_optional(&self.pool)
-            .await?;
-
-        if let Some(row) = row {
-            let record = ScanRecord {
-                id: ScanId::from_string(&row.get::<String, _>("id"))?,
-                project_id: row
-                    .get::<Option<String>, _>("project_id")
-                    .map(|s| ProjectId::from_string(&s).unwrap()),
-                target_id: TargetId::from_string(&row.get::<String, _>("target_id"))?,
-                name: row.get("name"),
-                description: row.get("description"),
-                status: row.get::<String, _>("status").parse()?,
-                config: serde_json::from_str(&row.get::<String, _>("config"))?,
-                progress: serde_json::from_str(&row.get::<String, _>("progress"))?,
-                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
-                    .with_timezone(&Utc),
-                started_at: row.get::<Option<String>, _>("started_at").map(|s| {
-                    DateTime::parse_from_rfc3339(&s)
-                        .unwrap()
-                        .with_timezone(&Utc)
-                }),
-                completed_at: row.get::<Option<String>, _>("completed_at").map(|s| {
-                    DateTime::parse_from_rfc3339(&s)
-                        .unwrap()
-                        .with_timezone(&Utc)
-                }),
-                duration: row
-                    .get::<Option<i64>, _>("duration_ms")
-                    .map(|ms| std::time::Duration::from_millis(ms as u64)),
-                tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
-            };
-
-            // Load findings
-            let findings = self.get_findings(scan_id).await?;
-            // Load plugin executions
-            let plugin_executions = self.get_plugin_executions(scan_id).await?;
-            // Load logs
-            let logs = self.get_logs(scan_id).await?;
-
-            let mut session = self.record_to_session(record);
-            session.findings = findings;
-            session.plugin_executions = plugin_executions;
-            session.logs = logs;
-
-            Ok(Some(session))
-        } else {
-            Ok(None)
-        }
+    async fn get_scan(&self, _scan_id: &ScanId) -> ScannerResult<Option<ScanSession>> {
+        Self::unsupported()
     }
 
     async fn list_scans(
         &self,
-        limit: usize,
-        offset: usize,
-        project_id: Option<ProjectId>,
+        _limit: usize,
+        _offset: usize,
+        _project_id: Option<ProjectId>,
     ) -> ScannerResult<Vec<ScanSession>> {
-        let query = if project_id.is_some() {
-            "SELECT * FROM scans WHERE project_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
-        } else {
-            "SELECT * FROM scans ORDER BY created_at DESC LIMIT ? OFFSET ?"
-        };
-
-        let mut query_builder = sqlx::query(query);
-        if let Some(pid) = project_id {
-            query_builder = query_builder.bind(pid.to_string());
-        }
-        query_builder = query_builder.bind(limit as i64).bind(offset as i64);
-
-        let rows = query_builder.fetch_all(&self.pool).await?;
-
-        let mut sessions = Vec::new();
-        for row in rows {
-            let record = ScanRecord {
-                id: ScanId::from_string(&row.get::<String, _>("id"))?,
-                project_id: row
-                    .get::<Option<String>, _>("project_id")
-                    .map(|s| ProjectId::from_string(&s).unwrap()),
-                target_id: TargetId::from_string(&row.get::<String, _>("target_id"))?,
-                name: row.get("name"),
-                description: row.get("description"),
-                status: row.get::<String, _>("status").parse()?,
-                config: serde_json::from_str(&row.get::<String, _>("config"))?,
-                progress: serde_json::from_str(&row.get::<String, _>("progress"))?,
-                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
-                    .with_timezone(&Utc),
-                started_at: row.get::<Option<String>, _>("started_at").map(|s| {
-                    DateTime::parse_from_rfc3339(&s)
-                        .unwrap()
-                        .with_timezone(&Utc)
-                }),
-                completed_at: row.get::<Option<String>, _>("completed_at").map(|s| {
-                    DateTime::parse_from_rfc3339(&s)
-                        .unwrap()
-                        .with_timezone(&Utc)
-                }),
-                duration: row
-                    .get::<Option<i64>, _>("duration_ms")
-                    .map(|ms| std::time::Duration::from_millis(ms as u64)),
-                tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
-            };
-
-            let mut session = self.record_to_session(record);
-            session.findings = self.get_findings(&session.id).await?;
-            session.plugin_executions = self.get_plugin_executions(&session.id).await?;
-            session.logs = self.get_logs(&session.id).await?;
-
-            sessions.push(session);
-        }
-
-        Ok(sessions)
+        Self::unsupported()
     }
 
-    async fn delete_scan(&self, scan_id: &ScanId) -> ScannerResult<bool> {
-        let result = sqlx::query("DELETE FROM scans WHERE id = ?")
-            .bind(scan_id.to_string())
-            .execute(&self.pool)
-            .await?;
-
-        Ok(result.rows_affected() > 0)
+    async fn delete_scan(&self, _scan_id: &ScanId) -> ScannerResult<bool> {
+        Self::unsupported()
     }
 
-    async fn save_finding(&self, scan_id: ScanId, finding: &Finding) -> ScannerResult<()> {
-        let evidence_json = serde_json::to_string(&finding.evidence)?;
-        let references_json = serde_json::to_string(&finding.references)?;
-        let metadata_json = serde_json::to_string(&finding.metadata)?;
-        let tags_json = serde_json::to_string(&finding.tags)?;
-
-        sqlx::query(
-            r#"
-            INSERT OR REPLACE INTO findings (id, scan_id, title, description, severity, confidence, category, target, target_type, evidence, references, plugin_source, plugin_version, timestamp, metadata, tags, verified, false_positive, risk_score, cvss_vector, cvss_score)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(finding.id.to_string())
-        .bind(scan_id.to_string())
-        .bind(&finding.title)
-        .bind(&finding.description)
-        .bind(finding.severity.to_string())
-        .bind(finding.confidence.to_string())
-        .bind(finding.category.to_string())
-        .bind(&finding.target)
-        .bind(&finding.target_type)
-        .bind(&evidence_json)
-        .bind(&references_json)
-        .bind(&finding.plugin_source)
-        .bind(&finding.plugin_version)
-        .bind(finding.timestamp.to_rfc3339())
-        .bind(&metadata_json)
-        .bind(&tags_json)
-        .bind(finding.verified)
-        .bind(finding.false_positive)
-        .bind(finding.risk_score.map(|s| s as i64))
-        .bind(&finding.cvss_vector)
-        .bind(finding.cvss_score)
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+    async fn save_finding(&self, _scan_id: ScanId, _finding: &Finding) -> ScannerResult<()> {
+        Self::unsupported()
     }
 
-    async fn get_findings(&self, scan_id: &ScanId) -> ScannerResult<Vec<Finding>> {
-        let rows = sqlx::query("SELECT * FROM findings WHERE scan_id = ? ORDER BY timestamp DESC")
-            .bind(scan_id.to_string())
-            .fetch_all(&self.pool)
-            .await?;
-
-        let mut findings = Vec::new();
-        for row in rows {
-            findings.push(Finding {
-                id: FindingId::from_string(&row.get::<String, _>("id"))?,
-                title: row.get("title"),
-                description: row.get("description"),
-                severity: row.get::<String, _>("severity").parse()?,
-                confidence: row.get::<String, _>("confidence").parse()?,
-                category: row.get::<String, _>("category").parse()?,
-                target: row.get("target"),
-                target_type: row.get("target_type"),
-                evidence: serde_json::from_str(&row.get::<String, _>("evidence"))?,
-                references: serde_json::from_str(&row.get::<String, _>("references"))?,
-                plugin_source: row.get("plugin_source"),
-                plugin_version: row.get("plugin_version"),
-                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?
-                    .with_timezone(&Utc),
-                metadata: serde_json::from_str(&row.get::<String, _>("metadata"))?,
-                tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
-                verified: row.get("verified"),
-                false_positive: row.get("false_positive"),
-                risk_score: row.get::<Option<i64>, _>("risk_score").map(|s| s as u8),
-                cvss_vector: row.get("cvss_vector"),
-                cvss_score: row.get("cvss_score"),
-                scan_id: *scan_id,
-            });
-        }
-
-        Ok(findings)
+    async fn get_findings(&self, _scan_id: &ScanId) -> ScannerResult<Vec<Finding>> {
+        Self::unsupported()
     }
 
     async fn get_findings_filtered(
         &self,
-        filter: FindingFilter,
-        sort: FindingSort,
-        limit: usize,
-        offset: usize,
+        _filter: FindingFilter,
+        _sort: FindingSort,
+        _limit: usize,
+        _offset: usize,
     ) -> ScannerResult<Vec<Finding>> {
-        let mut query = "SELECT * FROM findings WHERE 1=1".to_string();
-        let mut params: Vec<String> = Vec::new();
-
-        if let Some(severities) = filter.severity {
-            let placeholders = severities.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            query.push_str(&format!(" AND severity IN ({})", placeholders));
-            for s in severities {
-                params.push(s.to_string());
-            }
-        }
-
-        if let Some(confidences) = filter.confidence {
-            let placeholders = confidences
-                .iter()
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(",");
-            query.push_str(&format!(" AND confidence IN ({})", placeholders));
-            for c in confidences {
-                params.push(c.to_string());
-            }
-        }
-
-        if let Some(categories) = filter.category {
-            let placeholders = categories.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            query.push_str(&format!(" AND category IN ({})", placeholders));
-            for c in categories {
-                params.push(c.to_string());
-            }
-        }
-
-        if let Some(target) = filter.target {
-            query.push_str(" AND target LIKE ?");
-            params.push(format!("%{}%", target));
-        }
-
-        if let Some(plugin) = filter.plugin_source {
-            query.push_str(" AND plugin_source = ?");
-            params.push(plugin);
-        }
-
-        if let Some(scan_id) = filter.scan_id {
-            query.push_str(" AND scan_id = ?");
-            params.push(scan_id.to_string());
-        }
-
-        if let Some(verified) = filter.verified {
-            query.push_str(" AND verified = ?");
-            params.push(verified.to_string());
-        }
-
-        if let Some(false_positive) = filter.false_positive {
-            query.push_str(" AND false_positive = ?");
-            params.push(false_positive.to_string());
-        }
-
-        if let Some(date_from) = filter.date_from {
-            query.push_str(" AND timestamp >= ?");
-            params.push(date_from.to_rfc3339());
-        }
-
-        if let Some(date_to) = filter.date_to {
-            query.push_str(" AND timestamp <= ?");
-            params.push(date_to.to_rfc3339());
-        }
-
-        if let Some(search) = filter.search {
-            query.push_str(" AND (title LIKE ? OR description LIKE ?)");
-            params.push(format!("%{}%", search));
-            params.push(format!("%{}%", search));
-        }
-
-        // Add sorting
-        let sort_clause = match sort {
-            FindingSort::SeverityDesc => "ORDER BY CASE severity WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END DESC",
-            FindingSort::SeverityAsc => "ORDER BY CASE severity WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END ASC",
-            FindingSort::ConfidenceDesc => "ORDER BY CASE confidence WHEN 'very_high' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END DESC",
-            FindingSort::TimestampDesc => "ORDER BY timestamp DESC",
-            FindingSort::TimestampAsc => "ORDER BY timestamp ASC",
-            FindingSort::RiskScoreDesc => "ORDER BY risk_score DESC NULLS LAST",
-            FindingSort::TargetAsc => "ORDER BY target ASC",
-        };
-        query.push_str(&format!(" {}", sort_clause));
-
-        // Add pagination
-        query.push_str(" LIMIT ? OFFSET ?");
-        params.push(limit.to_string());
-        params.push(offset.to_string());
-
-        // Execute query with dynamic parameters
-        let mut query_builder = sqlx::query(&query);
-        for param in params {
-            query_builder = query_builder.bind(param);
-        }
-
-        let rows = query_builder.fetch_all(&self.pool).await?;
-
-        let mut findings = Vec::new();
-        for row in rows {
-            findings.push(Finding {
-                id: FindingId::from_string(&row.get::<String, _>("id"))?,
-                title: row.get("title"),
-                description: row.get("description"),
-                severity: row.get::<String, _>("severity").parse()?,
-                confidence: row.get::<String, _>("confidence").parse()?,
-                category: row.get::<String, _>("category").parse()?,
-                target: row.get("target"),
-                target_type: row.get("target_type"),
-                evidence: serde_json::from_str(&row.get::<String, _>("evidence"))?,
-                references: serde_json::from_str(&row.get::<String, _>("references"))?,
-                plugin_source: row.get("plugin_source"),
-                plugin_version: row.get("plugin_version"),
-                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?
-                    .with_timezone(&Utc),
-                metadata: serde_json::from_str(&row.get::<String, _>("metadata"))?,
-                tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
-                verified: row.get("verified"),
-                false_positive: row.get("false_positive"),
-                risk_score: row.get::<Option<i64>, _>("risk_score").map(|s| s as u8),
-                cvss_vector: row.get("cvss_vector"),
-                cvss_score: row.get("cvss_score"),
-                scan_id: ScanId::from_string(&row.get::<String, _>("scan_id"))?,
-            });
-        }
-
-        Ok(findings)
+        Self::unsupported()
     }
 
     async fn list_findings(
@@ -738,553 +222,51 @@ impl ScanStorage for SqliteScanStorage {
             .await
     }
 
-    async fn count_findings(&self, filter: FindingFilter) -> ScannerResult<u64> {
-        let mut query = "SELECT COUNT(*) as count FROM findings WHERE 1=1".to_string();
-        let mut params: Vec<String> = Vec::new();
-
-        if let Some(severities) = filter.severity {
-            let placeholders = severities.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            query.push_str(&format!(" AND severity IN ({})", placeholders));
-            for s in severities {
-                params.push(s.to_string());
-            }
-        }
-
-        if let Some(confidences) = filter.confidence {
-            let placeholders = confidences
-                .iter()
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(",");
-            query.push_str(&format!(" AND confidence IN ({})", placeholders));
-            for c in confidences {
-                params.push(c.to_string());
-            }
-        }
-
-        if let Some(categories) = filter.category {
-            let placeholders = categories.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            query.push_str(&format!(" AND category IN ({})", placeholders));
-            for c in categories {
-                params.push(c.to_string());
-            }
-        }
-
-        if let Some(target) = filter.target {
-            query.push_str(" AND target LIKE ?");
-            params.push(format!("%{}%", target));
-        }
-
-        if let Some(plugin) = filter.plugin_source {
-            query.push_str(" AND plugin_source = ?");
-            params.push(plugin);
-        }
-
-        if let Some(scan_id) = filter.scan_id {
-            query.push_str(" AND scan_id = ?");
-            params.push(scan_id.to_string());
-        }
-
-        if let Some(verified) = filter.verified {
-            query.push_str(" AND verified = ?");
-            params.push(verified.to_string());
-        }
-
-        if let Some(false_positive) = filter.false_positive {
-            query.push_str(" AND false_positive = ?");
-            params.push(false_positive.to_string());
-        }
-
-        if let Some(date_from) = filter.date_from {
-            query.push_str(" AND timestamp >= ?");
-            params.push(date_from.to_rfc3339());
-        }
-
-        if let Some(date_to) = filter.date_to {
-            query.push_str(" AND timestamp <= ?");
-            params.push(date_to.to_rfc3339());
-        }
-
-        if let Some(search) = filter.search {
-            query.push_str(" AND (title LIKE ? OR description LIKE ?)");
-            params.push(format!("%{}%", search));
-            params.push(format!("%{}%", search));
-        }
-
-        if let Some(min_score) = filter.min_risk_score {
-            query.push_str(" AND risk_score >= ?");
-            params.push(min_score.to_string());
-        }
-
-        if let Some(max_score) = filter.max_risk_score {
-            query.push_str(" AND risk_score <= ?");
-            params.push(max_score.to_string());
-        }
-
-        let mut query_builder = sqlx::query(&query);
-        for param in params {
-            query_builder = query_builder.bind(param);
-        }
-
-        let row = query_builder.fetch_one(&self.pool).await?;
-        let count: i64 = row.get("count");
-        Ok(count as u64)
+    async fn count_findings(&self, _filter: FindingFilter) -> ScannerResult<u64> {
+        Self::unsupported()
     }
 
-    async fn get_finding(&self, finding_id: &FindingId) -> ScannerResult<Option<Finding>> {
-        let row = sqlx::query("SELECT * FROM findings WHERE id = ?")
-            .bind(finding_id.to_string())
-            .fetch_optional(&self.pool)
-            .await?;
-
-        if let Some(row) = row {
-            Ok(Some(Finding {
-                id: FindingId::from_string(&row.get::<String, _>("id"))?,
-                title: row.get("title"),
-                description: row.get("description"),
-                severity: row.get::<String, _>("severity").parse()?,
-                confidence: row.get::<String, _>("confidence").parse()?,
-                category: row.get::<String, _>("category").parse()?,
-                target: row.get("target"),
-                target_type: row.get("target_type"),
-                evidence: serde_json::from_str(&row.get::<String, _>("evidence"))?,
-                references: serde_json::from_str(&row.get::<String, _>("references"))?,
-                plugin_source: row.get("plugin_source"),
-                plugin_version: row.get("plugin_version"),
-                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?
-                    .with_timezone(&Utc),
-                metadata: serde_json::from_str(&row.get::<String, _>("metadata"))?,
-                tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
-                verified: row.get("verified"),
-                false_positive: row.get("false_positive"),
-                risk_score: row.get::<Option<i64>, _>("risk_score").map(|s| s as u8),
-                cvss_vector: row.get("cvss_vector"),
-                cvss_score: row.get("cvss_score"),
-                scan_id: ScanId::from_string(&row.get::<String, _>("scan_id"))?,
-            }))
-        } else {
-            Ok(None)
-        }
+    async fn get_finding(&self, _finding_id: &FindingId) -> ScannerResult<Option<Finding>> {
+        Self::unsupported()
     }
 
-    async fn get_finding_stats(&self, filter: FindingFilter) -> ScannerResult<FindingStats> {
-        let mut query = "SELECT * FROM findings WHERE 1=1".to_string();
-        let mut params: Vec<String> = Vec::new();
-
-        if let Some(severities) = filter.severity {
-            let placeholders = severities.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            query.push_str(&format!(" AND severity IN ({})", placeholders));
-            for s in severities {
-                params.push(s.to_string());
-            }
-        }
-
-        if let Some(confidences) = filter.confidence {
-            let placeholders = confidences
-                .iter()
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(",");
-            query.push_str(&format!(" AND confidence IN ({})", placeholders));
-            for c in confidences {
-                params.push(c.to_string());
-            }
-        }
-
-        if let Some(categories) = filter.category {
-            let placeholders = categories.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            query.push_str(&format!(" AND category IN ({})", placeholders));
-            for c in categories {
-                params.push(c.to_string());
-            }
-        }
-
-        if let Some(target) = filter.target {
-            query.push_str(" AND target LIKE ?");
-            params.push(format!("%{}%", target));
-        }
-
-        if let Some(plugin) = filter.plugin_source {
-            query.push_str(" AND plugin_source = ?");
-            params.push(plugin);
-        }
-
-        if let Some(scan_id) = filter.scan_id {
-            query.push_str(" AND scan_id = ?");
-            params.push(scan_id.to_string());
-        }
-
-        if let Some(verified) = filter.verified {
-            query.push_str(" AND verified = ?");
-            params.push(verified.to_string());
-        }
-
-        if let Some(false_positive) = filter.false_positive {
-            query.push_str(" AND false_positive = ?");
-            params.push(false_positive.to_string());
-        }
-
-        if let Some(date_from) = filter.date_from {
-            query.push_str(" AND timestamp >= ?");
-            params.push(date_from.to_rfc3339());
-        }
-
-        if let Some(date_to) = filter.date_to {
-            query.push_str(" AND timestamp <= ?");
-            params.push(date_to.to_rfc3339());
-        }
-
-        if let Some(search) = filter.search {
-            query.push_str(" AND (title LIKE ? OR description LIKE ?)");
-            params.push(format!("%{}%", search));
-            params.push(format!("%{}%", search));
-        }
-
-        if let Some(min_score) = filter.min_risk_score {
-            query.push_str(" AND risk_score >= ?");
-            params.push(min_score.to_string());
-        }
-
-        if let Some(max_score) = filter.max_risk_score {
-            query.push_str(" AND risk_score <= ?");
-            params.push(max_score.to_string());
-        }
-
-        let mut query_builder = sqlx::query(&query);
-        for param in params {
-            query_builder = query_builder.bind(param);
-        }
-
-        let rows = query_builder.fetch_all(&self.pool).await?;
-
-        let mut by_severity = HashMap::new();
-        let mut by_confidence = HashMap::new();
-        let mut by_category = HashMap::new();
-        let mut by_plugin = HashMap::new();
-        let mut verified = 0;
-        let mut false_positives = 0;
-        let mut total_risk_score = 0u32;
-        let mut risk_score_count = 0;
-
-        for row in rows {
-            let severity: String = row.get("severity");
-            let confidence: String = row.get("confidence");
-            let category: String = row.get("category");
-            let plugin: String = row.get("plugin_source");
-            let verified_flag: bool = row.get("verified");
-            let fp_flag: bool = row.get("false_positive");
-            let risk_score: Option<i64> = row.get("risk_score");
-
-            *by_severity.entry(severity.parse()?).or_insert(0) += 1;
-            *by_confidence.entry(confidence.parse()?).or_insert(0) += 1;
-            *by_category.entry(category.parse()?).or_insert(0) += 1;
-            *by_plugin.entry(plugin).or_insert(0) += 1;
-
-            if verified_flag {
-                verified += 1;
-            }
-            if fp_flag {
-                false_positives += 1;
-            }
-            if let Some(score) = risk_score {
-                total_risk_score += score as u32;
-                risk_score_count += 1;
-            }
-        }
-
-        Ok(FindingStats {
-            total: by_severity.values().sum(),
-            by_severity,
-            by_confidence,
-            by_category,
-            by_plugin,
-            verified,
-            false_positives,
-            avg_risk_score: if risk_score_count > 0 {
-                total_risk_score as f32 / risk_score_count as f32
-            } else {
-                0.0
-            },
-        })
+    async fn get_finding_stats(&self, _filter: FindingFilter) -> ScannerResult<FindingStats> {
+        Self::unsupported()
     }
 
-    async fn save_log(&self, scan_id: ScanId, log: &ScanLogEntry) -> ScannerResult<()> {
-        let metadata_json = serde_json::to_string(&log.metadata)?;
-
-        sqlx::query(
-            r#"
-            INSERT INTO scan_logs (scan_id, timestamp, level, plugin, message, metadata)
-            VALUES (?, ?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(scan_id.to_string())
-        .bind(log.timestamp.to_rfc3339())
-        .bind(&log.level)
-        .bind(&log.plugin)
-        .bind(&log.message)
-        .bind(&metadata_json)
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+    async fn save_log(&self, _scan_id: ScanId, _log: &ScanLogEntry) -> ScannerResult<()> {
+        Self::unsupported()
     }
 
-    async fn get_logs(&self, scan_id: &ScanId) -> ScannerResult<Vec<ScanLogEntry>> {
-        let rows = sqlx::query("SELECT * FROM scan_logs WHERE scan_id = ? ORDER BY timestamp ASC")
-            .bind(scan_id.to_string())
-            .fetch_all(&self.pool)
-            .await?;
-
-        let mut logs = Vec::new();
-        for row in rows {
-            logs.push(ScanLogEntry {
-                timestamp: DateTime::parse_from_rfc3339(&row.get::<String, _>("timestamp"))?
-                    .with_timezone(&Utc),
-                level: row.get("level"),
-                plugin: row.get("plugin"),
-                message: row.get("message"),
-                metadata: serde_json::from_str(&row.get::<String, _>("metadata"))?,
-            });
-        }
-
-        Ok(logs)
+    async fn get_logs(&self, _scan_id: &ScanId) -> ScannerResult<Vec<ScanLogEntry>> {
+        Self::unsupported()
     }
 
-    async fn save_target(&self, target: &Target) -> ScannerResult<()> {
-        let headers_json = serde_json::to_string(&target.metadata.headers)?;
-        let cookies_json = serde_json::to_string(&target.metadata.cookies)?;
-        let auth_json = target
-            .metadata
-            .auth
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
-        let rate_limit_json = target
-            .metadata
-            .rate_limit
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
-        let tls_json = target
-            .metadata
-            .tls_config
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
-        let proxy_json = target
-            .metadata
-            .proxy
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
-        let custom_json = serde_json::to_string(&target.metadata.custom)?;
-        let tags_json = serde_json::to_string(&target.metadata.tags)?;
-
-        sqlx::query(
-            r#"
-            INSERT OR REPLACE INTO targets (id, project_id, target_type, name, description, base_url, headers, cookies, auth, rate_limit, tls_config, proxy, custom, tags, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(target.id.to_string())
-        .bind(None::<String>) // project_id
-        .bind(target.target_type.to_string())
-        .bind(&target.metadata.name)
-        .bind(&target.metadata.description)
-        .bind(target.metadata.base_url.to_string())
-        .bind(&headers_json)
-        .bind(&cookies_json)
-        .bind(&auth_json)
-        .bind(&rate_limit_json)
-        .bind(&tls_json)
-        .bind(&proxy_json)
-        .bind(&custom_json)
-        .bind(&tags_json)
-        .bind(target.created_at.to_rfc3339())
-        .bind(target.updated_at.to_rfc3339())
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+    async fn save_target(&self, _target: &Target) -> ScannerResult<()> {
+        Self::unsupported()
     }
 
-    async fn get_target(&self, target_id: &TargetId) -> ScannerResult<Option<Target>> {
-        let row = sqlx::query("SELECT * FROM targets WHERE id = ?")
-            .bind(target_id.to_string())
-            .fetch_optional(&self.pool)
-            .await?;
-
-        if let Some(row) = row {
-            let target = Target {
-                id: TargetId::from_string(&row.get::<String, _>("id"))?,
-                target_type: row.get::<String, _>("target_type").parse()?,
-                metadata: TargetMetadata {
-                    name: row.get("name"),
-                    description: row.get("description"),
-                    base_url: row.get::<String, _>("base_url").parse()?,
-                    headers: serde_json::from_str(&row.get::<String, _>("headers"))?,
-                    cookies: serde_json::from_str(&row.get::<String, _>("cookies"))?,
-                    auth: row
-                        .get::<Option<String>, _>("auth")
-                        .map(|s| serde_json::from_str(&s))
-                        .transpose()?,
-                    rate_limit: row
-                        .get::<Option<String>, _>("rate_limit")
-                        .map(|s| serde_json::from_str(&s))
-                        .transpose()?,
-                    tls_config: row
-                        .get::<Option<String>, _>("tls_config")
-                        .map(|s| serde_json::from_str(&s))
-                        .transpose()?,
-                    proxy: row
-                        .get::<Option<String>, _>("proxy")
-                        .map(|s| serde_json::from_str(&s))
-                        .transpose()?,
-                    custom: serde_json::from_str(&row.get::<String, _>("custom"))?,
-                    tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
-                    created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
-                        .with_timezone(&Utc),
-                    updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?
-                        .with_timezone(&Utc),
-                },
-                scan_configs: Vec::new(),
-                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
-                    .with_timezone(&Utc),
-                updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?
-                    .with_timezone(&Utc),
-            };
-            Ok(Some(target))
-        } else {
-            Ok(None)
-        }
+    async fn get_target(&self, _target_id: &TargetId) -> ScannerResult<Option<Target>> {
+        Self::unsupported()
     }
 
-    async fn list_targets(&self, project_id: Option<ProjectId>) -> ScannerResult<Vec<Target>> {
-        let query = if project_id.is_some() {
-            "SELECT * FROM targets WHERE project_id = ? ORDER BY created_at DESC"
-        } else {
-            "SELECT * FROM targets ORDER BY created_at DESC"
-        };
-
-        let mut query_builder = sqlx::query(query);
-        if let Some(pid) = project_id {
-            query_builder = query_builder.bind(pid.to_string());
-        }
-
-        let rows = query_builder.fetch_all(&self.pool).await?;
-
-        let mut targets = Vec::new();
-        for row in rows {
-            targets.push(Target {
-                id: TargetId::from_string(&row.get::<String, _>("id"))?,
-                target_type: row.get::<String, _>("target_type").parse()?,
-                metadata: TargetMetadata {
-                    name: row.get("name"),
-                    description: row.get("description"),
-                    base_url: row.get::<String, _>("base_url").parse()?,
-                    headers: serde_json::from_str(&row.get::<String, _>("headers"))?,
-                    cookies: serde_json::from_str(&row.get::<String, _>("cookies"))?,
-                    auth: row
-                        .get::<Option<String>, _>("auth")
-                        .map(|s| serde_json::from_str(&s))
-                        .transpose()?,
-                    rate_limit: row
-                        .get::<Option<String>, _>("rate_limit")
-                        .map(|s| serde_json::from_str(&s))
-                        .transpose()?,
-                    tls_config: row
-                        .get::<Option<String>, _>("tls_config")
-                        .map(|s| serde_json::from_str(&s))
-                        .transpose()?,
-                    proxy: row
-                        .get::<Option<String>, _>("proxy")
-                        .map(|s| serde_json::from_str(&s))
-                        .transpose()?,
-                    custom: serde_json::from_str(&row.get::<String, _>("custom"))?,
-                    tags: serde_json::from_str(&row.get::<String, _>("tags"))?,
-                    created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
-                        .with_timezone(&Utc),
-                    updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?
-                        .with_timezone(&Utc),
-                },
-                scan_configs: Vec::new(),
-                created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))?
-                    .with_timezone(&Utc),
-                updated_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("updated_at"))?
-                    .with_timezone(&Utc),
-            });
-        }
-
-        Ok(targets)
+    async fn list_targets(&self, _project_id: Option<ProjectId>) -> ScannerResult<Vec<Target>> {
+        Self::unsupported()
     }
 
-    async fn delete_target(&self, target_id: &TargetId) -> ScannerResult<bool> {
-        let result = sqlx::query("DELETE FROM targets WHERE id = ?")
-            .bind(target_id.to_string())
-            .execute(&self.pool)
-            .await?;
-
-        Ok(result.rows_affected() > 0)
+    async fn delete_target(&self, _target_id: &TargetId) -> ScannerResult<bool> {
+        Self::unsupported()
     }
 
-    async fn save_plugin_execution(&self, record: &PluginExecutionRecord) -> ScannerResult<()> {
-        sqlx::query(
-            r#"
-            INSERT OR REPLACE INTO plugin_executions (id, scan_id, plugin_id, plugin_name, started_at, completed_at, status, findings_count, error, duration_ms)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(record.id.to_string())
-        .bind(record.scan_id.to_string())
-        .bind(record.plugin_id.to_string())
-        .bind(&record.plugin_name)
-        .bind(record.started_at.to_rfc3339())
-        .bind(record.completed_at.map(|dt| dt.to_rfc3339()))
-        .bind(&record.status)
-        .bind(record.findings_count as i64)
-        .bind(&record.error)
-        .bind(record.duration.map(|d| d.as_millis() as i64))
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
+    async fn save_plugin_execution(&self, _record: &PluginExecutionRecord) -> ScannerResult<()> {
+        Self::unsupported()
     }
 
     async fn get_plugin_executions(
         &self,
-        scan_id: &ScanId,
+        _scan_id: &ScanId,
     ) -> ScannerResult<Vec<PluginExecutionRecord>> {
-        let rows = sqlx::query(
-            "SELECT * FROM plugin_executions WHERE scan_id = ? ORDER BY started_at ASC",
-        )
-        .bind(scan_id.to_string())
-        .fetch_all(&self.pool)
-        .await?;
-
-        let mut executions = Vec::new();
-        for row in rows {
-            executions.push(PluginExecutionRecord {
-                id: Uuid::parse_str(&row.get::<String, _>("id"))?,
-                scan_id: ScanId::from_string(&row.get::<String, _>("scan_id"))?,
-                plugin_id: PluginId::from_string(&row.get::<String, _>("plugin_id"))?,
-                plugin_name: row.get("plugin_name"),
-                started_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("started_at"))?
-                    .with_timezone(&Utc),
-                completed_at: row.get::<Option<String>, _>("completed_at").map(|s| {
-                    DateTime::parse_from_rfc3339(&s)
-                        .unwrap()
-                        .with_timezone(&Utc)
-                }),
-                status: row.get("status"),
-                findings_count: row.get::<i64, _>("findings_count") as usize,
-                error: row.get("error"),
-                duration: row
-                    .get::<Option<i64>, _>("duration_ms")
-                    .map(|ms| std::time::Duration::from_millis(ms as u64)),
-            });
-        }
-
-        Ok(executions)
+        Self::unsupported()
     }
 }
 
@@ -1500,6 +482,7 @@ impl ScanStorage for MemoryScanStorage {
         let mut false_positives = 0;
         let mut total_risk_score = 0u32;
         let mut risk_score_count = 0;
+        let mut max_risk_score = 0u8;
 
         for finding in &findings {
             *by_severity.entry(finding.severity).or_insert(0) += 1;
@@ -1515,6 +498,7 @@ impl ScanStorage for MemoryScanStorage {
             if let Some(score) = finding.risk_score {
                 total_risk_score += score as u32;
                 risk_score_count += 1;
+                max_risk_score = max_risk_score.max(score);
             }
         }
 
@@ -1531,6 +515,14 @@ impl ScanStorage for MemoryScanStorage {
             } else {
                 0.0
             },
+            max_risk_score,
+            by_owasp_category: HashMap::new(),
+            by_cwe: HashMap::new(),
+            avg_advanced_risk_score: 0.0,
+            max_advanced_risk_score: 0,
+            by_remediation_priority: HashMap::new(),
+            exploit_available_count: 0,
+            exploited_in_wild_count: 0,
         })
     }
 

@@ -1,6 +1,8 @@
 //! Plugin routes
 
+use crate::validation::{IdParam, PaginationParams};
 use crate::{ApiResult, AppState, ValidatedJson};
+use axum::Extension;
 use axum::{
     extract::{Path, Query, State},
     routing::{delete, get, post, put},
@@ -39,23 +41,36 @@ async fn list_plugins(
     Query(filter): Query<PluginFilterParams>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<PluginListResponse>> {
-    let plugins = state
-        .plugin_registry
-        .list_plugins(
-            filter.plugin_type.as_deref(),
-            filter.enabled,
-            pagination.offset(),
-            pagination.limit(),
-        )
-        .await?;
+    let _ = claims;
 
-    let total = state
-        .plugin_registry
-        .count_plugins(filter.plugin_type.as_deref(), filter.enabled)
-        .await?;
+    let mut plugins = state.plugin_registry.list_all().await;
+
+    plugins.retain(|m| match filter.plugin_type.as_deref() {
+        Some(t) => m.manifest.plugin.r#type.as_str() == t,
+        None => true,
+    });
+    plugins.retain(|m| match filter.enabled {
+        Some(true) => matches!(m.status, openre_plugins::manifest::PluginStatus::Active),
+        Some(false) => !matches!(m.status, openre_plugins::manifest::PluginStatus::Active),
+        None => true,
+    });
+    plugins.retain(|m| match filter.search.as_deref() {
+        Some(q) => m.manifest.name.contains(q) || m.manifest.description.contains(q),
+        None => true,
+    });
+
+    let total = plugins.len() as u64;
+    plugins.sort_by(|a, b| b.installed_at.cmp(&a.installed_at));
+
+    let items: Vec<PluginResponse> = plugins
+        .iter()
+        .skip(pagination.offset() as usize)
+        .take(pagination.limit() as usize)
+        .map(plugin_response_from_metadata)
+        .collect();
 
     Ok(Json(PluginListResponse {
-        plugins: plugins.into_iter().map(PluginResponse::from).collect(),
+        plugins: items,
         total,
         page: pagination.page(),
         per_page: pagination.per_page(),
@@ -79,13 +94,20 @@ async fn get_plugin(
     Path(id): Path<PluginId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<PluginResponse>> {
-    let plugin = state
-        .plugin_registry
-        .get_plugin(id)
-        .await?
-        .ok_or_else(|| crate::error::ApiError::NotFound("Plugin not found".into()))?;
+    let _ = claims;
 
-    Ok(Json(PluginResponse::from(plugin)))
+    let metadata = state
+        .plugin_registry
+        .get_metadata(&id)
+        .await
+        .map_err(|e| match &e {
+            openre_core::error::Error::NotFound(_) => {
+                crate::error::ApiError::NotFound("Plugin not found".into())
+            }
+            _ => crate::error::ApiError::Internal(e.to_string()),
+        })?;
+
+    Ok(Json(plugin_response_from_metadata(&metadata)))
 }
 
 /// Install plugin
@@ -111,12 +133,57 @@ async fn install_plugin(
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    let plugin = state
-        .plugin_registry
-        .install_plugin(&payload.source, payload.version.as_deref())
-        .await?;
+    match payload.source {
+        PluginSource::Local { path } => {
+            let dir = std::path::PathBuf::from(path);
+            let manifest =
+                openre_plugins::manifest::PluginManifest::from_dir(&dir).map_err(|e| {
+                    crate::error::ApiError::BadRequest(format!("Invalid plugin manifest: {}", e))
+                })?;
 
-    Ok(Json(PluginResponse::from(plugin)))
+            let id = manifest.plugin_id();
+            let name = manifest.name.clone();
+            let version = manifest.version.clone();
+            let description = manifest.description.clone();
+            let author = manifest.author.clone();
+            let plugin_type = manifest.plugin.r#type.as_str().to_string();
+            let capabilities = manifest
+                .plugin
+                .capabilities
+                .iter()
+                .map(|c| format!("{:?}", c))
+                .collect();
+
+            let installed_at = chrono::Utc::now();
+            let metadata = openre_plugins::manifest::PluginMetadata {
+                id,
+                manifest,
+                source: openre_plugins::manifest::PluginSource::Local,
+                path: dir,
+                installed_at,
+                status: openre_plugins::manifest::PluginStatus::Active,
+            };
+
+            state.plugin_registry.register(metadata).await?;
+
+            Ok(Json(PluginResponse {
+                id,
+                name,
+                version,
+                description,
+                author,
+                plugin_type,
+                capabilities,
+                enabled: true,
+                config: None,
+                installed_at,
+                updated_at: installed_at,
+            }))
+        }
+        _ => Err(crate::error::ApiError::NotImplemented(
+            "only local plugin installation is supported".into(),
+        )),
+    }
 }
 
 /// Uninstall plugin
@@ -130,7 +197,7 @@ async fn uninstall_plugin(
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    state.plugin_registry.uninstall_plugin(id).await?;
+    state.plugin_registry.unregister(&id).await?;
 
     Ok(())
 }
@@ -141,14 +208,15 @@ async fn enable_plugin(
     Path(id): Path<PluginId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<PluginResponse>> {
+    let _ = (state, id);
     // Check admin permission
     if !claims.roles.contains(&"admin".to_string()) {
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    let plugin = state.plugin_registry.enable_plugin(id).await?;
-
-    Ok(Json(PluginResponse::from(plugin)))
+    Err(crate::error::ApiError::NotImplemented(
+        "plugin enable/disable not implemented yet".into(),
+    ))
 }
 
 /// Disable plugin
@@ -157,14 +225,15 @@ async fn disable_plugin(
     Path(id): Path<PluginId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<PluginResponse>> {
+    let _ = (state, id);
     // Check admin permission
     if !claims.roles.contains(&"admin".to_string()) {
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    let plugin = state.plugin_registry.disable_plugin(id).await?;
-
-    Ok(Json(PluginResponse::from(plugin)))
+    Err(crate::error::ApiError::NotImplemented(
+        "plugin enable/disable not implemented yet".into(),
+    ))
 }
 
 /// Configure plugin
@@ -174,17 +243,15 @@ async fn configure_plugin(
     Extension(claims): Extension<crate::auth::Claims>,
     Json(payload): Json<ConfigurePluginRequest>,
 ) -> ApiResult<Json<PluginResponse>> {
+    let _ = (state, id, payload);
     // Check admin permission
     if !claims.roles.contains(&"admin".to_string()) {
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    let plugin = state
-        .plugin_registry
-        .configure_plugin(id, payload.config)
-        .await?;
-
-    Ok(Json(PluginResponse::from(plugin)))
+    Err(crate::error::ApiError::NotImplemented(
+        "plugin configuration persistence not implemented yet".into(),
+    ))
 }
 
 // Request/Response types
@@ -219,21 +286,25 @@ pub struct PluginResponse {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-impl From<openre_plugins::PluginInfo> for PluginResponse {
-    fn from(p: openre_plugins::PluginInfo) -> Self {
-        Self {
-            id: p.id,
-            name: p.name,
-            version: p.version,
-            description: p.description,
-            author: p.author,
-            plugin_type: p.plugin_type,
-            capabilities: p.capabilities,
-            enabled: p.enabled,
-            config: p.config,
-            installed_at: p.installed_at,
-            updated_at: p.updated_at,
-        }
+fn plugin_response_from_metadata(m: &openre_plugins::manifest::PluginMetadata) -> PluginResponse {
+    PluginResponse {
+        id: m.id,
+        name: m.manifest.name.clone(),
+        version: m.manifest.version.clone(),
+        description: m.manifest.description.clone(),
+        author: m.manifest.author.clone(),
+        plugin_type: m.manifest.plugin.r#type.as_str().to_string(),
+        capabilities: m
+            .manifest
+            .plugin
+            .capabilities
+            .iter()
+            .map(|c| format!("{:?}", c))
+            .collect(),
+        enabled: matches!(m.status, openre_plugins::manifest::PluginStatus::Active),
+        config: None,
+        installed_at: m.installed_at,
+        updated_at: m.installed_at,
     }
 }
 

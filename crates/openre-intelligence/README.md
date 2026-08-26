@@ -5,58 +5,67 @@ The OpenRE Intelligence Layer transforms security scanning from a simple vulnera
 ## 🌟 Key Features
 
 ### 🔗 Finding Correlation Engine
-- **Attack Chain Detection**: Identifies complex attack paths by correlating seemingly unrelated vulnerabilities
-- **Pattern Recognition**: Recognizes common vulnerability combinations (e.g., XSS + Missing CSP = Higher Risk)
-- **Risk Amplification Analysis**: Calculates combined risk scores when findings interact
-- **Evidence Consolidation**: Merges related evidence to provide comprehensive attack narratives
+
+-   **Attack Chain Detection**: Identifies complex attack paths by correlating seemingly unrelated vulnerabilities
+-   **Pattern Recognition**: Recognizes common vulnerability combinations (e.g., XSS + Missing CSP = Higher Risk)
+-   **Risk Amplification Analysis**: Calculates combined risk scores when findings interact
+-   **Evidence Consolidation**: Merges related evidence to provide comprehensive attack narratives
 
 ### 🛡️ CVE Intelligence
-- **Automated CVE Matching**: Matches software versions in scan results with known vulnerabilities
-- **Multi-Provider Support**: Integrates with multiple CVE data sources (NVD, GitHub Advisory Database, etc.)
-- **Real-time Intelligence**: Fetches latest CVE data with intelligent caching
-- **Risk Prioritization**: Enhances findings with CVSS scores and exploitability assessments
+
+-   **Automated CVE Matching**: Matches software versions in scan results with known vulnerabilities
+-   **Multi-Provider Support**: Integrates with multiple CVE data sources (NVD, GitHub Advisory Database, etc.)
+-   **Real-time Intelligence**: Fetches latest CVE data with intelligent caching
+-   **Risk Prioritization**: Enhances findings with CVSS scores and exploitability assessments
 
 ### 📦 Dependency Intelligence
-- **Multi-Ecosystem Support**: Analyzes dependencies across npm, Cargo, pip, gem, and more
-- **Vulnerability Scanning**: Checks dependencies against vulnerability databases
-- **Outdated Version Detection**: Identifies outdated packages that may pose security risks
-- **License Compliance**: Checks for license compatibility issues in dependencies
+
+-   **Multi-Ecosystem Support**: Analyzes dependencies across npm, Cargo, pip, gem, and more
+-   **Vulnerability Scanning**: Checks dependencies against vulnerability databases
+-   **Outdated Version Detection**: Identifies outdated packages that may pose security risks
+-   **License Compliance**: Checks for license compatibility issues in dependencies
 
 ### 📚 Security Knowledge Base
-- **Contextual Enrichment**: Adds background information about vulnerabilities and attack techniques
-- **Remediation Guidance**: Provides actionable steps to fix identified issues
-- **Best Practice Recommendations**: Suggests security improvements beyond immediate fixes
-- **Industry Standard Mapping**: Links findings to CWE, CAPEC, OWASP Top 10, and MITRE ATT&CK
+
+-   **Contextual Enrichment**: Adds background information about vulnerabilities and attack techniques
+-   **Remediation Guidance**: Provides actionable steps to fix identified issues
+-   **Best Practice Recommendations**: Suggests security improvements beyond immediate fixes
+-   **Industry Standard Mapping**: Links findings to CWE, CAPEC, OWASP Top 10, and MITRE ATT&CK
 
 ### 🌱 Root Cause Analysis
-- **Pattern Recognition**: Identifies underlying causes of multiple related vulnerabilities
-- **Architecture-Level Insights**: Points to systemic issues in application design or implementation
-- **Preventive Recommendations**: Suggests changes that would prevent similar issues in the future
-- **Security Design Principles**: Recommends architectural improvements for better security posture
+
+-   **Pattern Recognition**: Identifies underlying causes of multiple related vulnerabilities
+-   **Architecture-Level Insights**: Points to systemic issues in application design or implementation
+-   **Preventive Recommendations**: Suggests changes that would prevent similar issues in the future
+-   **Security Design Principles**: Recommends architectural improvements for better security posture
 
 ### 📊 Scan Diff Intelligence
-- **Trend Analysis**: Tracks vulnerability trends across multiple scans over time
-- **Change Detection**: Highlights new vulnerabilities and resolved issues
-- **Regression Monitoring**: Identifies previously fixed vulnerabilities that have reappeared
-- **Risk Evolution Tracking**: Monitors how risk profiles change between scans
+
+-   **Trend Analysis**: Tracks vulnerability trends across multiple scans over time
+-   **Change Detection**: Highlights new vulnerabilities and resolved issues
+-   **Regression Monitoring**: Identifies previously fixed vulnerabilities that have reappeared
+-   **Risk Evolution Tracking**: Monitors how risk profiles change between scans
 
 ### 🔄 Workflow Features
-- **Finding Acknowledgment**: Track which findings have been reviewed by developers
-- **Ignore Management**: Maintain lists of false positives and intentional exceptions
-- **Ownership Assignment**: Assign findings to specific team members for resolution
-- **Status Tracking**: Monitor the lifecycle of each finding from detection to resolution
+
+-   **Finding Acknowledgment**: Track which findings have been reviewed by developers
+-   **Ignore Management**: Maintain lists of false positives and intentional exceptions
+-   **Ownership Assignment**: Assign findings to specific team members for resolution
+-   **Status Tracking**: Monitor the lifecycle of each finding from detection to resolution
 
 ### ⚡ Performance Optimizations
-- **Intelligent Caching**: Cache expensive operations with automatic expiration
-- **Result Deduplication**: Remove duplicate findings across scans and tools
-- **Parallel Processing**: Utilize multiple cores for faster analysis
-- **Memory Efficiency**: Optimize data structures for minimal memory footprint
+
+-   **Intelligent Caching**: Cache expensive operations with automatic expiration
+-   **Result Deduplication**: Remove duplicate findings across scans and tools
+-   **Parallel Processing**: Utilize multiple cores for faster analysis
+-   **Memory Efficiency**: Optimize data structures for minimal memory footprint
 
 ### 🎨 Developer Experience Enhancements
-- **Rich TUI Reports**: Colorized terminal output with collapsible sections
-- **Structured Data Export**: Export findings in multiple formats (JSON, SARIF, CSV)
-- **Customizable Views**: Filter and sort findings based on various criteria
-- **Interactive Navigation**: Easily navigate through complex finding relationships
+
+-   **Rich TUI Reports**: Colorized terminal output with collapsible sections
+-   **Structured Data Export**: Export findings in multiple formats (JSON, SARIF, CSV)
+-   **Customizable Views**: Filter and sort findings based on various criteria
+-   **Interactive Navigation**: Easily navigate through complex finding relationships
 
 ## 🏗️ Architecture Overview
 
@@ -91,20 +100,23 @@ The intelligence layer follows a modular architecture where each component can b
 ```
 
 Each component is designed to be:
-- **Pluggable**: Easy to add new providers or analysis modules
-- **Configurable**: Flexible settings for different environments and requirements
-- **Testable**: Comprehensive unit and integration tests
-- **Extensible**: Well-defined interfaces for extending functionality
+
+-   **Pluggable**: Easy to add new providers or analysis modules
+-   **Configurable**: Flexible settings for different environments and requirements
+-   **Testable**: Comprehensive unit and integration tests
+-   **Extensible**: Well-defined interfaces for extending functionality
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Rust 1.70 or later
-- Cargo package manager
-- Access to CVE data sources (NVD API key recommended)
+
+-   Rust 1.70 or later
+-   Cargo package manager
+-   Access to CVE data sources (NVD API key recommended)
 
 ### Installation
-Add this to your `Cargo.toml`:
+
+Add this to your `Cargo.TOML`:
 
 ```toml
 [dependencies]
@@ -147,24 +159,24 @@ The intelligence layer includes comprehensive tests to ensure reliability:
 
 ```bash
 # Run unit tests
-cargo test --lib
+Cargo test --lib
 
 # Run integration tests
-cargo test --test integration_tests
+Cargo test --test integration_tests
 
 # Run benchmarks
-cargo bench
+Cargo bench
 
 # Run all tests with specific features
-cargo test --features "full-testing"
+Cargo test --features "full-testing"
 ```
 
 ## 📖 Documentation
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Detailed architecture documentation
-- [USAGE.md](./USAGE.md) - Comprehensive usage guide with examples
-- [API Documentation](https://docs.rs/openre-intelligence) - Generated Rust API docs
-- [SUMMARY.md](./SUMMARY.md) - Implementation summary and future directions
+-   [ARCHITECTURE.md](./ARCHITECTURE.md) - Detailed architecture documentation
+-   [USAGE.md](./USAGE.md) - Comprehensive usage guide with examples
+-   [API Documentation](https://docs.rs/openre-intelligence) - Generated Rust API docs
+-   [SUMMARY.md](./SUMMARY.md) - Implementation summary and future directions
 
 ## 🛠️ Configuration
 
@@ -196,11 +208,12 @@ let config = IntelligenceConfig {
 We welcome contributions! Please see our [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 ### Areas for Enhancement
-- Additional correlation patterns
-- More CVE data providers
-- Enhanced dependency analysis for additional ecosystems
-- Advanced root cause analysis algorithms
-- Integration with more security tools and platforms
+
+-   Additional correlation patterns
+-   More CVE data providers
+-   Enhanced dependency analysis for additional ecosystems
+-   Advanced root cause analysis algorithms
+-   Integration with more security tools and platforms
 
 ## 📄 License
 
@@ -208,17 +221,17 @@ This project is licensed under the MIT License - see the [LICENSE](../../LICENSE
 
 ## 🙏 Acknowledgments
 
-- Thanks to all contributors who have helped shape this intelligence layer
-- CVE data providers (NVD, GitHub Advisory Database, etc.)
-- Security research community for vulnerability patterns and best practices
-- Open source projects that inspired various components
+-   Thanks to all contributors who have helped shape this intelligence layer
+-   CVE data providers (NVD, GitHub Advisory Database, etc.)
+-   Security research community for vulnerability patterns and best practices
+-   Open source projects that inspired various components
 
 ## 🔗 Related Projects
 
-- [openre-core](../openre-core) - Core scanning engine
-- [openre-cli](../openre-cli) - Command-line interface
-- [openre-web](../openre-web) - Web interface (coming soon)
+-   [openre-core](../openre-core) - Core scanning engine
+-   [openre-cli](../openre-cli) - Command-line interface
+-   [openre-web](../openre-web) - Web interface (coming soon)
 
 ---
 
-*Transform your security scanning from reactive detection to proactive intelligence*
+_Transform your security scanning from reactive detection to proactive intelligence_

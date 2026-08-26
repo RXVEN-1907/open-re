@@ -7,6 +7,7 @@ use crate::scan::{ScanId, ScanManager, ScanProgress, ScanSession, ScanStatus};
 use crate::storage::{MemoryScanStorage, ScanStorage};
 use crate::target::{ScanConfig, Target, TargetId, TargetMetadata, TargetType};
 use clap::{Args, Parser, Subcommand};
+use openre_core::result::{Category, Severity};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
@@ -244,7 +245,7 @@ pub struct ScanFindingsArgs {
 
     /// Sort order
     #[arg(long, default_value = "severity_desc")]
-    pub sort: FindingSort,
+    pub sort: String,
 }
 
 /// Scan logs arguments
@@ -1233,7 +1234,7 @@ pub struct FindingListArgs {
 
     /// Sort order
     #[arg(long, default_value = "severity_desc")]
-    pub sort: FindingSort,
+    pub sort: String,
 }
 
 /// Finding get arguments
@@ -1540,7 +1541,12 @@ impl TuiApp {
         };
         let findings = self
             .storage
-            .get_findings_filtered(filter, args.sort, args.limit, args.offset)
+            .get_findings_filtered(
+                filter,
+                parse_finding_sort(&args.sort),
+                args.limit,
+                args.offset,
+            )
             .await?;
         self.output_findings(&findings)?;
         Ok(())
@@ -1792,7 +1798,12 @@ impl TuiApp {
         };
         let findings = self
             .storage
-            .get_findings_filtered(filter, args.sort, args.limit, args.offset)
+            .get_findings_filtered(
+                filter,
+                parse_finding_sort(&args.sort),
+                args.limit,
+                args.offset,
+            )
             .await?;
         self.output_findings(&findings)?;
         Ok(())
@@ -1807,7 +1818,13 @@ impl TuiApp {
 
     async fn cmd_finding_stats(&self, args: FindingStatsArgs) -> ScannerResult<()> {
         info!("Getting finding stats");
-        let stats = self.storage.get_finding_stats(args.scan_id).await?;
+        let stats = self
+            .storage
+            .get_finding_stats(FindingFilter {
+                scan_id: args.scan_id,
+                ..Default::default()
+            })
+            .await?;
         self.output_json(&stats)?;
         Ok(())
     }
@@ -1822,8 +1839,8 @@ impl TuiApp {
         info!("Getting finding summary");
         let filter = FindingFilter {
             scan_id: args.scan_id,
-            target: args.target,
-            plugin_source: args.plugin,
+            target: args.target.clone(),
+            plugin_source: args.plugin.clone(),
             ..Default::default()
         };
         let findings = self
@@ -1925,7 +1942,7 @@ impl TuiApp {
                 println!("  Duplicate groups ({}):", result.duplicate_groups.len());
                 for group in &result.duplicate_groups {
                     println!(
-                        "    - {} -> {} duplicates merged ({})",
+                        "    - {} -> {} duplicates merged ({:?})",
                         group.primary.title,
                         group.duplicates.len(),
                         group.reason
@@ -2024,9 +2041,45 @@ impl TuiApp {
             .storage
             .get_findings_filtered(filter, FindingSort::SeverityDesc, 10000, 0)
             .await?;
+        // TODO: wire up format-specific exporters (markdown/html/json/sarif)
+        println!(
+            "Prepared {} finding(s) for {:?} export{}",
+            findings.len(),
+            args.format,
+            match &args.output {
+                Some(path) => format!(" -> {}", path),
+                None => String::new(),
+            }
+        );
+        Ok(())
+    }
+
+    async fn cmd_finding_compare(&self, args: FindingCompareArgs) -> ScannerResult<()> {
+        info!(
+            "Comparing scans: {} vs {}",
+            args.baseline_scan, args.current_scan
+        );
 
         // Use the reporting engine's comparison logic via ScanComparison-compatible types
         use openre_core::reporting::SeverityChange;
+
+        // Fetch findings for both scans
+        let baseline_filter = FindingFilter {
+            scan_id: Some(args.baseline_scan),
+            ..Default::default()
+        };
+        let current_filter = FindingFilter {
+            scan_id: Some(args.current_scan),
+            ..Default::default()
+        };
+        let baseline_findings = self
+            .storage
+            .get_findings_filtered(baseline_filter, FindingSort::SeverityDesc, 10000, 0)
+            .await?;
+        let current_findings = self
+            .storage
+            .get_findings_filtered(current_filter, FindingSort::SeverityDesc, 10000, 0)
+            .await?;
 
         // Build fingerprint maps for comparison (matching ReportGenerator pattern)
         let baseline_map: std::collections::HashMap<String, &Finding> = baseline_findings
@@ -2513,8 +2566,8 @@ impl TuiApp {
         println!("Injection Findings Statistics");
         println!("=============================");
         println!("Total: {}", stats.total);
-        println!("Verified: {}", stats.verified_count);
-        println!("False Positives: {}", stats.false_positive_count);
+        println!("Verified: {}", stats.verified);
+        println!("False Positives: {}", stats.false_positives);
         println!();
         println!("By Severity:");
         for (severity, count) in &stats.by_severity {
@@ -2571,8 +2624,8 @@ impl TuiApp {
         println!("REST API Security Statistics");
         println!("==============================");
         println!("Total: {}", stats.total);
-        println!("Verified: {}", stats.verified_count);
-        println!("False Positives: {}", stats.false_positive_count);
+        println!("Verified: {}", stats.verified);
+        println!("False Positives: {}", stats.false_positives);
         println!();
         println!("By Severity:");
         for (severity, count) in &stats.by_severity {
@@ -2624,8 +2677,8 @@ impl TuiApp {
         println!("GraphQL Security Statistics");
         println!("===========================");
         println!("Total: {}", stats.total);
-        println!("Verified: {}", stats.verified_count);
-        println!("False Positives: {}", stats.false_positive_count);
+        println!("Verified: {}", stats.verified);
+        println!("False Positives: {}", stats.false_positives);
         println!();
         println!("By Severity:");
         for (severity, count) in &stats.by_severity {
@@ -2683,8 +2736,8 @@ impl TuiApp {
         println!("Rate Limiting Statistics");
         println!("========================");
         println!("Total: {}", stats.total);
-        println!("Verified: {}", stats.verified_count);
-        println!("False Positives: {}", stats.false_positive_count);
+        println!("Verified: {}", stats.verified);
+        println!("False Positives: {}", stats.false_positives);
         println!();
         println!("By Severity:");
         for (severity, count) in &stats.by_severity {
@@ -2742,8 +2795,8 @@ impl TuiApp {
         println!("Access Control Statistics");
         println!("=========================");
         println!("Total: {}", stats.total);
-        println!("Verified: {}", stats.verified_count);
-        println!("False Positives: {}", stats.false_positive_count);
+        println!("Verified: {}", stats.verified);
+        println!("False Positives: {}", stats.false_positives);
         println!();
         println!("By Severity:");
         for (severity, count) in &stats.by_severity {
@@ -2798,8 +2851,8 @@ impl TuiApp {
         println!("File Upload Statistics");
         println!("======================");
         println!("Total: {}", stats.total);
-        println!("Verified: {}", stats.verified_count);
-        println!("False Positives: {}", stats.false_positive_count);
+        println!("Verified: {}", stats.verified);
+        println!("False Positives: {}", stats.false_positives);
         println!();
         println!("By Severity:");
         for (severity, count) in &stats.by_severity {
@@ -2857,8 +2910,8 @@ impl TuiApp {
         println!("Path Traversal Statistics");
         println!("=========================");
         println!("Total: {}", stats.total);
-        println!("Verified: {}", stats.verified_count);
-        println!("False Positives: {}", stats.false_positive_count);
+        println!("Verified: {}", stats.verified);
+        println!("False Positives: {}", stats.false_positives);
         println!();
         println!("By Severity:");
         for (severity, count) in &stats.by_severity {
@@ -2916,8 +2969,8 @@ impl TuiApp {
         println!("Sensitive Information Statistics");
         println!("================================");
         println!("Total: {}", stats.total);
-        println!("Verified: {}", stats.verified_count);
-        println!("False Positives: {}", stats.false_positive_count);
+        println!("Verified: {}", stats.verified);
+        println!("False Positives: {}", stats.false_positives);
         println!();
         println!("By Severity:");
         for (severity, count) in &stats.by_severity {
@@ -3220,12 +3273,12 @@ impl TuiApp {
         }
     }
 
-    fn output_json<T: serde::Serialize>(&self, value: &T) -> ScannerResult<()> {
+    fn output_json<T: serde::Serialize + ?Sized>(&self, value: &T) -> ScannerResult<()> {
         println!("{}", serde_json::to_string_pretty(value)?);
         Ok(())
     }
 
-    fn output_yaml<T: serde::Serialize>(&self, value: &T) -> ScannerResult<()> {
+    fn output_yaml<T: serde::Serialize + ?Sized>(&self, value: &T) -> ScannerResult<()> {
         println!("{}", serde_yaml::to_string(value)?);
         Ok(())
     }
@@ -3237,6 +3290,19 @@ fn truncate(s: &str, max_len: usize) -> String {
         s.to_string()
     } else {
         format!("{}...", &s[..max_len.saturating_sub(3)])
+    }
+}
+
+/// Parse a finding sort option from its snake_case name (defaults to severity desc)
+fn parse_finding_sort(s: &str) -> FindingSort {
+    match s {
+        "severity_asc" => FindingSort::SeverityAsc,
+        "confidence_desc" => FindingSort::ConfidenceDesc,
+        "timestamp_desc" => FindingSort::TimestampDesc,
+        "timestamp_asc" => FindingSort::TimestampAsc,
+        "risk_score_desc" => FindingSort::RiskScoreDesc,
+        "target_asc" => FindingSort::TargetAsc,
+        _ => FindingSort::SeverityDesc,
     }
 }
 

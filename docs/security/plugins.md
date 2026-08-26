@@ -13,17 +13,19 @@ The security plugins are modular, independent components that integrate with the
 **Purpose**: Detects authentication endpoints and mechanisms without attempting credential attacks.
 
 **Checks Performed**:
-- Login forms (password fields, submit buttons, CSRF tokens)
-- Registration endpoints (password confirmation, email/username fields)
-- Password reset flows (forgot password, reset password pages)
-- Multi-factor authentication indicators (TOTP, authenticator apps, WebAuthn, SMS, backup codes)
-- Single Sign-On providers (Google, GitHub, GitLab, Microsoft, Okta, Auth0, Keycloak, SAML, OIDC)
-- OAuth/OpenID Connect indicators (authorization endpoints, token endpoints, client_id, redirect_uri, PKCE)
+
+-   Login forms (password fields, submit buttons, CSRF tokens)
+-   Registration endpoints (password confirmation, email/username fields)
+-   Password reset flows (forgot password, reset password pages)
+-   Multi-factor authentication indicators (TOTP, authenticator apps, WebAuthn, SMS, backup codes)
+-   Single Sign-On providers (Google, GitHub, GitLab, Microsoft, Okta, Auth0, Keycloak, SAML, OIDC)
+-   OAuth/OpenID Connect indicators (authorization endpoints, token endpoints, client_id, redirect_uri, PKCE)
 
 **Configuration**:
+
 ```json
 {
-  "enabled_checks": ["login_forms", "registration", "password_reset", "mfa", "sso", "oauth", "oidc"],
+  "enabled_checks": ["login_forms", "registration", "password_reset", "mfa", "sso", "OAuth", "OIDC"],
   "request_timeout": 30,
   "max_concurrent_requests": 10,
   "user_agent": "open-re-security-scanner/1.0",
@@ -41,12 +43,14 @@ The security plugins are modular, independent components that integrate with the
 **Purpose**: Evaluates session cookie generation, expiration, invalidation, rotation, and fixation indicators.
 
 **Checks Performed**:
-- Session cookie identification (naming patterns, attributes)
-- Session fixation testing (same session ID across requests)
-- Cookie security attributes (Secure, HttpOnly, SameSite, Domain, Path, Expiration)
-- Weak/predictable cookie value detection
+
+-   Session cookie identification (naming patterns, attributes)
+-   Session fixation testing (same session ID across requests)
+-   Cookie security attributes (Secure, HttpOnly, SameSite, Domain, Path, Expiration)
+-   Weak/predictable cookie value detection
 
 **Configuration**:
+
 ```json
 {
   "enabled_checks": ["session_cookies", "session_expiration", "session_invalidation", "session_rotation", "session_fixation", "cookie_security"],
@@ -64,16 +68,18 @@ The security plugins are modular, independent components that integrate with the
 **Purpose**: Validates cookie security attributes comprehensively.
 
 **Checks Performed**:
-- **Secure flag**: Cookie only transmitted over HTTPS
-- **HttpOnly flag**: Cookie inaccessible to JavaScript
-- **SameSite policy**: Lax, Strict, or None (with Secure)
-- **Domain scope**: Overly broad domain settings
-- **Path scope**: Root path vs. restricted paths
-- **Expiration**: Session cookies vs. persistent cookies with long lifetimes
-- **Weak/predictable values**: Short length, common patterns, low entropy
-- **Cookie prefixes**: `__Secure-` and `__Host-` prefix compliance
+
+-   **Secure flag**: Cookie only transmitted over HTTPS
+-   **HttpOnly flag**: Cookie inaccessible to JavaScript
+-   **SameSite policy**: Lax, Strict, or None (with Secure)
+-   **Domain scope**: Overly broad domain settings
+-   **Path scope**: Root path vs. restricted paths
+-   **Expiration**: Session cookies vs. persistent cookies with long lifetimes
+-   **Weak/predictable values**: Short length, common patterns, low entropy
+-   **Cookie prefixes**: `__Secure-` and `__Host-` prefix compliance
 
 **Configuration**:
+
 ```json
 {
   "enabled_checks": ["secure_flag", "httponly_flag", "samesite", "domain_scope", "path_scope", "expiration", "weak_values", "cookie_prefixes"],
@@ -91,21 +97,23 @@ The security plugins are modular, independent components that integrate with the
 **Purpose**: Checks for presence and proper configuration of security headers.
 
 **Headers Analyzed**:
-- **Content-Security-Policy (CSP)**: Directive analysis, unsafe-inline/eval detection, missing directives, frame-ancestors, reporting
-- **Strict-Transport-Security (HSTS)**: max-age, includeSubDomains, preload
-- **X-Frame-Options**: DENY, SAMEORIGIN, ALLOW-FROM (deprecated)
-- **Referrer-Policy**: Secure vs. insecure policies
-- **Permissions-Policy**: Dangerous permissions, wildcard usage
-- **X-Content-Type-Options**: nosniff
-- **Cache-Control**: no-store, no-cache, must-revalidate, public/private
-- **X-XSS-Protection**: Legacy header (informational)
-- **X-Permitted-Cross-Domain-Policies**: Legacy Flash header (informational)
-- **Cross-Origin headers**: COOP, COEP, CORP for cross-origin isolation
+
+-   **Content-Security-Policy (CSP)**: Directive analysis, unsafe-inline/eval detection, missing directives, frame-ancestors, reporting
+-   **Strict-Transport-Security (HSTS)**: max-age, includeSubDomains, preload
+-   **X-Frame-Options**: DENY, SAMEORIGIN, ALLOW-FROM (deprecated)
+-   **Referrer-Policy**: Secure vs. insecure policies
+-   **Permissions-Policy**: Dangerous permissions, wildcard usage
+-   **X-Content-Type-Options**: nosniff
+-   **Cache-Control**: no-store, no-cache, must-revalidate, public/private
+-   **X-XSS-Protection**: Legacy header (informational)
+-   **X-Permitted-Cross-Domain-Policies**: Legacy Flash header (informational)
+-   **Cross-Origin headers**: COOP, COEP, CORP for cross-origin isolation
 
 **Configuration**:
+
 ```json
 {
-  "enabled_checks": ["csp", "hsts", "xfo", "referrer_policy", "permissions_policy", "xcto", "cache_control", "x_xss_protection", "x_permitted_cross_domain", "cross_origin_isolation"],
+  "enabled_checks": ["CSP", "HSTS", "xfo", "referrer_policy", "permissions_policy", "xcto", "cache_control", "x_xss_protection", "x_permitted_cross_domain", "cross_origin_isolation"],
   "request_timeout": 30,
   "max_concurrent_requests": 10
 }
@@ -120,20 +128,22 @@ The security plugins are modular, independent components that integrate with the
 **Purpose**: Evaluates Cross-Origin Resource Sharing configuration for misconfigurations.
 
 **Checks Performed**:
-- **Wildcard origins**: `Access-Control-Allow-Origin: *` with/without credentials
-- **Credential handling**: `Access-Control-Allow-Credentials: true` with specific origins
-- **Origin reflection**: Dynamic reflection of Origin header in ACAO
-- **Null origin**: Allowing `null` origin
-- **Unsafe methods**: PUT, DELETE, PATCH, TRACE, CONNECT in ACAM
-- **Wildcard headers**: `Access-Control-Allow-Headers: *`
-- **Preflight analysis**: OPTIONS request handling
-- **Missing Vary header**: Cache poisoning prevention
+
+-   **Wildcard origins**: `Access-Control-Allow-Origin: *` with/without credentials
+-   **Credential handling**: `Access-Control-Allow-Credentials: true` with specific origins
+-   **Origin reflection**: Dynamic reflection of Origin header in ACAO
+-   **Null origin**: Allowing `null` origin
+-   **Unsafe methods**: PUT, DELETE, PATCH, TRACE, CONNECT in ACAM
+-   **Wildcard headers**: `Access-Control-Allow-Headers: *`
+-   **Preflight analysis**: OPTIONS request handling
+-   **Missing Vary header**: Cache poisoning prevention
 
 **Configuration**:
+
 ```json
 {
   "enabled_checks": ["wildcard_origin", "credentials", "origin_reflection", "unsafe_methods", "preflight", "allow_headers"],
-  "test_origins": ["https://evil.com", "https://sub.evil.com", "null"],
+  "test_origins": ["HTTPS://evil.com", "HTTPS://sub.evil.com", "null"],
   "test_methods": ["PUT", "DELETE", "PATCH", "TRACE", "CONNECT"],
   "request_timeout": 30,
   "max_concurrent_requests": 10
@@ -149,13 +159,15 @@ The security plugins are modular, independent components that integrate with the
 **Purpose**: Safely determines if request throttling exists on endpoints.
 
 **Checks Performed**:
-- **General endpoints**: Home, health, API root
-- **Authentication endpoints**: Login, register, password reset, MFA
-- **API endpoints**: User data, search, GraphQL
-- **Rate limit headers**: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After
-- **Conservative testing**: Burst test (10 requests) + sustained test (20 requests at 2/sec)
+
+-   **General endpoints**: Home, health, API root
+-   **Authentication endpoints**: Login, register, password reset, MFA
+-   **API endpoints**: User data, search, GraphQL
+-   **Rate limit headers**: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After
+-   **Conservative testing**: Burst test (10 requests) + sustained test (20 requests at 2/sec)
 
 **Configuration**:
+
 ```json
 {
   "enabled_checks": ["general_endpoints", "auth_endpoints", "api_endpoints", "rate_limit_headers", "retry_after"],
@@ -176,18 +188,20 @@ The security plugins are modular, independent components that integrate with the
 **Purpose**: Detects exposure of sensitive information in responses.
 
 **Checks Performed**:
-- **Server headers**: Server, X-Powered-By, X-AspNet-Version, X-AspNetMvc-Version, X-Runtime, Via, X-Forwarded-*
-- **Framework/technology detection**: Laravel, Symfony, Django, Flask, Express, Rails, Spring, ASP.NET, PHP, Node.js, Nginx, Apache, IIS, Tomcat, Jetty, Webpack, React, Vue, Angular, jQuery, Bootstrap, WordPress, Drupal, Joomla, Magento, Shopify
-- **Debug pages**: Laravel Whoops, Symfony Debug, Django Debug Toolbar, Flask Debug, Express Error Handler, ASP.NET Yellow Screen of Death
-- **Stack traces**: Java, Python, Go, JavaScript, Node.js, Rust patterns
-- **Version numbers**: Semantic versions, version patterns in body
-- **Sensitive data**: Passwords, API keys, secrets, tokens, private keys, connection strings
-- **Directory listings**: Index of /, directory listing
-- **Source code disclosure**: PHP, JSP, ASP markers
-- **Backup/config files**: .bak, .backup, .old, .orig, .env, config files
-- **Sensitive comments**: TODO, FIXME, HACK, PASSWORD, SECRET, KEY, TOKEN in comments
+
+-   **Server headers**: Server, X-Powered-By, X-AspNet-Version, X-AspNetMvc-Version, X-Runtime, Via, X-Forwarded-*
+-   **Framework/technology detection**: Laravel, Symfony, Django, Flask, Express, Rails, Spring, ASP.NET, PHP, node.js, Nginx, Apache, IIS, Tomcat, Jetty, Webpack, React, Vue, Angular, jQuery, Bootstrap, WordPress, Drupal, Joomla, Magento, Shopify
+-   **Debug pages**: Laravel Whoops, Symfony Debug, Django Debug Toolbar, Flask Debug, Express Error Handler, ASP.NET Yellow Screen of Death
+-   **Stack traces**: Java, Python, Go, JavaScript, node.js, Rust patterns
+-   **Version numbers**: Semantic versions, version patterns in body
+-   **Sensitive data**: Passwords, API keys, secrets, tokens, private keys, connection strings
+-   **Directory listings**: Index of /, directory listing
+-   **Source code disclosure**: PHP, JSP, ASP markers
+-   **Backup/config files**: .bak, .backup, .old, .orig, .env, config files
+-   **Sensitive comments**: TODO, FIXME, HACK, PASSWORD, SECRET, KEY, TOKEN in comments
 
 **Configuration**:
+
 ```json
 {
   "enabled_checks": ["server_headers", "framework_versions", "debug_pages", "stack_traces", "sensitive_data", "directory_listing", "source_code", "backup_files", "comments", "technology_stack"],
@@ -219,7 +233,7 @@ All plugins return findings using the standardized schema:
       "evidence_type": "http_response|http_request|code_snippet|...",
       "description": "Evidence description",
       "data": {},
-      "location": "https://example.com/login",
+      "location": "HTTPS://example.com/login",
       "metadata": {}
     }
   ],
@@ -227,7 +241,7 @@ All plugins return findings using the standardized schema:
     {
       "reference_type": "cwe|owasp|cve|...",
       "title": "CWE-384",
-      "url": "https://cwe.mitre.org/data/definitions/384.html",
+      "url": "HTTPS://cwe.mitre.org/data/definitions/384.HTML",
       "description": "Session Fixation"
     }
   ],
@@ -248,7 +262,7 @@ All plugins return findings using the standardized schema:
 ## Severity Levels
 
 | Level | Value | Description |
-|-------|-------|-------------|
+| ------- | ------- | ------------- |
 | Info | 0 | Informational - no direct security impact |
 | Low | 1 | Minor security issue |
 | Medium | 2 | Moderate security issue |
@@ -258,7 +272,7 @@ All plugins return findings using the standardized schema:
 ## Confidence Levels
 
 | Level | Value | Percentage |
-|-------|-------|------------|
+| ------- | ------- | ------------ |
 | Very Low | 0 | 10% - Speculative |
 | Low | 1 | 30% - Weak evidence |
 | Medium | 2 | 50% - Reasonable evidence |
@@ -274,42 +288,48 @@ Example: High (3) + High (3) = 60 + 15 = 75
 ## API Endpoints
 
 ### List Findings
+
 ```
 GET /api/security/findings
 ```
 
 Query parameters:
-- `page`, `per_page` - Pagination
-- `severity` - Filter by severity (comma-separated)
-- `confidence` - Filter by confidence
-- `category` - Filter by category
-- `target` - Filter by target URL
-- `plugin_source` - Filter by plugin
-- `scan_id` - Filter by scan
-- `verified` - Filter by verified status
-- `false_positive` - Filter by false positive status
-- `tags` - Filter by tags
-- `date_from`, `date_to` - Date range
-- `search` - Search in title/description
-- `min_risk_score`, `max_risk_score` - Risk score range
-- `sort` - Sort order (severity_desc, severity_asc, confidence_desc, timestamp_desc, timestamp_asc, risk_score_desc, target_asc)
+
+-   `page`, `per_page` - Pagination
+-   `severity` - Filter by severity (comma-separated)
+-   `confidence` - Filter by confidence
+-   `category` - Filter by category
+-   `target` - Filter by target URL
+-   `plugin_source` - Filter by plugin
+-   `scan_id` - Filter by scan
+-   `verified` - Filter by verified status
+-   `false_positive` - Filter by false positive status
+-   `tags` - Filter by tags
+-   `date_from`, `date_to` - Date range
+-   `search` - Search in title/description
+-   `min_risk_score`, `max_risk_score` - Risk score range
+-   `sort` - Sort order (severity_desc, severity_asc, confidence_desc, timestamp_desc, timestamp_asc, risk_score_desc, target_asc)
 
 ### Get Finding
+
 ```
 GET /api/security/findings/{id}
 ```
 
 ### Get Finding Statistics
+
 ```
 GET /api/security/findings/stats
 ```
 
 ### Get Scan Findings
+
 ```
 GET /api/security/scans/{scan_id}/findings
 ```
 
 ### Get Scan Finding Statistics
+
 ```
 GET /api/security/scans/{scan_id}/findings/stats
 ```
@@ -317,6 +337,7 @@ GET /api/security/scans/{scan_id}/findings/stats
 ## CLI Commands
 
 ### Security Findings
+
 ```bash
 # List authentication findings
 sentinel finding security auth --scan-id <id> --severity high,critical
@@ -331,7 +352,7 @@ sentinel finding security cookie --scan-id <id>
 sentinel finding security headers --scan-id <id>
 
 # List CORS findings
-sentinel finding security cors --scan-id <id>
+sentinel finding security CORS --scan-id <id>
 
 # List rate limiting findings
 sentinel finding security rate-limit --scan-id <id>
@@ -347,14 +368,14 @@ sentinel finding security summary --scan-id <id>
 
 ### Creating a New Security Plugin
 
-1. Create a new module in `crates/openre-plugins/src/security/`
-2. Implement the `SecurityPlugin` trait
-3. Implement the `Plugin` trait from the SDK
-4. Add plugin entry point using `openre_plugins::plugin_entry!`
-5. Create plugin manifest (`plugin.toml`) in `plugins/security/<name>/`
-6. Create configuration schema (`config_schema.json`)
-7. Add tests in `crates/openre-plugins/tests/`
-8. Update documentation
+1.  Create a new module in `crates/openre-plugins/src/security/`
+2.  Implement the `SecurityPlugin` trait
+3.  Implement the `Plugin` trait from the SDK
+4.  Add plugin entry point using `openre_plugins::plugin_entry!`
+5.  Create plugin manifest (`plugin.TOML`) in `plugins/security/<name>/`
+6.  Create configuration schema (`config_schema.JSON`)
+7.  Add tests in `crates/openre-plugins/tests/`
+8.  Update documentation
 
 ### Required Trait Methods
 
@@ -372,41 +393,44 @@ trait SecurityPlugin: Plugin {
 ### Helper Functions
 
 The `security` module provides common utilities:
-- `standard_references()` - Common OWASP/CWE references
-- `extract_cookies()` - Parse Set-Cookie headers
-- `is_auth_page()` - Detect authentication pages
-- `detect_sso_providers()` - Identify SSO providers
-- `detect_mfa_indicators()` - Identify MFA mechanisms
+
+-   `standard_references()` - Common OWASP/CWE references
+-   `extract_cookies()` - Parse Set-Cookie headers
+-   `is_auth_page()` - Detect authentication pages
+-   `detect_sso_providers()` - Identify SSO providers
+-   `detect_mfa_indicators()` - Identify MFA mechanisms
 
 ## Testing
 
 Run security plugin tests:
+
 ```bash
-cargo test -p openre-plugins security_plugins_test
-cargo test -p openre-plugins security_integration_test
+Cargo test -p openre-plugins security_plugins_test
+Cargo test -p openre-plugins security_integration_test
 ```
 
 ## Best Practices
 
-1. **Conservative Testing**: Rate limiting and active tests should be conservative to avoid DoS
-2. **Low False Positives**: Only report findings with high confidence
-3. **Standardized Output**: Use the finding schema consistently
-4. **References**: Include relevant CWE, OWASP, and CVE references
-5. **Remediation**: Provide actionable recommendations
-6. **Evidence**: Include HTTP request/response evidence
-7. **Tags**: Use consistent tagging for categorization
+1.  **Conservative Testing**: Rate limiting and active tests should be conservative to avoid DoS
+2.  **Low False Positives**: Only report findings with high confidence
+3.  **Standardized Output**: Use the finding schema consistently
+4.  **References**: Include relevant CWE, OWASP, and CVE references
+5.  **Remediation**: Provide actionable recommendations
+6.  **Evidence**: Include HTTP request/response evidence
+7.  **Tags**: Use consistent tagging for categorization
 
 ## Constraints
 
 These plugins do NOT implement:
-- SQL Injection
-- XSS
-- SSRF
-- Command Injection
-- Template Injection
-- Path Traversal
-- File Upload attacks
-- AI analysis
-- Report generation
+
+-   SQL Injection
+-   XSS
+-   SSRF
+-   Command Injection
+-   Template Injection
+-   Path Traversal
+-   File Upload attacks
+-   AI analysis
+-   Report generation
 
 This phase focuses only on authentication, session management, and common security misconfigurations.

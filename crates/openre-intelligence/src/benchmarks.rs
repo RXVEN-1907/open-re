@@ -12,7 +12,7 @@ mod benchmarks {
 
     fn create_benchmark_finding(id: usize, target: &str) -> Finding {
         Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: format!("Test Finding {}", id),
             description: format!("Description for test finding {}", id),
             severity: Severity::Medium,
@@ -40,7 +40,7 @@ mod benchmarks {
             plugin_source: "benchmark".to_string(),
             plugin_version: "1.0".to_string(),
             timestamp: Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: HashMap::new(),
             tags: vec![format!("tag_{}", id)],
             verified: false,
@@ -295,7 +295,7 @@ mod benchmarks {
             };
 
             findings.push(Finding {
-                id: FindingId::new_v4(),
+                id: FindingId::new(),
                 title: format!("{} Finding {}",
                              match category {
                                  Category::Injection => "SQL Injection",
@@ -322,7 +322,7 @@ mod benchmarks {
                 plugin_source: "benchmark".to_string(),
                 plugin_version: "1.0".to_string(),
                 timestamp: Utc::now(),
-                scan_id: ScanId::new_v4(),
+                scan_id: ScanId::new(),
                 metadata: HashMap::new(),
                 tags: Vec::new(),
                 verified: false,
@@ -458,7 +458,7 @@ mod benchmarks {
         for i in 0..20 {
             if i % 2 == 0 {
                 findings.push(Finding {
-                    id: FindingId::new_v4(),
+                    id: FindingId::new(),
                     title: "Reflected XSS in search parameter".to_string(),
                     description: "The application reflects user input directly into the HTML response without proper encoding.".to_string(),
                     severity: Severity::High,
@@ -471,7 +471,7 @@ mod benchmarks {
                     plugin_source: "benchmark".to_string(),
                     plugin_version: "1.0".to_string(),
                     timestamp: Utc::now(),
-                    scan_id: ScanId::new_v4(),
+                    scan_id: ScanId::new(),
                     metadata: HashMap::new(),
                     tags: Vec::new(),
                     verified: false,
@@ -491,7 +491,7 @@ mod benchmarks {
                 });
 
                 findings.push(Finding {
-                    id: FindingId::new_v4(),
+                    id: FindingId::new(),
                     title: "Missing Content-Security-Policy header".to_string(),
                     description: "The application does not set a Content Security Policy header, increasing XSS risk.".to_string(),
                     severity: Severity::Medium,
@@ -504,7 +504,7 @@ mod benchmarks {
                     plugin_source: "benchmark".to_string(),
                     plugin_version: "1.0".to_string(),
                     timestamp: Utc::now(),
-                    scan_id: ScanId::new_v4(),
+                    scan_id: ScanId::new(),
                     metadata: HashMap::new(),
                     tags: Vec::new(),
                     verified: false,
@@ -618,7 +618,7 @@ mod benchmarks {
 
         // Create sample data structures to measure actual memory usage
         let sample_correlation = EnhancedCorrelation {
-            finding_ids: vec![FindingId::new_v4(); 5],
+            finding_ids: vec![FindingId::new(); 5],
             correlation_type: types::CorrelationType::CspXssChain,
             confidence: 0.85,
             description: "Sample correlation description for benchmarking purposes".to_string(),

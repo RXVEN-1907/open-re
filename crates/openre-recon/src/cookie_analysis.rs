@@ -5,6 +5,7 @@
 use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use cookie::Cookie;
 use openre_core::error::OpenreResult as Result;
+use openre_core::result::FindingConfig;
 use openre_plugins::sdk::{
     AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
 };
@@ -35,7 +36,8 @@ impl CookieAnalysisPlugin {
             .user_agent(&config.user_agent)
             .danger_accept_invalid_certs(!config.verify_tls)
             .cookie_store(true)
-            .build()?;
+            .build()
+            .map_err(crate::internal_err)?;
 
         Ok(Self { config, client })
     }
@@ -44,7 +46,12 @@ impl CookieAnalysisPlugin {
     async fn analyze_cookies(&self, url: &str) -> Result<CookieAnalysisResult> {
         let mut result = CookieAnalysisResult::default();
 
-        let response = self.client.get(url).send().await?;
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .map_err(crate::internal_err)?;
 
         // Extract cookies from Set-Cookie headers
         for header in response.headers().get_all("set-cookie") {
@@ -70,8 +77,8 @@ impl CookieAnalysisPlugin {
             value: cookie.value().to_string(),
             domain: cookie.domain().map(|d| d.to_string()),
             path: cookie.path().map(|p| p.to_string()),
-            secure: cookie.secure(),
-            http_only: cookie.http_only(),
+            secure: cookie.secure().unwrap_or(false),
+            http_only: cookie.http_only().unwrap_or(false),
             same_site: cookie.same_site().map(|s| format!("{:?}", s)),
             expires: cookie.expires().map(|e| format!("{:?}", e)),
             max_age: cookie.max_age().map(|m| m.to_string()),
@@ -189,12 +196,14 @@ impl Plugin for CookieAnalysisPlugin {
         vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
-    async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
-        let context = request.context;
-        let findings = self.recon(&context).await?;
+    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
+        let _ = request;
 
+        // Recon plugins perform their work through the scan pipeline, which
+        // supplies a full ScanContext. Capability execution has no scan context,
+        // so report an empty result set instead.
         Ok(CapabilityResponse::success(serde_json::json!({
-            "findings": findings,
+            "findings": [],
             "recon_type": ReconType::CookieAnalysis,
         })))
     }
@@ -215,9 +224,9 @@ impl ReconPlugin for CookieAnalysisPlugin {
         ]
     }
 
-    async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
+    async fn recon(&self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
-        let target_url = context.target.to_string();
+        let target_url = context.target.metadata.base_url.as_str().to_string();
 
         info!("Starting cookie analysis for: {}", target_url);
 
@@ -237,18 +246,18 @@ impl ReconPlugin for CookieAnalysisPlugin {
                 };
 
                 findings.push(
-                    Finding::new(
-                        format!("Cookie Issue: {}", cookie.name),
-                        format!("{}: {}", cookie.name, issue),
-                        severity,
-                        Confidence::High,
-                        Category::SecurityMisconfiguration,
-                        target_url.clone(),
-                        "web_application".to_string(),
-                        "cookie_analysis".to_string(),
-                        "0.1.0".to_string(),
-                        context.scan_id,
-                    )
+                    Finding::new(FindingConfig {
+                        title: format!("Cookie Issue: {}", cookie.name),
+                        description: format!("{}: {}", cookie.name, issue),
+                        severity: severity,
+                        confidence: Confidence::High,
+                        category: Category::SecurityMisconfiguration,
+                        target: target_url.clone(),
+                        target_type: "web_application".to_string(),
+                        plugin_source: "cookie_analysis".to_string(),
+                        plugin_version: "0.1.0".to_string(),
+                        scan_id: context.scan_id,
+                    })
                     .with_evidence(Evidence {
                         evidence_type: EvidenceType::HttpResponse,
                         description: format!("Cookie security issue: {}", issue),
@@ -265,6 +274,13 @@ impl ReconPlugin for CookieAnalysisPlugin {
                         })),
                         location: Some(target_url.clone()),
                         metadata: HashMap::new(),
+                        http_request: None,
+                        http_response: None,
+                        timing: None,
+                        payload: None,
+                        reproduction_steps: None,
+                        plugin_source: None,
+                        timestamp: chrono::Utc::now(),
                     }),
                 );
             }
@@ -272,21 +288,21 @@ impl ReconPlugin for CookieAnalysisPlugin {
             // Also create a general finding for the cookie
             if cookie.issues.is_empty() {
                 findings.push(
-                    Finding::new(
-                        format!("Cookie Analyzed: {}", cookie.name),
-                        format!(
+                    Finding::new(FindingConfig {
+                        title: format!("Cookie Analyzed: {}", cookie.name),
+                        description: format!(
                             "Cookie {} appears to have proper security attributes",
                             cookie.name
                         ),
-                        Severity::Info,
-                        Confidence::Medium,
-                        Category::Configuration,
-                        target_url.clone(),
-                        "web_application".to_string(),
-                        "cookie_analysis".to_string(),
-                        "0.1.0".to_string(),
-                        context.scan_id,
-                    )
+                        severity: Severity::Info,
+                        confidence: Confidence::Medium,
+                        category: Category::Configuration,
+                        target: target_url.clone(),
+                        target_type: "web_application".to_string(),
+                        plugin_source: "cookie_analysis".to_string(),
+                        plugin_version: "0.1.0".to_string(),
+                        scan_id: context.scan_id,
+                    })
                     .with_evidence(Evidence {
                         evidence_type: EvidenceType::HttpResponse,
                         description: "Cookie security analysis".to_string(),
@@ -298,6 +314,13 @@ impl ReconPlugin for CookieAnalysisPlugin {
                         })),
                         location: Some(target_url.clone()),
                         metadata: HashMap::new(),
+                        http_request: None,
+                        http_response: None,
+                        timing: None,
+                        payload: None,
+                        reproduction_steps: None,
+                        plugin_source: None,
+                        timestamp: chrono::Utc::now(),
                     }),
                 );
             }
@@ -306,18 +329,18 @@ impl ReconPlugin for CookieAnalysisPlugin {
         // JavaScript-set cookies
         for js_cookie in analysis.js_cookies {
             findings.push(
-                Finding::new(
-                    "JavaScript-Set Cookie Detected".to_string(),
-                    "Cookie set via JavaScript (document.cookie)".to_string(),
-                    Severity::Info,
-                    Confidence::Medium,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "cookie_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "JavaScript-Set Cookie Detected".to_string(),
+                    description: "Cookie set via JavaScript (document.cookie)".to_string(),
+                    severity: Severity::Info,
+                    confidence: Confidence::Medium,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "cookie_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "JavaScript-set cookie".to_string(),
@@ -326,6 +349,13 @@ impl ReconPlugin for CookieAnalysisPlugin {
                     })),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -340,6 +370,7 @@ impl ReconPlugin for CookieAnalysisPlugin {
 }
 
 /// Plugin entry point
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     if config_ptr.is_null() || config_len == 0 {
@@ -354,6 +385,7 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_execute(
     request_ptr: *const u8,
@@ -364,6 +396,7 @@ pub extern "C" fn plugin_execute(
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_shutdown() -> i32 {
     0

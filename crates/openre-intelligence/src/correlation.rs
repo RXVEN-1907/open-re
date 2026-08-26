@@ -100,7 +100,8 @@ impl CorrelationEngine {
             .iter()
             .filter(|f| {
                 f.category == Category::SecurityMisconfiguration
-                    && f.title.to_lowercase().contains("csp")
+                    && (f.title.to_lowercase().contains("csp")
+                        || f.title.to_lowercase().contains("content-security-policy"))
                     && f.title.to_lowercase().contains("missing")
             })
             .collect();
@@ -174,7 +175,7 @@ impl CorrelationEngine {
         // Create correlations between directory listing and Git metadata on the same target
         for dir_finding in &dir_findings {
             for git_finding in &git_findings {
-                if dir_finding.target == git_finding.target {
+                if dir_finding.id != git_finding.id && dir_finding.target == git_finding.target {
                     let correlation = EnhancedCorrelation {
                         finding_ids: vec![dir_finding.id, git_finding.id],
                         correlation_type: CorrelationType::InfoDisclosureChain,
@@ -225,7 +226,7 @@ impl CorrelationEngine {
             let mut category_count: HashMap<Category, Vec<&Finding>> = HashMap::new();
             for finding in &target_findings {
                 category_count
-                    .entry(finding.category)
+                    .entry(finding.category.clone())
                     .or_default()
                     .push(finding);
             }
@@ -358,7 +359,7 @@ mod tests {
         risk_score: Option<u8>,
     ) -> Finding {
         Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: title.to_string(),
             description: "Test finding".to_string(),
             severity: Severity::Medium,
@@ -371,7 +372,7 @@ mod tests {
             plugin_source: "test".to_string(),
             plugin_version: "1.0".to_string(),
             timestamp: Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: Default::default(),
             tags: Vec::new(),
             verified: false,

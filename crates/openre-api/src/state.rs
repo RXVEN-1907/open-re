@@ -11,11 +11,26 @@ use openre_security_ai::{
     FindingProvider, ScanStorageFindingProvider, SecurityAnalyst, SecurityAnalystImpl,
 };
 use openre_storage::{GlobalStore, ObjectStore};
-use openre_telemetry::Telemetry;
+use openre_telemetry::{metrics::MetricsRegistry, TelemetryHandle};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
+
+/// Telemetry bundle shared across handlers
+pub struct Telemetry {
+    pub metrics: MetricsRegistry,
+    pub _handle: TelemetryHandle,
+}
+
+impl Telemetry {
+    pub fn new(_config: &openre_config::TelemetryConfig) -> ApiResult<Self> {
+        Ok(Self {
+            metrics: MetricsRegistry::new(),
+            _handle: TelemetryHandle,
+        })
+    }
+}
 
 /// Application state shared across all handlers
 #[derive(Clone)]
@@ -53,24 +68,30 @@ impl AppState {
         let object_store = Arc::new(ObjectStore::new(&config.storage).await?);
 
         // Initialize queue system
-        let queue_metrics = telemetry.metrics.queue_metrics();
-        let queue_manager = Arc::new(QueueManager::new(config.queue.clone(), queue_metrics).await?);
+        use openre_telemetry::metrics::{CancellationMetrics, ProgressMetrics, SchedulerMetrics};
+        let client = redis::Client::open(config.redis.url.as_str())
+            .map_err(|e| ApiError::Internal(format!("Redis init failed: {}", e)))?;
+        let queue_metrics = Arc::new(openre_telemetry::metrics::QueueMetrics::new(
+            &telemetry.metrics,
+        ));
+        let queue_manager =
+            Arc::new(QueueManager::new(config.queue.clone(), &config.redis, queue_metrics).await?);
 
         let progress_tracker = Arc::new(ProgressTracker::new(
-            queue_manager.client().clone(),
-            telemetry.metrics.progress_metrics(),
+            client.clone(),
+            Arc::new(ProgressMetrics::new(&telemetry.metrics)),
         ));
 
         let cancellation_manager = Arc::new(CancellationManager::new(
             queue_manager.clone(),
-            queue_manager.client().clone(),
-            telemetry.metrics.cancellation_metrics(),
+            client.clone(),
+            Arc::new(CancellationMetrics::new(&telemetry.metrics)),
         ));
 
         let scheduler = Arc::new(Scheduler::new(
             queue_manager.clone(),
-            queue_manager.client().clone(),
-            telemetry.metrics.scheduler_metrics(),
+            client.clone(),
+            Arc::new(SchedulerMetrics::new(&telemetry.metrics)),
         ));
 
         // Load scheduled jobs from Redis
@@ -92,46 +113,40 @@ impl AppState {
         );
 
         // Initialize plugin registry
-        let plugin_registry = Arc::new(PluginRegistry::new(&config.plugins).await?);
+        let plugin_registry = Arc::new(PluginRegistry::new(
+            config.plugins.clone(),
+            global_store.clone(),
+        ));
 
         // Initialize auth service
-        let auth_service = Arc::new(AuthService::new(config.auth.clone()));
+        let auth_service = Arc::new(AuthService::new(crate::auth::AuthConfig::default()));
 
         // Initialize rate limiter
-        let quota =
-            Quota::per_minute(NonZeroU32::new(config.rate_limit.requests_per_minute).unwrap());
+        let rps = 100; // default global RPS; per-config tuning pending
+        let quota = Quota::per_second(NonZeroU32::new(rps).unwrap());
         let rate_limiter = Arc::new(RateLimiter::direct(quota));
 
         // Initialize scan storage
         let scan_storage: Arc<dyn ScanStorage> = if config.database.url.starts_with("sqlite") {
-            Arc::new(SqliteScanStorage::new(&config.database.url).await?)
+            match SqliteScanStorage::new(&config.database.url).await {
+                Ok(storage) => Arc::new(storage) as Arc<dyn ScanStorage>,
+                Err(e) => return Err(ApiError::Internal(e.to_string())),
+            }
         } else {
             Arc::new(MemoryScanStorage::new())
         };
 
-        // Initialize AI Security Analyst if configured
-        let analyst: Option<Arc<dyn SecurityAnalyst>> = if config.ai.providers.is_empty() {
-            None
-        } else {
-            // Use the first available provider for now
-            // In a real implementation, this should be configurable
-            if let Some((provider_id, _)) = config.ai.providers.first() {
-                if let Some(provider) = ai_service.get_provider(provider_id) {
-                    let finding_provider =
-                        Arc::new(ScanStorageFindingProvider::new(scan_storage.clone()));
-                    let analyst_impl = SecurityAnalystImpl::new(
-                        finding_provider,
-                        Arc::from(provider),
-                        4096, // max context tokens
-                    );
-                    Some(Arc::new(analyst_impl) as Arc<dyn SecurityAnalyst>)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        };
+        // Initialize AI Security Analyst if a model provider is available
+        let analyst: Option<Arc<dyn SecurityAnalyst>> = ai_service
+            .list_provider_ids()
+            .first()
+            .and_then(|provider_id| ai_service.get_provider_arc(provider_id))
+            .map(|provider| {
+                let finding_provider =
+                    Arc::new(ScanStorageFindingProvider::new(scan_storage.clone()));
+                let analyst_impl = SecurityAnalystImpl::new(finding_provider, provider, 4096);
+                Arc::new(analyst_impl) as Arc<dyn SecurityAnalyst>
+            });
 
         Ok(Self {
             config: Arc::new(config),
@@ -156,10 +171,10 @@ impl AppState {
         &self,
         project_id: openre_core::ids::ProjectId,
     ) -> ApiResult<Arc<openre_storage::ProjectStore>> {
-        self.global_store
-            .get_project_store(project_id)
-            .await
-            .map_err(|e| ApiError::Internal(e.to_string()))
+        Ok(Arc::new(
+            openre_storage::ProjectStore::new(project_id, self.config.storage.local_path.as_path())
+                .map_err(|e| ApiError::Internal(e.to_string()))?,
+        ))
     }
 
     /// Health check

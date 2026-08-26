@@ -425,6 +425,7 @@ dependencies = [
  "axum 0.7.9",
  "axum-core 0.4.5",
  "bytes",
+ "cookie 0.18.1",
  "fastrand 2.4.1",
  "futures-util",
  "http 1.4.2",
@@ -1359,6 +1360,15 @@ dependencies = [
 
 [[package]]
 name = "dirs"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
+dependencies = [
+ "dirs-sys 0.4.1",
+]
+
+[[package]]
+name = "dirs"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3e8aa94d75141228480295a7d0e7feb620b1a5ad9f12bc40be62411e38cce4e"
@@ -1375,6 +1385,18 @@ dependencies = [
  "libc",
  "redox_users 0.4.6",
  "winapi",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "520f05a5cbd335fae5a99ff7a6ab8627577660ee5cfd6a94a6a929b52ff0321c"
+dependencies = [
+ "libc",
+ "option-ext",
+ "redox_users 0.4.6",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -1852,6 +1874,26 @@ dependencies = [
  "log",
  "plain",
  "scroll",
+]
+
+[[package]]
+name = "governor"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68a7f542ee6b35af73b06abc0dad1c1bae89964e4e253bc4b587b91c9637867b"
+dependencies = [
+ "cfg-if",
+ "dashmap",
+ "futures",
+ "futures-timer",
+ "no-std-compat",
+ "nonzero_ext",
+ "parking_lot 0.12.5",
+ "portable-atomic",
+ "quanta",
+ "rand 0.8.7",
+ "smallvec",
+ "spinning_top",
 ]
 
 [[package]]
@@ -3060,6 +3102,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
+name = "no-std-compat"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b93853da6d84c2e3c7d730d6473e8817692dd89be387eb01b94d7f108ecb5b8c"
+
+[[package]]
 name = "nom"
 version = "4.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3077,6 +3125,12 @@ dependencies = [
  "memchr",
  "minimal-lexical",
 ]
+
+[[package]]
+name = "nonzero_ext"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38bf9645c8b145698bb0b18a4637dcacbc421ea49bef2317e4fd8065a387cf21"
 
 [[package]]
 name = "notify"
@@ -3242,9 +3296,12 @@ name = "openre-analysis"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "dashmap",
+ "futures",
  "goblin",
+ "md-5",
  "object 0.35.0",
  "openre-ai",
  "openre-config",
@@ -3256,9 +3313,12 @@ dependencies = [
  "scroll",
  "serde",
  "serde_json",
+ "sha1",
+ "sha2 0.10.9",
  "thiserror 1.0.69",
  "tokio",
  "tokio-util",
+ "tracing",
  "uuid",
  "xmas-elf",
 ]
@@ -3268,19 +3328,27 @@ name = "openre-api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-stream",
+ "async-trait",
  "axum 0.7.9",
  "axum-extra",
+ "base64 0.21.7",
  "bcrypt",
  "chrono",
+ "futures",
+ "governor",
  "jsonwebtoken",
  "openre-ai",
  "openre-config",
  "openre-core",
  "openre-plugins",
  "openre-queue",
+ "openre-scanner",
+ "openre-security-ai",
  "openre-storage",
  "openre-telemetry",
  "prost 0.12.6",
+ "redis",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -3288,6 +3356,7 @@ dependencies = [
  "tonic 0.10.2",
  "tower 0.4.13",
  "tower-http 0.5.2",
+ "tracing",
  "utoipa",
  "utoipa-swagger-ui",
  "uuid",
@@ -3303,6 +3372,8 @@ dependencies = [
  "clap",
  "clap_complete",
  "colored",
+ "dirs 5.0.1",
+ "futures",
  "indicatif",
  "openre-ai",
  "openre-api",
@@ -3315,9 +3386,12 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "serde_yaml",
  "tabled",
  "thiserror 1.0.69",
  "tokio",
+ "toml 0.8.23",
+ "urlencoding",
  "uuid",
 ]
 
@@ -3551,6 +3625,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum 0.7.9",
  "base64 0.21.7",
  "blake3",
  "chrono",
@@ -3583,14 +3658,18 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sha2 0.10.9",
+ "sqlx",
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tokio-stream",
  "tokio-test",
+ "toml 0.8.23",
  "tracing",
+ "tracing-subscriber",
  "url",
  "urlencoding",
+ "utoipa",
  "uuid",
  "validator",
  "wasmparser 0.215.0",
@@ -3608,11 +3687,13 @@ dependencies = [
  "mockall",
  "openre-ai",
  "openre-core",
+ "openre-scanner",
  "regex",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "thiserror 1.0.69",
+ "tokio",
  "tokio-stream",
  "tracing",
 ]
@@ -5463,6 +5544,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3763264f6b73151db08c50ff20d7d8a0b8796e021cdea7ceedad07b80155fa0e"
 
 [[package]]
+name = "spinning_top"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d96d2d1d716fb500937168cc09353ffdc7a012be8475ac7308e1bdf0e3923300"
+dependencies = [
+ "lock_api",
+]
+
+[[package]]
 name = "sptr"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6582,6 +6672,7 @@ version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f839caa8e09dddc3ff1c3112a91ef7da0601075ba5025d9f33ae99c4cb9b6e51"
 dependencies = [
+ "axum 0.7.9",
  "mime_guess",
  "regex",
  "rust-embed",

@@ -24,12 +24,12 @@ A lightweight TUI security assessment tool built from the open-re project.
 
 ## 📋 Features
 
-- **Lightweight**: Minimal dependencies, fast execution
-- **Intelligent Analysis**: Correlation engine, CVE matching, dependency analysis
-- **Multiple Profiles**: Quick, standard, and full scan profiles
-- **Flexible Output**: Table, JSON, and SARIF formats
-- **Plugin Architecture**: Extensible with reconnaissance and security plugins
-- **TUI Interface**: Colorized terminal output with progress indicators
+-   **Lightweight**: Minimal dependencies, fast execution
+-   **Intelligent Analysis**: Correlation engine, CVE matching, dependency analysis
+-   **Multiple Profiles**: Quick, standard, and full scan profiles
+-   **Flexible Output**: Table, JSON, and SARIF formats
+-   **Plugin Architecture**: Extensible with reconnaissance and security plugins
+-   **TUI Interface**: Colorized terminal output with progress indicators
 
 ## 🛠️ Usage
 
@@ -64,57 +64,59 @@ A lightweight TUI security assessment tool built from the open-re project.
 
 ## 🎯 Scan Profiles
 
-- **Quick**: Basic reconnaissance and obvious misconfigurations (fast)
-- **Standard**: Comprehensive scanning with common vulnerability checks
-- **Full**: All installed plugins with deep analysis
+-   **Quick**: Basic reconnaissance and obvious misconfigurations (fast)
+-   **Standard**: Comprehensive scanning with common vulnerability checks
+-   **Full**: All installed plugins with deep analysis
 
 ## 📊 Output Formats
 
-- **Table**: Human-readable terminal output (default)
-- **JSON**: Machine-readable JSON format
-- **SARIF**: Static Analysis Results Interchange Format
+-   **Table**: Human-readable terminal output (default)
+-   **JSON**: Machine-readable JSON format
+-   **SARIF**: Static Analysis Results Interchange Format
 
 ## 🔌 Plugins
 
 The scanner includes several plugin types:
 
 ### Reconnaissance Plugins
-- HTTP Fingerprint
-- Technology Detection
-- TLS Analysis
-- Robots/Sitemap Analysis
-- Endpoint Discovery
-- Cookie Analysis
-- Header Analysis
-- Auth Discovery
+
+-   HTTP Fingerprint
+-   Technology Detection
+-   TLS Analysis
+-   Robots/Sitemap Analysis
+-   Endpoint Discovery
+-   Cookie Analysis
+-   Header Analysis
+-   Auth Discovery
 
 ### Security Analysis Plugins
-- XSS Detection
-- SQL Injection
-- CSRF Protection
-- And many more...
+
+-   XSS Detection
+-   SQL Injection
+-   CSRF Protection
+-   And many more...
 
 ## 🧠 Intelligent Analysis Features
 
-- **Correlation Engine**: Identifies relationships between findings
-- **CVE Intelligence**: Matches findings with known vulnerabilities
-- **Dependency Analysis**: Checks for vulnerable dependencies
-- **Knowledge Base**: Provides remediation guidance and best practices
-- **Root Cause Analysis**: Identifies underlying systemic issues
-- **TUI Enhancements**: Colorized output and visual indicators
+-   **Correlation Engine**: Identifies relationships between findings
+-   **CVE Intelligence**: Matches findings with known vulnerabilities
+-   **Dependency Analysis**: Checks for vulnerable dependencies
+-   **Knowledge Base**: Provides remediation guidance and best practices
+-   **Root Cause Analysis**: Identifies underlying systemic issues
+-   **TUI Enhancements**: Colorized output and visual indicators
 
 ## 📦 Installation
 
 ### From Source
 
-1. Clone the repository
-2. Run `./build.sh`
-3. Use `./run.sh` to execute scans
+1.  Clone the repository
+2.  Run `./build.sh`
+3.  Use `./run.sh` to execute scans
 
 ### System Requirements
 
-- Rust 1.78+
-- Linux, macOS, or Windows (WSL)
+-   Rust 1.78+
+-   Linux, macOS, or Windows (WSL)
 
 ## 🤝 Contributing
 

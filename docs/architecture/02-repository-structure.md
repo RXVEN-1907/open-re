@@ -10,7 +10,7 @@ This document defines the production-ready monorepo layout for open-re. The stru
 
 ```
 open-re/
-├── .github/                    # GitHub workflows, templates, configs
+├── .GitHub/                    # GitHub workflows, templates, configs
 ├── .vscode/                    # VS Code workspace settings
 ├── docs/                       # All documentation (architecture, ADRs, guides)
 │   ├── architecture/           # This directory
@@ -28,25 +28,25 @@ open-re/
 │   ├── openre-telemetry/       # Logging, metrics, tracing
 │   ├── openre-binary/          # Binary parsing (ELF, PE, Mach-O)
 │   ├── openre-disasm/          # Disassembly engine abstraction
-│   ├── openre-cfg/             # Control flow graph construction
+│   ├── openre-CFG/             # Control flow graph construction
 │   ├── openre-decompiler/      # Decompilation pipeline
 │   ├── openre-types/           # Type system
-│   └── openre-python/          # Python bindings (pyo3)
+│   └── openre-Python/          # Python bindings (pyo3)
 ├── plugins/                    # Built-in plugins (shipped with core)
-│   ├── loader-elf/             # ELF loader plugin
-│   ├── loader-pe/              # PE loader plugin
+│   ├── loader-ELF/             # ELF loader plugin
+│   ├── loader-PE/              # PE loader plugin
 │   ├── loader-macho/           # Mach-O loader plugin
 │   ├── disasm-capstone/        # Capstone-based disassembler
-│   ├── disasm-llvm/            # LLVM-based disassembler
-│   ├── cfg-standard/           # Standard CFG builder
+│   ├── disasm-LLVM/            # LLVM-based disassembler
+│   ├── CFG-standard/           # Standard CFG builder
 │   ├── decompiler-standard/    # Standard decompiler (LLIL/MLIL/HLIL)
 │   ├── ai-naming/              # AI function/variable naming
 │   ├── ai-classification/      # AI function classification
 │   ├── ai-crypto/              # AI crypto detection
-│   ├── yara-scanner/           # YARA rule scanner
-│   ├── capa-runner/            # Capa capability detection
-│   └── exporter-c/             # C pseudo-code exporter
-├── python/                     # Python packages
+│   ├── YARA-scanner/           # YARA rule scanner
+│   ├── capa-runner/            # capa capability detection
+│   └── exporter-C/             # C pseudo-code exporter
+├── Python/                     # Python packages
 │   ├── openre/                 # Main Python package (pip installable)
 │   │   ├── api/                # High-level async API
 │   │   ├── scripting/          # Jupyter integration, REPL
@@ -66,9 +66,9 @@ open-re/
 ├── cli/                        # CLI tools
 │   ├── openre-cli/             # Main CLI (Rust)
 │   └── openre-headless/        # Headless analysis runner
-├── docker/                     # Docker configurations
-│   ├── docker-compose.yml      # Local development stack
-│   ├── docker-compose.prod.yml # Production stack
+├── Docker/                     # Docker configurations
+│   ├── Docker-compose.yml      # Local development stack
+│   ├── Docker-compose.prod.yml # Production stack
 │   ├── Dockerfile.api          # API service
 │   ├── Dockerfile.worker       # Worker service
 │   ├── Dockerfile.frontend     # Frontend build
@@ -95,13 +95,13 @@ open-re/
 │   ├── disasm/
 │   ├── decompiler/
 │   └── ai/
-├── Cargo.toml                  # Workspace root
+├── Cargo.TOML                  # Workspace root
 ├── Cargo.lock
-├── pyproject.toml              # Python workspace config
-├── package.json                # Frontend workspace config
-├── turbo.json                  # Turborepo config (if using)
-├── .rustfmt.toml
-├── .clippy.toml
+├── pyproject.TOML              # Python workspace config
+├── package.JSON                # Frontend workspace config
+├── turbo.JSON                  # Turborepo config (if using)
+├── .rustfmt.TOML
+├── .clippy.TOML
 ├── .gitignore
 ├── .editorconfig
 ├── LICENSE
@@ -118,25 +118,27 @@ open-re/
 ### `/crates` — Rust Workspace (Core Backend)
 
 **Why separate crates?**
-- **Compile-time boundaries**: Enforces clean architecture; circular dependencies caught early
-- **Independent versioning**: Each crate can evolve at its own pace
-- **Parallel compilation**: Cargo builds independent crates in parallel
-- **Selective compilation**: `cargo build -p openre-api` only builds what's needed
-- **Team ownership**: Different teams can own different crates
+
+-   **Compile-time boundaries**: Enforces clean architecture; circular dependencies caught early
+-   **Independent versioning**: Each crate can evolve at its own pace
+-   **Parallel compilation**: Cargo builds independent crates in parallel
+-   **Selective compilation**: `Cargo build -p openre-api` only builds what's needed
+-   **Team ownership**: Different teams can own different crates
 
 **Crate Categories:**
 
 | Category | Crates | Purpose |
-|----------|--------|---------|
+| ---------- | -------- | --------- |
 | **Foundation** | `openre-core`, `openre-config`, `openre-telemetry` | Shared types, config, observability |
 | **API Layer** | `openre-api` | HTTP/gRPC endpoints, request/response types |
 | **Orchestration** | `openre-analysis`, `openre-queue` | Pipeline, workers, job management |
-| **Extensibility** | `openre-plugins`, `openre-python` | Plugin system, Python bindings |
+| **Extensibility** | `openre-plugins`, `openre-Python` | Plugin system, Python bindings |
 | **AI** | `openre-ai` | Model abstraction, prompt management |
 | **Storage** | `openre-storage` | SQLite, PostgreSQL, S3 abstractions |
-| **Binary Analysis** | `openre-binary`, `openre-disasm`, `openre-cfg`, `openre-decompiler`, `openre-types` | Core RE functionality |
+| **Binary Analysis** | `openre-binary`, `openre-disasm`, `openre-CFG`, `openre-decompiler`, `openre-types` | Core RE functionality |
 
 **Dependency Rules:**
+
 ```
 openre-core (no deps)
     ↑
@@ -144,26 +146,28 @@ openre-config, openre-telemetry
     ↑
 openre-storage, openre-queue, openre-plugins, openre-ai
     ↑
-openre-binary, openre-disasm, openre-cfg, openre-decompiler, openre-types
+openre-binary, openre-disasm, openre-CFG, openre-decompiler, openre-types
     ↑
 openre-analysis
     ↑
-openre-api, openre-python
+openre-api, openre-Python
 ```
 
 ### `/plugins` — Built-in Plugins
 
 **Why separate from crates?**
-- **Plugin boundary enforcement**: Plugins use only the public Plugin SDK API
-- **Independent deployment**: Can be updated without rebuilding core
-- **Third-party parity**: External plugins have same capabilities as built-in
-- **Clear ownership**: Plugin authors work in their own directory
+
+-   **Plugin boundary enforcement**: Plugins use only the public Plugin SDK API
+-   **Independent deployment**: Can be updated without rebuilding core
+-   **Third-party parity**: External plugins have same capabilities as built-in
+-   **Clear ownership**: Plugin authors work in their own directory
 
 **Plugin Structure:**
+
 ```
 plugins/
-├── loader-elf/
-│   ├── Cargo.toml
+├── loader-ELF/
+│   ├── Cargo.TOML
 │   ├── src/
 │   │   ├── lib.rs          # Plugin entry point
 │   │   ├── parser.rs       # ELF parsing logic
@@ -172,76 +176,84 @@ plugins/
 │   └── README.md
 ```
 
-### `/python` — Python Packages
+### `/Python` — Python Packages
 
 **Why separate Python workspace?**
-- **PyPI publishing**: `openre` package published independently
-- **Virtualenv isolation**: Users `pip install openre` without Rust toolchain
-- **Jupyter integration**: Separate kernel package
-- **Async-first API**: Designed for Python async/await patterns
+
+-   **PyPI publishing**: `openre` package published independently
+-   **Virtualenv isolation**: Users `pip install openre` without Rust toolchain
+-   **Jupyter integration**: Separate kernel package
+-   **Async-first API**: Designed for Python async/await patterns
 
 ### `/frontend` — Web Frontend (Monorepo)
 
 **Why pnpm workspaces / Turborepo?**
-- **Shared components**: `components`, `core` packages shared across views
-- **Independent builds**: Each package builds independently
-- **Type safety**: TypeScript project references for cross-package types
-- **Plugin UI extensions**: Plugins can contribute React components
+
+-   **Shared components**: `components`, `core` packages shared across views
+-   **Independent builds**: Each package builds independently
+-   **Type safety**: TypeScript project references for cross-package types
+-   **Plugin UI extensions**: Plugins can contribute React components
 
 ### `/cli` — Command Line Tools
 
 **Why separate CLI crates?**
-- **Binary size**: CLI doesn't need web framework deps
-- **Distribution**: Single static binary for `openre-cli`
-- **Headless CI**: `openre-headless` optimized for CI/CD (no UI deps)
 
-### `/docker` — Container Definitions
+-   **Binary size**: CLI doesn't need web framework deps
+-   **Distribution**: Single static binary for `openre-cli`
+-   **Headless CI**: `openre-headless` optimized for CI/CD (no UI deps)
 
-**Why separate docker directory?**
-- **Multi-service**: API, worker, frontend, DB, Redis, MinIO
-- **Environment parity**: Same images for dev, staging, prod
-- **Compose for dev**: `docker-compose.yml` spins up full stack locally
+### `/Docker` — Container Definitions
+
+**Why separate Docker directory?**
+
+-   **Multi-service**: API, worker, frontend, DB, Redis, MinIO
+-   **Environment parity**: Same images for dev, staging, prod
+-   **Compose for dev**: `Docker-compose.yml` spins up full stack locally
 
 ### `/k8s` — Kubernetes (Optional)
 
 **Why include if optional?**
-- **Production ready**: Teams deploying to K8s have starting point
-- **GitOps friendly**: ArgoCD/Flux compatible structure
-- **Helm charts**: Standard packaging for K8s
+
+-   **Production ready**: Teams deploying to K8s have starting point
+-   **GitOps friendly**: ArgoCD/Flux compatible structure
+-   **Helm charts**: Standard packaging for K8s
 
 ### `/scripts` — Automation
 
 **Why separate scripts?**
-- **CI/CD parity**: Same scripts run locally and in CI
-- **Discoverability**: `scripts/` is obvious place to look
-- **Language agnostic**: Bash for portability, can call cargo/pnpm/python
+
+-   **CI/CD parity**: Same scripts run locally and in CI
+-   **Discoverability**: `scripts/` is obvious place to look
+-   **Language agnostic**: Bash for portability, can call Cargo/pnpm/Python
 
 ### `/tests` — Integration Tests
 
 **Why separate from crates?**
-- **Cross-crate scenarios**: Test full pipeline (upload → analysis → AI)
-- **Fixtures management**: Shared test binaries, expected outputs
-- **Snapshot testing**: Golden files for regression detection
+
+-   **Cross-crate scenarios**: Test full pipeline (upload → analysis → AI)
+-   **Fixtures management**: Shared test binaries, expected outputs
+-   **Snapshot testing**: Golden files for regression detection
 
 ### `/benchmarks` — Performance Benchmarks
 
 **Why separate?**
-- **Criterion.rs integration**: Proper benchmark harness
-- **CI gating**: Fail if performance regresses >5%
-- **Historical tracking**: Store results for trend analysis
+
+-   **Criterion.rs integration**: Proper benchmark harness
+-   **CI gating**: Fail if performance regresses >5%
+-   **Historical tracking**: Store results for trend analysis
 
 ---
 
 ## Configuration Files
 
 | File | Purpose |
-|------|---------|
-| `Cargo.toml` | Workspace root: members, profiles, patch, lints |
-| `pyproject.toml` | Python workspace: dependencies, build-system, tools |
-| `package.json` | Frontend workspace: workspaces, scripts, engines |
-| `turbo.json` | Turborepo: pipeline, cache, dependsOn |
-| `.rustfmt.toml` | Rust formatting (enforced in CI) |
-| `.clippy.toml` | Clippy lints (deny warnings in CI) |
+| ------ | --------- |
+| `Cargo.TOML` | Workspace root: members, profiles, patch, lints |
+| `pyproject.TOML` | Python workspace: dependencies, build-system, tools |
+| `package.JSON` | Frontend workspace: workspaces, scripts, engines |
+| `turbo.JSON` | Turborepo: pipeline, cache, dependsOn |
+| `.rustfmt.TOML` | Rust formatting (enforced in CI) |
+| `.clippy.TOML` | Clippy lints (deny warnings in CI) |
 | `.editorconfig` | Cross-editor consistency (indent, charset) |
 
 ---
@@ -249,7 +261,7 @@ plugins/
 ## Cargo Workspace Configuration
 
 ```toml
-# Cargo.toml (root)
+# Cargo.TOML (root)
 [workspace]
 resolver = "2"
 members = [
@@ -269,14 +281,14 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "sqlite", "uuid", "chrono", "json"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "JSON"] }
+sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "SQLite", "uuid", "chrono", "JSON"] }
 redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
 wasmtime = "20.0"
 pyo3 = { version = "0.21", features = ["extension-module", "abi3"] }
 # ... more shared deps
 
-[workspace.lints.rust]
+[workspace.lints.Rust]
 unused_crate_dependencies = "warn"
 unused_imports = "warn"
 missing_docs = "warn"
@@ -298,7 +310,7 @@ debug = true
 ## Python Workspace Configuration
 
 ```toml
-# pyproject.toml (root)
+# pyproject.TOML (root)
 [build-system]
 requires = ["maturin>=1.6,<2.0"]
 build-backend = "maturin"
@@ -318,7 +330,7 @@ classifiers = [
     "Topic :: Security",
     "Topic :: Software Development :: Disassemblers",
 ]
-requires-python = ">=3.11"
+requires-Python = ">=3.11"
 dependencies = [
     "pydantic>=2.6",
     "pydantic-settings>=2.2",
@@ -353,7 +365,7 @@ disallow_untyped_defs = true
 ## Frontend Workspace Configuration
 
 ```json
-// package.json (root)
+// package.JSON (root)
 {
   "name": "openre-frontend",
   "private": true,
@@ -366,15 +378,15 @@ disallow_untyped_defs = true
     "test": "turbo run test",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,JSON,md}\""
   },
   "devDependencies": {
     "turbo": "^2.0",
-    "typescript": "^5.5",
+    "TypeScript": "^5.5",
     "prettier": "^3.3",
     "eslint": "^9.0",
-    "@typescript-eslint/eslint-plugin": "^8.0",
-    "@typescript-eslint/parser": "^8.0",
+    "@TypeScript-eslint/eslint-plugin": "^8.0",
+    "@TypeScript-eslint/parser": "^8.0",
     "vitest": "^2.0",
     "@vitest/ui": "^2.0"
   },
@@ -387,7 +399,7 @@ disallow_untyped_defs = true
 ```
 
 ```json
-// turbo.json
+// turbo.JSON
 {
   "$schema": "https://turbo.build/schema.json",
   "pipeline": {
@@ -438,7 +450,7 @@ env/
 dist/
 build/
 
-# Node.js
+# node.js
 node_modules/
 .pnpm-store/
 dist/
@@ -448,8 +460,8 @@ build/
 
 # IDE
 .vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
+!.vscode/extensions.JSON
+!.vscode/settings.JSON
 .idea/
 *.swp
 *.swo
@@ -457,7 +469,7 @@ build/
 .DS_Store
 
 # Docker
-.docker/
+.Docker/
 
 # Build artifacts
 *.o
@@ -495,10 +507,10 @@ Desktop.ini
 ./scripts/dev-setup.sh
 
 # Start full stack locally
-docker-compose up -d
+Docker-compose up -d
 
 # Run API server (with hot reload)
-cargo watch -x "run -p openre-api"
+Cargo watch -x "run -p openre-api"
 
 # Run frontend dev server
 pnpm --filter @openre/app dev
@@ -521,7 +533,7 @@ pnpm --filter @openre/app dev
 ## Publishing Strategy
 
 | Artifact | Registry | Trigger |
-|----------|----------|---------|
+| ---------- | ---------- | --------- |
 | Rust crates | crates.io | Git tag `v*` |
 | Python package | PyPI | Git tag `v*` |
 | Docker images | GHCR | Git tag `v*` / main branch |
@@ -530,4 +542,4 @@ pnpm --filter @openre/app dev
 
 ---
 
-*This structure scales from solo developer to 50+ person team. Adjust crate granularity as team grows.*
+_This structure scales from solo developer to 50+ person team. Adjust crate granularity as team grows._

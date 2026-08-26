@@ -1,5 +1,7 @@
 //! Traits for binary analysis
 
+use serde::{Deserialize, Serialize};
+
 use crate::binary::common::*;
 use async_trait::async_trait;
 use openre_core::error::OpenreResult as Result;

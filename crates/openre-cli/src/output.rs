@@ -1,9 +1,10 @@
 //! Output formatting for CLI
 
-use crate::{CliError, OutputFormat};
-use serde::Serialize;
-use tabled::{Table, settings::Style};
+use crate::CliError;
+use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
+use tabled::builder::Builder;
+use tabled::settings::Style;
 
 /// Print output in the specified format
 pub fn print_output<T: Serialize>(value: &T, format: &OutputFormat) -> Result<(), CliError> {
@@ -18,32 +19,60 @@ pub fn print_output<T: Serialize>(value: &T, format: &OutputFormat) -> Result<()
 
 fn print_table<T: Serialize>(value: &T) -> Result<(), CliError> {
     let json = serde_json::to_value(value)?;
-    
+
     if let Some(array) = json.as_array() {
         if array.is_empty() {
             println!("(empty)");
             return Ok(());
         }
-        
-        // Convert to table
-        let table = Table::new(array).with(Style::modern()).to_string();
+
+        // Collect union of keys across objects for the header
+        let mut headers: Vec<String> = Vec::new();
+        for item in array {
+            if let Some(obj) = item.as_object() {
+                for key in obj.keys() {
+                    if !headers.iter().any(|h| h == key) {
+                        headers.push(key.clone());
+                    }
+                }
+            }
+        }
+
+        let mut builder = Builder::default();
+        if !headers.is_empty() {
+            builder.push_record(headers.clone());
+        } else {
+            builder.push_record(vec!["Value".to_string()]);
+        }
+
+        for item in array {
+            if let Some(obj) = item.as_object() {
+                let record: Vec<String> = headers
+                    .iter()
+                    .map(|h| obj.get(h).map(format_value).unwrap_or_default())
+                    .collect();
+                builder.push_record(record);
+            } else {
+                builder.push_record(vec![format_value(item)]);
+            }
+        }
+
+        let table = builder.build().with(Style::modern()).to_string();
         println!("{}", table);
     } else if let Some(object) = json.as_object() {
         // Single object - print as key-value table
-        let mut rows = Vec::new();
+        let mut builder = Builder::default();
+        builder.push_record(vec!["Property".to_string(), "Value".to_string()]);
         for (key, val) in object {
-            rows.push(serde_json::json!({
-                "Property": key,
-                "Value": format_value(val),
-            }));
+            builder.push_record(vec![key.clone(), format_value(val)]);
         }
-        
-        let table = Table::new(rows).with(Style::modern()).to_string();
+
+        let table = builder.build().with(Style::modern()).to_string();
         println!("{}", table);
     } else {
         println!("{}", format_value(&json));
     }
-    
+
     Ok(())
 }
 
@@ -67,21 +96,22 @@ fn print_yaml<T: Serialize>(value: &T) -> Result<(), CliError> {
 
 fn print_csv<T: Serialize>(value: &T) -> Result<(), CliError> {
     let json = serde_json::to_value(value)?;
-    
+
     if let Some(array) = json.as_array() {
         if array.is_empty() {
             return Ok(());
         }
-        
+
         // Write CSV header
         if let Some(first) = array.first().and_then(|v| v.as_object()) {
             let headers: Vec<&str> = first.keys().map(|k| k.as_str()).collect();
             println!("{}", headers.join(","));
-            
+
             // Write rows
             for item in array {
                 if let Some(obj) = item.as_object() {
-                    let row: Vec<String> = headers.iter()
+                    let row: Vec<String> = headers
+                        .iter()
                         .map(|h| obj.get(*h).map(format_value).unwrap_or_default())
                         .collect();
                     println!("{}", row.join(","));
@@ -89,9 +119,11 @@ fn print_csv<T: Serialize>(value: &T) -> Result<(), CliError> {
             }
         }
     } else {
-        return Err(CliError::InvalidInput("CSV output requires an array".into()));
+        return Err(CliError::InvalidInput(
+            "CSV output requires an array".into(),
+        ));
     }
-    
+
     Ok(())
 }
 
@@ -102,13 +134,19 @@ fn format_value(value: &serde_json::Value) -> String {
         serde_json::Value::Bool(b) => b.to_string(),
         serde_json::Value::Null => "".to_string(),
         serde_json::Value::Array(arr) => {
-            format!("[{}]", arr.iter().map(format_value).collect::<Vec<_>>().join(", "))
+            format!(
+                "[{}]",
+                arr.iter().map(format_value).collect::<Vec<_>>().join(", ")
+            )
         }
         serde_json::Value::Object(obj) => {
-            format!("{{{}}}", obj.iter()
-                .map(|(k, v)| format!("{}: {}", k, format_value(v)))
-                .collect::<Vec<_>>()
-                .join(", "))
+            format!(
+                "{{{}}}",
+                obj.iter()
+                    .map(|(k, v)| format!("{}: {}", k, format_value(v)))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
         }
     }
 }
@@ -139,7 +177,7 @@ impl std::fmt::Display for OutputFormat {
 
 impl std::str::FromStr for OutputFormat {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "table" => Ok(OutputFormat::Table),

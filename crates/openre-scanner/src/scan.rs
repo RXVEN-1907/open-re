@@ -5,8 +5,9 @@ use crate::error::{ScannerError, ScannerResult};
 use crate::plugin::{PluginInfo, PluginManager};
 use crate::result::{Finding, FindingId};
 use crate::target::{ScanConfig, Target, TargetId};
-use openre_core::ids::{JobId, ScanId};
-use openre_queue::{Job, JobStatus, JobType, Priority, QueueManager};
+pub use openre_core::ids::{JobId, ScanId};
+use openre_core::traits::JobType;
+use openre_queue::{Job, JobStatus, Priority, QueueManager};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -17,7 +18,7 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 /// Status of a scan
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ScanStatus {
     /// Scan is pending (queued)
@@ -71,8 +72,25 @@ impl std::fmt::Display for ScanStatus {
     }
 }
 
+impl std::str::FromStr for ScanStatus {
+    type Err = ScannerError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.trim() {
+            "pending" => ScanStatus::Pending,
+            "initializing" => ScanStatus::Initializing,
+            "running" => ScanStatus::Running,
+            "paused" => ScanStatus::Paused,
+            "completed" => ScanStatus::Completed,
+            "cancelled" => ScanStatus::Cancelled,
+            "timed_out" => ScanStatus::TimedOut,
+            other => ScanStatus::Failed(other.to_string()),
+        })
+    }
+}
+
 /// Progress of a scan
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ScanProgress {
     /// Scan ID
     pub scan_id: ScanId,
@@ -267,7 +285,7 @@ impl Default for CancellationToken {
 /// Scan Manager - orchestrates scan execution
 pub struct ScanManager {
     /// Queue manager for job scheduling
-    queue_manager: Arc<dyn QueueManager>,
+    queue_manager: Arc<QueueManager>,
     /// Plugin manager
     plugin_manager: Arc<PluginManager>,
     /// Scan storage
@@ -283,7 +301,7 @@ pub struct ScanManager {
 impl ScanManager {
     /// Create a new scan manager
     pub fn new(
-        queue_manager: Arc<dyn QueueManager>,
+        queue_manager: Arc<QueueManager>,
         plugin_manager: Arc<PluginManager>,
         storage: Arc<dyn ScanStorage>,
     ) -> Self {
@@ -372,10 +390,11 @@ impl ScanManager {
         let mut plugin_executions = Vec::new();
 
         // Create scan context
-        let context = ScanContext::new(scan_id, config.clone(), target.clone());
+        let context = ScanContext::new(scan_id, config.clone(), target.clone())?;
 
         // Run plugins with concurrency control
         let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_concurrent_plugins));
+        let total_plugins = plugins.len();
         let mut handles = Vec::new();
 
         for plugin in plugins {
@@ -400,7 +419,7 @@ impl ScanManager {
 
                 // Create execution record
                 let mut execution = PluginExecutionRecord {
-                    plugin_id: plugin_id.clone(),
+                    plugin_id: plugin_id.to_string(),
                     plugin_name: plugin_name.clone(),
                     started_at: chrono::Utc::now(),
                     completed_at: None,
@@ -466,14 +485,14 @@ impl ScanManager {
                 .await?;
             } else {
                 completed += 1;
-                findings.extend(plugin_findings);
                 for finding in &plugin_findings {
                     self.add_finding(scan_id, finding.clone()).await?;
                 }
+                findings.extend(plugin_findings);
             }
 
             // Update progress
-            self.update_scan_progress(scan_id, completed, failed, plugins.len())
+            self.update_scan_progress(scan_id, completed, failed, total_plugins)
                 .await?;
         }
 
@@ -509,12 +528,12 @@ impl ScanManager {
         let mut compatible = Vec::new();
         for plugin in all_plugins {
             // Check if plugin is explicitly excluded
-            if config.exclude_plugins.contains(&plugin.id) {
+            if config.exclude_plugins.contains(&plugin.id.to_string()) {
                 continue;
             }
 
             // Check if plugin is explicitly included (if list not empty)
-            if !config.plugins.is_empty() && !config.plugins.contains(&plugin.id) {
+            if !config.plugins.is_empty() && !config.plugins.contains(&plugin.id.to_string()) {
                 continue;
             }
 
@@ -534,11 +553,11 @@ impl ScanManager {
     /// Update scan status
     async fn update_scan_status(&self, scan_id: ScanId, status: ScanStatus) -> ScannerResult<()> {
         if let Some(mut session) = self.active_scans.get_mut(&scan_id) {
-            session.status = status.clone();
-            session.progress.status = status;
             if status.is_terminal() {
                 session.completed_at = Some(chrono::Utc::now());
             }
+            session.status = status.clone();
+            session.progress.status = status;
             self.storage.save_scan(&session).await?;
             self.broadcast_progress(session.progress.clone());
         }
@@ -554,9 +573,8 @@ impl ScanManager {
         total: usize,
     ) -> ScannerResult<()> {
         if let Some(mut session) = self.active_scans.get_mut(&scan_id) {
-            session
-                .progress
-                .update(session.status.clone(), completed, total);
+            let status = session.status.clone();
+            session.progress.update(status, completed, total);
             session.progress.failed_plugins = failed;
             session.progress.elapsed = session.started_at.map_or(Duration::ZERO, |start| {
                 chrono::Utc::now()

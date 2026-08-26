@@ -5,6 +5,7 @@
 
 use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use openre_core::error::OpenreResult as Result;
+use openre_core::result::FindingConfig;
 use openre_plugins::sdk::{
     AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
 };
@@ -34,7 +35,8 @@ impl HeaderAnalysisPlugin {
             .redirect(reqwest::redirect::Policy::limited(config.max_redirects))
             .user_agent(&config.user_agent)
             .danger_accept_invalid_certs(!config.verify_tls)
-            .build()?;
+            .build()
+            .map_err(crate::internal_err)?;
 
         Ok(Self { config, client })
     }
@@ -43,7 +45,12 @@ impl HeaderAnalysisPlugin {
     async fn analyze_headers(&self, url: &str) -> Result<HeaderAnalysisResult> {
         let mut result = HeaderAnalysisResult::default();
 
-        let response = self.client.get(url).send().await?;
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .map_err(crate::internal_err)?;
 
         // Extract all headers
         let headers: HashMap<String, String> = response
@@ -498,12 +505,14 @@ impl Plugin for HeaderAnalysisPlugin {
         vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
-    async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
-        let context = request.context;
-        let findings = self.recon(&context).await?;
+    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
+        let _ = request;
 
+        // Recon plugins perform their work through the scan pipeline, which
+        // supplies a full ScanContext. Capability execution has no scan context,
+        // so report an empty result set instead.
         Ok(CapabilityResponse::success(serde_json::json!({
-            "findings": findings,
+            "findings": [],
             "recon_type": ReconType::HeaderAnalysis,
         })))
     }
@@ -524,9 +533,9 @@ impl ReconPlugin for HeaderAnalysisPlugin {
         ]
     }
 
-    async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
+    async fn recon(&self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
-        let target_url = context.target.to_string();
+        let target_url = context.target.metadata.base_url.as_str().to_string();
 
         info!("Starting header analysis for: {}", target_url);
 
@@ -535,47 +544,61 @@ impl ReconPlugin for HeaderAnalysisPlugin {
         // CSP findings
         if !analysis.csp.present {
             findings.push(
-                Finding::new(
-                    "Missing Content-Security-Policy Header".to_string(),
-                    "Content-Security-Policy header is not present".to_string(),
-                    Severity::Medium,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "header_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Missing Content-Security-Policy Header".to_string(),
+                    description: "Content-Security-Policy header is not present".to_string(),
+                    severity: Severity::Medium,
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "header_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Missing CSP header".to_string(),
                     data: None,
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         } else {
             for issue in &analysis.csp.issues {
                 findings.push(
-                    Finding::new(
-                        "CSP Configuration Issue".to_string(),
-                        issue.clone(),
-                        Severity::Low,
-                        Confidence::Medium,
-                        Category::SecurityMisconfiguration,
-                        target_url.clone(),
-                        "web_application".to_string(),
-                        "header_analysis".to_string(),
-                        "0.1.0".to_string(),
-                        context.scan_id,
-                    )
+                    Finding::new(FindingConfig {
+                        title: "CSP Configuration Issue".to_string(),
+                        description: issue.clone(),
+                        severity: Severity::Low,
+                        confidence: Confidence::Medium,
+                        category: Category::SecurityMisconfiguration,
+                        target: target_url.clone(),
+                        target_type: "web_application".to_string(),
+                        plugin_source: "header_analysis".to_string(),
+                        plugin_version: "0.1.0".to_string(),
+                        scan_id: context.scan_id,
+                    })
                     .with_evidence(Evidence {
                         evidence_type: EvidenceType::HttpResponse,
                         description: "CSP issue".to_string(),
                         data: Some(serde_json::json!({"issue": issue, "csp": analysis.csp.value})),
                         location: Some(target_url.clone()),
                         metadata: HashMap::new(),
+                        http_request: None,
+                        http_response: None,
+                        timing: None,
+                        payload: None,
+                        reproduction_steps: None,
+                        plugin_source: None,
+                        timestamp: chrono::Utc::now(),
                     }),
                 );
             }
@@ -584,41 +607,48 @@ impl ReconPlugin for HeaderAnalysisPlugin {
         // HSTS findings
         if !analysis.hsts.present {
             findings.push(
-                Finding::new(
-                    "Missing HSTS Header".to_string(),
-                    "Strict-Transport-Security header is not present".to_string(),
-                    Severity::Medium,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "header_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Missing HSTS Header".to_string(),
+                    description: "Strict-Transport-Security header is not present".to_string(),
+                    severity: Severity::Medium,
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "header_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Missing HSTS header".to_string(),
                     data: None,
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         } else {
             for issue in &analysis.hsts.issues {
                 findings.push(
-                    Finding::new(
-                        "HSTS Configuration Issue".to_string(),
-                        issue.clone(),
-                        Severity::Low,
-                        Confidence::Medium,
-                        Category::SecurityMisconfiguration,
-                        target_url.clone(),
-                        "web_application".to_string(),
-                        "header_analysis".to_string(),
-                        "0.1.0".to_string(),
-                        context.scan_id,
-                    )
+                    Finding::new(FindingConfig {
+                        title: "HSTS Configuration Issue".to_string(),
+                        description: issue.clone(),
+                        severity: Severity::Low,
+                        confidence: Confidence::Medium,
+                        category: Category::SecurityMisconfiguration,
+                        target: target_url.clone(),
+                        target_type: "web_application".to_string(),
+                        plugin_source: "header_analysis".to_string(),
+                        plugin_version: "0.1.0".to_string(),
+                        scan_id: context.scan_id,
+                    })
                     .with_evidence(Evidence {
                         evidence_type: EvidenceType::HttpResponse,
                         description: "HSTS issue".to_string(),
@@ -627,6 +657,13 @@ impl ReconPlugin for HeaderAnalysisPlugin {
                         ),
                         location: Some(target_url.clone()),
                         metadata: HashMap::new(),
+                        http_request: None,
+                        http_response: None,
+                        timing: None,
+                        payload: None,
+                        reproduction_steps: None,
+                        plugin_source: None,
+                        timestamp: chrono::Utc::now(),
                     }),
                 );
             }
@@ -635,24 +672,32 @@ impl ReconPlugin for HeaderAnalysisPlugin {
         // X-Frame-Options findings
         if !analysis.x_frame_options.present {
             findings.push(
-                Finding::new(
-                    "Missing X-Frame-Options Header".to_string(),
-                    "X-Frame-Options header is not present (clickjacking protection)".to_string(),
-                    Severity::Low,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "header_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Missing X-Frame-Options Header".to_string(),
+                    description: "X-Frame-Options header is not present (clickjacking protection)"
+                        .to_string(),
+                    severity: Severity::Low,
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "header_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Missing X-Frame-Options header".to_string(),
                     data: None,
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -660,24 +705,31 @@ impl ReconPlugin for HeaderAnalysisPlugin {
         // Referrer-Policy findings
         if !analysis.referrer_policy.present {
             findings.push(
-                Finding::new(
-                    "Missing Referrer-Policy Header".to_string(),
-                    "Referrer-Policy header is not present".to_string(),
-                    Severity::Low,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "header_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Missing Referrer-Policy Header".to_string(),
+                    description: "Referrer-Policy header is not present".to_string(),
+                    severity: Severity::Low,
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "header_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Missing Referrer-Policy header".to_string(),
                     data: None,
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -685,71 +737,97 @@ impl ReconPlugin for HeaderAnalysisPlugin {
         // Permissions-Policy findings
         if !analysis.permissions_policy.present {
             findings.push(
-                Finding::new(
-                    "Missing Permissions-Policy Header".to_string(),
-                    "Permissions-Policy header is not present".to_string(),
-                    Severity::Low,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "header_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Missing Permissions-Policy Header".to_string(),
+                    description: "Permissions-Policy header is not present".to_string(),
+                    severity: Severity::Low,
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "header_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Missing Permissions-Policy header".to_string(),
                     data: None,
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
 
         // X-Content-Type-Options findings
         if !analysis.x_content_type_options.present || !analysis.x_content_type_options.nosniff {
-            findings.push(Finding::new(
-                "Missing or Weak X-Content-Type-Options Header".to_string(),
-                "X-Content-Type-Options header is missing or not set to 'nosniff'".to_string(),
-                Severity::Low,
-                Confidence::High,
-                Category::SecurityMisconfiguration,
-                target_url.clone(),
-                "web_application".to_string(),
-                "header_analysis".to_string(),
-                "0.1.0".to_string(),
-                context.scan_id,
-            ).with_evidence(Evidence {
+            findings.push(
+                Finding::new(FindingConfig {
+                    title: "Missing or Weak X-Content-Type-Options Header".to_string(),
+                    description: "X-Content-Type-Options header is missing or not set to 'nosniff'"
+                        .to_string(),
+                    severity: Severity::Low,
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "header_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
+                .with_evidence(Evidence {
                 evidence_type: EvidenceType::HttpResponse,
                 description: "Missing X-Content-Type-Options: nosniff".to_string(),
                 data: Some(serde_json::json!({"present": analysis.x_content_type_options.present, "nosniff": analysis.x_content_type_options.nosniff})),
                 location: Some(target_url.clone()),
                 metadata: HashMap::new(),
-            }));
+                http_request: None,
+                http_response: None,
+                timing: None,
+                payload: None,
+                reproduction_steps: None,
+                plugin_source: None,
+                    timestamp: chrono::Utc::now(),
+                }),
+            );
         }
 
         // X-XSS-Protection findings
         if !analysis.x_xss_protection.present {
             findings.push(
-                Finding::new(
-                    "Missing X-XSS-Protection Header".to_string(),
-                    "X-XSS-Protection header is not present (legacy XSS protection)".to_string(),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "header_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Missing X-XSS-Protection Header".to_string(),
+                    description: "X-XSS-Protection header is not present (legacy XSS protection)"
+                        .to_string(),
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "header_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Missing X-XSS-Protection header".to_string(),
                     data: None,
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -757,48 +835,62 @@ impl ReconPlugin for HeaderAnalysisPlugin {
         // Server information disclosure
         if let Some(server) = &analysis.server_info.server {
             findings.push(
-                Finding::new(
-                    "Server Header Information Disclosure".to_string(),
-                    format!("Server header reveals: {}", server),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "header_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Server Header Information Disclosure".to_string(),
+                    description: format!("Server header reveals: {}", server),
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "header_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Server header disclosure".to_string(),
                     data: Some(serde_json::json!({"server": server})),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
 
         if let Some(powered) = &analysis.server_info.powered_by {
             findings.push(
-                Finding::new(
-                    "X-Powered-By Header Information Disclosure".to_string(),
-                    format!("X-Powered-By header reveals: {}", powered),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "header_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "X-Powered-By Header Information Disclosure".to_string(),
+                    description: format!("X-Powered-By header reveals: {}", powered),
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "header_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "X-Powered-By header disclosure".to_string(),
                     data: Some(serde_json::json!({"powered_by": powered})),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -813,6 +905,7 @@ impl ReconPlugin for HeaderAnalysisPlugin {
 }
 
 /// Plugin entry point
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     if config_ptr.is_null() || config_len == 0 {
@@ -827,6 +920,7 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_execute(
     request_ptr: *const u8,
@@ -837,6 +931,7 @@ pub extern "C" fn plugin_execute(
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_shutdown() -> i32 {
     0

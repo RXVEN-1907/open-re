@@ -1,12 +1,12 @@
 //! CLI commands
 
-pub mod auth;
-pub mod project;
-pub mod file;
-pub mod analysis;
-pub mod function;
 pub mod ai;
+pub mod analysis;
 pub mod analyst;
-pub mod plugin;
+pub mod auth;
 pub mod config;
+pub mod file;
+pub mod function;
+pub mod plugin;
+pub mod project;
 pub mod server;

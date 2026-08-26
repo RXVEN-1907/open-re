@@ -40,33 +40,36 @@ let safety = SafetyController::new(config);
 safety.initialize(allowed_scopes, Some(auth_token)).await?;
 ```
 
-- Validates authorization token before any testing
-- Token verified against auth service (production) or non-empty check (development)
-- Without valid token: `SafetyError::AuthorizationRequired`
+-   Validates authorization token before any testing
+-   Token verified against auth service (production) or non-empty check (development)
+-   Without valid token: `SafetyError::AuthorizationRequired`
 
 ### 2. Scope Enforcement
 
 **Allowed Scopes** (`allowed_scopes`):
+
 ```toml
 allowed_scopes = ["example.com", "*.test.local", "192.168.1.0/24"]
 ```
 
-- Wildcard subdomain support: `*.example.com` matches `api.example.com`, `test.example.com`
-- Exact match: `example.com` matches only `example.com`
-- CIDR notation for IP ranges
-- Empty list = no restrictions (not recommended)
+-   Wildcard subdomain support: `*.example.com` matches `api.example.com`, `test.example.com`
+-   Exact match: `example.com` matches only `example.com`
+-   CIDR notation for IP ranges
+-   Empty list = no restrictions (not recommended)
 
 **Blocked Scopes** (`blocked_scopes`):
+
 ```toml
 blocked_scopes = ["production.internal", "*.gov", "10.0.0.0/8"]
 ```
 
-- Checked before allowed scopes
-- Prevents accidental testing of sensitive environments
+-   Checked before allowed scopes
+-   Prevents accidental testing of sensitive environments
 
 ### 3. Payload Blocking
 
 **Default Blocked Patterns**:
+
 ```toml
 blocked_patterns = [
     "DROP TABLE",
@@ -80,15 +83,15 @@ blocked_patterns = [
 ]
 ```
 
-- Case-insensitive substring matching
-- Applied to all payloads before execution
-- Blocked payloads logged and counted
-- Custom patterns can be added via config
+-   Case-insensitive substring matching
+-   Applied to all payloads before execution
+-   Blocked payloads logged and counted
+-   Custom patterns can be added via config
 
 ### 4. Request Limits
 
 | Limit | Default | Description |
-|-------|---------|-------------|
+| ------- | --------- | ------------- |
 | `max_requests_per_test` | 100 | Max requests per parameter test |
 | `max_total_requests` | 10,000 | Max requests per scan |
 | `max_payloads_per_param` | 50 | Max payloads per parameter |
@@ -97,10 +100,11 @@ blocked_patterns = [
 ### 5. Rate Limiting
 
 **Token Bucket Algorithm**:
-- Configurable `rate_limit_rps` (requests per second)
-- Default: 10 RPS
-- Burst allowance up to bucket size
-- Smooths traffic to prevent target overload
+
+-   Configurable `rate_limit_rps` (requests per second)
+-   Default: 10 RPS
+-   Burst allowance up to bucket size
+-   Smooths traffic to prevent target overload
 
 ```rust
 // Rate limiter acquisition
@@ -110,7 +114,7 @@ rate_limiter.acquire().await; // Blocks until token available
 ### 6. Timeouts
 
 | Timeout | Default | Description |
-|---------|---------|-------------|
+| --------- | --------- | ------------- |
 | `request_timeout_secs` | 30 | Per-request timeout |
 | `plugin_timeout` | 300s | Per-plugin execution timeout |
 | `scan_timeout` | 3600s | Total scan timeout |
@@ -118,6 +122,7 @@ rate_limiter.acquire().await; // Blocks until token available
 ### 7. Concurrency Control
 
 **Semaphore-based**:
+
 ```rust
 let semaphore = Arc::new(Semaphore::new(max_concurrency));
 let permit = semaphore.acquire().await?;
@@ -125,16 +130,17 @@ let permit = semaphore.acquire().await?;
 drop(permit); // Released automatically
 ```
 
-- Prevents resource exhaustion
-- Fair queuing of requests
-- Configurable via `max_concurrency`
+-   Prevents resource exhaustion
+-   Fair queuing of requests
+-   Configurable via `max_concurrency`
 
 ### 8. Request Validation
 
 **Validated Properties**:
-- HTTP Method: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
-- Request Size: Max 1MB (configurable)
-- Content-Type: JSON, form-urlencoded, multipart, XML, text
+
+-   HTTP Method: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+-   Request Size: Max 1MB (configurable)
+-   Content-Type: JSON, form-urlencoded, multipart, XML, text
 
 ## Configuration
 
@@ -169,7 +175,7 @@ require_authorization = true
 Each injection plugin inherits safety config but can override:
 
 ```toml
-# In plugin config_schema.json
+# In plugin config_schema.JSON
 "safety": {
   "max_requests_per_test": { "default": 50 },  # Stricter for this plugin
   "rate_limit_rps": { "default": 5.0 },        # Slower for sensitive tests
@@ -193,21 +199,22 @@ println!("Authorization verified: {}", stats.authorization_verified);
 ```
 
 **SafetyStats Fields**:
-- `current_test_requests`: Requests in current test
-- `total_requests`: Total requests this scan
-- `blocked_payloads`: Count of blocked payloads
-- `elapsed_time`: Scan duration
-- `rate_limit_rps`: Current rate limit
-- `max_concurrency`: Concurrency limit
-- `max_total_requests`: Total request limit
-- `authorization_verified`: Auth status
+
+-   `current_test_requests`: Requests in current test
+-   `total_requests`: Total requests this scan
+-   `blocked_payloads`: Count of blocked payloads
+-   `elapsed_time`: Scan duration
+-   `rate_limit_rps`: Current rate limit
+-   `max_concurrency`: Concurrency limit
+-   `max_total_requests`: Total request limit
+-   `authorization_verified`: Auth status
 
 ## Error Handling
 
 ### SafetyError Types
 
 | Error | Cause | Resolution |
-|-------|-------|------------|
+| ------- | ------- | ------------ |
 | `AuthorizationRequired` | No auth token provided | Provide valid authorization |
 | `InvalidAuthorization` | Token validation failed | Check token validity |
 | `ScopeViolation(url)` | Target not in allowed scopes | Add target to allowed_scopes |
@@ -243,37 +250,42 @@ for payload in payloads {
 
 ### For Security Teams
 
-1. **Always Require Authorization**
+1.  **Always Require Authorization**
+
    ```toml
    require_authorization = true
    ```
 
-2. **Define Explicit Scopes**
+2.  **Define Explicit Scopes**
+
    ```toml
    allowed_scopes = ["staging.example.com", "test.example.com"]
    blocked_scopes = ["production.example.com", "*.internal"]
    ```
 
-3. **Use Conservative Limits**
+3.  **Use Conservative Limits**
+
    ```toml
    rate_limit_rps = 5.0
    max_concurrency = 3
    max_requests_per_test = 50
    ```
 
-4. **Block Dangerous Patterns**
+4.  **Block Dangerous Patterns**
+
    ```toml
    blocked_patterns = [
        "DROP TABLE", "DELETE FROM", "TRUNCATE",
        "SHUTDOWN", "REBOOT", "rm -rf",
        "format", "mkfs", "wget", "curl",
-       "nc ", "netcat", "bash -i", "sh -i"
+       "nc ", "netcat", "Bash -i", "sh -i"
    ]
    ```
 
 ### For Developers
 
-1. **Test Safety Controls**
+1.  **Test Safety Controls**
+
    ```rust
    #[test]
    fn test_payload_blocking() {
@@ -285,7 +297,8 @@ for payload in payloads {
    }
    ```
 
-2. **Log Blocked Payloads**
+2.  **Log Blocked Payloads**
+
    ```rust
    if let Err(e) = safety.check_payload(&payload) {
        info!("Blocked payload: {} - {}", payload, e);
@@ -294,7 +307,8 @@ for payload in payloads {
    }
    ```
 
-3. **Monitor Statistics**
+3.  **Monitor Statistics**
+
    ```rust
    // Periodic logging
    let stats = safety.get_stats().await;
@@ -306,24 +320,26 @@ for payload in payloads {
 ### Authorization Tracking
 
 Every scan records:
-- Authorization token hash (not the token itself)
-- Timestamp of authorization verification
-- Scopes authorized for
+
+-   Authorization token hash (not the token itself)
+-   Timestamp of authorization verification
+-   Scopes authorized for
 
 ### Audit Trail
 
 Safety events logged:
-- Authorization verification (success/failure)
-- Scope violations (blocked targets)
-- Payload blocks (pattern matched)
-- Rate limit events
-- Limit exceeded events
+
+-   Authorization verification (success/failure)
+-   Scope violations (blocked targets)
+-   Payload blocks (pattern matched)
+-   Rate limit events
+-   Limit exceeded events
 
 ### Data Protection
 
-- No sensitive data in logs (tokens, payloads with secrets)
-- Request/response bodies only stored for findings
-- Configurable retention for scan data
+-   No sensitive data in logs (tokens, payloads with secrets)
+-   Request/response bodies only stored for findings
+-   Configurable retention for scan data
 
 ## Disabling Safety Controls (NOT RECOMMENDED)
 
@@ -345,10 +361,10 @@ max_concurrency = 50  # High concurrency
 ### Pre-Scan Validation
 
 ```yaml
-# .github/workflows/security-scan.yml
+# .GitHub/workflows/security-scan.yml
 - name: Validate Safety Config
   run: |
-    cargo test -p openre-plugins safety_controls
+    Cargo test -p openre-plugins safety_controls
     
 - name: Check Authorization
   run: |
@@ -367,8 +383,8 @@ max_concurrency = 50  # High concurrency
     ALLOWED_SCOPES: "staging.example.com,test.example.com"
   run: |
     sentinel scan start \
-      --target ${{ github.event.inputs.target }} \
-      --plugins sql_injection,xss,command_injection \
+      --target ${{ GitHub.event.inputs.target }} \
+      --plugins sql_injection,XSS,command_injection \
       --auth-token $SCAN_AUTH_TOKEN \
       --allowed-scopes $ALLOWED_SCOPES
 ```
@@ -378,7 +394,7 @@ max_concurrency = 50  # High concurrency
 ### Common Issues
 
 | Issue | Cause | Solution |
-|-------|-------|----------|
+| ------- | ------- | ---------- |
 | "Authorization required" | No token provided | Set `SCAN_AUTH_TOKEN` env var |
 | "Scope violation" | Target not allowed | Add to `allowed_scopes` |
 | "Payload blocked" | Pattern match | Review payload or adjust patterns |
@@ -388,6 +404,7 @@ max_concurrency = 50  # High concurrency
 ### Debug Mode
 
 Enable detailed safety logging:
+
 ```bash
 RUST_LOG=openre_plugins::injection::safety_controls=debug sentinel scan start ...
 ```
@@ -401,6 +418,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```
 
 Response:
+
 ```json
 {
   "current_test_requests": 45,

@@ -1,7 +1,7 @@
 //! Target Manager - Target validation, normalization, metadata, and scan configuration
 
 use crate::error::{ScannerError, ScannerResult};
-use openre_core::ids::TargetId;
+pub use openre_core::ids::TargetId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -219,18 +219,22 @@ impl AuthConfig {
     pub fn apply_to_request(&self, request: &mut http::request::Builder) -> ScannerResult<()> {
         match self {
             AuthConfig::BearerToken { token } => {
-                request = request.header("Authorization", format!("Bearer {}", token));
+                let builder = std::mem::take(request);
+                *request = builder.header("Authorization", format!("Bearer {}", token));
             }
             AuthConfig::Basic { username, password } => {
                 let credentials = base64::encode(format!("{}:{}", username, password));
-                request = request.header("Authorization", format!("Basic {}", credentials));
+                let builder = std::mem::take(request);
+                *request = builder.header("Authorization", format!("Basic {}", credentials));
             }
             AuthConfig::ApiKey { header, key } => {
-                request = request.header(header, key);
+                let builder = std::mem::take(request);
+                *request = builder.header(header, key);
             }
             AuthConfig::Cookie { name, value } => {
                 let cookie = format!("{}={}", name, value);
-                request = request.header("Cookie", cookie);
+                let builder = std::mem::take(request);
+                *request = builder.header("Cookie", cookie);
             }
             AuthConfig::OAuth2 { .. } => {
                 // OAuth2 would require token refresh logic - placeholder for now
@@ -241,7 +245,8 @@ impl AuthConfig {
             AuthConfig::Custom { config } => {
                 for (key, value) in config {
                     if let Some(str_value) = value.as_str() {
-                        request = request.header(key, str_value);
+                        let builder = std::mem::take(request);
+                        *request = builder.header(key, str_value);
                     }
                 }
             }

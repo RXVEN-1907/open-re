@@ -156,7 +156,7 @@ impl SecurityAnalystImpl {
         cache: Arc<AnalysisCache>,
         safety_guard: Arc<SafetyGuard>,
     ) -> Self {
-        let max_tokens = context_builder.max_tokens; // Get from context builder
+        let max_tokens = context_builder.max_tokens();
         Self {
             finding_provider,
             model_provider,
@@ -234,16 +234,23 @@ impl SecurityAnalystImpl {
 
         let response = self.model_provider.stream(request).await?;
 
-        // Convert the streaming response to a stream of strings
-        let stream = tokio_stream::wrappers::ReceiverStream::new(response.stream).filter_map(
-            |chunk| async move {
+        // Forward only content chunks to the caller
+        let (tx, rx) = tokio::sync::mpsc::channel::<AiResult<String>>(64);
+        tokio::spawn(async move {
+            let mut source = response.stream;
+            while let Some(chunk) = source.recv().await {
                 match chunk {
-                    StreamChunk::Content(content) => Some(Ok(content)),
-                    StreamChunk::Finish(_) => None,   // End of stream
-                    StreamChunk::ToolCall(_) => None, // Ignore tool calls for now
+                    StreamChunk::Content(content) => {
+                        if tx.send(Ok(content)).await.is_err() {
+                            break;
+                        }
+                    }
+                    StreamChunk::Finish(_) | StreamChunk::ToolCall(_) => continue,
                 }
-            },
-        );
+            }
+        });
+
+        let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
 
         Ok(Box::pin(stream))
     }

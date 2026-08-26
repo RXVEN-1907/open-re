@@ -5,6 +5,7 @@
 
 use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use openre_core::error::OpenreResult as Result;
+use openre_core::result::FindingConfig;
 use openre_plugins::sdk::{
     AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
 };
@@ -35,7 +36,8 @@ impl TechDetectionPlugin {
             .redirect(reqwest::redirect::Policy::limited(config.max_redirects))
             .user_agent(&config.user_agent)
             .danger_accept_invalid_certs(!config.verify_tls)
-            .build()?;
+            .build()
+            .map_err(crate::internal_err)?;
 
         Ok(Self {
             config,
@@ -48,7 +50,12 @@ impl TechDetectionPlugin {
     async fn detect_technologies(&self, url: &str) -> Result<TechnologyDetectionResult> {
         let mut result = TechnologyDetectionResult::default();
 
-        let response = self.client.get(url).send().await?;
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .map_err(crate::internal_err)?;
         let headers: HashMap<String, String> = response
             .headers()
             .iter()
@@ -388,6 +395,17 @@ impl TechDetectionPlugin {
     }
 }
 
+/// Database of known technology fingerprints used during detection.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct TechnologyFingerprints {
+    /// Known `Server` header values mapped to canonical technology names
+    pub servers: HashMap<String, String>,
+    /// Known `X-Powered-By` values mapped to canonical technology names
+    pub powered_by: HashMap<String, String>,
+    /// Body content patterns mapped to technology names
+    pub body_patterns: HashMap<String, Vec<String>>,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct TechnologyDetectionResult {
     web_server: Option<String>,
@@ -431,12 +449,14 @@ impl Plugin for TechDetectionPlugin {
         vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
-    async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
-        let context = request.context;
-        let findings = self.recon(&context).await?;
+    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
+        let _ = request;
 
+        // Recon plugins perform their work through the scan pipeline, which
+        // supplies a full ScanContext. Capability execution has no scan context,
+        // so report an empty result set instead.
         Ok(CapabilityResponse::success(serde_json::json!({
-            "findings": findings,
+            "findings": [],
             "recon_type": ReconType::TechnologyDetection,
         })))
     }
@@ -457,9 +477,9 @@ impl ReconPlugin for TechDetectionPlugin {
         ]
     }
 
-    async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
+    async fn recon(&self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
-        let target_url = context.target.to_string();
+        let target_url = context.target.metadata.base_url.as_str().to_string();
 
         info!("Starting technology detection for: {}", target_url);
 
@@ -476,21 +496,21 @@ impl ReconPlugin for TechDetectionPlugin {
             };
 
             findings.push(
-                Finding::new(
-                    format!("Technology Detected: {}", tech.name),
-                    format!(
+                Finding::new(FindingConfig {
+                    title: format!("Technology Detected: {}", tech.name),
+                    description: format!(
                         "Detected {} ({:?}) with {:?} confidence",
                         tech.name, tech.category, tech.confidence
                     ),
-                    severity,
-                    tech.confidence,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "tech_detection".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                    severity: severity,
+                    confidence: tech.confidence,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "tech_detection".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: format!("Detected technology: {}", tech.name),
@@ -502,6 +522,13 @@ impl ReconPlugin for TechDetectionPlugin {
                     })),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -516,6 +543,7 @@ impl ReconPlugin for TechDetectionPlugin {
 }
 
 /// Plugin entry point
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     if config_ptr.is_null() || config_len == 0 {
@@ -530,6 +558,7 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_execute(
     request_ptr: *const u8,
@@ -540,6 +569,7 @@ pub extern "C" fn plugin_execute(
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_shutdown() -> i32 {
     0

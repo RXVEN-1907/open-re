@@ -6,45 +6,43 @@ use crate::binary::pe::PeMetadataExtractor;
 use crate::binary::traits::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_storage::GlobalStore;
+use openre_storage::ObjectStore;
 use openre_telemetry::metrics;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tokio::io::AsyncReadExt;
 
 /// Metadata extraction service
 pub struct MetadataExtractionService {
-    global_store: Arc<GlobalStore>,
+    object_store: Arc<ObjectStore>,
     elf_extractor: ElfMetadataExtractor,
     pe_extractor: PeMetadataExtractor,
 }
 
 impl MetadataExtractionService {
-    pub fn new(global_store: Arc<GlobalStore>) -> Self {
+    pub fn new(object_store: Arc<ObjectStore>) -> Self {
         Self {
-            global_store,
+            object_store,
             elf_extractor: ElfMetadataExtractor,
             pe_extractor: PeMetadataExtractor,
         }
+    }
+
+    /// Read the full contents of a stored binary
+    async fn read_object(&self, file_id: FileId) -> Result<Vec<u8>> {
+        let mut reader = self.object_store.get_object(file_id).await?;
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data).await?;
+        Ok(data)
     }
 
     /// Extract metadata for a file
     pub async fn extract_metadata(&self, file_id: FileId) -> Result<BinaryMetadata> {
         let start = std::time::Instant::now();
 
-        let file =
-            self.global_store.get_file(file_id).await?.ok_or_else(|| {
-                openre_core::Error::NotFound(format!("File not found: {}", file_id))
-            })?;
-
-        let data = self
-            .global_store
-            .object_store()
-            .get(&file.object_path)
-            .await?;
-
+        let data = self.read_object(file_id).await?;
         let format = BinaryFormat::from_bytes(&data);
 
-        let metadata = match format {
+        let mut metadata = match format {
             BinaryFormat::Elf => self.elf_extractor.extract_metadata(&data).await?,
             BinaryFormat::Pe => self.pe_extractor.extract_metadata(&data).await?,
             _ => {
@@ -53,37 +51,22 @@ impl MetadataExtractionService {
                 ))
             }
         };
-
-        // Update file record with extracted metadata
-        self.global_store
-            .update_file_metadata(file_id, &metadata)
-            .await?;
+        metadata.file_id = file_id;
 
         metrics::record_http_request("POST", 200, start.elapsed());
 
-        Ok(BinaryMetadata {
-            file_id,
-            ..metadata
-        })
+        Ok(metadata)
     }
 
     /// Get stored metadata for a file
-    pub async fn get_metadata(&self, file_id: FileId) -> Result<Option<BinaryMetadata>> {
-        self.global_store.get_file_metadata(file_id).await
+    pub async fn get_metadata(&self, _file_id: FileId) -> Result<Option<BinaryMetadata>> {
+        // Metadata persistence is not wired up yet
+        Ok(None)
     }
 
     /// Extract specific metadata components
     pub async fn extract_sections(&self, file_id: FileId) -> Result<Vec<SectionInfo>> {
-        let file =
-            self.global_store.get_file(file_id).await?.ok_or_else(|| {
-                openre_core::Error::NotFound(format!("File not found: {}", file_id))
-            })?;
-
-        let data = self
-            .global_store
-            .object_store()
-            .get(&file.object_path)
-            .await?;
+        let data = self.read_object(file_id).await?;
         let format = BinaryFormat::from_bytes(&data);
 
         match format {
@@ -96,16 +79,7 @@ impl MetadataExtractionService {
     }
 
     pub async fn extract_symbols(&self, file_id: FileId) -> Result<Vec<SymbolInfo>> {
-        let file =
-            self.global_store.get_file(file_id).await?.ok_or_else(|| {
-                openre_core::Error::NotFound(format!("File not found: {}", file_id))
-            })?;
-
-        let data = self
-            .global_store
-            .object_store()
-            .get(&file.object_path)
-            .await?;
+        let data = self.read_object(file_id).await?;
         let format = BinaryFormat::from_bytes(&data);
 
         match format {
@@ -118,16 +92,7 @@ impl MetadataExtractionService {
     }
 
     pub async fn extract_imports(&self, file_id: FileId) -> Result<Vec<ImportInfo>> {
-        let file =
-            self.global_store.get_file(file_id).await?.ok_or_else(|| {
-                openre_core::Error::NotFound(format!("File not found: {}", file_id))
-            })?;
-
-        let data = self
-            .global_store
-            .object_store()
-            .get(&file.object_path)
-            .await?;
+        let data = self.read_object(file_id).await?;
         let format = BinaryFormat::from_bytes(&data);
 
         match format {
@@ -140,16 +105,7 @@ impl MetadataExtractionService {
     }
 
     pub async fn extract_exports(&self, file_id: FileId) -> Result<Vec<ExportInfo>> {
-        let file =
-            self.global_store.get_file(file_id).await?.ok_or_else(|| {
-                openre_core::Error::NotFound(format!("File not found: {}", file_id))
-            })?;
-
-        let data = self
-            .global_store
-            .object_store()
-            .get(&file.object_path)
-            .await?;
+        let data = self.read_object(file_id).await?;
         let format = BinaryFormat::from_bytes(&data);
 
         match format {
@@ -162,16 +118,7 @@ impl MetadataExtractionService {
     }
 
     pub async fn extract_strings(&self, file_id: FileId) -> Result<Vec<ExtractedString>> {
-        let file =
-            self.global_store.get_file(file_id).await?.ok_or_else(|| {
-                openre_core::Error::NotFound(format!("File not found: {}", file_id))
-            })?;
-
-        let data = self
-            .global_store
-            .object_store()
-            .get(&file.object_path)
-            .await?;
+        let data = self.read_object(file_id).await?;
         let format = BinaryFormat::from_bytes(&data);
 
         match format {
@@ -184,16 +131,7 @@ impl MetadataExtractionService {
     }
 
     pub async fn extract_resources(&self, file_id: FileId) -> Result<Vec<ResourceInfo>> {
-        let file =
-            self.global_store.get_file(file_id).await?.ok_or_else(|| {
-                openre_core::Error::NotFound(format!("File not found: {}", file_id))
-            })?;
-
-        let data = self
-            .global_store
-            .object_store()
-            .get(&file.object_path)
-            .await?;
+        let data = self.read_object(file_id).await?;
         let format = BinaryFormat::from_bytes(&data);
 
         match format {
@@ -206,16 +144,7 @@ impl MetadataExtractionService {
     }
 
     pub async fn extract_version_info(&self, file_id: FileId) -> Result<Option<VersionInfo>> {
-        let file =
-            self.global_store.get_file(file_id).await?.ok_or_else(|| {
-                openre_core::Error::NotFound(format!("File not found: {}", file_id))
-            })?;
-
-        let data = self
-            .global_store
-            .object_store()
-            .get(&file.object_path)
-            .await?;
+        let data = self.read_object(file_id).await?;
         let format = BinaryFormat::from_bytes(&data);
 
         match format {

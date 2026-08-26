@@ -52,7 +52,7 @@ impl Default for CveIntelligenceConfig {
 pub struct CveIntelligence {
     providers: Vec<Arc<dyn CveProvider>>,
     config: CveIntelligenceConfig,
-    cache: Option<CveCache>,
+    cache: Option<std::sync::RwLock<CveCache>>,
 }
 
 /// In-memory cache for CVE data
@@ -114,7 +114,9 @@ impl CveIntelligence {
     /// Create a new CVE intelligence system
     pub fn new(config: CveIntelligenceConfig) -> Self {
         let cache = if config.enable_caching {
-            Some(CveCache::new(config.cache_ttl_seconds))
+            Some(std::sync::RwLock::new(CveCache::new(
+                config.cache_ttl_seconds,
+            )))
         } else {
             None
         };
@@ -131,6 +133,11 @@ impl CveIntelligence {
         self.providers.push(provider);
     }
 
+    /// Number of registered CVE providers
+    pub fn provider_count(&self) -> usize {
+        self.providers.len()
+    }
+
     /// Match findings against known CVEs based on evidence
     pub async fn match_findings_against_cves(
         &self,
@@ -139,8 +146,8 @@ impl CveIntelligence {
         let mut results = Vec::new();
 
         // Clear expired cache entries periodically
-        if let Some(cache) = &mut self.cache {
-            cache.clear_expired();
+        if let Some(cache) = &self.cache {
+            cache.write().unwrap().clear_expired();
         }
 
         for finding in findings {
@@ -167,7 +174,7 @@ impl CveIntelligence {
             // Check cache first
             if let Some(cache) = &self.cache {
                 let cache_key = format!("{}:{}", software_name, version);
-                if let Some(cached_cves) = cache.get(&cache_key) {
+                if let Some(cached_cves) = cache.read().unwrap().get(&cache_key) {
                     all_cves.push(cached_cves.clone());
                     continue;
                 }
@@ -190,7 +197,8 @@ impl CveIntelligence {
                             );
 
                             // Cache the results
-                            if let Some(cache) = &mut self.cache {
+                            if let Some(cache) = &self.cache {
+                                let mut cache = cache.write().unwrap();
                                 for cve in &cves {
                                     cache.insert(format!("{}:{}", cve.cve_id, "info"), cve.clone());
                                 }
@@ -309,7 +317,7 @@ impl CveIntelligence {
     pub async fn get_cve_details(&self, cve_id: &str) -> IntelligenceResult<Option<CveInfo>> {
         // Check cache first
         if let Some(cache) = &self.cache {
-            if let Some(cached_cve) = cache.get(&format!("{}:{}", cve_id, "info")) {
+            if let Some(cached_cve) = cache.read().unwrap().get(&format!("{}:{}", cve_id, "info")) {
                 return Ok(Some(cached_cve.clone()));
             }
         }
@@ -319,8 +327,11 @@ impl CveIntelligence {
             match provider.get_cve(cve_id).await {
                 Ok(Some(cve_info)) => {
                     // Cache the result
-                    if let Some(cache) = &mut self.cache {
-                        cache.insert(format!("{}:{}", cve_id, "info"), cve_info.clone());
+                    if let Some(cache) = &self.cache {
+                        cache
+                            .write()
+                            .unwrap()
+                            .insert(format!("{}:{}", cve_id, "info"), cve_info.clone());
                     }
                     return Ok(Some(cve_info));
                 }
@@ -514,12 +525,12 @@ mod tests {
             timing: None,
             payload: None,
             reproduction_steps: None,
-            plugin_source: "test".to_string(),
+            plugin_source: Some("test".to_string()),
             timestamp: Utc::now(),
         };
 
         let finding = Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: "Web Server Fingerprint".to_string(),
             description: "Identified web server technology".to_string(),
             severity: Severity::Info,
@@ -532,7 +543,7 @@ mod tests {
             plugin_source: "test".to_string(),
             plugin_version: "1.0".to_string(),
             timestamp: Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: HashMap::new(),
             tags: Vec::new(),
             verified: false,

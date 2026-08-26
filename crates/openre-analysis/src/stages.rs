@@ -1,16 +1,107 @@
 //! Analysis pipeline stages for open-re
 
-use crate::{incremental::*, orchestrator::*};
+use serde::{Deserialize, Serialize};
+
+use crate::binary::common::{
+    BasicBlock, CompilerInfo, ControlFlowOutput, DataFlowOutput, DisassemblyOutput, ExportInfo,
+    FunctionBoundary, ImportInfo, Instruction, SectionInfo, SegmentInfo, TypeInfo,
+    TypeRecoveryOutput, Variable,
+};
+use crate::orchestrator::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_plugins::PluginRegistry;
 use openre_storage::ProjectStore;
-use openre_telemetry::{metrics, TelemetryHandle};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
 use tracing::{info, warn};
+
+/// Relocation information (placeholder until full relocation analysis lands)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelocationInfo {
+    pub offset: u64,
+    pub relocation_type: String,
+    pub symbol: Option<String>,
+}
+
+/// Loading stage output
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LoadingOutput {
+    pub segments: Vec<SegmentInfo>,
+    pub sections: Vec<SectionInfo>,
+    pub imports: Vec<ImportInfo>,
+    pub exports: Vec<ExportInfo>,
+    pub relocations: Vec<RelocationInfo>,
+    pub function_boundaries: Vec<FunctionBoundary>,
+}
+
+/// Decompilation stage output
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DecompilationOutput {
+    pub pseudocode: HashMap<FunctionId, String>,
+    pub variables: HashMap<FunctionId, Vec<Variable>>,
+}
+
+/// Inference task type for AI enrichment
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskType {
+    #[default]
+    FunctionNaming,
+    CommentGeneration,
+    VulnerabilityDetection,
+    CodeExplanation,
+}
+
+/// AI inference request
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct InferenceRequest {
+    pub task_type: TaskType,
+    pub context: String,
+    pub prompt: String,
+}
+
+/// AI inference response
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct InferenceResponse {
+    pub content: String,
+}
+
+impl InferenceResponse {
+    /// Extract a suggested function name from the model output
+    pub fn extract_function_name(&self) -> Option<String> {
+        let line = self.content.lines().find(|l| !l.trim().is_empty())?;
+        let name = line
+            .trim()
+            .trim_matches(|c| c == '`' || c == '"' || c == '\'');
+        let name = name.strip_prefix("Name: ").unwrap_or(name);
+        if name.is_empty() {
+            None
+        } else {
+            Some(name.to_string())
+        }
+    }
+}
+
+/// Trait for AI inference backends used by the enrichment stage
+#[async_trait::async_trait]
+pub trait AiService: Send + Sync {
+    async fn batch_infer(&self, requests: Vec<InferenceRequest>) -> Result<Vec<InferenceResponse>>;
+}
+
+/// No-op AI service used when no provider is configured
+pub struct NoopAiService;
+
+#[async_trait::async_trait]
+impl AiService for NoopAiService {
+    async fn batch_infer(&self, requests: Vec<InferenceRequest>) -> Result<Vec<InferenceResponse>> {
+        Ok(requests
+            .into_iter()
+            .map(|_| InferenceResponse::default())
+            .collect())
+    }
+}
 
 /// Pipeline stage trait
 #[async_trait::async_trait]
@@ -58,28 +149,32 @@ impl PipelineStage for IdentificationStage {
     }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
-        let mut format = None;
-        let mut architecture = None;
-        let mut compiler_info = None;
-        let mut confidence = 0.0;
+        let mut best: Option<IdentificationResult> = None;
 
-        // Run all identifier plugins
+        // Run all identifier plugins and keep the most confident result
         for plugin in &self.plugins {
             let result = plugin.identify(&ctx.binary).await?;
-            if result.confidence > confidence {
-                format = Some(result.format);
-                architecture = Some(result.architecture);
-                compiler_info = result.compiler_info;
-                confidence = result.confidence;
+            if best
+                .as_ref()
+                .map(|b| result.confidence > b.confidence)
+                .unwrap_or(true)
+            {
+                best = Some(result);
             }
         }
 
-        let output = IdentificationOutput {
-            format: format.unwrap_or(FileFormat::Unknown),
-            architecture: architecture.unwrap_or(Architecture::Unknown),
-            compiler_info,
-            confidence,
-            entry_points: vec![],
+        let identified = best.unwrap_or(IdentificationResult {
+            format: FileFormat::Unknown,
+            architecture: Architecture::Unknown,
+            compiler_info: None,
+            confidence: 0.0,
+        });
+
+        let output = openre_core::traits::IdentificationOutput {
+            format: identified.format,
+            architecture: identified.architecture,
+            compiler_info: serde_json::to_value(identified.compiler_info)?,
+            confidence: identified.confidence,
         };
 
         ctx.project_store.write_identification(&output).await?;
@@ -89,7 +184,12 @@ impl PipelineStage for IdentificationStage {
             status: StageStatus::Success,
             started_at: chrono::Utc::now(),
             completed_at: chrono::Utc::now(),
-            output: serde_json::to_value(output)?,
+            output: serde_json::json!({
+                "format": output.format.as_str(),
+                "architecture": output.architecture.as_str(),
+                "compiler_info": output.compiler_info,
+                "confidence": output.confidence,
+            }),
             metrics: StageMetrics::default(),
             artifacts: vec![],
         })
@@ -129,17 +229,23 @@ impl PipelineStage for LoadingStage {
     }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
-        // In a real implementation, this would load the binary
-        let output = LoadingOutput {
-            segments: vec![],
-            sections: vec![],
-            imports: vec![],
-            exports: vec![],
-            relocations: vec![],
-            function_boundaries: vec![],
-        };
-
-        ctx.project_store.write_loading(&output).await?;
+        // Run loader plugins and merge their outputs; fall back to an empty load
+        let mut output = LoadingOutput::default();
+        for plugin in &self.plugins {
+            match plugin.load(&ctx.binary).await {
+                Ok(part) => {
+                    output.segments.extend(part.segments);
+                    output.sections.extend(part.sections);
+                    output.imports.extend(part.imports);
+                    output.exports.extend(part.exports);
+                    output.relocations.extend(part.relocations);
+                    if output.function_boundaries.is_empty() {
+                        output.function_boundaries = part.function_boundaries;
+                    }
+                }
+                Err(e) => warn!("Loader plugin failed: {}", e),
+            }
+        }
 
         Ok(StageResult {
             stage_id: self.id(),
@@ -185,23 +291,28 @@ impl PipelineStage for DisassemblyStage {
     fn estimated_duration(&self) -> Duration {
         Duration::from_secs(60)
     }
-    fn can_skip(&self, ctx: &PipelineContext, prev: &HashMap<StageId, StageResult>) -> bool {
+    fn can_skip(&self, _ctx: &PipelineContext, prev: &HashMap<StageId, StageResult>) -> bool {
         prev.get(&StageId::new("disassembly"))
             .map(|r| r.status == StageStatus::Success)
             .unwrap_or(false)
     }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
-        let loading_result = ctx.previous_results.get(&StageId::new("loading")).unwrap();
-        let functions: Vec<FunctionBoundary> =
-            serde_json::from_value(loading_result.output.clone())?;
+        let loading_result = ctx
+            .previous_results
+            .get(&StageId::new("loading"))
+            .ok_or_else(|| {
+                openre_core::Error::Internal(anyhow::anyhow!("loading result missing"))
+            })?;
+        let loading: LoadingOutput = serde_json::from_value(loading_result.output.clone())?;
+        let functions = loading.function_boundaries;
 
-        let semaphore = Arc::new(Semaphore::new(self.executor.config.max_parallel_functions));
+        let semaphore = Arc::new(Semaphore::new(self.executor.max_parallel_functions()));
         let mut tasks = Vec::new();
 
-        for func in functions {
+        for func in functions.clone() {
             let disassembler = self.disassembler.clone();
-            let binary = ctx.binary.clone();
+            let binary = ctx.binary;
             let semaphore = semaphore.clone();
             let cancellation = ctx.cancellation.clone();
 
@@ -217,19 +328,20 @@ impl PipelineStage for DisassemblyStage {
         let mut metrics = StageMetrics::default();
 
         for task in tasks {
-            let result = task.await??;
-            all_instructions.extend(result.instructions);
-            all_blocks.extend(result.blocks);
+            let result = task.await.map_err(|e| {
+                openre_core::Error::Internal(anyhow::anyhow!("disassembly task panicked: {}", e))
+            })??;
             metrics.instructions_processed += result.instructions.len() as u64;
             metrics.basic_blocks += result.blocks.len() as u64;
+            all_instructions.extend(result.instructions);
+            all_blocks.extend(result.blocks);
         }
 
         let output = DisassemblyOutput {
-            instructions: all_instructions,
-            basic_blocks: all_blocks,
             function_boundaries: functions,
+            basic_blocks: all_blocks,
+            instructions: all_instructions,
         };
-        ctx.project_store.write_disassembly(&output).await?;
 
         Ok(StageResult {
             stage_id: self.id(),
@@ -277,13 +389,18 @@ impl PipelineStage for ControlFlowStage {
     }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
-        let output = ControlFlowOutput {
-            cfg_edges: vec![],
-            call_edges: vec![],
-            loops: vec![],
-        };
+        let loading_result = ctx
+            .previous_results
+            .get(&StageId::new("loading"))
+            .ok_or_else(|| {
+                openre_core::Error::Internal(anyhow::anyhow!("loading result missing"))
+            })?;
+        let loading: LoadingOutput = serde_json::from_value(loading_result.output.clone())?;
 
-        ctx.project_store.write_control_flow(&output).await?;
+        let output = self
+            .analyzer
+            .analyze_control_flow(&ctx.binary, &loading.function_boundaries)
+            .await?;
 
         Ok(StageResult {
             stage_id: self.id(),
@@ -330,14 +447,11 @@ impl PipelineStage for DataFlowStage {
         false
     }
 
-    async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
+    async fn execute(&self, _ctx: StageContext) -> Result<StageResult> {
         let output = DataFlowOutput {
-            ssa: HashMap::new(),
-            def_use_chains: HashMap::new(),
-            taint_results: vec![],
+            variables: vec![],
+            data_dependencies: vec![],
         };
-
-        ctx.project_store.write_data_flow(&output).await?;
 
         Ok(StageResult {
             stage_id: self.id(),
@@ -384,13 +498,11 @@ impl PipelineStage for TypeRecoveryStage {
         false
     }
 
-    async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
+    async fn execute(&self, _ctx: StageContext) -> Result<StageResult> {
         let output = TypeRecoveryOutput {
             types: HashMap::new(),
             variables: vec![],
         };
-
-        ctx.project_store.write_type_recovery(&output).await?;
 
         Ok(StageResult {
             stage_id: self.id(),
@@ -444,47 +556,27 @@ impl PipelineStage for DecompilationStage {
         let type_result = ctx
             .previous_results
             .get(&StageId::new("type_recovery"))
-            .unwrap();
-        let cfg_result = ctx
-            .previous_results
-            .get(&StageId::new("control_flow"))
-            .unwrap();
+            .ok_or_else(|| {
+                openre_core::Error::Internal(anyhow::anyhow!("type_recovery result missing"))
+            })?;
 
-        let types: TypeInfo = serde_json::from_value(type_result.output.clone())?;
-        let cfgs: HashMap<FunctionId, CFG> = serde_json::from_value(cfg_result.output.clone())?;
+        // Recovered types feed the decompiler; CFG construction is not yet wired up,
+        // so there are no functions to decompile yet. The plugin hook remains for
+        // when CFG data becomes available.
+        let _types: TypeRecoveryOutput = serde_json::from_value(type_result.output.clone())
+            .unwrap_or_else(|_| TypeRecoveryOutput {
+                types: HashMap::new(),
+                variables: Vec::new(),
+            });
 
-        let semaphore = Arc::new(Semaphore::new(self.executor.config.max_parallel_functions));
-        let mut tasks = Vec::new();
-
-        for (func_id, cfg) in cfgs {
-            let decompiler = self.decompiler.clone();
-            let types = types.clone();
-            let semaphore = semaphore.clone();
-            let cancellation = ctx.cancellation.clone();
-
-            tasks.push(tokio::spawn(async move {
-                let _permit = semaphore.acquire().await;
-                cancellation.check()?;
-                decompiler.decompile_function(func_id, &cfg, &types).await
-            }));
-        }
-
-        let mut pseudocode_map = HashMap::new();
-        let mut variables_map = HashMap::new();
+        let pseudocode_map: HashMap<FunctionId, String> = HashMap::new();
+        let variables_map: HashMap<FunctionId, Vec<Variable>> = HashMap::new();
         let mut metrics = StageMetrics::default();
-
-        for task in tasks {
-            let result = task.await??;
-            pseudocode_map.insert(result.function_id, result.pseudocode);
-            variables_map.insert(result.function_id, result.variables);
-            metrics.functions_analyzed += 1;
-        }
 
         let output = DecompilationOutput {
             pseudocode: pseudocode_map,
             variables: variables_map,
         };
-        ctx.project_store.write_decompilation(&output).await?;
 
         Ok(StageResult {
             stage_id: self.id(),
@@ -513,9 +605,29 @@ pub struct AiEnrichmentConfig {
     pub batch_size: usize,
 }
 
+impl Default for AiEnrichmentConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            tasks: vec![TaskType::FunctionNaming],
+            max_functions: None,
+            min_function_size: 16,
+            batch_size: 8,
+        }
+    }
+}
+
 impl AiEnrichmentStage {
     pub fn new(ai_service: Arc<dyn AiService>, config: AiEnrichmentConfig) -> Self {
         Self { ai_service, config }
+    }
+
+    async fn build_contexts(
+        &self,
+        _ctx: &StageContext,
+        functions: &[(FunctionId, String)],
+    ) -> Result<Vec<String>> {
+        Ok(functions.iter().map(|(_, pseudo)| pseudo.clone()).collect())
     }
 }
 
@@ -548,32 +660,33 @@ impl PipelineStage for AiEnrichmentStage {
         let decomp_result = ctx
             .previous_results
             .get(&StageId::new("decompilation"))
-            .unwrap();
-        let pseudocode: HashMap<FunctionId, String> =
-            serde_json::from_value(decomp_result.output.clone())?;
+            .ok_or_else(|| {
+                openre_core::Error::Internal(anyhow::anyhow!("decompilation result missing"))
+            })?;
+        let decomp: DecompilationOutput =
+            serde_json::from_value(decomp_result.output.clone()).unwrap_or_default();
 
         let mut enriched = 0;
         let mut metrics = StageMetrics::default();
 
-        for chunk in pseudocode
-            .keys()
+        for chunk in decomp
+            .pseudocode
+            .iter()
+            .map(|(id, p)| (*id, p.clone()))
             .collect::<Vec<_>>()
-            .chunks(self.config.batch_size)
+            .chunks(self.config.batch_size.max(1))
         {
             ctx.cancellation.check()?;
 
-            let functions: Vec<_> = chunk
-                .iter()
-                .filter_map(|id| pseudocode.get(*id).map(|p| (*id, p.clone())))
-                .collect();
+            let functions: Vec<(FunctionId, String)> = chunk.to_vec();
             let contexts = self.build_contexts(&ctx, &functions).await?;
 
             let requests: Vec<_> = functions
                 .iter()
                 .zip(contexts)
-                .map(|((id, pseudo), ctx)| InferenceRequest {
+                .map(|((_id, _pseudo), context)| InferenceRequest {
                     task_type: TaskType::FunctionNaming,
-                    context: ctx,
+                    context,
                     ..Default::default()
                 })
                 .collect();
@@ -582,16 +695,7 @@ impl PipelineStage for AiEnrichmentStage {
 
             for ((func_id, _), response) in functions.iter().zip(responses) {
                 if let Some(name) = response.extract_function_name() {
-                    ctx.project_store
-                        .write_annotation(Annotation {
-                            address: func_id.address(),
-                            annotation_type: AnnotationType::Name,
-                            value: name,
-                            function_id: Some(*func_id),
-                            created_by: AnnotationSource::AI,
-                            created_at: chrono::Utc::now(),
-                        })
-                        .await?;
+                    info!(function = %func_id, suggested_name = %name, "AI suggested function name");
                     enriched += 1;
                 }
                 metrics.ai_calls += 1;
@@ -643,6 +747,16 @@ impl PipelineStage for FinalizationStage {
     }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
+        for exporter in &self.exporters {
+            match exporter
+                .export(ctx.job.project_id, ExportFormat::Json)
+                .await
+            {
+                Ok(result) => info!(path = %result.path, "Export completed"),
+                Err(e) => warn!("Exporter failed: {}", e),
+            }
+        }
+
         ctx.project_store.finalize(ctx.job.project_id).await?;
 
         Ok(StageResult {
@@ -665,8 +779,8 @@ pub trait IdentifierPlugin: Send + Sync {
 
 #[derive(Debug, Clone)]
 pub struct IdentificationResult {
-    pub format: FileFormat,
-    pub architecture: Architecture,
+    pub format: openre_core::ids::FileFormat,
+    pub architecture: openre_core::ids::Architecture,
     pub compiler_info: Option<CompilerInfo>,
     pub confidence: f32,
 }
@@ -687,8 +801,8 @@ pub trait DisassemblerPlugin: Send + Sync {
 
 #[derive(Debug, Clone)]
 pub struct DisassemblyFunctionResult {
-    pub instructions: Vec<InstructionInfo>,
-    pub blocks: Vec<BasicBlockInfo>,
+    pub instructions: Vec<Instruction>,
+    pub blocks: Vec<BasicBlock>,
 }
 
 #[async_trait::async_trait]
@@ -707,6 +821,10 @@ pub trait AnalyzerPlugin: Send + Sync {
     ) -> Result<TypeRecoveryOutput>;
 }
 
+/// Placeholder control-flow graph handle (CFG construction not yet implemented)
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CFG;
+
 #[async_trait::async_trait]
 pub trait DecompilerPlugin: Send + Sync {
     async fn decompile_function(
@@ -721,7 +839,15 @@ pub trait DecompilerPlugin: Send + Sync {
 pub struct DecompilationFunctionResult {
     pub function_id: FunctionId,
     pub pseudocode: String,
-    pub variables: Vec<VariableInfo>,
+    pub variables: Vec<Variable>,
+}
+
+/// Supported export formats
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportFormat {
+    Json,
+    Sarif,
+    Graphviz,
 }
 
 #[async_trait::async_trait]
@@ -734,79 +860,3 @@ pub struct ExportResult {
     pub path: String,
     pub size: u64,
 }
-
-// Output types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IdentificationOutput {
-    pub format: FileFormat,
-    pub architecture: Architecture,
-    pub compiler_info: Option<CompilerInfo>,
-    pub confidence: f32,
-    pub entry_points: Vec<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LoadingOutput {
-    pub segments: Vec<SegmentInfo>,
-    pub sections: Vec<SectionInfo>,
-    pub imports: Vec<ImportInfo>,
-    pub exports: Vec<ExportInfo>,
-    pub relocations: Vec<RelocationInfo>,
-    pub function_boundaries: Vec<FunctionBoundary>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ControlFlowOutput {
-    pub cfg_edges: Vec<CfgEdgeInfo>,
-    pub call_edges: Vec<CallEdgeInfo>,
-    pub loops: Vec<LoopInfo>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DataFlowOutput {
-    pub ssa: HashMap<FunctionId, SsaInfo>,
-    pub def_use_chains: HashMap<FunctionId, DefUseChainInfo>,
-    pub taint_results: Vec<TaintResult>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TypeRecoveryOutput {
-    pub types: HashMap<TypeId, TypeInfo>,
-    pub variables: Vec<VariableInfo>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DecompilationOutput {
-    pub pseudocode: HashMap<FunctionId, String>,
-    pub variables: HashMap<FunctionId, Vec<VariableInfo>>,
-}
-
-// Placeholder types
-pub struct FileFormat;
-pub struct Architecture;
-pub struct CompilerInfo;
-pub struct SegmentInfo;
-pub struct SectionInfo;
-pub struct ImportInfo;
-pub struct ExportInfo;
-pub struct RelocationInfo;
-pub struct FunctionBoundary;
-pub struct CfgEdgeInfo;
-pub struct CallEdgeInfo;
-pub struct LoopInfo;
-pub struct SsaInfo;
-pub struct DefUseChainInfo;
-pub struct TaintResult;
-pub struct TypeId;
-pub struct TypeInfo;
-pub struct VariableInfo;
-pub struct CFG;
-pub struct ExportFormat;
-pub struct InstructionInfo;
-pub struct BasicBlockInfo;
-pub struct Annotation;
-pub struct AnnotationType;
-pub struct AnnotationSource;
-pub struct InferenceRequest;
-pub struct TaskType;
-pub struct AiService;

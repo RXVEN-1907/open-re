@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use goblin::container::{Container, Endian};
 use goblin::elf::{Dynamic, Elf, SectionHeader, Sym};
 use openre_core::error::OpenreResult as Result;
+use openre_core::ids::FileId;
 use std::collections::HashMap;
 
 /// ELF binary identifier
@@ -46,15 +47,16 @@ impl BinaryIdentifier for ElfIdentifier {
             Bitness::Bit32
         };
 
-        let endianness = match elf.container().endian() {
-            Endian::Little => Endianness::Little,
-            Endian::Big => Endianness::Big,
+        let endianness = match elf.header.endianness() {
+            Ok(Endian::Little) => Endianness::Little,
+            _ => Endianness::Big,
         };
 
         let os = match elf.header.e_ident[goblin::elf::header::EI_OSABI] {
             goblin::elf::header::ELFOSABI_LINUX => OperatingSystem::Linux,
             goblin::elf::header::ELFOSABI_FREEBSD => OperatingSystem::FreeBSD,
-            goblin::elf::header::ELFOSABI_ANDROID => OperatingSystem::Android,
+            // goblin does not define ELFOSABI_ANDROID (0x61); match it directly
+            0x61 => OperatingSystem::Android,
             _ => OperatingSystem::Unknown,
         };
 
@@ -136,11 +138,14 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
             let name = strtab.get_at(section.sh_name).unwrap_or("").to_string();
 
             let characteristics = SectionCharacteristics {
-                readable: section.sh_flags & goblin::elf::section_header::SHF_ALLOC != 0,
-                writable: section.sh_flags & goblin::elf::section_header::SHF_WRITE != 0,
-                executable: section.sh_flags & goblin::elf::section_header::SHF_EXECINSTR != 0,
+                readable: section.sh_flags & u64::from(goblin::elf::section_header::SHF_ALLOC) != 0,
+                writable: section.sh_flags & u64::from(goblin::elf::section_header::SHF_WRITE) != 0,
+                executable: section.sh_flags
+                    & u64::from(goblin::elf::section_header::SHF_EXECINSTR)
+                    != 0,
                 shared: false,
-                discardable: section.sh_flags & goblin::elf::section_header::SHF_EXCLUDE != 0,
+                discardable: section.sh_flags & u64::from(goblin::elf::section_header::SHF_EXCLUDE)
+                    != 0,
                 not_cached: false,
                 not_paged: false,
             };
@@ -205,7 +210,7 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
             .map_err(|e| openre_core::Error::Validation(format!("Failed to parse ELF: {}", e)))?;
 
         let mut symbols = Vec::new();
-        let strtab = elf.dynstrtab.as_deref().unwrap_or("");
+        let strtab = &elf.dynstrtab;
 
         for sym in &elf.dynsyms {
             let name = strtab.get_at(sym.st_name).unwrap_or("").to_string();
@@ -246,7 +251,7 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
                 binding,
                 visibility,
                 section_index: if sym.st_shndx != 0 {
-                    Some(sym.st_shndx)
+                    Some(sym.st_shndx as u32)
                 } else {
                     None
                 },
@@ -264,14 +269,12 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
         let mut lib_map: HashMap<String, Vec<ImportedFunction>> = HashMap::new();
 
         // Extract needed libraries from dynamic section
-        for dyn_entry in &elf.dynamic {
-            if dyn_entry.d_tag == goblin::elf::dynamic::DT_NEEDED {
-                if let Some(name) = elf
-                    .dynstrtab
-                    .as_deref()
-                    .and_then(|s| s.get_at(dyn_entry.d_val as usize))
-                {
-                    lib_map.entry(name.to_string()).or_default();
+        if let Some(dynamic) = &elf.dynamic {
+            for dyn_entry in &dynamic.dyns {
+                if dyn_entry.d_tag == u64::from(goblin::elf::dynamic::DT_NEEDED) {
+                    if let Some(name) = elf.dynstrtab.get_at(dyn_entry.d_val as usize) {
+                        lib_map.entry(name.to_string()).or_default();
+                    }
                 }
             }
         }
@@ -279,18 +282,20 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
         // Extract imported symbols
         for sym in &elf.dynsyms {
             if goblin::elf::sym::st_bind(sym.st_info) == goblin::elf::sym::STB_GLOBAL
-                && sym.st_shndx == goblin::elf::sym::SHN_UNDEF
+                && sym.st_shndx == 0
+            // SHN_UNDEF
             {
-                if let Some(name) = elf.dynstrtab.as_deref().and_then(|s| s.get_at(sym.st_name)) {
+                if let Some(name) = elf.dynstrtab.get_at(sym.st_name) {
                     // Find which library this symbol comes from
                     // This is a simplification - in reality we'd need to check version info
-                    for lib in lib_map.keys() {
-                        lib_map.get_mut(lib).unwrap().push(ImportedFunction {
-                            name: name.to_string(),
-                            address: None,
-                            ordinal: None,
-                        });
-                        break;
+                    if let Some(lib) = lib_map.keys().next().cloned() {
+                        lib_map.get_mut(&lib).expect("key came from this map").push(
+                            ImportedFunction {
+                                name: name.to_string(),
+                                address: None,
+                                ordinal: None,
+                            },
+                        );
                     }
                 }
             }
@@ -310,11 +315,12 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
             .map_err(|e| openre_core::Error::Validation(format!("Failed to parse ELF: {}", e)))?;
 
         let mut exports = Vec::new();
-        let strtab = elf.dynstrtab.as_deref().unwrap_or("");
+        let strtab = &elf.dynstrtab;
 
         for sym in &elf.dynsyms {
             if goblin::elf::sym::st_bind(sym.st_info) == goblin::elf::sym::STB_GLOBAL
-                && sym.st_shndx != goblin::elf::sym::SHN_UNDEF
+                && sym.st_shndx != 0
+            // SHN_UNDEF
             {
                 if let Some(name) = strtab.get_at(sym.st_name) {
                     if !name.is_empty() {
@@ -403,9 +409,11 @@ fn extract_security_features(elf: &Elf) -> SecurityFeatures {
             has_relro = true;
         }
     }
-    for dyn_entry in &elf.dynamic {
-        if dyn_entry.d_tag == goblin::elf::dynamic::DT_FLAGS_1 {
-            if dyn_entry.d_val & goblin::elf::dynamic::DF_1_NOW != 0 {
+    if let Some(dynamic) = &elf.dynamic {
+        for dyn_entry in &dynamic.dyns {
+            if dyn_entry.d_tag == u64::from(goblin::elf::dynamic::DT_FLAGS_1)
+                && dyn_entry.d_val & u64::from(goblin::elf::dynamic::DF_1_NOW) != 0
+            {
                 has_bind_now = true;
             }
         }
@@ -419,7 +427,7 @@ fn extract_security_features(elf: &Elf) -> SecurityFeatures {
     };
 
     // Check for stack canary (look for __stack_chk_fail symbol)
-    let strtab = elf.dynstrtab.as_deref().unwrap_or("");
+    let strtab = &elf.dynstrtab;
     for sym in &elf.dynsyms {
         if let Some(name) = strtab.get_at(sym.st_name) {
             if name.contains("stack_chk_fail") || name.contains("stack_smash") {

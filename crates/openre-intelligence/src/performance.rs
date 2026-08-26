@@ -149,8 +149,10 @@ impl PerformanceOptimizer {
 
         // Check cache size limit
         if self.cache.len() >= self.config.max_cache_size {
-            // Remove oldest entries to make space
-            self.evict_oldest_entries(self.config.max_cache_size / 10); // Remove 10%
+            // Evict enough oldest entries so the new value fits within the limit
+            let excess = self.cache.len() + 1 - self.config.max_cache_size;
+            let batch = (self.config.max_cache_size / 10).max(excess);
+            self.evict_oldest_entries(batch);
         }
 
         let serialized_value = serde_json::to_value(value)
@@ -230,7 +232,7 @@ impl PerformanceOptimizer {
     }
 
     /// Deduplicate findings based on fingerprint
-    pub fn deduplicate_findings(&self, findings: &mut Vec<crate::Finding>) -> usize {
+    pub fn deduplicate_findings(&self, findings: &mut Vec<openre_core::result::Finding>) -> usize {
         if !self.config.enable_deduplication {
             return 0;
         }
@@ -265,8 +267,8 @@ impl PerformanceOptimizer {
     /// Perform incremental processing by comparing fingerprints
     pub fn incremental_process(
         &self,
-        previous_findings: &[crate::Finding],
-        current_findings: &mut Vec<crate::Finding>,
+        previous_findings: &[openre_core::result::Finding],
+        current_findings: &mut Vec<openre_core::result::Finding>,
     ) -> IncrementalProcessingResult {
         if !self.config.enable_incremental_processing {
             return IncrementalProcessingResult {
@@ -282,9 +284,9 @@ impl PerformanceOptimizer {
             .filter_map(|f| f.fingerprint.as_deref())
             .collect();
 
-        let current_fingerprints: HashSet<&str> = current_findings
+        let current_fingerprints: HashSet<String> = current_findings
             .iter()
-            .filter_map(|f| f.fingerprint.as_deref())
+            .filter_map(|f| f.fingerprint.clone())
             .collect();
 
         // Identify new, unchanged, and removed findings
@@ -309,7 +311,7 @@ impl PerformanceOptimizer {
         // Identify removed findings
         for finding in previous_findings {
             if let Some(fingerprint) = &finding.fingerprint {
-                if !current_fingerprints.contains(fingerprint.as_str()) {
+                if !current_fingerprints.contains(fingerprint) {
                     removed_fingerprints.push(fingerprint.clone());
                 }
             }
@@ -365,8 +367,8 @@ pub struct CacheStats {
 /// Result of incremental processing
 #[derive(Debug, Clone)]
 pub struct IncrementalProcessingResult {
-    pub new_findings: Vec<crate::Finding>,
-    pub unchanged_findings: Vec<crate::Finding>,
+    pub new_findings: Vec<openre_core::result::Finding>,
+    pub unchanged_findings: Vec<openre_core::result::Finding>,
     pub removed_findings: Vec<String>,
 }
 
@@ -380,7 +382,7 @@ mod tests {
 
     fn create_test_finding(title: &str, fingerprint: Option<&str>) -> Finding {
         Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: title.to_string(),
             description: "Test finding".to_string(),
             severity: Severity::Medium,
@@ -393,7 +395,7 @@ mod tests {
             plugin_source: "test".to_string(),
             plugin_version: "1.0".to_string(),
             timestamp: chrono::Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: HashMap::new(),
             tags: Vec::new(),
             verified: false,

@@ -14,7 +14,7 @@ pub mod safety;
 pub mod scan_storage_provider;
 pub mod types;
 
-pub use analyst::SecurityAnalyst;
+pub use analyst::{SecurityAnalyst, SecurityAnalystImpl};
 pub use errors::{AiAnalystError, AiResult};
 pub use finding_provider::{FindingProvider, ScanMetadata};
 pub use scan_storage_provider::ScanStorageFindingProvider;

@@ -5,6 +5,7 @@ use colored::*;
 use openre_core::ids::FindingId;
 use openre_core::result::{Category, Finding, Severity};
 use std::collections::HashMap;
+use std::io::Write as _;
 use tracing::debug;
 
 /// Configuration for TUI enhancements
@@ -137,18 +138,17 @@ impl TuiEnhancer {
 
             if self.config.enable_colors {
                 let risk_color = match risk_score {
-                    0..=20 => "green",
-                    21..=40 => "blue",
-                    41..=60 => "yellow",
-                    61..=80 => "red",
-                    81..=100 => "red".bold().to_string().as_str(),
-                    _ => "white",
+                    0..=20 => "green".to_string(),
+                    21..=40 => "blue".to_string(),
+                    41..=60 => "yellow".to_string(),
+                    61..=80 => "red".to_string(),
+                    _ => "white".to_string(),
                 };
 
                 output.push_str(&format!(
                     "   ⚠️  Risk Score: {} ({})\n",
-                    risk_score.to_string().color(risk_color),
-                    risk_level.color(risk_color)
+                    risk_score.to_string().color(risk_color.as_str()),
+                    risk_level.color(risk_color.as_str())
                 ));
             } else {
                 output.push_str(&format!("   Risk Score: {} ({})\n", risk_score, risk_level));
@@ -178,8 +178,7 @@ impl TuiEnhancer {
 
         // Remediation if available
         if let Some(remediation) = &finding.remediation {
-            let remediation_text =
-                self.wrap_text(&remediation.description, self.config.max_width - 6);
+            let remediation_text = self.wrap_text(&remediation.summary, self.config.max_width - 6);
             output.push_str(&format!("   💡 Remediation:\n      {}\n", remediation_text));
 
             if !remediation.steps.is_empty() {
@@ -267,11 +266,11 @@ impl TuiEnhancer {
     fn format_confidence_indicator(&self, confidence: crate::ConfidenceLevel) -> String {
         if self.config.enable_emojis {
             match confidence {
-                crate::ConfidenceLevel::Certain => "🎯 Confidence: Certain".to_string(),
+                crate::ConfidenceLevel::VeryHigh => "🎯 Confidence: Certain".to_string(),
                 crate::ConfidenceLevel::High => "🔥 Confidence: High".to_string(),
                 crate::ConfidenceLevel::Medium => "⚠️  Confidence: Medium".to_string(),
                 crate::ConfidenceLevel::Low => "❓ Confidence: Low".to_string(),
-                crate::ConfidenceLevel::Unknown => "🤔 Confidence: Unknown".to_string(),
+                crate::ConfidenceLevel::VeryLow => "🤔 Confidence: Unknown".to_string(),
             }
         } else {
             format!("Confidence: {:?}", confidence)
@@ -320,25 +319,22 @@ impl TuiEnhancer {
         output.push_str(&format!("   Type: {:?}\n", correlation.correlation_type));
         output.push_str(&format!(
             "   Confidence: {:.2}%\n",
-            correlation.confidence_score * 100.0
+            correlation.confidence * 100.0
         ));
 
-        if let Some(description) = &correlation.description {
-            let desc_text = self.wrap_text(description, self.config.max_width - 6);
-            output.push_str(&format!("   Description: {}\n", desc_text));
-        }
+        let desc_text = self.wrap_text(&correlation.description, self.config.max_width - 6);
+        output.push_str(&format!("   Description: {}\n", desc_text));
 
         output.push_str("   Findings in chain:\n");
         for (i, finding_id) in correlation.finding_ids.iter().enumerate() {
             output.push_str(&format!("     {}. {}\n", i + 1, finding_id));
         }
 
-        if let Some(remediation) = &correlation.remediation_steps {
-            output.push_str("   Remediation steps:\n");
-            for (i, step) in remediation.iter().enumerate() {
-                let step_text = self.wrap_text(step, self.config.max_width - 9);
-                output.push_str(&format!("     {}. {}\n", i + 1, step_text));
-            }
+        output.push_str("   Suggested mitigation approach:\n");
+        let mitigation_text =
+            self.wrap_text(&correlation.mitigation_approach, self.config.max_width - 9);
+        for step in mitigation_text.lines() {
+            output.push_str(&format!("     - {}\n", step));
         }
 
         output.push('\n');
@@ -359,24 +355,20 @@ impl TuiEnhancer {
 
         output.push_str(&format!("   CVE ID: {}\n", cve_info.cve_id));
 
-        if let Some(summary) = &cve_info.summary {
-            let summary_text = self.wrap_text(summary, self.config.max_width - 6);
-            output.push_str(&format!("   Summary: {}\n", summary_text));
-        }
+        let summary_text = self.wrap_text(&cve_info.description, self.config.max_width - 6);
+        output.push_str(&format!("   Summary: {}\n", summary_text));
 
         if let Some(cvss_score) = cve_info.cvss_score {
             let severity_color = match cvss_score {
-                0.0..=3.9 => "green",
-                4.0..=6.9 => "yellow",
-                7.0..=8.9 => "red",
-                9.0..=10.0 => "red".bold().to_string().as_str(),
-                _ => "white",
+                0.0..=3.9 => "green".to_string(),
+                4.0..=6.9 => "yellow".to_string(),
+                _ => "red".to_string(),
             };
 
             if self.config.enable_colors {
                 output.push_str(&format!(
                     "   CVSS Score: {}\n",
-                    cvss_score.to_string().color(severity_color)
+                    cvss_score.to_string().color(severity_color.as_str())
                 ));
             } else {
                 output.push_str(&format!("   CVSS Score: {}\n", cvss_score));
@@ -390,12 +382,8 @@ impl TuiEnhancer {
             }
         }
 
-        if let Some(published_date) = &cve_info.published_date {
-            output.push_str(&format!(
-                "   Published: {}\n",
-                published_date.format("%Y-%m-%d")
-            ));
-        }
+        let published_text = cve_info.published_date.format("%Y-%m-%d");
+        output.push_str(&format!("   Published: {}\n", published_text));
 
         if !cve_info.references.is_empty() {
             output.push_str("   References:\n");
@@ -413,12 +401,12 @@ impl TuiEnhancer {
         let mut output = String::new();
 
         if self.config.enable_emojis && self.config.enable_colors {
-            let emoji = if dep_info.is_vulnerable {
+            let emoji = if !dep_info.vulnerabilities.is_empty() {
                 "⚠️"
             } else {
                 "✅"
             };
-            let color = if dep_info.is_vulnerable {
+            let color = if !dep_info.vulnerabilities.is_empty() {
                 "red"
             } else {
                 "green"
@@ -429,7 +417,7 @@ impl TuiEnhancer {
                 emoji.to_string().color(color).bold()
             ));
         } else if self.config.enable_emojis {
-            let emoji = if dep_info.is_vulnerable {
+            let emoji = if !dep_info.vulnerabilities.is_empty() {
                 "⚠️"
             } else {
                 "✅"
@@ -452,7 +440,7 @@ impl TuiEnhancer {
             }
         }
 
-        if dep_info.is_vulnerable {
+        if !dep_info.vulnerabilities.is_empty() {
             output.push_str("   🚨 Vulnerable Package\n");
 
             if !dep_info.vulnerabilities.is_empty() {
@@ -463,8 +451,9 @@ impl TuiEnhancer {
             }
         }
 
-        if let Some(remediation) = &dep_info.remediation_advice {
-            let remediation_text = self.wrap_text(remediation, self.config.max_width - 6);
+        if let Some(recommendation) = &dep_info.upgrade_recommendation {
+            let remediation_text =
+                self.wrap_text(&recommendation.fixes_description, self.config.max_width - 6);
             output.push_str(&format!("   💡 Remediation: {}\n", remediation_text));
         }
 
@@ -588,7 +577,7 @@ impl TuiEnhancer {
         let avg_confidence: f64 = if !correlations.is_empty() {
             correlations
                 .iter()
-                .map(|c| c.confidence_score as f64)
+                .map(|c| c.confidence as f64)
                 .sum::<f64>()
                 / correlations.len() as f64
         } else {
@@ -726,12 +715,17 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use openre_core::ids::{FindingId, ScanId};
-    use openre_core::result::{Category, Confidence, Finding, Severity};
+    use openre_core::result::{
+        AssetCriticality, AttackComplexity, AttackVector, BusinessImpactAssessment, Category,
+        Confidence, ExploitabilityAssessment, Finding, ImpactLevel, PrivilegesRequired, Reference,
+        ReferenceType, RemediationEffort, RemediationGuidance, RemediationPriority, Scope,
+        Severity, UserInteraction,
+    };
     use std::collections::HashMap;
 
     fn create_test_finding(title: &str, severity: Severity) -> Finding {
         Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: title.to_string(),
             description: "Test finding with detailed description that should be wrapped to multiple lines when displayed in the terminal interface for better readability".to_string(),
             severity,
@@ -740,11 +734,16 @@ mod tests {
             target: "https://example.com/test".to_string(),
             target_type: "web".to_string(),
             evidence: Vec::new(),
-            references: vec!["https://cwe.mitre.org/data/definitions/89.html".to_string()],
+            references: vec![Reference {
+                reference_type: ReferenceType::Cwe,
+                title: "CWE-89".to_string(),
+                url: "https://cwe.mitre.org/data/definitions/89.html".to_string(),
+                description: None,
+            }],
             plugin_source: "test-plugin".to_string(),
             plugin_version: "1.0.0".to_string(),
             timestamp: Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: HashMap::new(),
             tags: vec!["test".to_string(), "example".to_string()],
             verified: true,
@@ -757,23 +756,37 @@ mod tests {
             mitre_attack_ids: vec!["T1190".to_string()],
             owasp_category: Some("A03:2021-Injection".to_string()),
             fingerprint: Some("test-fingerprint-12345".to_string()),
-            related_findings: vec![FindingId::new_v4(), FindingId::new_v4()],
-            remediation: Some(openre_core::result::Remediation {
-                description: "Implement parameterized queries and input validation to prevent SQL injection attacks. Use prepared statements with bound parameters for all database operations.".to_string(),
+            related_findings: vec![FindingId::new(), FindingId::new()],
+            remediation: Some(RemediationGuidance {
+                summary: "Implement parameterized queries and input validation to prevent SQL injection attacks. Use prepared statements with bound parameters for all database operations.".to_string(),
                 steps: vec![
                     "Use parameterized queries instead of string concatenation".to_string(),
                     "Validate and sanitize all user inputs".to_string(),
                     "Implement proper error handling that doesn't expose system information".to_string(),
                 ],
+                code_examples: Vec::new(),
+                references: Vec::new(),
+                effort: RemediationEffort::Medium,
+                priority: RemediationPriority::High,
             }),
-            exploitability: Some(openre_core::result::Exploitability {
+            exploitability: Some(ExploitabilityAssessment {
                 score: 8.0,
-                ease: openre_core::result::ExploitEase::Moderate,
-                references: vec!["https://www.exploit-db.com/exploits/12345".to_string()],
+                attack_vector: AttackVector::Network,
+                attack_complexity: AttackComplexity::Low,
+                privileges_required: PrivilegesRequired::None,
+                user_interaction: UserInteraction::None,
+                scope: Scope::Changed,
+                exploit_available: true,
+                exploited_in_wild: false,
+                epss_score: None,
             }),
-            business_impact: Some(openre_core::result::BusinessImpact {
-                score: 85,
-                categories: vec!["Data Breach".to_string(), "Compliance Violation".to_string()],
+            business_impact: Some(BusinessImpactAssessment {
+                score: 8.5,
+                confidentiality: ImpactLevel::High,
+                integrity: ImpactLevel::High,
+                availability: ImpactLevel::Low,
+                asset_criticality: AssetCriticality::Critical,
+                regulatory_impact: None,
             }),
         }
     }
@@ -827,16 +840,21 @@ mod tests {
         let enhancer = TuiEnhancer::new();
 
         let correlation = EnhancedCorrelation {
-            finding_ids: vec![FindingId::new_v4(), FindingId::new_v4()],
+            finding_ids: vec![FindingId::new(), FindingId::new()],
             correlation_type: crate::CorrelationType::CspXssChain,
-            confidence_score: 0.85,
-            description: Some(
-                "Content Security Policy bypass leading to XSS execution".to_string(),
-            ),
-            remediation_steps: Some(vec![
-                "Implement strict CSP headers".to_string(),
-                "Sanitize all user inputs".to_string(),
-            ]),
+            confidence: 0.85,
+            description: "Content Security Policy bypass leading to XSS execution".to_string(),
+            evidence: vec![
+                "Missing Content-Security-Policy header".to_string(),
+                "Reflected XSS in search parameter".to_string(),
+            ],
+            combined_risk: RiskAssessment {
+                individual_scores: vec![60, 75],
+                combined_score: 85,
+                explanation: "Chained CSP bypass and XSS significantly increase impact".to_string(),
+            },
+            mitigation_approach: "Implement strict CSP headers and sanitize all user inputs"
+                .to_string(),
         };
 
         let formatted = enhancer.format_correlation_result(&correlation);
@@ -855,12 +873,23 @@ mod tests {
 
         let cve_info = CveInfo {
             cve_id: "CVE-2023-12345".to_string(),
-            summary: Some("Remote code execution vulnerability in test library".to_string()),
+            severity: Severity::Critical,
             cvss_score: Some(9.8),
-            affected_versions: vec!["1.0.0".to_string(), "1.1.0".to_string()],
-            published_date: Some(Utc::now()),
-            references: vec!["https://nvd.nist.gov/vuln/detail/CVE-2023-12345".to_string()],
-            cwes: vec!["CWE-78".to_string()],
+            cvss_vector: Some("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H".to_string()),
+            description: "Remote code execution vulnerability in test library".to_string(),
+            affected_versions: vec![VersionRange {
+                start_version: Some("1.0.0".to_string()),
+                end_version: Some("1.2.0".to_string()),
+                is_vulnerable: true,
+            }],
+            fixed_versions: vec!["1.2.0".to_string()],
+            references: vec![CveReference {
+                url: "https://nvd.nist.gov/vuln/detail/CVE-2023-12345".to_string(),
+                description: Some("NVD entry for CVE-2023-12345".to_string()),
+            }],
+            cwe_ids: vec!["CWE-78".to_string()],
+            published_date: Utc::now(),
+            last_modified_date: Utc::now(),
         };
 
         let formatted = enhancer.format_cve_result(&cve_info);
@@ -883,11 +912,25 @@ mod tests {
             version: "1.0.0".to_string(),
             ecosystem: "npm".to_string(),
             latest_version: Some("2.0.0".to_string()),
-            is_vulnerable: true,
-            vulnerabilities: vec!["CVE-2023-54321".to_string()],
-            remediation_advice: Some(
-                "Upgrade to version 2.0.0 or later to fix the vulnerability".to_string(),
-            ),
+            is_outdated: true,
+            vulnerabilities: vec![DependencyVulnerability {
+                id: "CVE-2023-54321".to_string(),
+                severity: Severity::Critical,
+                description: "Remote code execution in vulnerable-package".to_string(),
+                cvss_score: Some(9.8),
+                affected_ranges: vec![VersionRange {
+                    start_version: Some("1.0.0".to_string()),
+                    end_version: Some("2.0.0".to_string()),
+                    is_vulnerable: true,
+                }],
+                fixed_in: vec!["2.0.0".to_string()],
+            }],
+            upgrade_recommendation: Some(UpgradeRecommendation {
+                target_version: "2.0.0".to_string(),
+                risk_level: DependencyUpgradeRisk::Low,
+                fixes_description: "Upgrade to version 2.0.0 or later to fix the vulnerability"
+                    .to_string(),
+            }),
         };
 
         let formatted = enhancer.format_dependency_result(&dep_info);
@@ -937,11 +980,17 @@ mod tests {
         ];
 
         let correlations = vec![EnhancedCorrelation {
-            finding_ids: vec![FindingId::new_v4(), FindingId::new_v4()],
+            finding_ids: vec![FindingId::new(), FindingId::new()],
             correlation_type: crate::CorrelationType::CspXssChain,
-            confidence_score: 0.90,
-            description: None,
-            remediation_steps: None,
+            confidence: 0.90,
+            description: String::new(),
+            evidence: Vec::new(),
+            combined_risk: RiskAssessment {
+                individual_scores: Vec::new(),
+                combined_score: 90,
+                explanation: String::new(),
+            },
+            mitigation_approach: String::new(),
         }];
 
         let formatted = enhancer.format_dashboard(&findings, &correlations);

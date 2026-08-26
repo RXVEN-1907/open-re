@@ -10,7 +10,7 @@ mod tests {
 
     fn create_test_finding(title: &str, severity: Severity, category: Category) -> Finding {
         Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: title.to_string(),
             description: format!("Description for {}", title),
             severity,
@@ -23,7 +23,7 @@ mod tests {
             plugin_source: "test".to_string(),
             plugin_version: "1.0".to_string(),
             timestamp: Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: HashMap::new(),
             tags: Vec::new(),
             verified: false,
@@ -148,7 +148,7 @@ mod tests {
         // Create mock scan data
         let previous_scan = scan_diff::ScanData::new(
             openre_core::result::ScanMetadata {
-                scan_id: ScanId::new_v4(),
+                scan_id: ScanId::new(),
                 start_time: Utc::now() - chrono::Duration::days(1),
                 end_time: Some(Utc::now() - chrono::Duration::hours(23)),
                 target: "https://example.com".to_string(),
@@ -161,7 +161,7 @@ mod tests {
 
         let current_scan = scan_diff::ScanData::new(
             openre_core::result::ScanMetadata {
-                scan_id: ScanId::new_v4(),
+                scan_id: ScanId::new(),
                 start_time: Utc::now(),
                 end_time: Some(Utc::now() + chrono::Duration::minutes(30)),
                 target: "https://example.com".to_string(),
@@ -270,7 +270,7 @@ mod tests {
             ..Default::default()
         });
 
-        let finding_id = FindingId::new_v4();
+        let finding_id = FindingId::new();
 
         // These should fail gracefully with appropriate errors
         let ack_result = workflow_manager.acknowledge_finding(finding_id, "user", None);

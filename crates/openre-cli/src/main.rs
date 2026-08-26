@@ -1,17 +1,23 @@
 //! CLI for open-re
 
-use clap::{Parser, Subcommand};
+pub mod commands;
+mod config;
+mod context;
+mod error;
+mod output;
+
+use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
-use openre_cli::{
-    commands::{
-        ai::AiCommands, analysis::AnalysisCommands, analyst::AnalystCommands, auth::AuthCommands,
-        config::ConfigCommands, file::FileCommands, function::FunctionCommands,
-        plugin::PluginCommands, project::ProjectCommands, server::ServerCommands,
-    },
-    config::CliConfig,
-    error::CliError,
-    output::{print_output, OutputFormat},
+use commands::{
+    ai::AiCommands, analysis::AnalysisCommands, analyst::AnalystCommands, auth::AuthCommands,
+    config::ConfigCommands, file::FileCommands, function::FunctionCommands, plugin::PluginCommands,
+    project::ProjectCommands, server::ServerCommands,
 };
+pub use config::CliConfig;
+pub use context::Context;
+pub use error::CliError;
+pub use output::{print_output, OutputFormat};
+
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -112,7 +118,7 @@ async fn main() -> Result<(), CliError> {
         .build()?;
 
     // Create context
-    let ctx = openre_cli::Context {
+    let ctx = Context {
         config,
         client,
         server_url: cli.server,

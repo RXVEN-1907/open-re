@@ -3,7 +3,7 @@
 use crate::error::{ScannerError, ScannerResult};
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use openre_core::ids::FindingId;
+pub use openre_core::ids::FindingId;
 use openre_core::result::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -52,10 +52,11 @@ impl ResultAggregator {
 
         // Check for duplicate
         if let Some(existing_id) = self.by_fingerprint.get(&fingerprint) {
+            let existing_id = *existing_id;
             // Merge with existing finding
-            if let Some(mut existing) = self.findings.get_mut(existing_id) {
+            if let Some(mut existing) = self.findings.get_mut(&existing_id) {
                 self.merge_findings(&mut existing, &finding);
-                return *existing_id;
+                return existing_id;
             }
         }
 
@@ -507,6 +508,31 @@ impl Default for ResultAggregator {
 mod tests {
     use super::*;
 
+    #[allow(dead_code)]
+    fn make_finding(
+        title: String,
+        description: String,
+        severity: Severity,
+        confidence: Confidence,
+        category: Category,
+        target: String,
+        plugin_source: &str,
+        scan_id: openre_core::ids::ScanId,
+    ) -> Finding {
+        Finding::new(FindingConfig {
+            title,
+            description,
+            severity,
+            confidence,
+            category,
+            target,
+            target_type: "rest_api".to_string(),
+            plugin_source: plugin_source.to_string(),
+            plugin_version: "1.0".to_string(),
+            scan_id,
+        })
+    }
+
     #[test]
     fn test_severity_ordering() {
         assert!(Severity::Critical > Severity::High);
@@ -526,16 +552,14 @@ mod tests {
     #[test]
     fn test_finding_creation() {
         let scan_id = openre_core::ids::ScanId::new();
-        let finding = Finding::new(
+        let finding = make_finding(
             "SQL Injection".to_string(),
             "SQL injection in login form".to_string(),
             Severity::High,
             Confidence::High,
             Category::Injection,
             "https://example.com/login".to_string(),
-            "rest_api".to_string(),
-            "sql-injection-scanner".to_string(),
-            "1.0.0".to_string(),
+            "sql-injection-scanner",
             scan_id,
         );
 
@@ -548,16 +572,14 @@ mod tests {
     #[test]
     fn test_finding_risk_score() {
         let scan_id = openre_core::ids::ScanId::new();
-        let finding = Finding::new(
+        let finding = make_finding(
             "Test".to_string(),
             "Test".to_string(),
             Severity::Critical,
             Confidence::VeryHigh,
             Category::Injection,
             "target".to_string(),
-            "type".to_string(),
-            "plugin".to_string(),
-            "1.0".to_string(),
+            "plugin",
             scan_id,
         );
 
@@ -570,16 +592,14 @@ mod tests {
         let aggregator = ResultAggregator::new();
         let scan_id = openre_core::ids::ScanId::new();
 
-        let finding = Finding::new(
+        let finding = make_finding(
             "Test".to_string(),
             "Test".to_string(),
             Severity::Medium,
             Confidence::Medium,
             Category::Xss,
             "target".to_string(),
-            "type".to_string(),
-            "plugin".to_string(),
-            "1.0".to_string(),
+            "plugin",
             scan_id,
         );
 
@@ -596,29 +616,25 @@ mod tests {
         let aggregator = ResultAggregator::new();
         let scan_id = openre_core::ids::ScanId::new();
 
-        let finding1 = Finding::new(
+        let finding1 = make_finding(
             "High Severity".to_string(),
             "Desc".to_string(),
             Severity::High,
             Confidence::High,
             Category::Injection,
             "target1".to_string(),
-            "type".to_string(),
-            "plugin1".to_string(),
-            "1.0".to_string(),
+            "plugin1",
             scan_id,
         );
 
-        let finding2 = Finding::new(
+        let finding2 = make_finding(
             "Low Severity".to_string(),
             "Desc".to_string(),
             Severity::Low,
             Confidence::Low,
             Category::Xss,
             "target2".to_string(),
-            "type".to_string(),
-            "plugin2".to_string(),
-            "1.0".to_string(),
+            "plugin2",
             scan_id,
         );
 

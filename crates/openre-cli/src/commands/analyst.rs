@@ -3,10 +3,10 @@
 //! CLI interface for the AI-powered security analyst that interprets,
 //! correlates, explains, prioritizes, and assists with security scan findings.
 
+use crate::{print_output, CliError, Context};
 use clap::{Parser, Subcommand};
-use crate::{Context, CliError, print_output};
 use serde::{Deserialize, Serialize};
-use tabled::{Table, settings::Style};
+use tabled::{settings::Style, Table};
 
 #[derive(Subcommand)]
 pub enum AnalystCommands {
@@ -117,7 +117,7 @@ pub enum AnalystCommands {
 }
 
 /// Target audience for summaries
-#[derive(clap::ValueEnum, Clone)]
+#[derive(clap::ValueEnum, Clone, Debug)]
 pub enum SummaryAudience {
     Developer,
     SecurityEngineer,
@@ -126,11 +126,16 @@ pub enum SummaryAudience {
 }
 
 impl AnalystCommands {
-    pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
+    pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            AnalystCommands::Explain { scan_id, finding_id, stream } => {
+            AnalystCommands::Explain {
+                scan_id,
+                finding_id,
+                stream,
+            } => {
                 if stream {
-                    let response = ctx.client
+                    let response = ctx
+                        .client
                         .get(&format!("{}/api/analyst/explain/stream", ctx.server_url))
                         .query(&[("scan_id", &scan_id), ("finding_id", &finding_id)])
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
@@ -159,11 +164,15 @@ impl AnalystCommands {
 
                     let response = ctx.post("/api/analyst/explain", &payload).await?;
                     let result: FindingExplanationResponse = response.json().await?;
-                    print_output(&result, &ctx.format)?;
+                    print_output(&result, &ctx.output_format)?;
                 }
             }
 
-            AnalystCommands::Remediate { scan_id, finding_id, stream } => {
+            AnalystCommands::Remediate {
+                scan_id,
+                finding_id,
+                stream,
+            } => {
                 let payload = serde_json::json!({
                     "scan_id": scan_id,
                     "finding_id": finding_id,
@@ -171,7 +180,8 @@ impl AnalystCommands {
 
                 if stream {
                     // For remediation, streaming might not be as useful, but we'll implement it
-                    let response = ctx.client
+                    let response = ctx
+                        .client
                         .post(&format!("{}/api/analyst/remediate/stream", ctx.server_url))
                         .json(&payload)
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
@@ -195,21 +205,32 @@ impl AnalystCommands {
                 } else {
                     let response = ctx.post("/api/analyst/remediate", &payload).await?;
                     let result: RemediationPlanResponse = response.json().await?;
-                    print_output(&result, &ctx.format)?;
+                    print_output(&result, &ctx.output_format)?;
                 }
             }
 
-            AnalystCommands::Correlate { scan_id, severity, category, stream } => {
+            AnalystCommands::Correlate {
+                scan_id,
+                severity,
+                category,
+                stream,
+            } => {
                 let mut filter = serde_json::Map::new();
                 if let Some(sev) = severity {
-                    filter.insert("severity".to_string(), serde_json::Value::Array(
-                        sev.into_iter().map(serde_json::Value::String).collect()
-                    ));
+                    filter.insert(
+                        "severity".to_string(),
+                        serde_json::Value::Array(
+                            sev.into_iter().map(serde_json::Value::String).collect(),
+                        ),
+                    );
                 }
                 if let Some(cat) = category {
-                    filter.insert("category".to_string(), serde_json::Value::Array(
-                        cat.into_iter().map(serde_json::Value::String).collect()
-                    ));
+                    filter.insert(
+                        "category".to_string(),
+                        serde_json::Value::Array(
+                            cat.into_iter().map(serde_json::Value::String).collect(),
+                        ),
+                    );
                 }
 
                 let payload = serde_json::json!({
@@ -218,7 +239,8 @@ impl AnalystCommands {
                 });
 
                 if stream {
-                    let response = ctx.client
+                    let response = ctx
+                        .client
                         .get(&format!("{}/api/analyst/correlate/stream", ctx.server_url))
                         .query(&[("scan_id", &scan_id)])
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
@@ -238,7 +260,7 @@ impl AnalystCommands {
                 } else {
                     let response = ctx.post("/api/analyst/correlate", &payload).await?;
                     let result: CorrelationReportResponse = response.json().await?;
-                    print_output(&result, &ctx.format)?;
+                    print_output(&result, &ctx.output_format)?;
                 }
             }
 
@@ -248,7 +270,8 @@ impl AnalystCommands {
                 });
 
                 if stream {
-                    let response = ctx.client
+                    let response = ctx
+                        .client
                         .get(&format!("{}/api/analyst/prioritize/stream", ctx.server_url))
                         .query(&[("scan_id", &scan_id)])
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
@@ -268,20 +291,28 @@ impl AnalystCommands {
                 } else {
                     let response = ctx.post("/api/analyst/prioritize", &payload).await?;
                     let result: PrioritizedFindingsResponse = response.json().await?;
-                    print_output(&result, &ctx.format)?;
+                    print_output(&result, &ctx.output_format)?;
                 }
             }
 
-            AnalystCommands::Summarize { scan_id, audience, stream } => {
+            AnalystCommands::Summarize {
+                scan_id,
+                audience,
+                stream,
+            } => {
                 let payload = serde_json::json!({
                     "scan_id": scan_id,
                     "audience": format!("{:?}", audience).to_lowercase(),
                 });
 
                 if stream {
-                    let response = ctx.client
+                    let response = ctx
+                        .client
                         .get(&format!("{}/api/analyst/summarize/stream", ctx.server_url))
-                        .query(&[("scan_id", &scan_id), ("audience", &format!("{:?}", audience).to_lowercase())])
+                        .query(&[
+                            ("scan_id", &scan_id),
+                            ("audience", &format!("{:?}", audience).to_lowercase()),
+                        ])
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
                         .send()
                         .await?;
@@ -299,18 +330,23 @@ impl AnalystCommands {
                 } else {
                     let response = ctx.post("/api/analyst/summarize", &payload).await?;
                     let result: ExecutiveSummaryResponse = response.json().await?;
-                    print_output(&result, &ctx.format)?;
+                    print_output(&result, &ctx.output_format)?;
                 }
             }
 
-            AnalystCommands::Query { scan_id, question, stream } => {
+            AnalystCommands::Query {
+                scan_id,
+                question,
+                stream,
+            } => {
                 let payload = serde_json::json!({
                     "scan_id": scan_id,
                     "question": question,
                 });
 
                 if stream {
-                    let response = ctx.client
+                    let response = ctx
+                        .client
                         .get(&format!("{}/api/analyst/query/stream", ctx.server_url))
                         .query(&[("scan_id", &scan_id), ("question", &question)])
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
@@ -330,20 +366,28 @@ impl AnalystCommands {
                 } else {
                     let response = ctx.post("/api/analyst/query", &payload).await?;
                     let result: QueryResponseResult = response.json().await?;
-                    print_output(&result, &ctx.format)?;
+                    print_output(&result, &ctx.output_format)?;
                 }
             }
 
-            AnalystCommands::Compare { base_scan_id, target_scan_id, stream } => {
+            AnalystCommands::Compare {
+                base_scan_id,
+                target_scan_id,
+                stream,
+            } => {
                 let payload = serde_json::json!({
                     "base_scan_id": base_scan_id,
                     "target_scan_id": target_scan_id,
                 });
 
                 if stream {
-                    let response = ctx.client
+                    let response = ctx
+                        .client
                         .get(&format!("{}/api/analyst/compare/stream", ctx.server_url))
-                        .query(&[("base_scan_id", &base_scan_id), ("target_scan_id", &target_scan_id)])
+                        .query(&[
+                            ("base_scan_id", &base_scan_id),
+                            ("target_scan_id", &target_scan_id),
+                        ])
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
                         .send()
                         .await?;
@@ -361,7 +405,7 @@ impl AnalystCommands {
                 } else {
                     let response = ctx.post("/api/analyst/compare", &payload).await?;
                     let result: ScanComparisonResponse = response.json().await?;
-                    print_output(&result, &ctx.format)?;
+                    print_output(&result, &ctx.output_format)?;
                 }
             }
         }
@@ -372,7 +416,7 @@ impl AnalystCommands {
 
 // Response types for CLI output
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct FindingExplanationResponse {
     pub finding_id: String,
     pub root_cause: String,
@@ -381,7 +425,7 @@ pub struct FindingExplanationResponse {
     pub confidence: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RemediationPlanResponse {
     pub finding_id: String,
     pub summary: String,
@@ -390,21 +434,21 @@ pub struct RemediationPlanResponse {
     pub priority: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CorrelationReportResponse {
     pub scan_id: String,
     pub correlations_count: usize,
     pub risk_assessment: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PrioritizedFindingsResponse {
     pub scan_id: String,
     pub findings_count: usize,
     pub rationale: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ExecutiveSummaryResponse {
     pub scan_id: String,
     pub audience: String,
@@ -412,7 +456,7 @@ pub struct ExecutiveSummaryResponse {
     pub risk_assessment: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct QueryResponseResult {
     pub question: String,
     pub answer: String,
@@ -420,7 +464,7 @@ pub struct QueryResponseResult {
     pub confidence: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, tabled::Tabled)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ScanComparisonResponse {
     pub base_scan_id: String,
     pub target_scan_id: String,

@@ -13,6 +13,8 @@ use validator::ValidationErrors;
 /// API error type
 #[derive(Error, Debug)]
 pub enum ApiError {
+    #[error("Invalid identifier: {0}")]
+    InvalidId(String),
     #[error("Bad request: {0}")]
     BadRequest(String),
 
@@ -57,12 +59,30 @@ pub enum ApiError {
 pub type ApiResult<T> = Result<T, ApiError>;
 
 /// API error response
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ApiErrorResponse {
     pub error: String,
     pub message: String,
     pub details: Option<serde_json::Value>,
     pub request_id: Option<String>,
+}
+
+impl std::convert::From<uuid::Error> for ApiError {
+    fn from(err: uuid::Error) -> Self {
+        ApiError::InvalidId(err.to_string())
+    }
+}
+
+impl From<axum::extract::multipart::MultipartError> for ApiError {
+    fn from(err: axum::extract::multipart::MultipartError) -> Self {
+        ApiError::BadRequest(format!("Multipart error: {}", err))
+    }
+}
+
+impl From<openre_scanner::ScannerError> for ApiError {
+    fn from(err: openre_scanner::ScannerError) -> Self {
+        ApiError::Internal(err.to_string())
+    }
 }
 
 impl IntoResponse for ApiError {
@@ -78,6 +98,7 @@ impl IntoResponse for ApiError {
                 "payload_too_large",
                 msg.clone(),
             ),
+            ApiError::InvalidId(msg) => (StatusCode::BAD_REQUEST, "invalid_id", msg.clone()),
             ApiError::RateLimited(msg) => {
                 (StatusCode::TOO_MANY_REQUESTS, "rate_limited", msg.clone())
             }
@@ -134,6 +155,7 @@ pub trait ApiResultExt<T> {
 impl<T> ApiResultExt<T> for ApiResult<T> {
     fn with_request_id(self, request_id: String) -> ApiResult<T> {
         self.map_err(|e| match e {
+            ApiError::InvalidId(msg) => ApiError::InvalidId(msg),
             ApiError::BadRequest(msg) => ApiError::BadRequest(msg),
             ApiError::Unauthorized(msg) => ApiError::Unauthorized(msg),
             ApiError::Forbidden(msg) => ApiError::Forbidden(msg),

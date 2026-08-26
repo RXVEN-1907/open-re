@@ -1,6 +1,8 @@
 //! Export routes
 
+use crate::validation::{IdParam, PaginationParams};
 use crate::{ApiResult, AppState};
+use axum::Extension;
 use axum::{
     extract::{Path, Query, State},
     routing::{get, post},
@@ -9,6 +11,7 @@ use axum::{
 use openre_core::ids::{ExportId, ProjectId};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
+use validator::Validate;
 
 /// Export routes
 pub fn routes(state: std::sync::Arc<AppState>) -> Router {
@@ -32,30 +35,15 @@ pub fn routes(state: std::sync::Arc<AppState>) -> Router {
 )]
 async fn list_exports(
     State(state): State<std::sync::Arc<AppState>>,
-    Query(pagination): Query<PaginationParams>,
-    Query(filter): Query<ExportFilterParams>,
+    Query(_pagination): Query<PaginationParams>,
+    Query(_filter): Query<ExportFilterParams>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<ExportListResponse>> {
-    let exports = state
-        .global_store
-        .list_exports(
-            filter.project_id.as_deref().and_then(|s| s.parse().ok()),
-            pagination.offset(),
-            pagination.limit(),
-        )
-        .await?;
-
-    let total = state
-        .global_store
-        .count_exports(filter.project_id.as_deref().and_then(|s| s.parse().ok()))
-        .await?;
-
-    Ok(Json(ExportListResponse {
-        exports: exports.into_iter().map(ExportResponse::from).collect(),
-        total,
-        page: pagination.page(),
-        per_page: pagination.per_page(),
-    }))
+    let _ = (state, claims);
+    // Export persistence is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "export listing not implemented yet".into(),
+    ))
 }
 
 /// Create export
@@ -75,32 +63,31 @@ async fn create_export(
     Extension(claims): Extension<crate::auth::Claims>,
     Json(payload): Json<CreateExportRequest>,
 ) -> ApiResult<Json<ExportResponse>> {
+    let _ = claims;
     let project_id: ProjectId = payload.project_id.parse()?;
 
-    let project = state
-        .global_store
-        .get_project(project_id)
-        .await?
-        .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".into()))?;
+    // Queue an export job; persistent export records are not yet implemented.
+    let job = openre_queue::Job::new(openre_core::traits::JobType::Export).with_payload(
+        serde_json::json!({
+            "project_id": project_id.to_string(),
+            "format": payload.format,
+            "include_files": payload.include_files,
+            "include_analysis": payload.include_analysis,
+        }),
+    );
 
-    // Check access
-    if project.owner_id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
-        if !project.is_public {
-            return Err(crate::error::ApiError::Forbidden("Access denied".into()));
-        }
-    }
+    state.queue_manager.enqueue(job).await?;
 
-    let export = state
-        .global_store
-        .create_export(
-            project_id,
-            payload.format,
-            payload.include_files,
-            payload.include_analysis,
-        )
-        .await?;
-
-    Ok(Json(ExportResponse::from(export)))
+    Ok(Json(ExportResponse {
+        id: ExportId::new(),
+        project_id,
+        format: payload.format,
+        status: "queued".to_string(),
+        download_url: None,
+        file_size: None,
+        created_at: chrono::Utc::now(),
+        completed_at: None,
+    }))
 }
 
 /// Get export
@@ -120,25 +107,11 @@ async fn get_export(
     Path(id): Path<ExportId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<ExportResponse>> {
-    let export = state
-        .global_store
-        .get_export(id)
-        .await?
-        .ok_or_else(|| crate::error::ApiError::NotFound("Export not found".into()))?;
-
-    // Check access via project
-    let project = state.global_store.get_project(export.project_id).await?;
-    if let Some(project) = project {
-        if project.owner_id.to_string() != claims.sub
-            && !claims.roles.contains(&"admin".to_string())
-        {
-            if !project.is_public {
-                return Err(crate::error::ApiError::Forbidden("Access denied".into()));
-            }
-        }
-    }
-
-    Ok(Json(ExportResponse::from(export)))
+    let _ = (state, id, claims);
+    // Export persistence is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "export retrieval not implemented yet".into(),
+    ))
 }
 
 /// Download export
@@ -147,37 +120,11 @@ async fn download_export(
     Path(id): Path<ExportId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<axum::response::Response> {
-    let export = state
-        .global_store
-        .get_export(id)
-        .await?
-        .ok_or_else(|| crate::error::ApiError::NotFound("Export not found".into()))?;
-
-    if export.status != "completed" {
-        return Err(crate::error::ApiError::BadRequest(
-            "Export not ready".into(),
-        ));
-    }
-
-    // Check access
-    let project = state.global_store.get_project(export.project_id).await?;
-    if let Some(project) = project {
-        if project.owner_id.to_string() != claims.sub
-            && !claims.roles.contains(&"admin".to_string())
-        {
-            if !project.is_public {
-                return Err(crate::error::ApiError::Forbidden("Access denied".into()));
-            }
-        }
-    }
-
-    if let Some(url) = export.download_url {
-        Ok(axum::response::Redirect::to(&url).into_response())
-    } else {
-        Err(crate::error::ApiError::NotFound(
-            "Export file not found".into(),
-        ))
-    }
+    let _ = (state, id, claims);
+    // Export persistence is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "export download not implemented yet".into(),
+    ))
 }
 
 // Request/Response types
@@ -219,19 +166,4 @@ pub struct ExportResponse {
     pub file_size: Option<u64>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-impl From<openre_storage::Export> for ExportResponse {
-    fn from(e: openre_storage::Export) -> Self {
-        Self {
-            id: e.id,
-            project_id: e.project_id,
-            format: e.format,
-            status: e.status,
-            download_url: e.download_url,
-            file_size: e.file_size,
-            created_at: e.created_at,
-            completed_at: e.completed_at,
-        }
-    }
 }

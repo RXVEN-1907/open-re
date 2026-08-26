@@ -9,25 +9,27 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ## Risk Matrix
 
 | Probability \ Impact | Low (1) | Medium (2) | High (3) | Critical (4) |
-|---------------------|---------|------------|----------|--------------|
+| --------------------- | --------- | ------------ | ---------- | -------------- |
 | **Very High (4)** | 4 | 8 | 12 | 16 |
 | **High (3)** | 3 | 6 | 9 | 12 |
 | **Medium (2)** | 2 | 4 | 6 | 8 |
 | **Low (1)** | 1 | 2 | 3 | 4 |
 
 **Risk Score = Probability × Impact**
-- **1-3**: Low (Monitor)
-- **4-6**: Medium (Mitigate)
-- **8-12**: High (Active Management)
-- **16**: Critical (Immediate Action)
+
+-   **1-3**: Low (Monitor)
+-   **4-6**: Medium (Mitigate)
+-   **8-12**: High (Active Management)
+-   **16**: Critical (Immediate Action)
 
 ---
 
 ## 1. Technical Risks
 
 ### RISK-TECH-001: Decompiler Quality Gap
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | Critical (4) |
 | **Score** | **8 (High)** |
@@ -42,8 +44,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-TECH-002: Architecture Coverage Insufficient
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | High (3) |
 | **Score** | **6 (Medium)** |
@@ -58,8 +61,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-TECH-003: AI Model Quality Insufficient
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | High (3) |
 | **Impact** | High (3) |
 | **Score** | **9 (High)** |
@@ -74,8 +78,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-TECH-004: Performance at Scale
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | High (3) |
 | **Score** | **6 (Medium)** |
@@ -90,8 +95,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-TECH-005: Plugin API Instability
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | High (3) |
 | **Score** | **6 (Medium)** |
@@ -106,8 +112,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-TECH-006: WASM Plugin Sandbox Limitations
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | Medium (2) |
 | **Score** | **4 (Medium)** |
@@ -124,8 +131,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ## 2. Project & Resource Risks
 
 ### RISK-PROJ-001: Insufficient Contributor Base
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | High (3) |
 | **Score** | **6 (Medium)** |
@@ -140,8 +148,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-PROJ-002: Key Person Dependency
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | High (3) |
 | **Impact** | High (3) |
 | **Score** | **9 (High)** |
@@ -156,8 +165,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-PROJ-003: Funding / Sustainability Gap
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | Critical (4) |
 | **Score** | **8 (High)** |
@@ -172,8 +182,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-PROJ-004: Scope Creep / Perfectionism
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Very High (4) |
 | **Impact** | High (3) |
 | **Score** | **12 (High)** |
@@ -188,8 +199,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-PROJ-005: Burnout
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | High (3) |
 | **Impact** | High (3) |
 | **Score** | **9 (High)** |
@@ -206,8 +218,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ## 3. Market & Competitive Risks
 
 ### RISK-MKT-001: Incumbent Response (Ghidra Adds Native AI)
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | High (3) |
 | **Impact** | Medium (2) |
 | **Score** | **6 (Medium)** |
@@ -222,8 +235,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-MKT-002: Binary Ninja Opens Core
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Low (1) |
 | **Impact** | High (3) |
 | **Score** | **3 (Low)** |
@@ -238,8 +252,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-MKT-003: Commercial AI RE Tool Dominates
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | High (3) |
 | **Score** | **6 (Medium)** |
@@ -254,8 +269,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-MKT-004: User Adoption Too Slow
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | High (3) |
 | **Score** | **6 (Medium)** |
@@ -272,8 +288,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ## 4. Security & Legal Risks
 
 ### RISK-SEC-001: Supply Chain Attack
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Low (1) |
 | **Impact** | Critical (4) |
 | **Score** | **4 (Medium)** |
@@ -288,8 +305,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-SEC-002: Malicious Plugin
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | High (3) |
 | **Score** | **6 (Medium)** |
@@ -304,8 +322,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-SEC-003: AI Model Poisoning / Bias
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Low (1) |
 | **Impact** | High (3) |
 | **Score** | **3 (Low)** |
@@ -320,8 +339,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-LEGAL-001: Patent Infringement
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Low (1) |
 | **Impact** | Critical (4) |
 | **Score** | **4 (Medium)** |
@@ -336,8 +356,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-LEGAL-002: Export Control / Sanctions
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Low (1) |
 | **Impact** | High (3) |
 | **Score** | **3 (Low)** |
@@ -354,8 +375,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ## 5. Operational Risks
 
 ### RISK-OPS-001: Release Engineering Complexity
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | Medium (2) |
 | **Impact** | Medium (2) |
 | **Score** | **4 (Medium)** |
@@ -370,8 +392,9 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ---
 
 ### RISK-OPS-002: Documentation Drift
+
 | Attribute | Value |
-|-----------|-------|
+| ----------- | ------- |
 | **Probability** | High (3) |
 | **Impact** | Medium (2) |
 | **Score** | **6 (Medium)** |
@@ -388,7 +411,7 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ## 6. Risk Register Summary
 
 | Risk ID | Category | Score | Status | Owner | Next Review |
-|---------|----------|-------|--------|-------|-------------|
+| --------- | ---------- | ------- | -------- | ------- | ------------- |
 | RISK-TECH-001 | Technical | 8 | Active | Tech Lead | Monthly |
 | RISK-TECH-002 | Technical | 6 | Monitoring | Arch Lead | Quarterly |
 | RISK-TECH-003 | Technical | 9 | Active | AI Lead | Monthly |
@@ -417,25 +440,28 @@ Comprehensive risk assessment for open-re, categorized by type, with probability
 ## 7. Risk Management Process
 
 ### 7.1 Review Cadence
-- **Monthly**: High/Critical risks (score ≥8)
-- **Quarterly**: Medium risks (score 4-6)
-- **Annually**: Low risks (score 1-3)
-- **Ad-hoc**: When early warning triggers
+
+-   **Monthly**: High/Critical risks (score ≥8)
+-   **Quarterly**: Medium risks (score 4-6)
+-   **Annually**: Low risks (score 1-3)
+-   **Ad-hoc**: When early warning triggers
 
 ### 7.2 Risk Response Types
+
 | Response | When |
-|----------|------|
+| ---------- | ------ |
 | **Avoid** | Change plan to eliminate risk |
 | **Mitigate** | Reduce probability/impact |
 | **Transfer** | Insurance, contracts, partnerships |
 | **Accept** | Monitor, contingency only |
 
 ### 7.3 Escalation
-- **Score 12+**: Immediate escalation to Project Lead + stakeholders
-- **Score 8-11**: Active management, weekly check-ins
-- **Score 4-7**: Regular monitoring, monthly check-ins
-- **Score 1-3**: Passive monitoring, quarterly check-ins
+
+-   **Score 12+**: Immediate escalation to Project Lead + stakeholders
+-   **Score 8-11**: Active management, weekly check-ins
+-   **Score 4-7**: Regular monitoring, monthly check-ins
+-   **Score 1-3**: Passive monitoring, quarterly check-ins
 
 ---
 
-*This risk register is reviewed and updated at each phase gate. New risks added as discovered.*
+_This risk register is reviewed and updated at each phase gate. New risks added as discovered._

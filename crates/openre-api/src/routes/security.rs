@@ -2,7 +2,9 @@
 //!
 //! API endpoints for retrieving security assessment findings
 
+use crate::validation::{IdParam, PaginationParams};
 use crate::{ApiResult, AppState};
+use axum::Extension;
 use axum::{
     extract::{Path, Query, State},
     routing::get,
@@ -107,15 +109,16 @@ async fn list_findings(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -124,8 +127,8 @@ async fn list_findings(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -148,7 +151,7 @@ async fn get_finding(
 ) -> ApiResult<Json<FindingResponse>> {
     let finding = state
         .scan_storage
-        .get_finding(id)
+        .get_finding(&id)
         .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Finding not found".into()))?;
 
@@ -186,6 +189,7 @@ async fn get_finding_stats(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let stats = state.scan_storage.get_finding_stats(filter).await?;
@@ -214,7 +218,7 @@ async fn get_scan_findings(
     // Verify scan access
     let scan = state
         .scan_storage
-        .get_scan(scan_id)
+        .get_scan(&scan_id)
         .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Scan not found".into()))?;
 
@@ -225,7 +229,7 @@ async fn get_scan_findings(
         scan_id: Some(scan_id),
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         verified: params.verified,
         false_positive: params.false_positive,
         tags: params.tags,
@@ -238,10 +242,10 @@ async fn get_scan_findings(
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -250,8 +254,8 @@ async fn get_scan_findings(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -276,7 +280,7 @@ async fn get_scan_finding_stats(
     // Verify scan access
     let scan = state
         .scan_storage
-        .get_scan(scan_id)
+        .get_scan(&scan_id)
         .await?
         .ok_or_else(|| crate::error::ApiError::NotFound("Scan not found".into()))?;
 
@@ -284,7 +288,7 @@ async fn get_scan_finding_stats(
         scan_id: Some(scan_id),
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         verified: params.verified,
         false_positive: params.false_positive,
         tags: params.tags,
@@ -304,7 +308,7 @@ async fn get_scan_finding_stats(
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct FindingListParams {
     #[serde(flatten)]
-    pub pagination: crate::routes::PaginationParams,
+    pub pagination: crate::validation::PaginationParams,
 
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
@@ -344,7 +348,7 @@ pub struct FindingStatsParams {
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct ScanFindingsParams {
     #[serde(flatten)]
-    pub pagination: crate::routes::PaginationParams,
+    pub pagination: crate::validation::PaginationParams,
 
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
@@ -492,25 +496,29 @@ pub struct FindingStatsResponse {
 impl From<openre_scanner::result::FindingStats> for FindingStatsResponse {
     fn from(s: openre_scanner::result::FindingStats) -> Self {
         Self {
-            total: s.total,
+            total: s.total as u64,
             by_severity: s
                 .by_severity
                 .into_iter()
-                .map(|(k, v)| (format!("{:?}", k), v))
+                .map(|(k, v)| (format!("{:?}", k), v as u64))
                 .collect(),
             by_confidence: s
                 .by_confidence
                 .into_iter()
-                .map(|(k, v)| (format!("{:?}", k), v))
+                .map(|(k, v)| (format!("{:?}", k), v as u64))
                 .collect(),
             by_category: s
                 .by_category
                 .into_iter()
-                .map(|(k, v)| (format!("{:?}", k), v))
+                .map(|(k, v)| (format!("{:?}", k), v as u64))
                 .collect(),
-            by_plugin: s.by_plugin,
-            verified_count: s.verified_count,
-            false_positive_count: s.false_positive_count,
+            by_plugin: s
+                .by_plugin
+                .into_iter()
+                .map(|(k, v)| (k, v as u64))
+                .collect(),
+            verified_count: s.verified as u64,
+            false_positive_count: s.false_positives as u64,
             avg_risk_score: s.avg_risk_score,
             max_risk_score: s.max_risk_score,
         }
@@ -521,7 +529,7 @@ impl From<openre_scanner::result::FindingStats> for FindingStatsResponse {
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct InjectionFindingListParams {
     #[serde(flatten)]
-    pub pagination: crate::routes::PaginationParams,
+    pub pagination: crate::validation::PaginationParams,
 
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
@@ -611,7 +619,7 @@ async fn list_injection_findings(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("injection_framework".to_string()),
         scan_id: params.scan_id,
@@ -623,15 +631,16 @@ async fn list_injection_findings(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -640,8 +649,8 @@ async fn list_injection_findings(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -664,7 +673,7 @@ async fn get_injection_stats(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("injection_framework".to_string()),
         scan_id: params.scan_id,
@@ -676,48 +685,50 @@ async fn get_injection_stats(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
-    let stats = state.scan_storage.get_finding_stats(filter).await?;
+    let stats = state.scan_storage.get_finding_stats(filter.clone()).await?;
 
     // Convert to injection-specific stats
-    let mut by_category = std::collections::HashMap::new();
-    let mut by_detection_method = std::collections::HashMap::new();
+    let mut by_category: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+    let mut by_detection_method: std::collections::HashMap<String, u64> =
+        std::collections::HashMap::new();
 
     // Extract injection-specific metadata from findings
     let findings = state
         .scan_storage
-        .list_findings(filter, FindingSort::SeverityDesc, 0, 10000)
+        .list_findings(filter.clone(), FindingSort::SeverityDesc, 10_000, 0)
         .await?;
     for finding in findings {
         if let Some(category) = finding.metadata.get("injection_category") {
             *by_category
                 .entry(category.as_str().unwrap_or("unknown").to_string())
-                .or_insert(0) += 1;
+                .or_insert(0u64) += 1;
         }
         if let Some(method) = finding.metadata.get("detection_method") {
             *by_detection_method
                 .entry(method.as_str().unwrap_or("unknown").to_string())
-                .or_insert(0) += 1;
+                .or_insert(0u64) += 1;
         }
     }
 
     Ok(Json(InjectionStatsResponse {
-        total: stats.total,
+        total: stats.total as u64,
         by_category,
         by_detection_method,
         by_severity: stats
             .by_severity
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_confidence: stats
             .by_confidence
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
-        verified_count: stats.verified_count,
-        false_positive_count: stats.false_positive_count,
+        verified_count: stats.verified as u64,
+        false_positive_count: stats.false_positives as u64,
         avg_confidence: 0.0, // Would need to calculate from findings
     }))
 }
@@ -884,7 +895,7 @@ async fn get_detection_methods(
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct ApiFindingListParams {
     #[serde(flatten)]
-    pub pagination: crate::routes::PaginationParams,
+    pub pagination: crate::validation::PaginationParams,
 
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
@@ -949,7 +960,7 @@ async fn list_api_findings(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("rest_api_security".to_string()),
         scan_id: params.scan_id,
@@ -961,15 +972,16 @@ async fn list_api_findings(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -978,8 +990,8 @@ async fn list_api_findings(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -1002,7 +1014,7 @@ async fn get_api_stats(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("rest_api_security".to_string()),
         scan_id: params.scan_id,
@@ -1014,29 +1026,30 @@ async fn get_api_stats(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let stats = state.scan_storage.get_finding_stats(filter).await?;
 
     Ok(Json(ApiStatsResponse {
-        total: stats.total,
+        total: stats.total as u64,
         by_severity: stats
             .by_severity
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_confidence: stats
             .by_confidence
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_category: stats
             .by_category
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
-        verified_count: stats.verified_count,
-        false_positive_count: stats.false_positive_count,
+        verified_count: stats.verified as u64,
+        false_positive_count: stats.false_positives as u64,
         avg_confidence: 0.0,
     }))
 }
@@ -1060,7 +1073,7 @@ async fn list_api_endpoints(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("rest_api_security".to_string()),
         scan_id: params.scan_id,
@@ -1072,15 +1085,16 @@ async fn list_api_endpoints(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -1089,8 +1103,8 @@ async fn list_api_endpoints(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -1098,7 +1112,7 @@ async fn list_api_endpoints(
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct GraphqlFindingListParams {
     #[serde(flatten)]
-    pub pagination: crate::routes::PaginationParams,
+    pub pagination: crate::validation::PaginationParams,
 
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
@@ -1163,7 +1177,7 @@ async fn list_graphql_findings(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("graphql_security".to_string()),
         scan_id: params.scan_id,
@@ -1175,15 +1189,16 @@ async fn list_graphql_findings(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -1192,8 +1207,8 @@ async fn list_graphql_findings(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -1216,7 +1231,7 @@ async fn get_graphql_stats(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("graphql_security".to_string()),
         scan_id: params.scan_id,
@@ -1228,29 +1243,30 @@ async fn get_graphql_stats(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let stats = state.scan_storage.get_finding_stats(filter).await?;
 
     Ok(Json(GraphqlStatsResponse {
-        total: stats.total,
+        total: stats.total as u64,
         by_severity: stats
             .by_severity
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_confidence: stats
             .by_confidence
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_category: stats
             .by_category
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
-        verified_count: stats.verified_count,
-        false_positive_count: stats.false_positive_count,
+        verified_count: stats.verified as u64,
+        false_positive_count: stats.false_positives as u64,
         avg_confidence: 0.0,
     }))
 }
@@ -1259,7 +1275,7 @@ async fn get_graphql_stats(
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct RateLimitingFindingListParams {
     #[serde(flatten)]
-    pub pagination: crate::routes::PaginationParams,
+    pub pagination: crate::validation::PaginationParams,
 
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
@@ -1324,7 +1340,7 @@ async fn list_rate_limiting_findings(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("api_rate_limiting".to_string()),
         scan_id: params.scan_id,
@@ -1336,15 +1352,16 @@ async fn list_rate_limiting_findings(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -1353,8 +1370,8 @@ async fn list_rate_limiting_findings(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -1377,7 +1394,7 @@ async fn get_rate_limiting_stats(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("api_rate_limiting".to_string()),
         scan_id: params.scan_id,
@@ -1389,29 +1406,30 @@ async fn get_rate_limiting_stats(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let stats = state.scan_storage.get_finding_stats(filter).await?;
 
     Ok(Json(RateLimitingStatsResponse {
-        total: stats.total,
+        total: stats.total as u64,
         by_severity: stats
             .by_severity
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_confidence: stats
             .by_confidence
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_category: stats
             .by_category
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
-        verified_count: stats.verified_count,
-        false_positive_count: stats.false_positive_count,
+        verified_count: stats.verified as u64,
+        false_positive_count: stats.false_positives as u64,
         avg_confidence: 0.0,
     }))
 }
@@ -1420,7 +1438,7 @@ async fn get_rate_limiting_stats(
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct AccessControlFindingListParams {
     #[serde(flatten)]
-    pub pagination: crate::routes::PaginationParams,
+    pub pagination: crate::validation::PaginationParams,
 
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
@@ -1485,7 +1503,7 @@ async fn list_access_control_findings(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("access_control".to_string()),
         scan_id: params.scan_id,
@@ -1497,15 +1515,16 @@ async fn list_access_control_findings(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -1514,8 +1533,8 @@ async fn list_access_control_findings(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -1538,7 +1557,7 @@ async fn get_access_control_stats(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("access_control".to_string()),
         scan_id: params.scan_id,
@@ -1550,29 +1569,30 @@ async fn get_access_control_stats(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let stats = state.scan_storage.get_finding_stats(filter).await?;
 
     Ok(Json(AccessControlStatsResponse {
-        total: stats.total,
+        total: stats.total as u64,
         by_severity: stats
             .by_severity
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_confidence: stats
             .by_confidence
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_category: stats
             .by_category
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
-        verified_count: stats.verified_count,
-        false_positive_count: stats.false_positive_count,
+        verified_count: stats.verified as u64,
+        false_positive_count: stats.false_positives as u64,
         avg_confidence: 0.0,
     }))
 }
@@ -1581,7 +1601,7 @@ async fn get_access_control_stats(
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct FileUploadFindingListParams {
     #[serde(flatten)]
-    pub pagination: crate::routes::PaginationParams,
+    pub pagination: crate::validation::PaginationParams,
 
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
@@ -1646,7 +1666,7 @@ async fn list_file_upload_findings(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("file_upload".to_string()),
         scan_id: params.scan_id,
@@ -1658,15 +1678,16 @@ async fn list_file_upload_findings(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -1675,8 +1696,8 @@ async fn list_file_upload_findings(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -1699,7 +1720,7 @@ async fn get_file_upload_stats(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("file_upload".to_string()),
         scan_id: params.scan_id,
@@ -1711,29 +1732,30 @@ async fn get_file_upload_stats(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let stats = state.scan_storage.get_finding_stats(filter).await?;
 
     Ok(Json(FileUploadStatsResponse {
-        total: stats.total,
+        total: stats.total as u64,
         by_severity: stats
             .by_severity
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_confidence: stats
             .by_confidence
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_category: stats
             .by_category
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
-        verified_count: stats.verified_count,
-        false_positive_count: stats.false_positive_count,
+        verified_count: stats.verified as u64,
+        false_positive_count: stats.false_positives as u64,
         avg_confidence: 0.0,
     }))
 }
@@ -1742,7 +1764,7 @@ async fn get_file_upload_stats(
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct PathTraversalFindingListParams {
     #[serde(flatten)]
-    pub pagination: crate::routes::PaginationParams,
+    pub pagination: crate::validation::PaginationParams,
 
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
@@ -1807,7 +1829,7 @@ async fn list_path_traversal_findings(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("path_traversal".to_string()),
         scan_id: params.scan_id,
@@ -1819,15 +1841,16 @@ async fn list_path_traversal_findings(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -1836,8 +1859,8 @@ async fn list_path_traversal_findings(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -1860,7 +1883,7 @@ async fn get_path_traversal_stats(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("path_traversal".to_string()),
         scan_id: params.scan_id,
@@ -1872,29 +1895,30 @@ async fn get_path_traversal_stats(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let stats = state.scan_storage.get_finding_stats(filter).await?;
 
     Ok(Json(PathTraversalStatsResponse {
-        total: stats.total,
+        total: stats.total as u64,
         by_severity: stats
             .by_severity
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_confidence: stats
             .by_confidence
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_category: stats
             .by_category
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
-        verified_count: stats.verified_count,
-        false_positive_count: stats.false_positive_count,
+        verified_count: stats.verified as u64,
+        false_positive_count: stats.false_positives as u64,
         avg_confidence: 0.0,
     }))
 }
@@ -1903,7 +1927,7 @@ async fn get_path_traversal_stats(
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct SensitiveInfoFindingListParams {
     #[serde(flatten)]
-    pub pagination: crate::routes::PaginationParams,
+    pub pagination: crate::validation::PaginationParams,
 
     pub severity: Option<Vec<Severity>>,
     pub confidence: Option<Vec<Confidence>>,
@@ -1968,7 +1992,7 @@ async fn list_sensitive_info_findings(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("sensitive_info".to_string()),
         scan_id: params.scan_id,
@@ -1980,15 +2004,16 @@ async fn list_sensitive_info_findings(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let findings = state
         .scan_storage
         .list_findings(
-            filter,
+            filter.clone(),
             params.sort.unwrap_or(FindingSort::SeverityDesc),
-            params.offset(),
-            params.limit(),
+            params.pagination.limit() as usize,
+            params.pagination.offset() as usize,
         )
         .await?;
 
@@ -1997,8 +2022,8 @@ async fn list_sensitive_info_findings(
     Ok(Json(FindingListResponse {
         findings: findings.into_iter().map(FindingResponse::from).collect(),
         total,
-        page: params.page(),
-        per_page: params.per_page(),
+        page: params.pagination.page(),
+        per_page: params.pagination.per_page(),
     }))
 }
 
@@ -2021,7 +2046,7 @@ async fn get_sensitive_info_stats(
     let filter = FindingFilter {
         severity: params.severity,
         confidence: params.confidence,
-        category: params.category,
+        category: None,
         target: params.target,
         plugin_source: Some("sensitive_info".to_string()),
         scan_id: params.scan_id,
@@ -2033,29 +2058,30 @@ async fn get_sensitive_info_stats(
         search: params.search,
         min_risk_score: params.min_risk_score,
         max_risk_score: params.max_risk_score,
+        ..Default::default()
     };
 
     let stats = state.scan_storage.get_finding_stats(filter).await?;
 
     Ok(Json(SensitiveInfoStatsResponse {
-        total: stats.total,
+        total: stats.total as u64,
         by_severity: stats
             .by_severity
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_confidence: stats
             .by_confidence
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
         by_category: stats
             .by_category
             .into_iter()
-            .map(|(k, v)| (format!("{:?}", k), v))
+            .map(|(k, v)| (format!("{:?}", k), v as u64))
             .collect(),
-        verified_count: stats.verified_count,
-        false_positive_count: stats.false_positive_count,
+        verified_count: stats.verified as u64,
+        false_positive_count: stats.false_positives as u64,
         avg_confidence: 0.0,
     }))
 }

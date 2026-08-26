@@ -1,6 +1,9 @@
+mod mock_provider;
+
+use mock_provider::MockFindingProvider;
 use openre_core::ids::{FindingId, ScanId};
-use openre_core::result::{Category, Confidence, Finding, Severity};
-use openre_security_ai::{FindingProvider, MockFindingProvider, ScanMetadata};
+use openre_core::result::{Category, Confidence, Finding, FindingConfig, Severity};
+use openre_security_ai::{FindingProvider, ScanMetadata};
 
 #[tokio::test]
 async fn test_mock_finding_provider() {
@@ -11,18 +14,18 @@ async fn test_mock_finding_provider() {
     let finding_id = FindingId::new();
 
     // Create a mock finding
-    let finding = Finding::new(
-        "Test Finding".to_string(),
-        "This is a test finding".to_string(),
-        Severity::High,
-        Confidence::Medium,
-        Category::Injection,
-        "http://example.com/test".to_string(),
-        "web_application".to_string(),
-        "test_plugin".to_string(),
-        "1.0.0".to_string(),
+    let finding = Finding::new(FindingConfig {
+        title: "Test Finding".to_string(),
+        description: "This is a test finding".to_string(),
+        severity: Severity::High,
+        confidence: Confidence::Medium,
+        category: Category::Injection,
+        target: "http://example.com/test".to_string(),
+        target_type: "web_application".to_string(),
+        plugin_source: "test_plugin".to_string(),
+        plugin_version: "1.0.0".to_string(),
         scan_id,
-    );
+    });
 
     // Add finding to provider
     provider.add_finding(scan_id, finding.clone()).await;

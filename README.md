@@ -9,16 +9,16 @@
 
 ## Features
 
-- **Zero Dependencies**: Single ~7 MB binary, no runtime requirements
-- **Three Scan Profiles**: Quick (6 checks), Standard (15 checks), Full (18 checks)
-- **Multiple Output Formats**: Table (human-readable), JSON (machine-readable), SARIF (CI/CD integration)
-- **18 Security Checks**: HTTP headers, TLS/SSL, cookies, CSP, CORS, information disclosure, technology fingerprinting, robots.txt, sitemap, directory listing, sensitive files, forms, links, scripts, meta tags, HTTP methods, SSL/TLS configuration
-- **Evidence-Based Findings**: Each finding includes supporting evidence (HTTP headers, response snippets, locations)
-- **Risk Scoring**: Severity (Critical/High/Medium/Low/Info) and Confidence (Very High/High/Medium/Low) ratings
-- **Remediation Guidance**: Actionable steps with effort/priority estimates
-- **Cross-Platform**: Linux, macOS, Windows
-- **Privacy-Focused**: No telemetry, no data collection
-- **AI-Optional**: Works fully without AI; AI enhancement available via open-re platform
+-   **Zero Dependencies**: Single ~7 MB binary, no runtime requirements
+-   **Three Scan Profiles**: Quick (6 checks), Standard (15 checks), Full (18 checks)
+-   **Multiple Output Formats**: Table (human-readable), JSON (machine-readable), SARIF (CI/CD integration)
+-   **18 Security Checks**: HTTP headers, TLS/SSL, cookies, CSP, CORS, information disclosure, technology fingerprinting, robots.txt, sitemap, directory listing, sensitive files, forms, links, scripts, meta tags, HTTP methods, SSL/TLS configuration
+-   **Evidence-Based Findings**: Each finding includes supporting evidence (HTTP headers, response snippets, locations)
+-   **Risk Scoring**: Severity (Critical/High/Medium/Low/Info) and Confidence (Very High/High/Medium/Low) ratings
+-   **Remediation Guidance**: Actionable steps with effort/priority estimates
+-   **Cross-Platform**: Linux, macOS, Windows
+-   **Privacy-Focused**: No telemetry, no data collection
+-   **AI-Optional**: Works fully without AI; AI enhancement available via open-re platform
 
 ## Quick Start
 
@@ -29,14 +29,14 @@
 # Or build from source:
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
-cargo build --release --package openre-scan
+Cargo build --release --package openre-scan
 ./target/release/openre-scan --help
 ```
 
 ### Docker
 
 ```bash
-docker run --rm ghcr.io/rxven-1907/openre-scan:latest scan https://example.com --profile standard
+Docker run --rm ghcr.io/rxven-1907/openre-scan:latest scan https://example.com --profile standard
 ```
 
 ## Usage
@@ -70,7 +70,7 @@ openre-scan version
 ### Scan Profiles
 
 | Profile | Checks | Duration | Use Case |
-|---------|--------|----------|----------|
+| --------- | -------- | ---------- | ---------- |
 | Quick | 6 | ~2-3s | Rapid assessment, CI/CD gates |
 | Standard | 15 | ~10-15s | General purpose scanning |
 | Full | 18 | ~30-60s | Comprehensive audit |
@@ -78,36 +78,42 @@ openre-scan version
 ### Checks Included
 
 **Quick Profile:**
-- HTTP Headers analysis
-- Security Headers (8 headers checked)
-- Cookie Security (Secure, HttpOnly, SameSite)
-- TLS Certificate validation
-- Information Disclosure (debug headers, server version)
-- Technology Fingerprinting
+
+-   HTTP Headers analysis
+-   Security Headers (8 headers checked)
+-   Cookie Security (Secure, HttpOnly, SameSite)
+-   TLS Certificate validation
+-   Information Disclosure (debug headers, server version)
+-   Technology Fingerprinting
 
 **Standard Profile (includes Quick):**
-- Content Security Policy analysis
-- CORS Configuration
-- Robots.txt enumeration
-- Sitemap.xml discovery
-- Directory Listing detection
-- Sensitive File exposure (20+ common paths)
-- Form Analysis (GET passwords, autocomplete, CSRF)
-- Link Analysis (mixed content, mailto)
-- Script Analysis (inline scripts, external resources)
-- Meta Tags analysis
+
+-   Content Security Policy analysis
+-   CORS Configuration
+-   Robots.txt enumeration
+-   Sitemap.XML discovery
+-   Directory Listing detection
+-   Sensitive File exposure (20+ common paths)
+-   Form Analysis (GET passwords, autocomplete, CSRF)
+-   Link Analysis (mixed content, mailto)
+-   Script Analysis (inline scripts, external resources)
+-   Meta Tags analysis
 
 **Full Profile (includes Standard):**
-- HTTP Methods (TRACE, PUT, DELETE, etc.)
-- SSL/TLS Configuration deep dive
+
+-   HTTP Methods (TRACE, PUT, DELETE, etc.)
+-   SSL/TLS Configuration deep dive
 
 ## Output Formats
 
 ### Table (Default)
+
 Human-readable colorized table with severity indicators.
 
 ### JSON
+
 Structured output for programmatic processing:
+
 ```json
 {
   "scan_id": "uuid",
@@ -119,6 +125,7 @@ Structured output for programmatic processing:
 ```
 
 ### SARIF
+
 Static Analysis Results Interchange Format for CI/CD integration (GitHub Code Scanning, Azure DevOps, etc.).
 
 ## Example Output
@@ -129,10 +136,10 @@ Target: https://example.com
 Profile: Standard
 
 ▶ Running 15 checks
-  → http-headers
+  → HTTP-headers
   → security-headers
   → cookie-security
-  → tls-certificate
+  → TLS-certificate
   → info-disclosure
   → tech-fingerprint
   → robots-txt
@@ -143,8 +150,8 @@ Profile: Standard
   → links
   → scripts
   → meta-tags
-  → csp
-  → cors
+  → CSP
+  → CORS
 
 📋 Scan Results
 ═══════════════════════════════════════════════════════════════════════════════
@@ -157,7 +164,7 @@ Scan ID: 5c56afdb-c9a0-4cb0-aad8-9f09ee9da45c | Duration: 0.26s | Checks: 15 | F
 | HIGH     | High       | SecurityMisconfiguration | Missing Strict-Transport-Security Header    | security-headers |
 | MEDIUM   | High       | SecurityMisconfiguration | Missing X-Frame-Options Header              | security-headers |
 | MEDIUM   | High       | SecurityMisconfiguration | Missing X-Content-Type-Options Header       | security-headers |
-| INFO     | High       | InformationDisclosure    | Server Header Disclosure                    | http-headers     |
+| INFO     | High       | InformationDisclosure    | Server Header Disclosure                    | HTTP-headers     |
 +----------+------------+--------------------------+---------------------------------------------+------------------+
 
 📊 Summary by Severity
@@ -170,11 +177,14 @@ Scan ID: 5c56afdb-c9a0-4cb0-aad8-9f09ee9da45c | Duration: 0.26s | Checks: 15 | F
 ## Installation
 
 ### Requirements
-- Rust 1.78+ (for building from source)
-- No runtime dependencies for the binary
+
+-   Rust 1.78+ (for building from source)
+-   No runtime dependencies for the binary
 
 ### Download Release Binary (Recommended)
+
 Download the latest release from [GitHub Releases](https://github.com/RXVEN-1907/open-re/releases):
+
 ```bash
 # Linux x86_64
 curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64
@@ -186,41 +196,45 @@ chmod +x openre-scan
 ```
 
 ### Build from Source
+
 ```bash
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
-cargo build --release --package openre-scan
+Cargo build --release --package openre-scan
 # Binary at ./target/release/openre-scan (~7 MB)
 ```
 
 ### Minimal Build (CLI Only)
+
 ```bash
-cargo build --release --package openre-scan --no-default-features
+Cargo build --release --package openre-scan --no-default-features
 ```
 
 ### With TUI (Experimental)
+
 ```bash
-cargo build --release --package openre-scan --features tui
+Cargo build --release --package openre-scan --features tui
 ./target/release/openre-scan tui
 ```
 
 ## Configuration
 
 openre-scan works without configuration. Optional configuration via:
-- Command-line flags (see `--help`)
-- Future: TOML config file (planned)
+
+-   Command-line flags (see `--help`)
+-   Future: TOML config file (planned)
 
 ## Supported Targets
 
-- **Web Applications**: HTTP/HTTPS endpoints
-- **APIs**: REST, GraphQL endpoints
-- **Local Development**: localhost, private networks
-- **Any HTTP-speaking service**
+-   **Web Applications**: HTTP/HTTPS endpoints
+-   **APIs**: REST, GraphQL endpoints
+-   **Local Development**: localhost, private networks
+-   **Any HTTP-speaking service**
 
 ## Vulnerability Categories Detected
 
 | Category | Examples |
-|----------|----------|
+| ---------- | ---------- |
 | Security Misconfiguration | Missing security headers, open CORS, directory listing |
 | Information Disclosure | Server version, debug headers, sensitive files, technology stack |
 | Injection Risks | Form analysis (GET passwords), missing CSRF |
@@ -230,14 +244,15 @@ openre-scan works without configuration. Optional configuration via:
 ## CI/CD Integration
 
 ### GitHub Actions
+
 ```yaml
 - name: Security Scan
   run: |
-    curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64
+    curl -L -o openre-scan HTTPS://GitHub.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-Linux-x86_64
     chmod +x openre-scan
-    ./openre-scan scan https://staging.example.com --format sarif --output results.sarif
+    ./openre-scan scan HTTPS://staging.example.com --format sarif --output results.sarif
 - name: Upload SARIF
-  uses: github/codeql-action/upload-sarif@v3
+  uses: GitHub/codeql-action/upload-sarif@v3
   with:
     sarif_file: results.sarif
 ```
@@ -245,7 +260,7 @@ openre-scan works without configuration. Optional configuration via:
 ## Performance
 
 | Metric | Value |
-|--------|-------|
+| -------- | ------- |
 | Binary Size | ~7 MB (release, stripped) |
 | Startup Time | < 50ms cold start |
 | Memory Usage | 10-20 MB base footprint |
@@ -259,59 +274,65 @@ openre-scan works without configuration. Optional configuration via:
 
 **No Telemetry**: openre-scan does not collect or transmit any usage data.
 
-**Safe Design**: 
-- No shell command execution
-- Path traversal prevention
-- Network request validation (timeouts, redirect limits)
-- Memory-safe Rust implementation
+**Safe Design**:
+
+-   No Shell command execution
+-   Path traversal prevention
+-   Network request validation (timeouts, redirect limits)
+-   Memory-safe Rust implementation
 
 ## Architecture
 
 openre-scan is the standalone CLI component of the larger **open-re** platform. The platform includes:
-- **openre-scan** (this tool) - Lightweight standalone scanner
-- **openre-core** - Core types, finding model, risk engine
-- **openre-intelligence** - CVE matching, dependency analysis, correlation
-- **openre-security-ai** - AI-enhanced analysis (optional)
-- **openre-plugins** - WASM plugin system (planned)
-- **openre-api** - REST/gRPC API server (planned)
-- **Frontend** - Web UI (planned)
+
+-   **openre-scan** (this tool) - Lightweight standalone scanner
+-   **openre-core** - Core types, finding model, risk engine
+-   **openre-intelligence** - CVE matching, dependency analysis, correlation
+-   **openre-security-ai** - AI-enhanced analysis (optional)
+-   **openre-plugins** - WASM plugin system (planned)
+-   **openre-api** - REST/gRPC API server (planned)
+-   **Frontend** - Web UI (planned)
 
 ## Contributing
 
 ## Current Status (v0.1.0)
 
 ### ✅ Working Features
-- **CLI Scanner**: Fully functional with quick/standard/full profiles
-- **18 Security Checks**: HTTP headers, TLS, cookies, security headers, CSP, CORS, info disclosure, tech fingerprint, robots.txt, sitemap, directory listing, sensitive files, forms, links, scripts, meta tags, HTTP methods, SSL/TLS config
-- **Output Formats**: Table (human-readable), JSON (machine-readable), SARIF 2.1.0 (CI/CD)
-- **Filtering**: `--checks` and `--exclude` for selective scanning
-- **Custom Headers**: `--header` for authentication and custom requests
-- **File Output**: `--output` to save results
-- **Clean Installation**: Single ~7 MB binary, no runtime dependencies
+
+-   **CLI Scanner**: Fully functional with quick/standard/full profiles
+-   **18 Security Checks**: HTTP headers, TLS, cookies, security headers, CSP, CORS, info disclosure, tech fingerprint, robots.txt, sitemap, directory listing, sensitive files, forms, links, scripts, meta tags, HTTP methods, SSL/TLS config
+-   **Output Formats**: Table (human-readable), JSON (machine-readable), SARIF 2.1.0 (CI/CD)
+-   **Filtering**: `--checks` and `--exclude` for selective scanning
+-   **Custom Headers**: `--header` for authentication and custom requests
+-   **File Output**: `--output` to save results
+-   **Clean Installation**: Single ~7 MB binary, no runtime dependencies
 
 ### ⚠️ Experimental Features
-- **TUI Mode**: Interactive terminal UI (`--features tui`, then `openre-scan tui`) - functional but not extensively tested
+
+-   **TUI Mode**: Interactive terminal UI (`--features tui`, then `openre-scan tui`) - functional but not extensively tested
 
 ### 🚧 Known Limitations
-- No configuration file support yet (planned for v0.2.0)
-- No authentication handling beyond custom headers
-- No recursive crawling/spidering
-- No JavaScript rendering/analysis
-- AI-enhanced analysis not included in standalone binary (part of open-re platform)
-- Some dependency vulnerabilities in transitive dependencies (documented in SECURITY.md)
+
+-   No configuration file support yet (planned for v0.2.0)
+-   No authentication handling beyond custom headers
+-   No recursive crawling/spidering
+-   No JavaScript rendering/analysis
+-   AI-enhanced analysis not included in standalone binary (part of open-re platform)
+-   Some dependency vulnerabilities in transitive dependencies (documented in SECURITY.md)
 
 ### 🔒 Security Notice
+
 **Authorization Required**: Only scan targets you own or have explicit written permission to test. Unauthorized scanning may violate laws and terms of service.
 
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `cargo test --package openre-scan`
-5. Submit a pull request
+1.  Fork the repository
+2.  Create a feature branch
+3.  Make your changes
+4.  Run tests: `Cargo test --package openre-scan`
+5.  Submit a pull request
 
 ## License
 
@@ -320,12 +341,13 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Acknowledgments
 
 Built with:
-- [Rust](https://www.rust-lang.org/) - Memory-safe systems programming
-- [reqwest](https://github.com/seanmonstar/reqwest) - HTTP client
-- [clap](https://github.com/clap-rs/clap) - CLI parsing
-- [ratatui](https://ratatui.rs/) - TUI framework (experimental)
-- [select](https://github.com/utkarshkukreti/select.rs) - HTML parsing
-- [tabled](https://github.com/nu11ptr/tabled) - Table formatting
+
+-   [Rust](https://www.rust-lang.org/) - Memory-safe systems programming
+-   [reqwest](https://github.com/seanmonstar/reqwest) - HTTP client
+-   [clap](https://github.com/clap-rs/clap) - CLI parsing
+-   [ratatui](https://ratatui.rs/) - TUI framework (experimental)
+-   [select](https://github.com/utkarshkukreti/select.rs) - HTML parsing
+-   [tabled](https://github.com/nu11ptr/tabled) - Table formatting
 
 ---
 

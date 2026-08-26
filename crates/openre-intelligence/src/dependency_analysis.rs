@@ -37,7 +37,7 @@ impl Default for DependencyAnalysisConfig {
 /// Dependency analyzer for various package ecosystems
 pub struct DependencyAnalyzer {
     config: DependencyAnalysisConfig,
-    vulnerability_db: Option<VulnerabilityDatabase>,
+    vulnerability_db: Option<std::sync::RwLock<VulnerabilityDatabase>>,
     registry_clients: HashMap<String, Box<dyn RegistryClient>>,
 }
 
@@ -160,25 +160,82 @@ impl DependencyFileType {
             _ => None,
         }
     }
+
+    /// Best-effort detection based on file contents (used when the name or
+    /// extension is unrecognizable, e.g. temp files)
+    pub fn from_content(content: &str) -> Option<Self> {
+        let trimmed = content.trim_start();
+        if trimmed.starts_with('{') && content.contains("\"dependencies\"") {
+            return Some(DependencyFileType::PackageJson);
+        }
+        if trimmed.starts_with('{') && content.contains("created-by pip") {
+            return Some(DependencyFileType::PipfileLock);
+        }
+        if content.contains("[[package]]") {
+            return Some(DependencyFileType::CargoLock);
+        }
+        // requirements.txt style: `name==version` / `name>=version` lines
+        let looks_like_requirements = content.lines().any(|line| {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') || line.starts_with('-') {
+                return false;
+            }
+            // Strip inline comments and environment markers
+            let spec = line.split('#').next().unwrap_or(line).trim();
+            let spec = spec.split(';').next().unwrap_or(spec).trim();
+            let name = spec
+                .split(|c: char| c == '=' || c == '>' || c == '<' || c == '!' || c == '~')
+                .next()
+                .unwrap_or("");
+            !name.trim().is_empty()
+                && name.chars().all(|c| {
+                    c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '[' || c == ']'
+                })
+                && spec.len() > name.len()
+        });
+        if looks_like_requirements {
+            return Some(DependencyFileType::PythonRequirements);
+        }
+        if content.contains("<project") && content.contains("<dependency>") {
+            return Some(DependencyFileType::MavenPom);
+        }
+        if content.contains("apply plugin:") || content.contains("implementation ") {
+            return Some(DependencyFileType::GradleBuild);
+        }
+        if content.contains("require (") || (content.contains("module ") && content.contains("go "))
+        {
+            return Some(DependencyFileType::GoMod);
+        }
+        None
+    }
 }
 
 impl DependencyAnalyzer {
     /// Create a new dependency analyzer
     pub fn new(config: DependencyAnalysisConfig) -> Self {
+        let vulnerability_db = if config.check_vulnerabilities && config.enable_caching {
+            Some(std::sync::RwLock::new(VulnerabilityDatabase::new(
+                config.cache_ttl_seconds,
+            )))
+        } else {
+            None
+        };
+
         Self {
-            config,
-            vulnerability_db: if config.check_vulnerabilities && config.enable_caching {
-                Some(VulnerabilityDatabase::new(config.cache_ttl_seconds))
-            } else {
-                None
-            },
+            vulnerability_db,
             registry_clients: HashMap::new(),
+            config,
         }
     }
 
     /// Add a registry client for an ecosystem
     pub fn add_registry_client(&mut self, ecosystem: &str, client: Box<dyn RegistryClient>) {
         self.registry_clients.insert(ecosystem.to_string(), client);
+    }
+
+    /// Number of registered registry clients
+    pub fn registry_client_count(&self) -> usize {
+        self.registry_clients.len()
     }
 
     /// Analyze dependencies from a lockfile or manifest file
@@ -212,6 +269,7 @@ impl DependencyAnalyzer {
                     .and_then(|ext| ext.to_str())
                     .and_then(DependencyFileType::from_extension)
             })
+            .or_else(|| DependencyFileType::from_content(content))
             .ok_or_else(|| {
                 IntelligenceError::InvalidInput(format!(
                     "Unsupported dependency file type: {}",
@@ -328,6 +386,225 @@ impl DependencyAnalyzer {
         Ok(dependencies)
     }
 
+    /// Parse yarn.lock
+    async fn parse_yarn_lock(&self, content: &str) -> IntelligenceResult<Vec<DependencyInfo>> {
+        let mut dependencies = Vec::new();
+        let mut current_name: Option<String> = None;
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+
+            // Entry header: "package@^1.2.3", package@^1.2.3:
+            if !trimmed.starts_with("version") && !trimmed.starts_with("dependencies") {
+                if trimmed.contains('@') && trimmed.ends_with(':') {
+                    // Strip quotes and trailing colon, then take the package name (before last @version spec)
+                    let entry = trimmed.trim_end_matches(':').trim_matches('"');
+                    if let Some(pos) = entry.rfind('@') {
+                        if pos > 0 {
+                            current_name = Some(entry[..pos].to_string());
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            // Version line: version "1.2.3"
+            if trimmed.starts_with("version ") && trimmed.contains('"') {
+                if let Some(name) = &current_name {
+                    let version = trimmed.split('"').nth(1).unwrap_or_default().to_string();
+                    dependencies.push(
+                        self.analyze_single_dependency(name, &version, "npm")
+                            .await?,
+                    );
+                    current_name = None;
+                }
+            }
+        }
+
+        Ok(dependencies)
+    }
+
+    /// Parse Pipfile.lock (Pipenv)
+    async fn parse_pipfile_lock(&self, content: &str) -> IntelligenceResult<Vec<DependencyInfo>> {
+        #[derive(Deserialize)]
+        struct PipfileLock {
+            #[serde(default)]
+            default: HashMap<String, PipPackageInfo>,
+            #[serde(default)]
+            develop: HashMap<String, PipPackageInfo>,
+        }
+
+        #[derive(Deserialize)]
+        struct PipPackageInfo {
+            #[serde(default)]
+            version: String,
+        }
+
+        let lock_file: PipfileLock = serde_json::from_str(content)
+            .map_err(|e| IntelligenceError::Parse(format!("Invalid Pipfile.lock: {}", e)))?;
+
+        let mut dependencies = Vec::new();
+        let mut packages = Vec::new();
+        packages.extend(lock_file.default);
+        packages.extend(lock_file.develop);
+
+        for (name, info) in packages {
+            // Version is stored as "==1.2.3"
+            let version = info
+                .version
+                .trim_start_matches(['=', '<', '>', '~'])
+                .to_string();
+            dependencies.push(
+                self.analyze_single_dependency(&name, &version, "pypi")
+                    .await?,
+            );
+        }
+
+        Ok(dependencies)
+    }
+
+    /// Parse go.mod
+    async fn parse_go_mod(&self, content: &str) -> IntelligenceResult<Vec<DependencyInfo>> {
+        let mut dependencies = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            // require github.com/foo/bar v1.2.3
+            if let Some(rest) = trimmed.strip_prefix("require ") {
+                let rest = rest.trim();
+                let parts: Vec<&str> = rest.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let name = parts[0];
+                    let version = parts[1].trim_start_matches('v');
+                    dependencies.push(self.analyze_single_dependency(name, version, "go").await?);
+                }
+            } else if trimmed == "require (" {
+                continue;
+            } else if trimmed.ends_with(')') && !trimmed.contains(' ') {
+                continue;
+            }
+        }
+
+        Ok(dependencies)
+    }
+
+    /// Parse package.json
+    async fn parse_package_json(&self, content: &str) -> IntelligenceResult<Vec<DependencyInfo>> {
+        #[derive(Deserialize)]
+        struct PackageJson {
+            #[serde(default)]
+            dependencies: HashMap<String, String>,
+            #[serde(default)]
+            devDependencies: HashMap<String, String>,
+        }
+
+        let package_json: PackageJson = serde_json::from_str(content)
+            .map_err(|e| IntelligenceError::Parse(format!("Invalid package.json: {}", e)))?;
+
+        let mut dependencies = Vec::new();
+        let mut all_deps = Vec::new();
+        all_deps.extend(package_json.dependencies);
+        all_deps.extend(package_json.devDependencies);
+
+        for (name, version_spec) in all_deps {
+            // Version specs may be ranges like "^4.18.2" or "~2.0.1"
+            let version = version_spec
+                .trim_start_matches(['^', '~', '>', '=', '<', 'v', ' '])
+                .to_string();
+            dependencies.push(
+                self.analyze_single_dependency(&name, &version, "npm")
+                    .await?,
+            );
+        }
+
+        Ok(dependencies)
+    }
+
+    /// Parse Maven pom.xml
+    async fn parse_maven_pom(&self, content: &str) -> IntelligenceResult<Vec<DependencyInfo>> {
+        let mut dependencies = Vec::new();
+
+        // Simple block-based parsing of <dependency>...</dependency> sections
+        for block in content.split("<dependency>").skip(1) {
+            if let Some(end) = block.find("</dependency>") {
+                let block = &block[..end];
+
+                let extract_tag = |tag: &str, text: &str| -> Option<String> {
+                    let open = format!("<{}>", tag);
+                    let close = format!("</{}>", tag);
+                    let start_idx = text.find(&open)? + open.len();
+                    let end_idx = text[start_idx..].find(&close)? + start_idx;
+                    Some(text[start_idx..end_idx].trim().to_string())
+                };
+
+                let group_id = extract_tag("groupId", block);
+                let artifact_id = extract_tag("artifactId", block);
+                let version = extract_tag("version", block);
+
+                if let (Some(group_id), Some(artifact_id)) = (group_id, artifact_id) {
+                    let name = format!("{}:{}", group_id, artifact_id);
+                    if let Some(version) = version {
+                        dependencies.push(
+                            self.analyze_single_dependency(&name, &version, "maven")
+                                .await?,
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(dependencies)
+    }
+
+    /// Parse build.gradle
+    async fn parse_gradle_build(&self, content: &str) -> IntelligenceResult<Vec<DependencyInfo>> {
+        let mut dependencies = Vec::new();
+
+        // Match lines like: implementation 'group:name:version'
+        // or implementation group: 'g', name: 'n', version: 'v'
+        let single_line_re = regex::Regex::new(
+            r#"(?:implementation|api|compile|runtimeOnly|testImplementation)\s+[\'"]([^:\'\"]+):([^:\'\"]+):([^:\'\"]+)[\'"]"#,
+        )
+        .unwrap();
+        let map_line_re = regex::Regex::new(
+            r#"group:\s*[\'"]([^\'"]+)[\'"],\s*name:\s*[\'"]([^\'"]+)[\'"],\s*version:\s*[\'"]([^\'"]+)[\'"]"#,
+        )
+        .unwrap();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            let mut matched = false;
+            for caps in single_line_re.captures_iter(trimmed) {
+                let name = format!("{}:{}", &caps[1], &caps[2]);
+                let version = caps[3].to_string();
+                dependencies.push(
+                    self.analyze_single_dependency(&name, &version, "maven")
+                        .await?,
+                );
+                matched = true;
+            }
+
+            if !matched {
+                for caps in map_line_re.captures_iter(trimmed) {
+                    let name = format!("{}:{}", &caps[1], &caps[2]);
+                    let version = caps[3].to_string();
+                    dependencies.push(
+                        self.analyze_single_dependency(&name, &version, "maven")
+                            .await?,
+                    );
+                }
+            }
+        }
+
+        Ok(dependencies)
+    }
+
     /// Analyze a single dependency
     async fn analyze_single_dependency(
         &self,
@@ -381,7 +658,7 @@ impl DependencyAnalyzer {
 
             // Check cache first
             let cached_vulns = if let Some(db) = &self.vulnerability_db {
-                db.get_vulnerabilities(&vuln_key).cloned()
+                db.read().unwrap().get_vulnerabilities(&vuln_key).cloned()
             } else {
                 None
             };
@@ -405,8 +682,10 @@ impl DependencyAnalyzer {
                 }
 
                 // Cache the results
-                if let Some(db) = &mut self.vulnerability_db {
-                    db.add_vulnerabilities(vuln_key, vulns.clone());
+                if let Some(db) = &self.vulnerability_db {
+                    db.write()
+                        .unwrap()
+                        .add_vulnerabilities(vuln_key, vulns.clone());
                 }
 
                 vulns
@@ -613,7 +892,7 @@ impl RegistryClient for MockRegistryClient {
                             Version::parse(start),
                             Version::parse(end),
                         ) {
-                            if ver >= *start_ver && ver < *end_ver {
+                            if ver >= start_ver && ver < end_ver {
                                 applicable_vulns.push(vuln.clone());
                                 break;
                             }

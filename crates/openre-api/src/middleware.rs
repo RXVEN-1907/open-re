@@ -18,7 +18,7 @@ use tower_http::{
     compression::CompressionLayer, cors::CorsLayer, limit::RequestBodyLimitLayer,
     timeout::TimeoutLayer, trace::TraceLayer,
 };
-use tracing::{error, info, warn, Span};
+use tracing::{error, info, warn, Instrument, Span};
 use uuid::Uuid;
 
 /// Request ID middleware
@@ -123,11 +123,8 @@ pub async fn rate_limit(
 ) -> Result<Response, ApiError> {
     let limiter = &state.rate_limiter;
 
-    // Get client identifier (IP or user ID)
-    let client_id = get_client_id(&request);
-
-    // Check rate limit
-    if limiter.check_key(&client_id).is_err() {
+    // Check rate limit (direct limiter, per-process)
+    if limiter.check().is_err() {
         return Err(ApiError::RateLimited("Rate limit exceeded".into()));
     }
 
@@ -157,10 +154,11 @@ pub async fn validation(
     next: Next,
 ) -> Result<Response, ApiError> {
     // Validate content type for mutating requests
-    if matches!(
-        request.method(),
-        axum::http::Method::POST | axum::http::Method::PUT | axum::http::Method::PATCH
-    ) {
+    let method = request.method();
+    if method == axum::http::Method::POST
+        || method == axum::http::Method::PUT
+        || method == axum::http::Method::PATCH
+    {
         let content_type = request
             .headers()
             .get("content-type")
@@ -229,10 +227,6 @@ pub fn cors_layer() -> CorsLayer {
 /// Compression middleware
 pub fn compression_layer() -> CompressionLayer {
     CompressionLayer::new()
-        .gzip(true)
-        .br(true)
-        .deflate(true)
-        .zstd(true)
 }
 
 /// Request body limit middleware
@@ -245,30 +239,11 @@ pub fn timeout_layer(timeout: Duration) -> TimeoutLayer {
     TimeoutLayer::new(timeout)
 }
 
-/// Create the full middleware stack
-pub fn middleware_stack(
-    state: Arc<AppState>,
-) -> ServiceBuilder<
-    tower::layer::util::Stack<
-        TraceLayer<
-            tower_http::classify::SharedClassifier<tower_http::classify::ServerErrorsAsFailures>,
-        >,
-        tower::layer::util::Stack<
-            CompressionLayer,
-            tower::layer::util::Stack<
-                RequestBodyLimitLayer,
-                tower::layer::util::Stack<
-                    TimeoutLayer,
-                    tower::layer::util::Stack<CorsLayer, tower::layer::util::Identity>,
-                >,
-            >,
-        >,
-    >,
-> {
-    ServiceBuilder::new()
+/// Create the full middleware stack applied to a router
+pub fn apply_middleware_stack(router: axum::Router) -> axum::Router {
+    router
         .layer(TraceLayer::new_for_http())
         .layer(compression_layer())
-        .layer(body_limit_layer(50 * 1024 * 1024)) // 50MB
         .layer(timeout_layer(Duration::from_secs(30)))
-        .layer(cors_layer())
+        .layer(body_limit_layer(50 * 1024 * 1024))
 }

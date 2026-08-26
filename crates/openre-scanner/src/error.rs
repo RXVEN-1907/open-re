@@ -1,6 +1,6 @@
 //! Error types for the scanning engine
 
-use openre_core::error::OpenreError;
+use openre_core::Error;
 use thiserror::Error;
 
 /// Result type for scanner operations
@@ -55,10 +55,10 @@ pub enum ScannerError {
     Context(String),
 
     #[error("Storage error: {0}")]
-    Storage(#[from] openre_core::error::OpenreError),
+    Storage(#[from] openre_core::Error),
 
     #[error("Queue error: {0}")]
-    Queue(#[from] openre_core::error::OpenreError),
+    Queue(String),
 
     #[error("Configuration error: {0}")]
     Config(String),
@@ -98,10 +98,19 @@ pub enum ScannerError {
 
     #[error("Validation error: {0}")]
     Validation(#[from] validator::ValidationErrors),
-}
 
-impl From<OpenreError> for ScannerError {
-    fn from(err: OpenreError) -> Self {
-        ScannerError::Storage(err)
-    }
+    #[error("HTTP client error: {0}")]
+    Reqwest(#[from] reqwest::Error),
+
+    #[error("TOML parse error: {0}")]
+    TomlParse(#[from] toml::de::Error),
+
+    #[error("Date parse error: {0}")]
+    DateParse(#[from] chrono::ParseError),
+
+    #[error("UUID parse error: {0}")]
+    UuidParse(#[from] uuid::Error),
+
+    #[error("YAML serialization error: {0}")]
+    Yaml(#[from] serde_yaml::Error),
 }

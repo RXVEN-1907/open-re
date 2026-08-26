@@ -191,7 +191,7 @@ mod tests {
     #[tokio::test]
     async fn test_lifecycle_manager() {
         let manager = LifecycleManager::new();
-        let plugin_id = PluginId::from_string("test-plugin").unwrap();
+        let plugin_id = PluginId::new();
 
         // Initial state should be None
         assert_eq!(manager.get_state(&plugin_id).await, None);

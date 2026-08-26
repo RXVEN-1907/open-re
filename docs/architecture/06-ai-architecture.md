@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI system is designed as a **provider-agnostic abstraction layer** that supports local-first inference with optional remote fallback. The architecture ensures the rest of the application never depends directly on a specific model or provider, enabling seamless switching between local models (ONNX, llama.cpp), remote APIs (OpenAI, vLLM, custom), and future providers.
+The AI system is designed as a **provider-agnostic abstraction layer** that supports local-first inference with optional remote fallback. The architecture ensures the REST of the application never depends directly on a specific model or provider, enabling seamless switching between local models (ONNX, llama.cpp), remote APIs (OpenAI, vLLM, custom), and future providers.
 
 ---
 
@@ -28,7 +28,7 @@ graph TB
     
     subgraph "Provider Layer"
         LR[Local Runtime<br/>ONNX / llama.cpp]
-        RR[Remote Gateway<br/>OpenAI, vLLM, Custom]
+        rr[Remote Gateway<br/>OpenAI, vLLM, Custom]
         MR[Model Registry<br/>Versioning, Signing]
     end
     
@@ -47,13 +47,13 @@ graph TB
     AIS --> MC
     SA --> AIS
     SA --> LR
-    SA --> RR
+    SA --> rr
     AIS --> LR
-    AIS --> RR
+    AIS --> rr
     LR --> MR
-    RR --> MR
+    rr --> MR
     LR --> MS
-    RR --> MR2
+    rr --> MR2
     MC --> MS
 ```
 
@@ -98,7 +98,7 @@ pub struct FunctionContext {
     pub function_id: FunctionId,
     pub assembly: String,           // Disassembly (linear or graph)
     pub pseudocode: Option<String>, // Decompiler output if available
-    pub cfg: ControlFlowGraph,      // CFG structure
+    pub CFG: ControlFlowGraph,      // CFG structure
     pub calls: Vec<CallInfo>,       // Called functions
     pub strings: Vec<StringRef>,    // Referenced strings
     pub constants: Vec<Constant>,   // Numeric constants
@@ -184,7 +184,7 @@ pub enum ModelSource {
 ### Local Provider (ONNX Runtime)
 
 ```rust
-// crates/openre-ai/src/providers/local/onnx.rs
+// crates/openre-ai/src/providers/local/ONNX.rs
 pub struct OnnxProvider {
     session_cache: Arc<DashMap<ModelId, OnnxSession>>,
     model_dir: PathBuf,
@@ -193,7 +193,7 @@ pub struct OnnxProvider {
 
 #[async_trait]
 impl ModelProvider for OnnxProvider {
-    fn id(&self) -> ProviderId { "onnx".into() }
+    fn id(&self) -> ProviderId { "ONNX".into() }
     fn name(&self) -> &str { "ONNX Runtime" }
     
     async fn is_available(&self) -> bool {
@@ -205,7 +205,7 @@ impl ModelProvider for OnnxProvider {
         let mut models = Vec::new();
         for entry in std::fs::read_dir(&self.model_dir)? {
             let entry = entry?;
-            if entry.path().extension().map_or(false, |e| e == "onnx") {
+            if entry.path().extension().map_or(false, |e| e == "ONNX") {
                 models.push(self.parse_model_info(&entry.path()).await?);
             }
         }
@@ -213,7 +213,7 @@ impl ModelProvider for OnnxProvider {
     }
     
     async fn load_model(&self, model_id: &ModelId) -> Result<ModelHandle, AiError> {
-        let path = self.model_dir.join(format!("{}.onnx", model_id));
+        let path = self.model_dir.join(format!("{}.ONNX", model_id));
         
         let session = OnnxSession::new(&path, &self.execution_providers)?;
         self.session_cache.insert(model_id.clone(), session);
@@ -317,7 +317,7 @@ impl ModelProvider for OpenAiProvider {
         let response = self.client.get(self.base_url.join("/models").unwrap())
             .bearer_auth(self.api_key.as_ref().unwrap())
             .send().await?
-            .json::<ModelsResponse>().await?;
+            .JSON::<ModelsResponse>().await?;
         
         Ok(response.data.into_iter().map(Into::into).collect())
     }
@@ -346,9 +346,9 @@ impl OpenAiModelHandle {
         
         let response = self.client.post(self.base_url.join("/chat/completions").unwrap())
             .bearer_auth(&self.api_key)
-            .json(&req)
+            .JSON(&req)
             .send().await?
-            .json().await?;
+            .JSON().await?;
         
         Ok(response)
     }
@@ -360,7 +360,7 @@ impl OpenAiModelHandle {
         
         let response = self.client.post(self.base_url.join("/chat/completions").unwrap())
             .bearer_auth(&self.api_key)
-            .json(&req)
+            .JSON(&req)
             .send().await?;
         
         Ok(response.bytes_stream().map(|chunk| parse_sse_chunk(chunk)))
@@ -436,10 +436,10 @@ impl PromptCompiler {
         }
         
         // CFG context
-        if let Some(cfg) = &context.cfg {
+        if let Some(CFG) = &context.CFG {
             parts.push(ContextPart {
                 role: "user",
-                content: self.format_cfg_context(cfg)?,
+                content: self.format_cfg_context(CFG)?,
                 priority: 80,
             });
         }
@@ -500,9 +500,9 @@ Decompilation:
 {{context.function.pseudocode}}
 {{/if}}
 
-{{#if context.cfg}}
+{{#if context.CFG}}
 Control Flow:
-{{context.cfg.summary}}
+{{context.CFG.summary}}
 {{/if}}
 
 Task: {{task_description}}
@@ -555,7 +555,7 @@ impl ContextAssembler {
             function_id,
             assembly: String::new(),
             pseudocode: None,
-            cfg: ControlFlowGraph::default(),
+            CFG: ControlFlowGraph::default(),
             calls: Vec::new(),
             strings: Vec::new(),
             constants: Vec::new(),
@@ -574,7 +574,7 @@ impl ContextAssembler {
         
         // CFG
         if options.include_cfg {
-            ctx.cfg = self.cfg_service.get_function_cfg(function_id).await?;
+            ctx.CFG = self.cfg_service.get_function_cfg(function_id).await?;
         }
         
         // Calls
@@ -606,7 +606,7 @@ impl ContextAssembler {
         let mut context = ChatContext {
             binary: None,
             function: None,
-            cfg: None,
+            CFG: None,
             types: None,
             history: request.history,
             available_tools: self.get_available_tools(&request).await?,
@@ -674,7 +674,7 @@ impl Tool for ReadBinaryTool {
         ToolDefinition {
             name: "read_binary".into(),
             description: "Read binary data at a specific offset".into(),
-            parameters: json!({
+            parameters: JSON!({
                 "type": "object",
                 "properties": {
                     "offset": { "type": "integer", "minimum": 0 },
@@ -682,7 +682,7 @@ impl Tool for ReadBinaryTool {
                 },
                 "required": ["offset", "length"]
             }),
-            returns: json!({
+            returns: JSON!({
                 "type": "object",
                 "properties": {
                     "data": { "type": "string", "format": "base64" },
@@ -700,7 +700,7 @@ impl Tool for ReadBinaryTool {
         
         Ok(ToolResult {
             success: true,
-            data: Some(json!({
+            data: Some(JSON!({
                 "data": base64::encode(data),
                 "offset": offset
             })),
@@ -924,7 +924,7 @@ impl AiService {
         let stream = self.wrap_with_tools(stream, req.tools).await?;
         
         Ok(StreamingResponse {
-            stream: Box::pin(stream),
+            stream: Box::Pin(stream),
             model_id: model.id(),
             usage: None,
         })
@@ -937,7 +937,7 @@ impl AiService {
     ) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk, AiError>> + Send>>, AiError> {
         // Buffer tool calls, execute them, inject results back into stream
         // Implementation uses a state machine to parse tool calls from token stream
-        Ok(Box::pin(ToolCallingStream::new(stream, self.tool_executor.clone(), tools)))
+        Ok(Box::Pin(ToolCallingStream::new(stream, self.tool_executor.clone(), tools)))
     }
 }
 ```
@@ -949,7 +949,7 @@ impl AiService {
 ### Quantization Strategy
 
 | Quantization | Size Reduction | Quality Loss | Use Case |
-|--------------|----------------|--------------|----------|
+| -------------- | ---------------- | -------------- | ---------- |
 | FP16 | 2x | Minimal | Default local |
 | INT8 | 4x | Low | Memory constrained |
 | INT4 | 8x | Moderate | Edge/low RAM |
@@ -958,7 +958,7 @@ impl AiService {
 ### Model Selection by Task
 
 | Task | Preferred Model | Context | Quantization |
-|------|-----------------|---------|--------------|
+| ------ | ----------------- | --------- | -------------- |
 | Function Classification | Small BERT/Classifier | 512 tokens | INT8 |
 | Naming/Typing | CodeBERT/StarCoder | 2048 tokens | INT4 |
 | Explanation | Llama-3-8B/Phi-3 | 4096 tokens | INT4 |
@@ -968,7 +968,7 @@ impl AiService {
 ### Performance Targets
 
 | Metric | Target | Strategy |
-|--------|--------|----------|
+| -------- | -------- | ---------- |
 | **Local Model Load** | <5s | Background pre-load, quantization |
 | **First Token Latency** | <500ms | KV-cache, speculative decoding |
 | **Token Throughput** | >20 tok/s | Quantization, batching, GPU offload |
@@ -1095,4 +1095,4 @@ pub async fn run_benchmarks(service: &AiService, dataset: &BenchmarkDataset) -> 
 
 ---
 
-*This AI architecture provides a flexible, privacy-first foundation that can evolve with the rapidly changing LLM landscape while maintaining strict isolation between the application and specific model providers.*
+_This AI architecture provides a flexible, privacy-first foundation that can evolve with the rapidly changing LLM landscape while maintaining strict isolation between the application and specific model providers._

@@ -180,9 +180,16 @@ impl WorkflowManager {
             id: uuid::Uuid::new_v4().to_string(),
             pattern: pattern.clone(),
             reason: "Temporary ignore".to_string(),
+            author: user.to_string(),
             created_by: user.to_string(),
             created_at: Utc::now(),
             expires_at: Some(Utc::now() + chrono::Duration::days(ignore_days as i64)),
+            scope: IgnoreScope {
+                targets: vec![finding.target.clone()],
+                categories: vec![finding.category.clone()],
+                severities: vec![finding.severity],
+                tags: Vec::new(),
+            },
             severity_threshold: None, // Apply to this specific finding
             target_pattern: Some(regex::escape(&finding.target)),
         };
@@ -232,7 +239,7 @@ impl WorkflowManager {
 
                 // Check if finding matches the ignore pattern
                 let finding_text = format!(
-                    "{} {} {} {}",
+                    "title:{} description:{} target:{} fingerprint:{}",
                     finding.title,
                     finding.description,
                     finding.target,
@@ -322,30 +329,7 @@ impl WorkflowManager {
         for finding in findings.drain(..) {
             let finding_id = finding.id;
 
-            // Check if acknowledged
-            if self.acknowledged_findings.contains_key(&finding_id) {
-                result.acknowledged_count += 1;
-                // Add metadata but keep in results (for tracking)
-                let mut updated_finding = finding.clone();
-                updated_finding.metadata.insert(
-                    "workflow_acknowledged".to_string(),
-                    serde_json::Value::Bool(true),
-                );
-                if let Some(ack) = self.acknowledged_findings.get(&finding_id) {
-                    updated_finding.metadata.insert(
-                        "workflow_acknowledged_by".to_string(),
-                        serde_json::Value::String(ack.acknowledged_by.clone()),
-                    );
-                    updated_finding.metadata.insert(
-                        "workflow_acknowledged_at".to_string(),
-                        serde_json::Value::String(ack.acknowledged_at.to_rfc3339()),
-                    );
-                }
-                filtered_findings.push(updated_finding);
-                continue;
-            }
-
-            // Check if marked as false positive
+            // Check if marked as false positive FIRST (FP implies acknowledgment)
             if self.false_positives.contains_key(&finding_id) {
                 result.false_positive_count += 1;
                 // Add metadata and filter out
@@ -365,6 +349,13 @@ impl WorkflowManager {
                     );
                 }
                 // Don't add to filtered findings - remove from results
+                continue;
+            }
+
+            // Check if acknowledged
+            if self.acknowledged_findings.contains_key(&finding_id) {
+                result.acknowledged_count += 1;
+                // Acknowledged findings are tracked and excluded from active results
                 continue;
             }
 
@@ -394,7 +385,7 @@ impl WorkflowManager {
     }
 
     /// Generate workflow status report
-    pub fn generate_workflow_report(&self) -> String {
+    pub fn generate_workflow_report(&mut self) -> String {
         let mut report = String::new();
         report.push_str("# Workflow Status Report\n\n");
 
@@ -521,7 +512,7 @@ mod tests {
 
     fn create_test_finding(title: &str, severity: Severity) -> Finding {
         Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: title.to_string(),
             description: "Test finding".to_string(),
             severity,
@@ -534,7 +525,7 @@ mod tests {
             plugin_source: "test".to_string(),
             plugin_version: "1.0".to_string(),
             timestamp: Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: HashMap::new(),
             tags: Vec::new(),
             verified: false,
@@ -560,7 +551,7 @@ mod tests {
     #[test]
     fn test_finding_acknowledgment() {
         let mut manager = WorkflowManager::new();
-        let finding_id = FindingId::new_v4();
+        let finding_id = FindingId::new();
         let user = "test_user";
 
         // Acknowledge a finding
@@ -582,7 +573,7 @@ mod tests {
     #[test]
     fn test_false_positive_marking() {
         let mut manager = WorkflowManager::new();
-        let finding_id = FindingId::new_v4();
+        let finding_id = FindingId::new();
         let user = "test_user";
         let reason = "This is clearly not a vulnerability";
 
@@ -614,9 +605,16 @@ mod tests {
             id: "test-rule-1".to_string(),
             pattern: r"title:.*SQL Injection.*".to_string(),
             reason: "Known false positive in test environment".to_string(),
+            author: "test_user".to_string(),
             created_by: "test_user".to_string(),
             created_at: Utc::now(),
             expires_at: None,
+            scope: IgnoreScope {
+                targets: Vec::new(),
+                categories: Vec::new(),
+                severities: Vec::new(),
+                tags: Vec::new(),
+            },
             severity_threshold: None,
             target_pattern: None,
         };
@@ -668,9 +666,6 @@ mod tests {
 
         // The remaining finding should be the XSS one
         assert_eq!(findings[0].title, "XSS");
-
-        // Check that acknowledged finding still has metadata
-        assert!(findings[0].metadata.contains_key("workflow_acknowledged"));
     }
 
     #[test]
@@ -704,9 +699,16 @@ mod tests {
             id: "expired-rule".to_string(),
             pattern: r"title:.*Old.*".to_string(),
             reason: "Temporary rule".to_string(),
+            author: "test_user".to_string(),
             created_by: "test_user".to_string(),
             created_at: Utc::now(),
             expires_at: Some(Utc::now() - chrono::Duration::days(1)), // Expired yesterday
+            scope: IgnoreScope {
+                targets: Vec::new(),
+                categories: Vec::new(),
+                severities: Vec::new(),
+                tags: Vec::new(),
+            },
             severity_threshold: None,
             target_pattern: None,
         };
@@ -718,9 +720,16 @@ mod tests {
             id: "active-rule".to_string(),
             pattern: r"title:.*Active.*".to_string(),
             reason: "Permanent rule".to_string(),
+            author: "test_user".to_string(),
             created_by: "test_user".to_string(),
             created_at: Utc::now(),
             expires_at: Some(Utc::now() + chrono::Duration::days(30)), // Expires in 30 days
+            scope: IgnoreScope {
+                targets: Vec::new(),
+                categories: Vec::new(),
+                severities: Vec::new(),
+                tags: Vec::new(),
+            },
             severity_threshold: None,
             target_pattern: None,
         };

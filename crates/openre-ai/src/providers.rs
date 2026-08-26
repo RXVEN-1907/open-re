@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 // Optional providers - require additional dependencies
 // pub mod onnx;
@@ -28,7 +29,7 @@ pub trait ModelProvider: Send + Sync {
 
 /// Provider registry
 pub struct ProviderRegistry {
-    providers: HashMap<ProviderId, Box<dyn ModelProvider>>,
+    providers: HashMap<ProviderId, Arc<dyn ModelProvider>>,
 }
 
 impl ProviderRegistry {
@@ -40,11 +41,15 @@ impl ProviderRegistry {
 
     pub fn register(&mut self, provider: Box<dyn ModelProvider>) {
         let id = provider.id();
-        self.providers.insert(id, provider);
+        self.providers.insert(id, Arc::from(provider));
     }
 
     pub fn get(&self, id: &ProviderId) -> Option<&dyn ModelProvider> {
         self.providers.get(id).map(|p| p.as_ref())
+    }
+
+    pub fn get_arc(&self, id: &ProviderId) -> Option<Arc<dyn ModelProvider>> {
+        self.providers.get(id).cloned()
     }
 
     pub fn all(&self) -> Vec<&dyn ModelProvider> {

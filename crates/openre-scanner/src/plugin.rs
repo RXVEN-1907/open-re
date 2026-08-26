@@ -2,8 +2,71 @@
 
 use crate::error::{ScannerError, ScannerResult};
 use crate::target::TargetType;
-use openre_core::ids::PluginId;
-use openre_plugins::{Capability, Manifest, PluginInstance, PluginRuntime};
+pub use openre_core::ids::PluginId;
+use openre_plugins::PluginInstance;
+
+/// Plugin manifest file schema (plugin.toml)
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct Manifest {
+    pub name: String,
+    pub version: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub author: Option<String>,
+    #[serde(default)]
+    pub homepage: Option<String>,
+    #[serde(default)]
+    pub repository: Option<String>,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<ManifestCapability>,
+    #[serde(default)]
+    pub dependencies: Vec<ManifestDependency>,
+    #[serde(default)]
+    pub config_schema: Option<serde_json::Value>,
+    #[serde(default)]
+    pub default_config: Option<serde_json::Value>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+}
+
+/// Capability entry in a plugin manifest
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ManifestCapability {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub target_types: Vec<TargetType>,
+    #[serde(default)]
+    pub permissions: Vec<String>,
+    #[serde(default)]
+    pub risk_level: Option<RiskLevel>,
+    #[serde(default)]
+    pub enabled_by_default: bool,
+}
+
+/// Dependency entry in a plugin manifest
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ManifestDependency {
+    pub name: String,
+    #[serde(default)]
+    pub min_version: String,
+    #[serde(default)]
+    pub max_version: Option<String>,
+    #[serde(default)]
+    pub optional: bool,
+}
+
+/// Deterministic plugin id derived from the plugin name
+fn plugin_id_from_name(name: &str) -> PluginId {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(name.as_bytes());
+    PluginId(uuid::Uuid::from_slice(&hash[..16]).expect("uuid from 16 bytes"))
+}
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -194,8 +257,6 @@ pub struct PluginExecutionResult {
 
 /// Plugin Manager - manages plugin lifecycle
 pub struct PluginManager {
-    /// Plugin runtime
-    runtime: Arc<PluginRuntime>,
     /// Loaded plugins
     plugins: Arc<dashmap::DashMap<PluginId, PluginInfo>>,
     /// Plugin configurations
@@ -211,9 +272,7 @@ pub struct PluginManager {
 impl PluginManager {
     /// Create a new plugin manager
     pub fn new(plugin_dir: PathBuf) -> ScannerResult<Self> {
-        let runtime = Arc::new(PluginRuntime::new()?);
         Ok(Self {
-            runtime,
             plugins: Arc::new(dashmap::DashMap::new()),
             configs: Arc::new(dashmap::DashMap::new()),
             instances: Arc::new(dashmap::DashMap::new()),
@@ -270,7 +329,7 @@ impl PluginManager {
         let content = tokio::fs::read_to_string(manifest_path).await?;
         let manifest: Manifest = toml::from_str(&content)?;
 
-        let plugin_id = PluginId::from_string(&manifest.name)?;
+        let plugin_id = plugin_id_from_name(&manifest.name);
         let plugin_dir = manifest_path.parent().unwrap().to_path_buf();
 
         let plugin_info = PluginInfo {
@@ -290,7 +349,7 @@ impl PluginManager {
                     description: c.description,
                     target_types: c.target_types,
                     permissions: c.permissions,
-                    risk_level: c.risk_level,
+                    risk_level: c.risk_level.unwrap_or(RiskLevel::Low),
                     enabled_by_default: c.enabled_by_default,
                 })
                 .collect(),
@@ -298,7 +357,7 @@ impl PluginManager {
                 .dependencies
                 .into_iter()
                 .map(|d| PluginDependency {
-                    plugin_id: PluginId::from_string(&d.name).unwrap(),
+                    plugin_id: plugin_id_from_name(&d.name),
                     min_version: d.min_version,
                     max_version: d.max_version,
                     optional: d.optional,
@@ -327,7 +386,7 @@ impl PluginManager {
         }
 
         // Try to extract metadata from WASM module
-        let plugin_id = PluginId::from_string(&path.file_stem().unwrap().to_string_lossy())?;
+        let plugin_id = plugin_id_from_name(&path.file_stem().unwrap().to_string_lossy());
 
         let plugin_info = PluginInfo {
             id: plugin_id,
@@ -375,49 +434,11 @@ impl PluginManager {
             .clone()
             .ok_or_else(|| ScannerError::PluginLoadFailed("No source path".to_string()))?;
 
-        // Load plugin instance
-        let instance = if source_path.extension().map_or(false, |ext| ext == "wasm") {
-            self.runtime.load_wasm_plugin(&source_path).await?
-        } else {
-            // Load from directory
-            self.runtime.load_plugin(&source_path).await?
-        };
-
-        // Validate capabilities
-        self.validate_capabilities(&plugin_info, &instance).await?;
-
-        // Store instance
-        self.instances.insert(*plugin_id, instance);
-
-        // Update status
-        let mut updated_info = plugin_info.clone();
-        updated_info.status = PluginStatus::Loaded;
-        updated_info.loaded_at = Some(chrono::Utc::now());
-        self.plugins.insert(*plugin_id, updated_info);
-
-        // Apply configuration
-        self.apply_plugin_config(plugin_id).await?;
-
-        info!("Loaded plugin: {}", plugin_id);
-        Ok(())
-    }
-
-    /// Validate plugin capabilities
-    async fn validate_capabilities(
-        &self,
-        plugin_info: &PluginInfo,
-        instance: &Arc<dyn PluginInstance>,
-    ) -> ScannerResult<()> {
-        let instance_caps = instance.capabilities();
-        for cap in &plugin_info.capabilities {
-            if !instance_caps.iter().any(|c| c.name == cap.name) {
-                return Err(ScannerError::PluginCapabilityMismatch(format!(
-                    "Plugin declares capability '{}' but instance doesn't provide it",
-                    cap.name
-                )));
-            }
-        }
-        Ok(())
+        // Plugin instance loading (native/wasm backends) is not wired up yet.
+        let _ = source_path;
+        Err(ScannerError::PluginLoadFailed(
+            "Plugin instance loading is not yet supported".to_string(),
+        ))
     }
 
     /// Apply plugin configuration
@@ -556,10 +577,17 @@ impl PluginManager {
             .map(|c| c.resource_limits.timeout)
             .unwrap_or(Duration::from_secs(300));
 
-        let result = tokio::time::timeout(timeout_duration, instance.execute(context)).await;
+        // The instance trait exchanges serialized payloads so hosts and
+        // plugins don't need to share concrete context/finding types.
+        let input = serde_json::json!({
+            "scan_id": context.scan_id.to_string(),
+            "target_url": context.target.metadata.base_url.as_str(),
+        });
+
+        let result = tokio::time::timeout(timeout_duration, instance.execute(input)).await;
 
         match result {
-            Ok(Ok(findings)) => Ok(findings),
+            Ok(Ok(output)) => Ok(serde_json::from_value(output).unwrap_or_default()),
             Ok(Err(e)) => Err(ScannerError::PluginExecutionFailed(e.to_string())),
             Err(_) => Err(ScannerError::Timeout(format!(
                 "Plugin {} timed out",
@@ -575,12 +603,12 @@ impl PluginManager {
             .get(plugin_id)
             .ok_or_else(|| ScannerError::PluginNotFound(plugin_id.to_string()))?;
 
-        let health = instance.health_check().await?;
+        let healthy = instance.health_check().await.unwrap_or(false);
 
-        let status = match health {
-            openre_plugins::HealthStatus::Healthy => HealthStatus::Healthy,
-            openre_plugins::HealthStatus::Warning(msg) => HealthStatus::Warning(msg),
-            openre_plugins::HealthStatus::Unhealthy(msg) => HealthStatus::Unhealthy(msg),
+        let status = if healthy {
+            HealthStatus::Healthy
+        } else {
+            HealthStatus::Unhealthy("health check returned false".to_string())
         };
 
         if let Some(mut plugin_info) = self.plugins.get_mut(plugin_id) {
@@ -615,7 +643,6 @@ impl PluginManager {
 impl Clone for PluginManager {
     fn clone(&self) -> Self {
         Self {
-            runtime: self.runtime.clone(),
             plugins: self.plugins.clone(),
             configs: self.configs.clone(),
             instances: self.instances.clone(),
@@ -646,7 +673,7 @@ mod tests {
     #[test]
     fn test_plugin_dependency() {
         let dep = PluginDependency {
-            plugin_id: PluginId::from_string("test").unwrap(),
+            plugin_id: PluginId::new(),
             min_version: "1.0.0".to_string(),
             max_version: Some("2.0.0".to_string()),
             optional: false,

@@ -11,7 +11,7 @@ This document analyzes the market landscape for reverse engineering tools, ident
 ### 1.1 Total Addressable Market (TAM)
 
 | Segment | Est. Users | Avg. Spend/User/Year | Market Size |
-|---------|------------|---------------------|-------------|
+| --------- | ------------ | --------------------- | ------------- |
 | **Enterprise Security Teams** | 50,000 | $5,000 (IDA/BN licenses) | $250M |
 | **Government/Defense** | 20,000 | $10,000 (multi-seat, support) | $200M |
 | **Consultancies/MSSPs** | 30,000 | $3,000 | $90M |
@@ -23,12 +23,12 @@ This document analyzes the market landscape for reverse engineering tools, ident
 | **Malware Analysis Labs** | 15,000 | $5,000 | $75M |
 | **Total (Paid Tools)** | ~155,000 | ~$4,500 | **~$700M** |
 
-**Key Insight**: The *paid* market is ~$700M but the *user* market is 800K+. Most users cannot afford commercial tools.
+**Key Insight**: The _paid_ market is ~$700M but the _user_ market is 800K+. Most users cannot afford commercial tools.
 
 ### 1.2 Serviceable Addressable Market (SAM) for open-re
 
 | Segment | Users | Conversion Potential | SAM |
-|---------|-------|---------------------|-----|
+| --------- | ------- | --------------------- | ----- |
 | **Ghidra users wanting better UX** | 100,000 | 30% | 30,000 |
 | **Binary Ninja evaluators (price-sensitive)** | 10,000 | 50% | 5,000 |
 | **IDA users seeking alternatives** | 20,000 | 10% | 2,000 |
@@ -40,7 +40,7 @@ This document analyzes the market landscape for reverse engineering tools, ident
 ### 1.3 Serviceable Obtainable Market (SOM) - Year 1-2
 
 | Metric | Target |
-|--------|--------|
+| -------- | -------- |
 | **GitHub Stars** | 5,000 |
 | **Monthly Active Users** | 5,000 |
 | **Contributors** | 50 |
@@ -55,17 +55,18 @@ This document analyzes the market landscape for reverse engineering tools, ident
 ### 2.1 Primary Research (Simulated from Public Data)
 
 Based on analysis of:
-- GitHub issues/discussions for Ghidra, Binary Ninja, radare2
-- Reddit (r/ReverseEngineering, r/MalwareAnalysis, r/CTF)
-- Twitter/X security community
-- Conference talks (REcon, Black Hat, OffensiveCon)
-- Academic papers on RE tool usability
-- Tool surveys (e.g., "State of RE 2023" informal)
+
+-   GitHub issues/discussions for Ghidra, Binary Ninja, radare2
+-   Reddit (r/ReverseEngineering, r/MalwareAnalysis, r/CTF)
+-   Twitter/X security community
+-   Conference talks (REcon, Black Hat, OffensiveCon)
+-   Academic papers on RE tool usability
+-   Tool surveys (e.g., "State of RE 2023" informal)
 
 ### 2.2 Top Pain Points (Ranked by Frequency)
 
 | Rank | Pain Point | Frequency | Affected Tools |
-|------|------------|-----------|----------------|
+| ------ | ------------ | ----------- | ---------------- |
 | 1 | **Decompiler quality** | Very High | radare2, angr, JADX |
 | 2 | **UI/UX dated or clunky** | Very High | Ghidra, IDA, radare2 |
 | 3 | **Steep learning curve** | High | All |
@@ -81,15 +82,15 @@ Based on analysis of:
 
 ### 2.3 Unmet Needs (Voice of Customer)
 
-> "I want Ghidra's decompiler with Binary Ninja's UI and IDA's architecture support, for free, with AI that doesn't send my malware to the cloud." — *Senior Malware Analyst*
-
-> "Teaching RE with Ghidra is painful. Students spend weeks learning the UI, not the concepts." — *University Professor*
-
-> "I'd pay for Binary Ninja if it were $100/year, not $365. But I can't justify it for occasional use." — *CTF Player*
-
-> "Our team uses Ghidra shared projects but merge conflicts are a nightmare. Real-time collab would change everything." — *Security Team Lead*
-
-> "I need to analyze firmware for 5 architectures. IDA supports them but costs $15k. Ghidra supports 3. I'm stuck." — *IoT Security Researcher*
+> "I want Ghidra's decompiler with Binary Ninja's UI and IDA's architecture support, for free, with AI that doesn't send my malware to the cloud." — _Senior Malware Analyst_
+>
+> "Teaching RE with Ghidra is painful. Students spend weeks learning the UI, not the concepts." — _University Professor_
+>
+> "I'd pay for Binary Ninja if it were $100/year, not $365. But I can't justify it for occasional use." — _CTF Player_
+>
+> "Our team uses Ghidra shared projects but merge conflicts are a nightmare. Real-time collab would change everything." — _Security Team Lead_
+>
+> "I need to analyze firmware for 5 architectures. IDA supports them but costs $15k. Ghidra supports 3. I'm stuck." — _IoT Security Researcher_
 
 ---
 
@@ -98,7 +99,7 @@ Based on analysis of:
 ### 3.1 For Individual Users
 
 | Driver | Importance | Evidence |
-|--------|------------|----------|
+| -------- | ------------ | ---------- |
 | **Zero cost** | Critical | 70% of RE learners use only free tools |
 | **Decompiler quality** | Critical | #1 reason for tool choice |
 | **Learning curve** | High | Students abandon tools in <2 weeks |
@@ -109,7 +110,7 @@ Based on analysis of:
 ### 3.2 For Teams/Organizations
 
 | Driver | Importance | Evidence |
-|--------|------------|----------|
+| -------- | ------------ | ---------- |
 | **Collaboration** | Critical | Distributed teams standard |
 | **Reproducibility** | High | Compliance, audit requirements |
 | **Integration (CI/CD)** | High | DevSecOps adoption |
@@ -120,7 +121,7 @@ Based on analysis of:
 ### 3.3 For Educators
 
 | Driver | Importance | Evidence |
-|--------|------------|----------|
+| -------- | ------------ | ---------- |
 | **Free for students** | Critical | Budget constraints |
 | **Teaching materials** | High | Lack of curriculum-ready content |
 | **Assignment automation** | Medium | Grading at scale |
@@ -133,7 +134,7 @@ Based on analysis of:
 ### 4.1 Market Trends
 
 | Trend | Direction | Impact on open-re |
-|-------|-----------|-------------------|
+| ------- | ----------- | ------------------- |
 | **AI in dev tools** | Accelerating | Must be AI-native |
 | **Open source adoption** | Growing | Favorable for MIT license |
 | **Remote/distributed teams** | Permanent | Collaboration essential |
@@ -146,7 +147,7 @@ Based on analysis of:
 ### 4.2 Incumbent Responses
 
 | Incumbent | Likely Response | Timeline | open-re Counter |
-|-----------|----------------|----------|-----------------|
+| ----------- | ---------------- | ---------- | ----------------- |
 | **Ghidra** | Add AI plugins, improve UI | 1-2 years | Better UX, local AI, modern stack |
 | **Binary Ninja** | Lower price tier, add AI | 1 year | Free, open, better collaboration |
 | **IDA** | IDA Teams push, cloud | 2+ years | Not competing on enterprise |
@@ -155,7 +156,7 @@ Based on analysis of:
 ### 4.3 New Entrants
 
 | Type | Examples | Threat Level |
-|------|----------|--------------|
+| ------ | ---------- | -------------- |
 | **AI-first RE startups** | Stealth, academic spinouts | Medium |
 | **Cloud RE platforms** | Binary analysis as a service | Low (privacy) |
 | **IDE extensions** | VS Code RE plugins | Low (depth) |
@@ -167,7 +168,7 @@ Based on analysis of:
 ### 5.1 open-re Model: **Open Core + Services**
 
 | Tier | Price | Features |
-|------|-------|----------|
+| ------ | ------- | ---------- |
 | **Community** | Free (MIT) | Full platform, all features, local AI |
 | **Cloud** | $20/user/mo | Hosted collaboration, web viewer, managed updates |
 | **Enterprise** | Custom | Air-gapped, SSO, RBAC, support SLA, training |
@@ -175,10 +176,10 @@ Based on analysis of:
 
 ### 5.2 Sustainability
 
-- **Foundation**: Non-profit holds IP, trademark
-- **Sponsors**: GitHub Sponsors, OpenSSF, corporate backers
-- **Services**: Training, consulting, hosted cloud (opt-in)
-- **No VC**: Avoids exit pressure, keeps mission alignment
+-   **Foundation**: Non-profit holds IP, trademark
+-   **Sponsors**: GitHub Sponsors, OpenSSF, corporate backers
+-   **Services**: Training, consulting, hosted cloud (opt-in)
+-   **No VC**: Avoids exit pressure, keeps mission alignment
 
 ---
 
@@ -187,7 +188,7 @@ Based on analysis of:
 ### 6.1 Phase 0-1: Build Credibility (Months 0-12)
 
 | Channel | Tactics | Metrics |
-|---------|---------|---------|
+| --------- | --------- | --------- |
 | **GitHub** | Stars, contributors, discourse | 5K stars, 50 contributors |
 | **Technical Content** | Blog posts, conference talks | 10 posts, 3 talks |
 | **Academic** | Course materials, student projects | 5 adoptions |
@@ -196,7 +197,7 @@ Based on analysis of:
 ### 6.2 Phase 2: Adoption (Months 12-24)
 
 | Channel | Tactics | Metrics |
-|---------|---------|---------|
+| --------- | --------- | --------- |
 | **Plugin Ecosystem** | Plugin contests, bounties | 50 plugins |
 | **Integrations** | CI/CD, threat intel, SIEM | 10 integrations |
 | **Enterprise Pilots** | 10 design partners | 3 paid pilots |
@@ -205,7 +206,7 @@ Based on analysis of:
 ### 6.3 Phase 3: Scale (Months 24-36)
 
 | Channel | Tactics | Metrics |
-|---------|---------|---------|
+| --------- | --------- | --------- |
 | **Cloud Launch** | Hosted collaboration | 1K paid seats |
 | **Marketplace** | Plugin/extension store | 200 plugins |
 | **Partnerships** | Tool vendors, cloud providers | 5 strategic |
@@ -218,7 +219,7 @@ Based on analysis of:
 ### 7.1 Market Risks
 
 | Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
+| ------ | ------------- | -------- | ------------ |
 | **Incumbents copy AI features** | High | Medium | Speed, UX, local-first moat |
 | **Funding gap** | Medium | High | Foundation model, low burn |
 | **Talent acquisition** | Medium | High | Remote-first, mission-driven |
@@ -228,7 +229,7 @@ Based on analysis of:
 ### 7.2 Technical Risks
 
 | Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
+| ------ | ------------- | -------- | ------------ |
 | **Decompiler quality gap** | Medium | Critical | Invest early, hire experts |
 | **Architecture coverage** | Medium | High | SLEIGH-like spec, community |
 | **AI model quality** | Medium | High | Curated training data, feedback |
@@ -242,7 +243,7 @@ Based on analysis of:
 ### 8.1 Phase 0-1 (Research → MVP)
 
 | Metric | Target | Measurement |
-|--------|--------|-------------|
+| -------- | -------- | ------------- |
 | **Documentation completeness** | 100% of planned docs | GitHub repo |
 | **Architecture decisions recorded** | 20 ADRs | /docs/adr/ |
 | **Contributor onboarding time** | <2 hours | Survey |
@@ -251,7 +252,7 @@ Based on analysis of:
 ### 8.2 Phase 1 (MVP)
 
 | Metric | Target | Measurement |
-|--------|--------|-------------|
+| -------- | -------- | ------------- |
 | **Time to first analysis** | <5 min | User testing |
 | **Decompiler correctness** | 90% functions compilable | Test corpus |
 | **Plugin "hello world"** | <50 lines | Example plugin |
@@ -261,7 +262,7 @@ Based on analysis of:
 ### 8.3 Phase 2 (Growth)
 
 | Metric | Target | Measurement |
-|--------|--------|-------------|
+| -------- | -------- | ------------- |
 | **MAU** | 10,000 | Telemetry (opt-in) |
 | **Plugin count** | 50 | Registry |
 | **Contributors** | 100 | GitHub |
@@ -274,14 +275,14 @@ Based on analysis of:
 
 The reverse engineering tool market is **ripe for disruption**:
 
-1. **Incumbents are vulnerable**: Dated UX, closed models, bolted-on AI
-2. **Users are underserved**: Free tools lack polish; paid tools lack accessibility
-3. **AI is a paradigm shift**: First AI-native tool wins mindshare
-4. **Open source wins trust**: Security tools require transparency
-5. **Community creates moat**: Plugin ecosystem = defensibility
+1.  **Incumbents are vulnerable**: Dated UX, closed models, bolted-on AI
+2.  **Users are underserved**: Free tools lack polish; paid tools lack accessibility
+3.  **AI is a paradigm shift**: First AI-native tool wins mindshare
+4.  **Open source wins trust**: Security tools require transparency
+5.  **Community creates moat**: Plugin ecosystem = defensibility
 
 **open-re's window**: 18-24 months before incumbents respond meaningfully. Execution speed on UX + AI + collaboration determines outcome.
 
 ---
 
-*This research informs ProductRequirements.md, FeatureBrainstorm.md, and Roadmap.md. Update quarterly.*
+_This research informs ProductRequirements.md, FeatureBrainstorm.md, and Roadmap.md. Update quarterly._

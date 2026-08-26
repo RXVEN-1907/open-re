@@ -9,6 +9,28 @@ use openre_plugins::security::{
 };
 use std::collections::HashMap;
 
+#[allow(dead_code)]
+fn make_finding(
+    title: String,
+    description: String,
+    severity: Severity,
+    confidence: Confidence,
+    category: Category,
+) -> openre_core::result::Finding {
+    openre_core::result::Finding::new(openre_core::result::FindingConfig {
+        title,
+        description,
+        severity,
+        confidence,
+        category,
+        target: "https://example.com".to_string(),
+        target_type: "web_application".to_string(),
+        plugin_source: "test_plugin".to_string(),
+        plugin_version: "1.0.0".to_string(),
+        scan_id: openre_core::ids::ScanId::new(),
+    })
+}
+
 #[test]
 fn test_security_plugin_config_default() {
     let config = SecurityPluginConfig::default();
@@ -227,17 +249,12 @@ fn test_http_response_structure() {
 
 #[test]
 fn test_finding_creation() {
-    let finding = openre_core::result::Finding::new(
+    let finding = make_finding(
         "Test Finding".to_string(),
         "Test Description".to_string(),
         Severity::High,
         Confidence::High,
         Category::BrokenAuthentication,
-        "https://example.com".to_string(),
-        "web_application".to_string(),
-        "test_plugin".to_string(),
-        "1.0.0".to_string(),
-        openre_core::ids::ScanId::new(),
     );
 
     assert_eq!(finding.title, "Test Finding");
@@ -250,17 +267,12 @@ fn test_finding_creation() {
 
 #[test]
 fn test_finding_with_evidence() {
-    let finding = openre_core::result::Finding::new(
+    let finding = make_finding(
         "Test Finding".to_string(),
         "Test Description".to_string(),
         Severity::High,
         Confidence::High,
         Category::BrokenAuthentication,
-        "https://example.com".to_string(),
-        "web_application".to_string(),
-        "test_plugin".to_string(),
-        "1.0.0".to_string(),
-        openre_core::ids::ScanId::new(),
     )
     .with_evidence(Evidence {
         evidence_type: EvidenceType::HttpResponse,
@@ -268,6 +280,13 @@ fn test_finding_with_evidence() {
         data: Some(serde_json::json!({"key": "value"})),
         location: Some("https://example.com".to_string()),
         metadata: HashMap::new(),
+        http_request: None,
+        http_response: None,
+        timing: None,
+        payload: None,
+        reproduction_steps: None,
+        plugin_source: None,
+        timestamp: chrono::Utc::now(),
     });
 
     assert_eq!(finding.evidence.len(), 1);
@@ -279,17 +298,12 @@ fn test_finding_with_evidence() {
 
 #[test]
 fn test_finding_with_reference() {
-    let finding = openre_core::result::Finding::new(
+    let finding = make_finding(
         "Test Finding".to_string(),
         "Test Description".to_string(),
         Severity::High,
         Confidence::High,
         Category::BrokenAuthentication,
-        "https://example.com".to_string(),
-        "web_application".to_string(),
-        "test_plugin".to_string(),
-        "1.0.0".to_string(),
-        openre_core::ids::ScanId::new(),
     )
     .with_reference(Reference {
         reference_type: ReferenceType::Cwe,
@@ -304,17 +318,12 @@ fn test_finding_with_reference() {
 
 #[test]
 fn test_finding_risk_score_calculation() {
-    let finding = openre_core::result::Finding::new(
+    let finding = make_finding(
         "Test Finding".to_string(),
         "Test Description".to_string(),
         Severity::Critical,
         Confidence::VeryHigh,
         Category::BrokenAuthentication,
-        "https://example.com".to_string(),
-        "web_application".to_string(),
-        "test_plugin".to_string(),
-        "1.0.0".to_string(),
-        openre_core::ids::ScanId::new(),
     );
 
     let score = finding.calculate_risk_score();

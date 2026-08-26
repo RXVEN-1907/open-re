@@ -136,7 +136,10 @@ impl SharedHttpClient {
         for (key, value) in &default_headers {
             builder = builder.default_headers({
                 let mut headers = reqwest::header::HeaderMap::new();
-                headers.insert(key.parse().unwrap(), value.parse().unwrap());
+                headers.insert(
+                    key.parse::<reqwest::header::HeaderName>().unwrap(),
+                    value.parse::<reqwest::header::HeaderValue>().unwrap(),
+                );
                 headers
             });
         }
@@ -452,8 +455,8 @@ pub struct ScanContext {
     pub cache: Arc<ScanCache>,
     /// Shared metadata
     pub metadata: Arc<RwLock<SharedMetadata>>,
-    /// Logger
-    pub logger: tracing::Logger,
+    /// Minimum log level for scan events
+    pub log_level: tracing::Level,
     /// Cancellation token
     pub cancellation_token: crate::scan::CancellationToken,
     /// Start time
@@ -477,7 +480,7 @@ impl ScanContext {
             auth_state,
             cache,
             metadata,
-            logger: tracing::Logger::root(),
+            log_level: tracing::Level::INFO,
             cancellation_token,
             start_time: std::time::Instant::now(),
         })
@@ -539,7 +542,13 @@ impl ScanContext {
 
     /// Log a message
     pub fn log(&self, level: tracing::Level, message: &str) {
-        tracing::event!(level, scan_id = %self.scan_id, "{}", message);
+        match level {
+            tracing::Level::ERROR => tracing::error!(scan_id = %self.scan_id, "{}", message),
+            tracing::Level::WARN => tracing::warn!(scan_id = %self.scan_id, "{}", message),
+            tracing::Level::INFO => tracing::info!(scan_id = %self.scan_id, "{}", message),
+            tracing::Level::DEBUG => tracing::debug!(scan_id = %self.scan_id, "{}", message),
+            tracing::Level::TRACE => tracing::trace!(scan_id = %self.scan_id, "{}", message),
+        }
     }
 }
 

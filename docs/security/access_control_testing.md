@@ -11,30 +11,39 @@ Detects indicators of Insecure Direct Object References (IDOR), missing authoriz
 ### Capabilities
 
 #### 1. IDOR Detection
+
 Tests for Insecure Direct Object References by:
-- Enumerating common resource patterns (`/api/users/{id}`, `/api/orders/{id}`, etc.)
-- Testing cross-user resource access with multiple authentication contexts
-- Verifying ownership checks on GET, PUT, PATCH, DELETE operations
+
+-   Enumerating common resource patterns (`/api/users/{id}`, `/api/orders/{id}`, etc.)
+-   Testing cross-user resource access with multiple authentication contexts
+-   Verifying ownership checks on GET, PUT, PATCH, DELETE operations
 
 #### 2. Missing Authorization Checks
+
 Tests for endpoints missing authentication/authorization:
-- Admin endpoints accessible without authentication
-- State-changing operations (POST, PUT, DELETE) without auth
-- Protected endpoints returning 200/400 instead of 401/403
+
+-   Admin endpoints accessible without authentication
+-   State-changing operations (POST, PUT, DELETE) without auth
+-   Protected endpoints returning 200/400 instead of 401/403
 
 #### 3. Privilege Boundary Validation
+
 Tests for privilege escalation:
-- Regular users accessing admin endpoints
-- Cross-user resource modification
-- Role-based access control bypasses
+
+-   Regular users accessing admin endpoints
+-   Cross-user resource modification
+-   Role-based access control bypasses
 
 #### 3. Information Disclosure Analysis
+
 Tests for excessive data exposure:
-- Large data dumps in API responses
-- Sensitive fields in responses (passwords, tokens, keys)
-- Debug information in production endpoints
+
+-   Large data dumps in API responses
+-   Sensitive fields in responses (passwords, tokens, keys)
+-   Debug information in production endpoints
 
 ### Configuration
+
 ```json
 {
   "request_timeout": 30,
@@ -49,6 +58,7 @@ Tests for excessive data exposure:
 ### Test Scenarios
 
 #### IDOR Testing
+
 ```
 Test Pattern: /api/users/{id}
 Methods: GET, PUT, PATCH, DELETE
@@ -58,6 +68,7 @@ Expected: User A cannot access User B's resources
 ```
 
 #### Missing Authorization
+
 ```
 Endpoints Tested:
 - /api/admin/* (GET)
@@ -71,6 +82,7 @@ Expected: 401/403 without auth, 403 with insufficient privileges
 ```
 
 #### Privilege Boundaries
+
 ```
 Test: Regular user accessing admin endpoints
 Context: User token (non-admin)
@@ -85,6 +97,7 @@ Expected: 403 Forbidden
 ```
 
 #### Information Disclosure
+
 ```
 Endpoints Tested:
 - /api/users?limit=1000
@@ -101,7 +114,7 @@ Checks:
 ### Findings
 
 | Finding | Severity | Confidence | Category |
-|---------|----------|------------|----------|
+| --------- | ---------- | ------------ | ---------- |
 | Potential IDOR - Cross-User Resource Access | High | Medium | BrokenAuthentication |
 | Missing Authorization Check | High | High | BrokenAuthentication |
 | Privilege Escalation - Regular User Accessing Admin Endpoint | Critical | High | BrokenAuthentication |
@@ -110,17 +123,21 @@ Checks:
 | Large Data Exposure | Medium | Low | InformationDisclosure |
 
 ### API Endpoints
-- `GET /api/security/access-control/findings` - List access control findings
-- `GET /api/security/access-control/findings/stats` - Access control statistics
+
+-   `GET /api/security/access-control/findings` - List access control findings
+-   `GET /api/security/access-control/findings/stats` - Access control statistics
 
 ### CLI Commands
+
 ```bash
 sentinel finding security access-control --scan-id <scan_id>
 sentinel finding security access-control-stats --scan-id <scan_id>
 ```
 
 ### Authentication Context
+
 The plugin requires authentication tokens for meaningful testing:
+
 ```json
 {
   "target_url": "https://api.example.com",
@@ -131,27 +148,31 @@ The plugin requires authentication tokens for meaningful testing:
 At minimum, two user tokens are needed for IDOR and privilege boundary testing. An admin token enables admin endpoint testing.
 
 ### Safe Testing Practices
-- Only reads resources (GET) and attempts modifications with safe payloads
-- Does not delete or permanently modify resources
-- Uses conservative rate limits
-- Respects scope enforcement
+
+-   Only reads resources (GET) and attempts modifications with safe payloads
+-   Does not delete or permanently modify resources
+-   Uses conservative rate limits
+-   Respects scope enforcement
 
 ### References
-- OWASP API Security Top 10 2023:
-  - API1:2023 - Broken Object Level Authorization
-  - API3:2023 - Broken Object Property Level Authorization
-  - API5:2023 - Broken Function Level Authorization
-- CWE-639: Authorization Bypass Through User-Controlled Key
-- CWE-284: Improper Access Control
-- OWASP Top 10 2021 - A01:2021 Broken Access Control
+
+-   OWASP API Security Top 10 2023:
+  -   API1:2023 - Broken Object Level Authorization
+  -   API3:2023 - Broken Object Property Level Authorization
+  -   API5:2023 - Broken Function Level Authorization
+-   CWE-639: Authorization Bypass Through User-Controlled Key
+-   CWE-284: Improper Access Control
+-   OWASP Top 10 2021 - A01:2021 Broken Access Control
 
 ### Testing Targets
-- Applications with user-owned resources (DVWA, bWAPP, custom apps)
-- APIs with admin panels
-- Multi-tenant applications
-- Applications with role-based access control
+
+-   Applications with user-owned resources (DVWA, bWAPP, custom apps)
+-   APIs with admin panels
+-   Multi-tenant applications
+-   Applications with role-based access control
 
 ### Integration
+
 ```json
 {
   "target_id": "target_123",
@@ -164,7 +185,9 @@ At minimum, two user tokens are needed for IDOR and privilege boundary testing. 
 ```
 
 ### Finding Correlation
+
 Access control findings can be correlated with:
-- Injection findings (IDOR + SQLi = data extraction)
-- Authentication findings (missing auth + IDOR = full bypass)
-- Rate limiting findings (no rate limit + IDOR = enumeration)
+
+-   Injection findings (IDOR + SQLi = data extraction)
+-   Authentication findings (missing auth + IDOR = full bypass)
+-   Rate limiting findings (no rate limit + IDOR = enumeration)

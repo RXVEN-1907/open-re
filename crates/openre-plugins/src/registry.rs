@@ -1,7 +1,7 @@
 //! Plugin registry for open-re
 
 use crate::{capability::*, manifest::*};
-use notify::Watcher;
+use notify::{RecommendedWatcher, Watcher};
 use openre_config::{PluginConfig as ConfigPluginConfig, RemoteRegistryConfig};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::{Capability, PluginId, PluginType};
@@ -17,7 +17,7 @@ pub struct PluginRegistry {
     config: ConfigPluginConfig,
     global_store: Arc<GlobalStore>,
     index: Arc<RwLock<PluginIndex>>,
-    local_watcher: Option<Box<dyn Watcher>>,
+    local_watcher: Option<RecommendedWatcher>,
 }
 
 #[derive(Debug, Default)]
@@ -160,7 +160,7 @@ impl PluginRegistry {
             }
         });
 
-        self.local_watcher = Some(Box::new(watcher));
+        self.local_watcher = Some(watcher);
         Ok(())
     }
 
@@ -365,7 +365,8 @@ impl PluginRegistry {
         .bind(metadata.installed_at)
         .bind(chrono::Utc::now())
         .execute(self.global_store.pool())
-        .await?;
+        .await
+        .map_err(|e| openre_core::Error::Database(e.to_string()))?;
 
         Ok(())
     }
@@ -375,7 +376,8 @@ impl PluginRegistry {
         sqlx::query("DELETE FROM plugins WHERE id = $1")
             .bind(plugin_id.as_uuid())
             .execute(self.global_store.pool())
-            .await?;
+            .await
+            .map_err(|e| openre_core::Error::Database(e.to_string()))?;
         Ok(())
     }
 

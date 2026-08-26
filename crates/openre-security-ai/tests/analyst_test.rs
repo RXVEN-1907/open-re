@@ -1,9 +1,11 @@
+mod mock_provider;
+
+use mock_provider::MockFindingProvider;
 use openre_core::ids::{FindingId, ScanId};
 use openre_core::result::{Category, Confidence, Finding, Severity};
 use openre_security_ai::{
     analyst::{SecurityAnalyst, SecurityAnalystImpl, SummaryAudience},
-    finding_provider::MockFindingProvider,
-    test_utils::ScanMetadata,
+    ScanMetadata,
 };
 use std::sync::Arc;
 

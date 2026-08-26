@@ -7,7 +7,7 @@ Phase 10 has been successfully completed. The openre-scan standalone security sc
 ## Release Gate Verification ✅
 
 | Criterion | Status | Evidence |
-|-----------|--------|----------|
+| ----------- | -------- | ---------- |
 | 1. Install the tool | ✅ | Single 7 MB binary, works in clean environment |
 | 2. Start the TUI | ⚠️ | Experimental TUI (feature-gated, not default) |
 | 3. Scan a controlled target | ✅ | Tested against local vulnerable server & example.com |
@@ -24,7 +24,7 @@ Phase 10 has been successfully completed. The openre-scan standalone security sc
 
 ```bash
 # Core scanning
-openre-scan scan <target> [--profile quick|standard|full] [--format table|json|sarif] [--output file]
+openre-scan scan <target> [--profile quick|standard|full] [--format table|JSON|sarif] [--output file]
 
 # Utility
 openre-scan version
@@ -34,17 +34,17 @@ openre-scan scan --help
 
 ## Supported Target Types
 
-- ✅ Web applications (HTTP/HTTPS)
-- ✅ REST APIs
-- ✅ Local development servers
-- ✅ Private network targets
-- ❌ Local software projects (source code scanning - planned for open-re platform)
-- ❌ Binary analysis (planned for open-re platform)
+-   ✅ Web applications (HTTP/HTTPS)
+-   ✅ REST APIs
+-   ✅ Local development servers
+-   ✅ Private network targets
+-   ❌ Local software projects (source code scanning - planned for open-re platform)
+-   ❌ Binary analysis (planned for open-re platform)
 
 ## Vulnerability Categories Implemented
 
 | Category | Checks | Examples |
-|----------|--------|----------|
+| ---------- | -------- | ---------- |
 | Security Misconfiguration | 9 | Missing security headers, open CORS, directory listing, HTTP methods |
 | Information Disclosure | 6 | Server version, debug headers, sensitive files, technology stack, robots.txt, sitemap |
 | Injection Risks | 2 | GET password forms, missing CSRF |
@@ -64,20 +64,20 @@ openre-scan scan --help
 
 ## Non-AI Capabilities (Complete)
 
-- Deterministic rule-based findings
-- Evidence collection (HTTP headers, body snippets, locations)
-- Severity assessment (Critical/High/Medium/Low/Info)
-- Confidence scoring (Very High/High/Medium/Low)
-- CVE information (via platform integration, not in standalone)
-- Rule-based remediation guidance with effort/priority
-- Multiple report formats (Table, JSON, SARIF)
-- Scan profiles (Quick/Standard/Full)
-- CI/CD integration via SARIF
+-   Deterministic rule-based findings
+-   Evidence collection (HTTP headers, body snippets, locations)
+-   Severity assessment (Critical/High/Medium/Low/Info)
+-   Confidence scoring (Very High/High/Medium/Low)
+-   CVE information (via platform integration, not in standalone)
+-   Rule-based remediation guidance with effort/priority
+-   Multiple report formats (Table, JSON, SARIF)
+-   Scan profiles (Quick/Standard/Full)
+-   CI/CD integration via SARIF
 
 ## Performance Benchmarks
 
 | Metric | Value |
-|--------|-------|
+| -------- | ------- |
 | Binary Size | 7.0 MB (release, stripped, static) |
 | Startup Time | ~45 ms cold start |
 | Memory Usage | 12-14 MB RSS during scan |
@@ -89,9 +89,9 @@ openre-scan scan --help
 ## Installation Experience
 
 | Scenario | Status | Notes |
-|----------|--------|-------|
+| ---------- | -------- | ------- |
 | Clean installation | ✅ | Single binary copy, no deps |
-| Minimal installation | ✅ | `cargo build --release -p openre-scan --no-default-features` |
+| Minimal installation | ✅ | `Cargo build --release -p openre-scan --no-default-features` |
 | Missing optional deps | ✅ | TUI is feature-gated, not required |
 | Missing AI provider | ✅ | No AI deps in scanner |
 | Missing external tools | ✅ | Self-contained, no external tools needed |
@@ -107,12 +107,12 @@ release/
 
 **Checksum**: `1bee4de7701c077f0c43ebc4a5b1ff0f4416b9e87995dbcf533dccc8164d7594`
 
-**Contents**: Only the binary and checksum. No model weights, node_modules, venvs, docker caches, dev artifacts, logs, temp files, test outputs, local databases, or unnecessary binaries.
+**Contents**: Only the binary and checksum. No model weights, node_modules, venvs, Docker caches, dev artifacts, logs, temp files, test outputs, local databases, or unnecessary binaries.
 
 ## Security Review
 
 | Area | Status | Notes |
-|------|--------|-------|
+| ------ | -------- | ------- |
 | Subprocess execution | ✅ | None used |
 | Shell command construction | ✅ | None used |
 | Path handling | ✅ | URL parsing only, no filesystem access beyond config |
@@ -130,7 +130,7 @@ release/
 ## Test Results
 
 | Test | Status |
-|------|--------|
+| ------ | -------- |
 | Core crate unit tests | ✅ 25 passed |
 | Integration tests (storage, reporting, deduplication) | ✅ 10 passed |
 | Manual scan: vulnerable target (local test server) | ✅ 45 findings detected |
@@ -143,7 +143,7 @@ release/
 ## Remaining Blockers
 
 | Blocker | Severity | Status |
-|---------|----------|--------|
+| --------- | ---------- | -------- |
 | TUI not fully integrated | Low | Experimental, feature-gated, not blocking CLI |
 | Transitive dependency vulnerabilities | Medium | 30 advisories in full workspace; openre-scan direct deps minimal |
 | Configuration file support | Low | Planned for v1.1 |
@@ -151,14 +151,14 @@ release/
 
 ## Deferred GitHub Issues (Non-Blocking)
 
-1. **TUI completion** - Connect TUI to CLI, add results view, keyboard navigation for findings
-2. **Config file support** - TOML-based configuration
-3. **Dependency updates** - rustls 0.23+, idna 1.0+, protobuf 3.7+, ring 0.17+
-4. **CVE matching integration** - Connect openre-intelligence for CVE enrichment
-5. **WASM plugin support** - Sandbox extensions
-6. **Distributed scanning** - Worker pool for large targets
-7. **Source code scanning** - SAST capabilities (open-re platform)
-8. **Binary analysis** - Reverse engineering (open-re platform)
+1.  **TUI completion** - Connect TUI to CLI, add results view, keyboard navigation for findings
+2.  **Config file support** - TOML-based configuration
+3.  **Dependency updates** - rustls 0.23+, idna 1.0+, Protobuf 3.7+, ring 0.17+
+4.  **CVE matching integration** - Connect openre-intelligence for CVE enrichment
+5.  **WASM plugin support** - Sandbox extensions
+6.  **Distributed scanning** - Worker pool for large targets
+7.  **Source code scanning** - SAST capabilities (open-re platform)
+8.  **Binary analysis** - Reverse engineering (open-re platform)
 
 ## Release Candidate Created
 
@@ -171,23 +171,24 @@ release/
 **Phase 10: COMPLETE** ✅
 
 The openre-scan tool meets all MVP criteria:
-- End-to-end workflow functional
-- Realistic test targets validated
-- False positive rate acceptable (only legitimate findings on secure targets)
-- CLI UX complete with help, progress, colored output
-- AI/non-AI parity achieved (non-AI is default and complete)
-- All documented commands work
-- Clean installation verified
-- Release artifact minimal and complete
-- Documentation accurate to implementation
-- Benchmarks recorded
-- Security review passed
-- No critical blockers
+
+-   End-to-end workflow functional
+-   Realistic test targets validated
+-   False positive rate acceptable (only legitimate findings on secure targets)
+-   CLI UX complete with help, progress, colored output
+-   AI/non-AI parity achieved (non-AI is default and complete)
+-   All documented commands work
+-   Clean installation verified
+-   Release artifact minimal and complete
+-   Documentation accurate to implementation
+-   Benchmarks recorded
+-   Security review passed
+-   No critical blockers
 
 **Recommendation**: Proceed with v1.0.0 release.
 
 ---
 
-*Generated: 2026-08-15*
-*Tool: openre-scan v0.1.0*
-*Platform: Linux x86_64*
+_Generated: 2026-08-15_
+_Tool: openre-scan v0.1.0_
+_Platform: Linux x86_64_

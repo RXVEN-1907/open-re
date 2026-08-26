@@ -11,7 +11,7 @@ The frontend is a **React 18 + TypeScript** single-page application built with *
 ```
 frontend/
 ├── packages/
-│   ├── app/                    # Main application shell
+│   ├── app/                    # Main application Shell
 │   │   ├── src/
 │   │   │   ├── main.tsx        # Entry point
 │   │   │   ├── App.tsx         # Root component
@@ -19,7 +19,7 @@ frontend/
 │   │   │   ├── providers.tsx   # Context providers
 │   │   │   ├── styles/         # Global styles, theme
 │   │   │   └── hooks/          # App-level hooks
-│   │   └── package.json
+│   │   └── package.JSON
 │   │
 │   ├── core/                   # Shared core functionality
 │   │   ├── src/
@@ -27,7 +27,7 @@ frontend/
 │   │   │   │   ├── client.ts   # Axios/Fetch wrapper
 │   │   │   │   ├── queries/    # Query hooks
 │   │   │   │   ├── mutations/  # Mutation hooks
-│   │   │   │   └── websocket/  # WebSocket client
+│   │   │   │   └── WebSocket/  # WebSocket client
 │   │   │   ├── state/          # Global state (Zustand)
 │   │   │   │   ├── project.ts  # Current project state
 │   │   │   │   ├── ui.ts       # UI state (panels, layout)
@@ -37,7 +37,7 @@ frontend/
 │   │   │   ├── utils/          # Utilities
 │   │   │   ├── types/          # Shared TypeScript types
 │   │   │   └── constants/      # App constants
-│   │   └── package.json
+│   │   └── package.JSON
 │   │
 │   ├── components/             # Shared UI component library
 │   │   ├── src/
@@ -49,7 +49,7 @@ frontend/
 │   │   │   ├── forms/          # Form components
 │   │   │   └── icons/          # Icon system
 │   │   ├── stories/            # Storybook stories
-│   │   └── package.json
+│   │   └── package.JSON
 │   │
 │   ├── views/                  # Feature views (pages)
 │   │   ├── src/
@@ -70,7 +70,7 @@ frontend/
 │   │   │   ├── plugins/        # Plugin manager UI
 │   │   │   ├── collaboration/  # Real-time collab UI
 │   │   │   └── welcome/        # Welcome screen, onboarding
-│   │   └── package.json
+│   │   └── package.JSON
 │   │
 │   ├── plugins/                # Plugin UI extension system
 │   │   ├── src/
@@ -81,7 +81,7 @@ frontend/
 │   │   │   │   ├── CommandExtension.tsx
 │   │   │   │   └── ContextMenuExtension.tsx
 │   │   │   └── sandbox.tsx     # Iframe sandbox for untrusted plugins
-│   │   └── package.json
+│   │   └── package.JSON
 │   │
 │   └── ai/                     # AI-specific UI components
 │       ├── src/
@@ -89,13 +89,13 @@ frontend/
 │       │   ├── suggestions/    # Inline ghost suggestions
 │       │   ├── streaming/      # Streaming response UI
 │       │   └── tools/          # Tool call visualization
-│       └── package.json
+│       └── package.JSON
 │
 ├── public/                     # Static assets
 ├── tests/                      # E2E tests (Playwright)
-├── package.json                # Root workspace config
-├── turbo.json                  # Turborepo config
-├── tsconfig.json               # TypeScript config
+├── package.JSON                # Root workspace config
+├── turbo.JSON                  # Turborepo config
+├── tsconfig.JSON               # TypeScript config
 ├── vite.config.ts              # Vite config
 └── tailwind.config.ts          # Tailwind config
 ```
@@ -374,7 +374,7 @@ export function useSaveAnnotations() {
 ### WebSocket Architecture
 
 ```typescript
-// packages/core/src/api/websocket/client.ts
+// packages/core/src/api/WebSocket/client.ts
 type WSMessage = 
   | { type: 'analysis.progress'; payload: AnalysisProgress }
   | { type: 'analysis.completed'; payload: AnalysisResult }
@@ -563,11 +563,11 @@ export function GraphView({ fileId }: { fileId: FileId }) {
   const cyRef = useRef<Cytoscape.Core | null>(null);
   
   useEffect(() => {
-    if (!analysis?.cfg) return;
+    if (!analysis?.CFG) return;
     
     const cy = cytoscape({
       container: containerRef.current!,
-      elements: convertCFGToCytoscape(analysis.cfg),
+      elements: convertCFGToCytoscape(analysis.CFG),
       layout: { name: layout, animate: true },
       style: graphStylesheet,
       wheelSensitivity: 0.1,
@@ -580,7 +580,7 @@ export function GraphView({ fileId }: { fileId: FileId }) {
     
     cyRef.current = cy;
     return () => cy.destroy();
-  }, [analysis?.cfg, layout]);
+  }, [analysis?.CFG, layout]);
   
   return (
     <div className="graph-view h-full">
@@ -709,7 +709,7 @@ export function GhostSuggestions({
 ### Implementation Checklist
 
 | Requirement | Implementation |
-|-------------|----------------|
+| ------------- | ---------------- |
 | **Keyboard Navigation** | All interactive elements reachable via Tab, Arrow keys for grids/graphs |
 | **Focus Management** | Visible focus rings, focus trapping in modals, logical tab order |
 | **Screen Readers** | Semantic HTML, ARIA labels, live regions for progress/alerts |
@@ -770,7 +770,7 @@ export function useAnnouncer() {
 ### Tailwind + CSS Variables
 
 ```css
-/* packages/app/src/styles/globals.css */
+/* packages/app/src/styles/globals.CSS */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -824,7 +824,7 @@ export function useAnnouncer() {
 ## Performance Optimization
 
 | Technique | Implementation |
-|-----------|----------------|
+| ----------- | ---------------- |
 | **Code Splitting** | Route-level `React.lazy()`, component-level `dynamic import()` |
 | **Virtualization** | `@tanstack/react-virtual` for lists, graphs |
 | **Memoization** | `React.memo`, `useMemo`, `useCallback` for expensive renders |
@@ -889,14 +889,14 @@ export function registerViewExtension(extension: ViewExtension) {
 
 // Plugin contributes a custom view
 registerViewExtension({
-  id: 'yara-matches',
+  id: 'YARA-matches',
   label: 'YARA Matches',
   icon: <ShieldIcon />,
   component: YaraMatchesView,
-  when: (ctx) => ctx.fileType === 'pe' || ctx.fileType === 'elf',
+  when: (ctx) => ctx.fileType === 'PE' || ctx.fileType === 'ELF',
 });
 ```
 
 ---
 
-*This frontend architecture provides a scalable, accessible, and performant foundation for the open-re UI. The feature-based structure enables parallel development while maintaining consistency through shared core packages.*
+_This frontend architecture provides a scalable, accessible, and performant foundation for the open-re UI. The feature-based structure enables parallel development while maintaining consistency through shared core packages._

@@ -230,10 +230,10 @@ impl VersionedRouter {
 
     pub fn build(self) -> axum::Router {
         axum::Router::new()
-            .nest("/api/v1", self.v1_routes)
+            .nest("/api/v1", self.v1_routes.clone())
             .nest("/api/v2", self.v2_routes)
             // Also support version-less routes (default to current)
-            .nest("/api", self.v1_routes.clone())
+            .nest("/api", self.v1_routes)
     }
 }
 

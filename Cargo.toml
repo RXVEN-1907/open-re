@@ -147,13 +147,15 @@ test-case = "3.0"
 # Benchmarking
 criterion = "0.5"
 
-[workspace.lints]
-rust_2021_idioms = { level = "warn" }
+[workspace.lints.rust]
 unused_crate_dependencies = { level = "warn" }
 unused_import_braces = { level = "warn" }
 unused_lifetimes = { level = "warn" }
 unused_qualifications = { level = "warn" }
 variant_size_differences = { level = "warn" }
+
+[workspace.lints.clippy]
+rust_2021_idioms = { level = "warn" }
 
 [profile.release]
 opt-level = 3

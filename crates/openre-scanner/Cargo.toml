@@ -43,7 +43,7 @@ serde_yaml = { workspace = true }
 clap = { workspace = true }
 indicatif = { workspace = true }
 colored = { workspace = true }
-url = { workspace = true }
+url = { workspace = true, features = ["serde"] }
 base64 = { workspace = true }
 http = { workspace = true }
 
@@ -54,6 +54,13 @@ hyper-rustls = "0.24"
 rustls = "0.21"
 rustls-pemfile = "1.0"
 webpki-roots = "0.25"
+
+# API layer
+axum = { workspace = true }
+utoipa = { workspace = true, features = ["chrono"] }
+sqlx = { workspace = true }
+toml = "0.8"
+tracing-subscriber = { workspace = true }
 
 # For plugin system
 wasmtime = { workspace = true }

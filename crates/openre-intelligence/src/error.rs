@@ -1,13 +1,13 @@
 //! Error types for the intelligence module
 
-use openre_core::error::OpenreError;
+use openre_core::Error;
 use thiserror::Error;
 
 /// Intelligence module error types
 #[derive(Error, Debug)]
 pub enum IntelligenceError {
     #[error("Core error: {0}")]
-    Core(#[from] OpenreError),
+    Core(#[from] Error),
 
     #[error("Storage error: {0}")]
     Storage(String),

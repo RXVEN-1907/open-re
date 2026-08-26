@@ -29,7 +29,7 @@ Retrieve injection findings with filtering and pagination.
 **Parameters:**
 
 | Parameter | Type | Description |
-|-----------|------|-------------|
+| ----------- | ------ | ------------- |
 | `page` | integer | Page number (default: 1) |
 | `per_page` | integer | Items per page (default: 50, max: 100) |
 | `severity` | array[string] | Filter by severity: `critical`, `high`, `medium`, `low`, `info` |
@@ -60,7 +60,7 @@ Retrieve injection findings with filtering and pagination.
       "severity": "high",
       "confidence": "high",
       "category": "injection",
-      "target": "https://example.com/search",
+      "target": "HTTPS://example.com/search",
       "target_type": "web_application",
       "evidence": [
         {
@@ -83,20 +83,20 @@ Retrieve injection findings with filtering and pagination.
               "timing_info": null
             }
           },
-          "location": "https://example.com/search?id=' OR '1'='1"
+          "location": "HTTPS://example.com/search?id=' OR '1'='1"
         }
       ],
       "references": [
         {
           "reference_type": "Cwe",
           "title": "CWE-89",
-          "url": "https://cwe.mitre.org/data/definitions/89.html",
+          "url": "HTTPS://cwe.mitre.org/data/definitions/89.HTML",
           "description": "Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
         },
         {
           "reference_type": "Owasp",
           "title": "A03:2021",
-          "url": "https://owasp.org/Top10/A03_2021-Injection/",
+          "url": "HTTPS://owasp.org/Top10/A03_2021-Injection/",
           "description": "OWASP Top 10 2021 - Injection"
         }
       ],
@@ -140,7 +140,7 @@ Retrieve aggregated statistics for injection findings.
   "total": 156,
   "by_category": {
     "sql_injection": 45,
-    "xss": 38,
+    "XSS": 38,
     "command_injection": 12,
     "xxe": 8,
     "ssti": 15,
@@ -206,7 +206,7 @@ List all supported injection vulnerability categories with metadata.
     "owasp_refs": ["A03:2021"]
   },
   {
-    "category": "xss",
+    "category": "XSS",
     "display_name": "Cross-Site Scripting (XSS)",
     "description": "Injection of malicious scripts into web pages",
     "severity": "High",
@@ -368,7 +368,7 @@ Returns statistics for a specific scan.
   "description": "string",
   "severity": "critical|high|medium|low|info",
   "confidence": "very_high|high|medium|low|very_low",
-  "category": "injection|xss|broken_authentication|...",
+  "category": "injection|XSS|broken_authentication|...",
   "target": "string",
   "target_type": "string",
   "evidence": "EvidenceResponse[]",
@@ -496,16 +496,18 @@ Returns statistics for a specific scan.
 ## Rate Limiting
 
 API endpoints are rate limited:
-- Default: 100 requests per minute per IP
-- Authenticated: 1000 requests per minute per user
-- Exceeding limits returns `429 Too Many Requests`
+
+-   Default: 100 requests per minute per IP
+-   Authenticated: 1000 requests per minute per user
+-   Exceeding limits returns `429 Too Many Requests`
 
 ## Pagination
 
 List endpoints support pagination:
-- `page`: Page number (1-indexed)
-- `per_page`: Items per page (1-100)
-- Response includes `total`, `page`, `per_page`
+
+-   `page`: Page number (1-indexed)
+-   `per_page`: Items per page (1-100)
+-   Response includes `total`, `page`, `per_page`
 
 ## Filtering Examples
 
@@ -518,7 +520,7 @@ GET /injection/findings?injection_category=sql_injection
 ### High Severity XSS Findings
 
 ```
-GET /injection/findings?injection_category=xss&severity=high,critical
+GET /injection/findings?injection_category=XSS&severity=high,critical
 ```
 
 ### Time-Based Blind SQLi Findings
@@ -637,8 +639,9 @@ const categories = await client.injectionCategories();
 ## Changelog
 
 ### v1.0.0 (2024-01-15)
-- Initial injection API endpoints
-- Finding listing with injection-specific filters
-- Injection statistics endpoint
-- Categories and detection methods reference endpoints
-- WebSocket support for real-time updates
+
+-   Initial injection API endpoints
+-   Finding listing with injection-specific filters
+-   Injection statistics endpoint
+-   Categories and detection methods reference endpoints
+-   WebSocket support for real-time updates

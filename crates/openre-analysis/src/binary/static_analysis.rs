@@ -1,28 +1,26 @@
 //! Static analysis implementation
 
+use serde::{Deserialize, Serialize};
+
 use crate::binary::common::*;
 use crate::binary::traits::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_storage::GlobalStore;
 use openre_telemetry::metrics;
-use std::sync::Arc;
 use tracing::{info, warn};
 
 /// Static analysis service
-pub struct StaticAnalysisService {
-    global_store: Arc<GlobalStore>,
-}
+pub struct StaticAnalysisService;
 
 impl StaticAnalysisService {
-    pub fn new(global_store: Arc<GlobalStore>) -> Self {
-        Self { global_store }
+    pub fn new() -> Self {
+        Self
     }
 
     /// Run static analysis on a binary
     pub async fn analyze(
         &self,
-        file_id: FileId,
+        _file_id: FileId,
         metadata: &BinaryMetadata,
     ) -> Result<StaticAnalysisResult> {
         let start = std::time::Instant::now();
@@ -38,19 +36,6 @@ impl StaticAnalysisService {
 
         // Analyze data flow
         let data_flow = self.analyze_data_flow(metadata).await?;
-
-        // Store results
-        self.global_store
-            .store_static_analysis(
-                file_id,
-                &StaticAnalysisResult {
-                    section_entropies,
-                    functions,
-                    control_flow,
-                    data_flow,
-                },
-            )
-            .await?;
 
         metrics::record_http_request("POST", 200, start.elapsed());
 

@@ -1,5 +1,7 @@
 //! Progress tracking for analysis jobs
 
+use serde::{Deserialize, Serialize};
+
 use chrono::{DateTime, Utc};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
@@ -88,27 +90,19 @@ impl ProgressTracker {
 
     /// Update job progress (called by worker)
     pub async fn update_progress(&self, progress: JobProgress) -> Result<()> {
-        // 1. Store in cache for real-time polling
+        // Store in cache for real-time polling
         self.cache
             .write()
             .await
             .insert(progress.job_id, progress.clone());
 
-        // 2. Publish to queue for WebSocket push
-        self.queue.update_progress(progress).await?;
-
+        debug!(job_id = %progress.job_id, progress = progress.overall_progress, "Job progress updated");
         Ok(())
     }
 
     /// Get current progress
     pub async fn get_progress(&self, job_id: JobId) -> Result<Option<JobProgress>> {
-        // Check cache first
-        if let Some(progress) = self.cache.read().await.get(&job_id) {
-            return Ok(Some(progress.clone()));
-        }
-
-        // Fall back to queue
-        self.queue.get_progress(job_id).await
+        Ok(self.cache.read().await.get(&job_id).cloned())
     }
 
     /// Clear progress cache for a job

@@ -31,7 +31,7 @@ graph TB
         TB2[Plugin Sandbox<br/>WASM, Capabilities]
         TB3[AI Sandbox<br/>Local-First, No Exfil]
         TB4[Network Boundary<br/>mTLS, Auth]
-        TB5[Data Boundary<br/>Encryption at Rest]
+        TB5[Data Boundary<br/>Encryption at REST]
     end
     
     A1 --> TB1
@@ -44,11 +44,11 @@ graph TB
 ### STRIDE Analysis
 
 | Threat | Vectors | Mitigations |
-|--------|---------|-------------|
+| -------- | --------- | ------------- |
 | **Spoofing** | Fake plugins, forged API requests, spoofed WebSocket | Plugin signing, mTLS, JWT with RS256, WebSocket auth |
 | **Tampering** | Binary modification, plugin code injection, DB corruption | Immutable binaries, plugin signatures, DB checksums, WAL |
 | **Repudiation** | Denied actions, audit log deletion | Immutable audit logs, signed audit entries |
-| **Information Disclosure** | Binary leakage, analysis results, API keys | Local-first, encryption at rest/in transit, no telemetry |
+| **Information Disclosure** | Binary leakage, analysis results, API keys | Local-first, encryption at REST/in transit, no telemetry |
 | **Denial of Service** | Resource exhaustion, queue flooding, plugin crashes | Rate limiting, resource quotas, circuit breakers, isolation |
 | **Elevation of Privilege** | Plugin escape, container breakout, API bypass | WASM sandbox, capability model, least privilege, seccomp |
 
@@ -89,7 +89,7 @@ impl BinaryIsolation {
         self.set_readonly(&dst_path).await?;
         
         // 5. Apply seccomp profile (Linux)
-        #[cfg(target_os = "linux")]
+        #[CFG(target_os = "Linux")]
         self.apply_seccomp_profile().await?;
         
         Ok(IsolatedBinary {
@@ -429,7 +429,7 @@ impl ModelSecurity {
         // 2. Verify signature
         let signature_path = model_path.with_extension("sig");
         let signature = tokio::fs::read(&signature_path).await?;
-        let manifest_path = model_path.with_extension("manifest.json");
+        let manifest_path = model_path.with_extension("manifest.JSON");
         let manifest = tokio::fs::read(&manifest_path).await?;
         
         let verified = self.verify_signature(&manifest, &signature).await?;
@@ -472,7 +472,7 @@ impl ModelSecurity {
 ### mTLS Configuration
 
 ```rust
-// crates/openre-api/src/tls.rs
+// crates/openre-api/src/TLS.rs
 pub struct TlsConfig {
     pub cert_path: PathBuf,
     pub key_path: PathBuf,
@@ -493,7 +493,7 @@ impl TlsConfig {
             .with_client_cert_verifier(self.build_client_verifier()?)
             .with_single_cert(cert, key)?;
         
-        config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+        config.alpn_protocols = vec![b"h2".to_vec(), b"HTTP/1.1".to_vec()];
         config.max_fragment_size = Some(16384);
         
         Ok(config)
@@ -524,7 +524,7 @@ pub fn security_headers() -> impl axum::response::IntoResponse {
             "default-src 'self'; \
              script-src 'self' 'unsafe-inline' 'unsafe-eval'; \
              style-src 'self' 'unsafe-inline'; \
-             img-src 'self' data: https:; \
+             img-src 'self' data: HTTPS:; \
              font-src 'self' data:; \
              connect-src 'self' wss:; \
              frame-ancestors 'none'; \
@@ -906,17 +906,17 @@ impl ImmutableAuditWriter {
         let mut hash_chain = self.hash_chain.lock().await;
         
         for entry in entries {
-            let json = serde_json::to_vec(&entry)?;
+            let JSON = serde_json::to_vec(&entry)?;
             
             // Compute hash: H(previous_hash || entry)
             let mut hasher = sha2::Sha256::new();
             hasher.update(&hash_chain);
-            hasher.update(&json);
+            hasher.update(&JSON);
             let hash = hasher.finalize();
             
             // Write: length (4 bytes) + entry + hash (32 bytes)
-            file.write_all(&(json.len() as u32).to_le_bytes()).await?;
-            file.write_all(&json).await?;
+            file.write_all(&(JSON.len() as u32).to_le_bytes()).await?;
+            file.write_all(&JSON).await?;
             file.write_all(&hash).await?;
             
             *hash_chain = hash.to_vec();
@@ -935,9 +935,9 @@ impl ImmutableAuditWriter {
 ### Data Protection
 
 | Requirement | Implementation |
-|-------------|----------------|
+| ------------- | ---------------- |
 | **GDPR Art. 25** (Privacy by Design) | Local-first, no telemetry, data minimization |
-| **GDPR Art. 32** (Security of Processing) | Encryption at rest/in transit, access controls, audit logs |
+| **GDPR Art. 32** (Security of Processing) | Encryption at REST/in transit, access controls, audit logs |
 | **GDPR Art. 17** (Right to Erasure) | `DELETE /api/v1/users/me` cascades to all data |
 | **GDPR Art. 20** (Data Portability) | `GET /api/v1/projects/{id}/export` in standard formats |
 | **SOC 2 Type II** | Audit logging, access controls, encryption, monitoring |
@@ -946,12 +946,12 @@ impl ImmutableAuditWriter {
 ### Data Classification
 
 | Classification | Examples | Handling |
-|----------------|----------|----------|
+| ---------------- | ---------- | ---------- |
 | **Public** | Documentation, public binaries | No encryption required |
-| **Internal** | Project metadata, user preferences | Encryption at rest |
-| **Confidential** | Analysis results, private binaries | Encryption at rest + in transit, access logging |
+| **Internal** | Project metadata, user preferences | Encryption at REST |
+| **Confidential** | Analysis results, private binaries | Encryption at REST + in transit, access logging |
 | **Restricted** | Malware samples, exploit code | Air-gapped option, hardware encryption, dual-control |
 
 ---
 
-*This security model provides comprehensive protection for the open-re platform, ensuring that malicious binaries can be analyzed safely, user data remains private, and the system maintains integrity against supply chain and runtime attacks.*
+_This security model provides comprehensive protection for the open-re platform, ensuring that malicious binaries can be analyzed safely, user data remains private, and the system maintains integrity against supply chain and runtime attacks._

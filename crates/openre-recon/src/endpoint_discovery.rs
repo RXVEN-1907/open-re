@@ -5,6 +5,7 @@
 
 use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use openre_core::error::OpenreResult as Result;
+use openre_core::result::FindingConfig;
 use openre_plugins::sdk::{
     AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
 };
@@ -27,7 +28,7 @@ use tracing::{debug, info, warn};
 pub struct EndpointDiscoveryPlugin {
     config: ReconPluginConfig,
     client: Client,
-    common_paths: Vec<String>,
+    common_paths: Vec<&'static str>,
 }
 
 impl EndpointDiscoveryPlugin {
@@ -37,7 +38,8 @@ impl EndpointDiscoveryPlugin {
             .redirect(reqwest::redirect::Policy::limited(config.max_redirects))
             .user_agent(&config.user_agent)
             .danger_accept_invalid_certs(!config.verify_tls)
-            .build()?;
+            .build()
+            .map_err(crate::internal_err)?;
 
         let common_paths = vec![
             // Admin panels
@@ -147,7 +149,7 @@ impl EndpointDiscoveryPlugin {
         // Parse HTML for links
         if let Ok(response) = self.client.get(base_url).send().await {
             if let Ok(body) = response.text().await {
-                let html_endpoints = self.extract_endpoints_from_html(&body, base_url);
+                let html_endpoints = self.extract_endpoints_from_html(&body, base_url)?;
                 discovered.extend(html_endpoints);
             }
         }
@@ -168,9 +170,9 @@ impl EndpointDiscoveryPlugin {
         &self,
         html: &str,
         base_url: &str,
-    ) -> HashSet<DiscoveredEndpoint> {
+    ) -> Result<HashSet<DiscoveredEndpoint>> {
         let mut endpoints = HashSet::new();
-        let doc = Document::from(html.as_bytes());
+        let doc = crate::parse_html(html)?;
 
         // Extract links
         for link in doc.find(Name("a")) {
@@ -220,7 +222,7 @@ impl EndpointDiscoveryPlugin {
             }
         }
 
-        endpoints
+        Ok(endpoints)
     }
 
     fn extract_endpoints_from_js(&self, html: &str, base_url: &str) -> HashSet<DiscoveredEndpoint> {
@@ -304,12 +306,14 @@ impl Plugin for EndpointDiscoveryPlugin {
         vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
-    async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
-        let context = request.context;
-        let findings = self.recon(&context).await?;
+    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
+        let _ = request;
 
+        // Recon plugins perform their work through the scan pipeline, which
+        // supplies a full ScanContext. Capability execution has no scan context,
+        // so report an empty result set instead.
         Ok(CapabilityResponse::success(serde_json::json!({
-            "findings": findings,
+            "findings": [],
             "recon_type": ReconType::EndpointDiscovery,
         })))
     }
@@ -330,9 +334,9 @@ impl ReconPlugin for EndpointDiscoveryPlugin {
         ]
     }
 
-    async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
+    async fn recon(&self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
-        let target_url = context.target.to_string();
+        let target_url = context.target.metadata.base_url.as_str().to_string();
 
         info!("Starting endpoint discovery for: {}", target_url);
 
@@ -349,21 +353,21 @@ impl ReconPlugin for EndpointDiscoveryPlugin {
             };
 
             findings.push(
-                Finding::new(
-                    format!("Endpoint Discovered: {}", endpoint.url),
-                    format!(
+                Finding::new(FindingConfig {
+                    title: format!("Endpoint Discovered: {}", endpoint.url),
+                    description: format!(
                         "Discovered via {} (status: {})",
                         endpoint.source, endpoint.status_code
                     ),
-                    severity,
-                    Confidence::Medium,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "endpoint_discovery".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                    severity: severity,
+                    confidence: Confidence::Medium,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "endpoint_discovery".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Discovered endpoint".to_string(),
@@ -376,6 +380,13 @@ impl ReconPlugin for EndpointDiscoveryPlugin {
                     })),
                     location: Some(endpoint.url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -390,6 +401,7 @@ impl ReconPlugin for EndpointDiscoveryPlugin {
 }
 
 /// Plugin entry point
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     if config_ptr.is_null() || config_len == 0 {
@@ -404,6 +416,7 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_execute(
     request_ptr: *const u8,
@@ -414,6 +427,7 @@ pub extern "C" fn plugin_execute(
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_shutdown() -> i32 {
     0

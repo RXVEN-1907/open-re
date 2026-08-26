@@ -34,7 +34,7 @@ pub async fn start_grpc_server(
     //     .register_encoded_file_descriptor_set(proto::FILE_DESCRIPTOR_SET)
     //     .build()?;
 
-    let addr = addr.parse()?;
+    let addr: std::net::SocketAddr = addr.parse()?;
 
     info!("gRPC server listening on {}", addr);
 

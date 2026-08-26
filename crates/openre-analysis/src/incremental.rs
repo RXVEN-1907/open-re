@@ -1,12 +1,12 @@
 //! Incremental re-analysis for open-re
 
+use crate::binary::common::FunctionBoundary;
 use crate::orchestrator::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_storage::ProjectStore;
-use std::collections::HashSet;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Incremental analyzer for re-running only affected stages
 pub struct IncrementalAnalyzer {
@@ -25,30 +25,27 @@ impl IncrementalAnalyzer {
     /// Re-analyze with only affected stages
     pub async fn reanalyze(
         &self,
-        job: AnalysisJob,
-        changes: AnalysisChanges,
+        base_ctx: &PipelineContext,
+        changes: &AnalysisChanges,
     ) -> Result<AnalysisResult> {
         // 1. Determine affected stages
-        let affected_stages = self.compute_affected_stages(&changes)?;
+        let affected_stages = self.compute_affected_stages(changes)?;
 
         // 2. Invalidate downstream stages
-        self.invalidate_stages(&job.project_id, &affected_stages)
+        self.invalidate_stages(&base_ctx.job.project_id, &affected_stages)
             .await?;
 
-        // 3. Create new job with only affected stages
-        let incremental_job = AnalysisJob {
-            config: AnalysisConfig {
-                stages: affected_stages,
-                incremental: true,
-                ..job.config
-            },
-            ..job
-        };
+        // 3. Build an incremental execution context with only affected stages
+        let mut job = base_ctx.job.clone();
+        job.config.stages = affected_stages;
+        job.config.incremental = true;
+
+        let mut ctx = base_ctx.clone();
+        ctx.job = job;
+        ctx.previous_results.clear();
 
         // 4. Execute
-        self.orchestrator
-            .execute(PipelineContext::from(incremental_job))
-            .await
+        self.orchestrator.execute(ctx).await
     }
 
     fn compute_affected_stages(&self, changes: &AnalysisChanges) -> Result<Vec<StageId>> {
@@ -130,21 +127,4 @@ pub enum AnalysisChanges {
     PluginUpdated {
         plugin_type: String,
     },
-}
-
-/// Stage ID utilities
-impl StageId {
-    pub fn all_ordered() -> Vec<StageId> {
-        vec![
-            StageId::new("identification"),
-            StageId::new("loading"),
-            StageId::new("disassembly"),
-            StageId::new("control_flow"),
-            StageId::new("data_flow"),
-            StageId::new("type_recovery"),
-            StageId::new("decompilation"),
-            StageId::new("ai_enrichment"),
-            StageId::new("finalization"),
-        ]
-    }
 }

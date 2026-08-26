@@ -5,6 +5,7 @@
 
 use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use openre_core::error::OpenreResult as Result;
+use openre_core::result::FindingConfig;
 use openre_plugins::sdk::{
     AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
 };
@@ -18,11 +19,29 @@ use openre_scanner::{
 use reqwest::Client;
 use rustls::ClientConfig;
 use rustls_pki_types::{CertificateDer, ServerName};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, info, warn};
 use x509_parser::prelude::*;
+
+/// Map a signature-algorithm OID to its well-known display name.
+fn oid_name(oid: &str) -> String {
+    match oid {
+        "1.2.840.113549.1.1.1" => "rsaEncryption".to_string(),
+        "1.2.840.113549.1.1.4" => "md5WithRSAEncryption".to_string(),
+        "1.2.840.113549.1.1.5" => "sha1WithRSAEncryption".to_string(),
+        "1.2.840.113549.1.1.11" => "sha256WithRSAEncryption".to_string(),
+        "1.2.840.113549.1.1.12" => "sha384WithRSAEncryption".to_string(),
+        "1.2.840.113549.1.1.13" => "sha512WithRSAEncryption".to_string(),
+        "1.2.840.10045.4.1" => "ecdsa-with-SHA1".to_string(),
+        "1.2.840.10045.4.3.2" => "ecdsa-with-SHA256".to_string(),
+        "1.2.840.10045.4.3.3" => "ecdsa-with-SHA384".to_string(),
+        "1.2.840.10045.4.3.4" => "ecdsa-with-SHA512".to_string(),
+        other => other.to_string(),
+    }
+}
 
 /// TLS Analysis Plugin
 pub struct TlsAnalysisPlugin {
@@ -37,7 +56,8 @@ impl TlsAnalysisPlugin {
             .redirect(reqwest::redirect::Policy::limited(config.max_redirects))
             .user_agent(&config.user_agent)
             .danger_accept_invalid_certs(!config.verify_tls)
-            .build()?;
+            .build()
+            .map_err(crate::internal_err)?;
 
         Ok(Self { config, client })
     }
@@ -47,7 +67,7 @@ impl TlsAnalysisPlugin {
         let mut result = TlsAnalysisResult::default();
 
         // Parse URL to get hostname
-        let parsed = url::Url::parse(url)?;
+        let parsed = url::Url::parse(url).map_err(crate::internal_err)?;
         let host = parsed
             .host_str()
             .ok_or_else(|| anyhow::anyhow!("No host in URL"))?;
@@ -66,7 +86,12 @@ impl TlsAnalysisPlugin {
         result.cipher_suite = Some("TLS_AES_256_GCM_SHA384".to_string());
 
         // Check HSTS
-        let response = self.client.get(url).send().await?;
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .map_err(crate::internal_err)?;
         if let Some(hsts) = response.headers().get("strict-transport-security") {
             result.hsts = Some(hsts.to_str().unwrap_or("").to_string());
         }
@@ -99,17 +124,19 @@ impl TlsAnalysisPlugin {
         let issuer = cert.issuer().to_string();
         let not_before = cert.validity().not_before.to_string();
         let not_after = cert.validity().not_after.to_string();
-        let serial = cert.serial().to_string();
-        let signature_algorithm = cert.signature_algorithm().to_string();
+        let serial = cert.serial.to_string();
+        let signature_algorithm_oid = cert.signature_algorithm.algorithm.to_string();
+        let signature_algorithm = oid_name(&signature_algorithm_oid);
 
         // Check if expired
         let now = chrono::Utc::now();
-        let not_after_dt =
-            chrono::DateTime::parse_from_rfc3339(&not_after).unwrap_or_else(|_| now.into());
-        let expired = not_after_dt < now;
+        let not_after_utc = chrono::DateTime::parse_from_rfc3339(&not_after)
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+            .unwrap_or(now);
+        let expired = not_after_utc < now;
 
         // Days until expiry
-        let days_until_expiry = (not_after_dt - now).num_days();
+        let days_until_expiry = (not_after_utc - now).num_days();
 
         Ok(ParsedCertificate {
             subject,
@@ -134,7 +161,7 @@ struct TlsAnalysisResult {
     hsts: Option<String>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 struct ParsedCertificate {
     subject: String,
     issuer: String,
@@ -159,12 +186,14 @@ impl Plugin for TlsAnalysisPlugin {
         vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
-    async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
-        let context = request.context;
-        let findings = self.recon(&context).await?;
+    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
+        let _ = request;
 
+        // Recon plugins perform their work through the scan pipeline, which
+        // supplies a full ScanContext. Capability execution has no scan context,
+        // so report an empty result set instead.
         Ok(CapabilityResponse::success(serde_json::json!({
-            "findings": findings,
+            "findings": [],
             "recon_type": ReconType::TlsAnalysis,
         })))
     }
@@ -185,9 +214,9 @@ impl ReconPlugin for TlsAnalysisPlugin {
         ]
     }
 
-    async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
+    async fn recon(&self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
-        let target_url = context.target.to_string();
+        let target_url = context.target.metadata.base_url.as_str().to_string();
 
         info!("Starting TLS analysis for: {}", target_url);
 
@@ -198,18 +227,18 @@ impl ReconPlugin for TlsAnalysisPlugin {
             // Expired certificate
             if cert.expired {
                 findings.push(
-                    Finding::new(
-                        "Expired TLS Certificate".to_string(),
-                        format!("Certificate expired on {}", cert.not_after),
-                        Severity::High,
-                        Confidence::VeryHigh,
-                        Category::Cryptographic,
-                        target_url.clone(),
-                        "web_application".to_string(),
-                        "tls_analysis".to_string(),
-                        "0.1.0".to_string(),
-                        context.scan_id,
-                    )
+                    Finding::new(FindingConfig {
+                        title: "Expired TLS Certificate".to_string(),
+                        description: format!("Certificate expired on {}", cert.not_after),
+                        severity: Severity::High,
+                        confidence: Confidence::VeryHigh,
+                        category: Category::Cryptographic,
+                        target: target_url.clone(),
+                        target_type: "web_application".to_string(),
+                        plugin_source: "tls_analysis".to_string(),
+                        plugin_version: "0.1.0".to_string(),
+                        scan_id: context.scan_id,
+                    })
                     .with_evidence(Evidence {
                         evidence_type: EvidenceType::HttpResponse,
                         description: "TLS certificate has expired".to_string(),
@@ -220,6 +249,13 @@ impl ReconPlugin for TlsAnalysisPlugin {
                         })),
                         location: Some(target_url.clone()),
                         metadata: HashMap::new(),
+                        http_request: None,
+                        http_response: None,
+                        timing: None,
+                        payload: None,
+                        reproduction_steps: None,
+                        plugin_source: None,
+                        timestamp: chrono::Utc::now(),
                     }),
                 );
             }
@@ -227,18 +263,21 @@ impl ReconPlugin for TlsAnalysisPlugin {
             // Expiring soon (within 30 days)
             if cert.days_until_expiry <= 30 && !cert.expired {
                 findings.push(
-                    Finding::new(
-                        "TLS Certificate Expiring Soon".to_string(),
-                        format!("Certificate expires in {} days", cert.days_until_expiry),
-                        Severity::Medium,
-                        Confidence::VeryHigh,
-                        Category::Cryptographic,
-                        target_url.clone(),
-                        "web_application".to_string(),
-                        "tls_analysis".to_string(),
-                        "0.1.0".to_string(),
-                        context.scan_id,
-                    )
+                    Finding::new(FindingConfig {
+                        title: "TLS Certificate Expiring Soon".to_string(),
+                        description: format!(
+                            "Certificate expires in {} days",
+                            cert.days_until_expiry
+                        ),
+                        severity: Severity::Medium,
+                        confidence: Confidence::VeryHigh,
+                        category: Category::Cryptographic,
+                        target: target_url.clone(),
+                        target_type: "web_application".to_string(),
+                        plugin_source: "tls_analysis".to_string(),
+                        plugin_version: "0.1.0".to_string(),
+                        scan_id: context.scan_id,
+                    })
                     .with_evidence(Evidence {
                         evidence_type: EvidenceType::HttpResponse,
                         description: "TLS certificate expiring soon".to_string(),
@@ -248,6 +287,13 @@ impl ReconPlugin for TlsAnalysisPlugin {
                         })),
                         location: Some(target_url.clone()),
                         metadata: HashMap::new(),
+                        http_request: None,
+                        http_response: None,
+                        timing: None,
+                        payload: None,
+                        reproduction_steps: None,
+                        plugin_source: None,
+                        timestamp: chrono::Utc::now(),
                     }),
                 );
             }
@@ -257,21 +303,21 @@ impl ReconPlugin for TlsAnalysisPlugin {
                 || cert.signature_algorithm.to_lowercase().contains("md5")
             {
                 findings.push(
-                    Finding::new(
-                        "Weak Certificate Signature Algorithm".to_string(),
-                        format!(
+                    Finding::new(FindingConfig {
+                        title: "Weak Certificate Signature Algorithm".to_string(),
+                        description: format!(
                             "Certificate uses weak signature algorithm: {}",
                             cert.signature_algorithm
                         ),
-                        Severity::Medium,
-                        Confidence::High,
-                        Category::Cryptographic,
-                        target_url.clone(),
-                        "web_application".to_string(),
-                        "tls_analysis".to_string(),
-                        "0.1.0".to_string(),
-                        context.scan_id,
-                    )
+                        severity: Severity::Medium,
+                        confidence: Confidence::High,
+                        category: Category::Cryptographic,
+                        target: target_url.clone(),
+                        target_type: "web_application".to_string(),
+                        plugin_source: "tls_analysis".to_string(),
+                        plugin_version: "0.1.0".to_string(),
+                        scan_id: context.scan_id,
+                    })
                     .with_evidence(Evidence {
                         evidence_type: EvidenceType::HttpResponse,
                         description: "Weak signature algorithm detected".to_string(),
@@ -280,6 +326,13 @@ impl ReconPlugin for TlsAnalysisPlugin {
                         })),
                         location: Some(target_url.clone()),
                         metadata: HashMap::new(),
+                        http_request: None,
+                        http_response: None,
+                        timing: None,
+                        payload: None,
+                        reproduction_steps: None,
+                        plugin_source: None,
+                        timestamp: chrono::Utc::now(),
                     }),
                 );
             }
@@ -288,46 +341,61 @@ impl ReconPlugin for TlsAnalysisPlugin {
         // HSTS findings
         if let Some(hsts) = &analysis.hsts {
             findings.push(
-                Finding::new(
-                    "HSTS Header Present".to_string(),
-                    format!("HSTS header: {}", hsts),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::Configuration,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "tls_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "HSTS Header Present".to_string(),
+                    description: format!("HSTS header: {}", hsts),
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::Configuration,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "tls_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "HSTS header found".to_string(),
                     data: Some(serde_json::json!({"hsts": hsts})),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         } else {
             findings.push(
-                Finding::new(
-                    "Missing HSTS Header".to_string(),
-                    "HTTP Strict Transport Security (HSTS) header is not present".to_string(),
-                    Severity::Medium,
-                    Confidence::High,
-                    Category::SecurityMisconfiguration,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "tls_analysis".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Missing HSTS Header".to_string(),
+                    description: "HTTP Strict Transport Security (HSTS) header is not present"
+                        .to_string(),
+                    severity: Severity::Medium,
+                    confidence: Confidence::High,
+                    category: Category::SecurityMisconfiguration,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "tls_analysis".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Missing HSTS header".to_string(),
                     data: None,
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -342,6 +410,7 @@ impl ReconPlugin for TlsAnalysisPlugin {
 }
 
 /// Plugin entry point
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     if config_ptr.is_null() || config_len == 0 {
@@ -356,6 +425,7 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_execute(
     request_ptr: *const u8,
@@ -366,6 +436,7 @@ pub extern "C" fn plugin_execute(
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_shutdown() -> i32 {
     0

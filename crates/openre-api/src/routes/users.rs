@@ -1,6 +1,8 @@
 //! User routes
 
+use crate::validation::{IdParam, PaginationParams};
 use crate::{ApiResult, AppState};
+use axum::Extension;
 use axum::{
     extract::{Path, Query, State},
     routing::get,
@@ -32,38 +34,21 @@ pub fn routes(state: std::sync::Arc<AppState>) -> Router {
 )]
 async fn list_users(
     State(state): State<std::sync::Arc<AppState>>,
-    Query(pagination): Query<PaginationParams>,
-    Query(filter): Query<UserFilterParams>,
+    Query(_pagination): Query<PaginationParams>,
+    Query(_filter): Query<UserFilterParams>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<UserListResponse>> {
+    let _ = state;
+
     // Check admin
     if !claims.roles.contains(&"admin".to_string()) {
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    let users = state
-        .global_store
-        .list_users(
-            filter.search.as_deref(),
-            pagination.offset(),
-            pagination.limit(),
-        )
-        .await?;
-
-    let total = state
-        .global_store
-        .count_users(filter.search.as_deref())
-        .await?;
-
-    Ok(Json(UserListResponse {
-        users: users
-            .into_iter()
-            .map(crate::routes::auth::UserResponse::from)
-            .collect(),
-        total,
-        page: pagination.page(),
-        per_page: pagination.per_page(),
-    }))
+    // User storage is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "user storage not implemented".into(),
+    ))
 }
 
 /// Get user
@@ -83,18 +68,17 @@ async fn get_user(
     Path(id): Path<UserId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<crate::routes::auth::UserResponse>> {
+    let _ = state;
+
     // Users can only view themselves unless admin
     if id.to_string() != claims.sub && !claims.roles.contains(&"admin".to_string()) {
         return Err(crate::error::ApiError::Forbidden("Access denied".into()));
     }
 
-    let user = state
-        .global_store
-        .get_user(id)
-        .await?
-        .ok_or_else(|| crate::error::ApiError::NotFound("User not found".into()))?;
-
-    Ok(Json(crate::routes::auth::UserResponse::from(user)))
+    // User storage is not yet implemented in GlobalStore.
+    Err(crate::error::ApiError::NotImplemented(
+        "user storage not implemented".into(),
+    ))
 }
 
 // Request/Response types

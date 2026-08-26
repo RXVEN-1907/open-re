@@ -8,14 +8,14 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 
 ## Feature Categories
 
-1. **Core Analysis** - Disassembly, decompilation, control/data flow
-2. **AI-Assisted Analysis** - Local models, semantic understanding
-3. **User Experience** - UI, interaction, accessibility, learning
-4. **Collaboration & Sharing** - Real-time, web viewer, reproducibility
-5. **Extensibility** - Plugin system, scripting, marketplace
-6. **Dynamic Analysis** - Debugging, emulation, tracing
-7. **Specialized Domains** - Malware, vuln research, firmware, education
-8. **Platform & Infrastructure** - Performance, security, distribution
+1.  **Core Analysis** - Disassembly, decompilation, control/data flow
+2.  **AI-Assisted Analysis** - Local models, semantic understanding
+3.  **User Experience** - UI, interaction, accessibility, learning
+4.  **Collaboration & Sharing** - Real-time, web viewer, reproducibility
+5.  **Extensibility** - Plugin system, scripting, marketplace
+6.  **Dynamic Analysis** - Debugging, emulation, tracing
+7.  **Specialized Domains** - Malware, vuln research, firmware, education
+8.  **Platform & Infrastructure** - Performance, security, distribution
 
 ---
 
@@ -24,7 +24,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 1.1 Disassembly & Architecture Support
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-CORE-001 | **Multi-architecture Disassembler** | x86, x64, ARM, ARM64, MIPS, RISC-V, PowerPC, SPARC | Universal tool | High | Critical | 1 |
 | F-CORE-002 | **Declarative Architecture Spec** | SLEIGH-like DSL for defining new architectures | Extensibility, obscure archs | High | High | 1 |
 | F-CORE-003 | **Instruction Semantics Engine** | Formal semantics for each instruction (regs, mem, flags) | Data flow, symbolic exec | High | Critical | 1 |
@@ -37,7 +37,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 1.2 Control Flow & Data Flow Analysis
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-CFG-001 | **Function Boundary Detection** | ML-enhanced prologue/epilogue + heuristic | Foundation for all analysis | High | Critical | 1 |
 | F-CFG-002 | **Indirect Call Resolution** | V-table, jump table, function pointer analysis | Complete call graph | High | Critical | 1 |
 | F-CFG-003 | **SSA Form Construction** | Static Single Assignment for data flow | Optimization, decompilation | High | Critical | 1 |
@@ -50,7 +50,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 1.3 Decompilation
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-DEC-001 | **High-Quality C-like Output** | Readable pseudo-code with control structures | Primary analysis view | Very High | Critical | 1 |
 | F-DEC-002 | **Type Inference & Propagation** | Constraint-based, interprocedural | Meaningful variable types | Very High | Critical | 1 |
 | F-DEC-003 | **Struct/Array Reconstruction** | From access patterns (offsets, sizes) | Real-world data structures | High | Critical | 1 |
@@ -64,7 +64,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 1.4 Type System
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-TYPE-001 | **Rich Type System** | Primitives, pointers, arrays, structs, unions, enums, functions | Foundation | Medium | Critical | 1 |
 | F-TYPE-002 | **C/C++ Header Import** | Clang-based parser for .h files | Standard library types | High | Critical | 1 |
 | F-TYPE-003 | **PDB/DWARF Debug Info Import** | Full type fidelity from debug builds | Accurate analysis | High | High | 1 |
@@ -75,7 +75,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 1.5 Binary Parsing & Loading
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-LOAD-001 | **Universal Binary Loader** | ELF, PE, Mach-O, raw, firmware formats | Load anything | Medium | Critical | 1 |
 | F-LOAD-002 | **Packer/Protector Detection** | UPX, VMProtect, Themida, custom | Malware triage | Medium | High | 1 |
 | F-LOAD-003 | **Compiler/Toolchain Fingerprinting** | GCC, Clang, MSVC, Rust, Go, Nim versions | Attribution, expectations | Low | High | 1 |
@@ -90,7 +90,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 2.1 Local Models (Privacy-First)
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-AI-001 | **Function Purpose Classification** | "C2 handler", "crypto routine", "parser", "anti-debug" | Rapid understanding | High | Critical | 1 |
 | F-AI-002 | **Variable/Parameter Naming** | Context-aware semantic names | Reduce manual work 60% | High | Critical | 1 |
 | F-AI-003 | **Type Prediction** | Suggest struct layouts, function signatures | Accelerate typing | High | Critical | 1 |
@@ -105,7 +105,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 2.2 AI Integration UX
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-AI-UX-001 | **Inline Ghost Suggestions** | Gray text at cursor: names, types, comments | Flow-state, non-intrusive | Medium | Critical | 1 |
 | F-AI-UX-002 | **"Explain This" Command** | LLM-generated function/block explanation | Learning, verification | Medium | Critical | 1 |
 | F-AI-UX-003 | **Confidence Calibration** | Well-calibrated probabilities on suggestions | Trust decisions | High | High | 1 |
@@ -118,7 +118,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 2.3 Model Infrastructure
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-AI-INFRA-001 | **Model Registry** | Versioned, signed, reproducible models | Supply chain security | Medium | High | 1 |
 | F-AI-INFRA-002 | **ONNX Runtime Integration** | Cross-platform, hardware-accelerated | Performance, portability | Medium | High | 1 |
 | F-AI-INFRA-003 | **Quantized Models** | INT8/INT4 for CPU inference | Speed, memory | Medium | High | 1 |
@@ -132,7 +132,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 3.1 Core Views
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-UI-001 | **Synchronized Disassembly/Decompiler** | Click in one, highlight in other | Mental model | Medium | Critical | 1 |
 | F-UI-002 | **Interactive Graph View** | CFG, call graph, data flow - zoom, pan, layout | Visual analysis | High | Critical | 1 |
 | F-UI-003 | **Structured Hex View** | Overlay types, highlight patterns, search | Low-level inspection | Medium | Critical | 1 |
@@ -144,7 +144,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 3.2 Interaction & Navigation
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-INT-001 | **Vim/Emacs Keybindings** | Modal editing, muscle memory | Power users | Low | High | 1 |
 | F-INT-002 | **Command Palette** | VS Code style: fuzzy search all actions | Discoverability | Medium | Critical | 1 |
 | F-INT-003 | **Multi-Cursor Editing** | Rename/retype multiple locations | Refactoring | Medium | High | 1 |
@@ -157,7 +157,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 3.3 Accessibility & Inclusion
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-A11Y-001 | **Screen Reader Support** | ARIA, semantic structure, live regions | Blind/low vision users | Medium | Critical | 1 |
 | F-A11Y-002 | **Keyboard-Only Operation** | No mouse required, focus management | Motor impairments | Low | Critical | 1 |
 | F-A11Y-003 | **High Contrast Themes** | WCAG AA/AAA compliant | Low vision | Low | Critical | 1 |
@@ -169,7 +169,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 3.4 Learning & Onboarding
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-LEARN-001 | **Interactive Tutorials** | Step-by-step guided analysis | Beginners | Medium | High | 1 |
 | F-LEARN-002 | **Contextual Help** | "What is a basic block?" on hover | Just-in-time learning | Low | High | 1 |
 | F-LEARN-003 | **AI Tutor Mode** | "Explain this like I'm a student" | Self-paced learning | High | High | 2 |
@@ -182,7 +182,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ## 4. Collaboration & Sharing Features
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-COL-001 | **Project File Format** | SQLite + JSON, mergeable, portable | Foundation | Medium | Critical | 1 |
 | F-COL-002 | **Annotation Layers** | Comments, names, types separate from core | Non-destructive collab | Medium | Critical | 1 |
 | F-COL-003 | **Real-Time Collaboration** | CRDT-based, conflict-free, presence | Team analysis | Very High | High | 3 |
@@ -199,7 +199,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 5.1 Plugin System
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-PLG-001 | **WASM Plugin Runtime** | Sandboxed, polyglot (Rust, Go, TS, Python) | Security, language freedom | High | Critical | 1 |
 | F-PLG-002 | **Plugin Manifest & Permissions** | Capabilities: fs, net, api, ui | Security model | Medium | Critical | 1 |
 | F-PLG-003 | **Hot Reload** | Update plugins without restart | Developer experience | Medium | High | 1 |
@@ -211,10 +211,10 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 5.2 Scripting & Automation
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-SCRIPT-001 | **Python API (Type-Stubbed)** | Full access, async, IDE support | Automation | Medium | Critical | 1 |
-| F-SCRIPT-002 | **Jupyter Notebook Integration** | REPL + visualization + markdown | Research, reporting | Medium | High | 1 |
-| F-SCRIPT-003 | **Headless/CLI Mode** | Identical API, no GUI deps | CI/CD, batch | Low | Critical | 1 |
+| F-SCRIPT-002 | **Jupyter Notebook Integration** | REPL + visualization + Markdown | Research, reporting | Medium | High | 1 |
+| F-SCRIPT-003 | **Headless/CLI Mode** | Identical API, no GUI deps | CI/CD, Batch | Low | Critical | 1 |
 | F-SCRIPT-004 | **Script Marketplace** | Share, discover, rate scripts | Community | Medium | Medium | 2 |
 | F-SCRIPT-005 | **Workflow Automation** | Visual pipeline builder (no-code) | Non-programmers | High | Low | 3 |
 
@@ -223,7 +223,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ## 6. Dynamic Analysis Features (Phase 2+)
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-DYN-001 | **DAP Debugger Support** | GDB, LLDB, WinDbg, WinDbg via DAP | Standard debugging | High | High | 2 |
 | F-DYN-002 | **Emulator Integration** | Unicorn, QEMU user-mode | Firmware, shellcode | High | High | 2 |
 | F-DYN-003 | **Trace Import & Analysis** | Intel PT, rr, Frida, DynamoRIO | Time-travel debugging | Very High | Medium | 3 |
@@ -238,8 +238,8 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 7.1 Malware Analysis
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
-| F-MAL-001 | **Capa Integration** | Built-in capability detection | Triage | Low | Critical | 1 |
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
+| F-MAL-001 | **capa Integration** | Built-in capability detection | Triage | Low | Critical | 1 |
 | F-MAL-002 | **YARA Rule Engine** | Scan, write, test rules | Detection | Medium | High | 1 |
 | F-MAL-003 | **String Decryption Emulation** | Auto-decrypt stack strings | Hidden IOCs | High | High | 2 |
 | F-MAL-004 | **C2 Extraction Heuristics** | Pattern-based config extraction | Actionable intel | High | High | 2 |
@@ -249,7 +249,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 7.2 Vulnerability Research
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-VULN-001 | **Sink/Source Database** | Curated dangerous APIs | Audit focus | Medium | High | 2 |
 | F-VULN-002 | **Path Constraint Solver** | SMT-backed reachability | Exploitability | Very High | High | 3 |
 | F-VULN-003 | **Patch Diffing Engine** | Binary diffing, semantic equivalence | Variant hunting | High | High | 2 |
@@ -259,7 +259,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 7.3 Firmware & Embedded
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-FW-001 | **Flash Memory Mapper** | Visualize regions, partitions, FS | Firmware layout | Medium | High | 2 |
 | F-FW-002 | **RTOS Awareness** | FreeRTOS, Zephyr, ThreadX objects | Kernel analysis | High | Medium | 3 |
 | F-FW-003 | **Hardware Peripheral Models** | UART, SPI, I2C, GPIO, timers | Emulation | Very High | Low | 3 |
@@ -268,7 +268,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 7.4 Education
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-EDU-001 | **Lab Authoring Tool** | Create guided exercises with hints | Instructors | Medium | High | 2 |
 | F-EDU-002 | **Auto-Grading API** | Check student annotations programmatically | Scale teaching | Medium | High | 2 |
 | F-EDU-003 | **LTI/Canvas Integration** | LMS integration | Adoption | Medium | Medium | 3 |
@@ -281,7 +281,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 8.1 Performance & Scalability
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-PERF-001 | **Incremental Analysis** | Only re-analyze changed portions | Speed | High | Critical | 1 |
 | F-PERF-002 | **Lazy Loading** | Load views on demand | Startup time | Medium | Critical | 1 |
 | F-PERF-003 | **Streaming Decompilation** | Function-by-function, cancelable | Responsiveness | High | High | 1 |
@@ -291,7 +291,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 8.2 Security & Trust
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-SEC-001 | **Reproducible Builds** | Bit-for-bit identical artifacts | Supply chain | High | Critical | 1 |
 | F-SEC-002 | **Signed Releases** | Cosign/SBOM, keyless signing | Integrity | Medium | Critical | 1 |
 | F-SEC-003 | **Plugin Sandbox** | WASM capability-based security | Safe extensions | High | Critical | 1 |
@@ -301,7 +301,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ### 8.3 Distribution & Operations
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-DIST-001 | **Native Installers** | .deb, .rpm, .dmg, .msi, AppImage | Easy install | Medium | Critical | 1 |
 | F-DIST-002 | **Auto-Update** | Delta updates, rollback, channels | Maintenance | Medium | High | 1 |
 | F-DIST-003 | **Portable/Standalone** | Single binary, no install | Air-gapped, USB | Low | High | 1 |
@@ -313,7 +313,7 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ## 9. Creative/Experimental Features
 
 | ID | Feature | Description | User Value | Difficulty | Priority | Phase |
-|----|---------|-------------|------------|------------|----------|-------|
+| ---- | --------- | ------------- | ------------ | ------------ | ---------- | ------- |
 | F-EXP-001 | **Time-Travel Analysis** | Full history as first-class object | Debug analysis itself | Very High | Low | 3+ |
 | F-EXP-002 | **Natural Language Programming** | "Rename all crypto functions" → executes | Accessibility | Very High | Low | 3+ |
 | F-EXP-003 | **Collaborative AI** | Shared model fine-tuning (federated) | Org intelligence | Very High | Low | 3+ |
@@ -326,8 +326,9 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 ## 10. Feature Prioritization Summary
 
 ### MVP (Phase 1) - Must Have
+
 | Category | Features |
-|----------|----------|
+| ---------- | ---------- |
 | **Core** | F-CORE-001, 003, 004, 006; F-CFG-001, 002, 003, 004, 006; F-DEC-001-005; F-TYPE-001-005; F-LOAD-001-003 |
 | **AI** | F-AI-001-006, 009; F-AI-UX-001-005; F-AI-INFRA-001-003 |
 | **UX** | F-UI-001-007; F-INT-001-005, 007; F-A11Y-001-006; F-LEARN-001-002 |
@@ -336,8 +337,9 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 | **Platform** | F-PERF-001-003; F-SEC-001-004; F-DIST-001-003 |
 
 ### Phase 2 - Should Have
+
 | Category | Features |
-|----------|----------|
+| ---------- | ---------- |
 | **Core** | F-CORE-002, 007, 008; F-CFG-005, 007, 008; F-DEC-006-009; F-TYPE-006; F-LOAD-004-006 |
 | **AI** | F-AI-007, 008, 010; F-AI-UX-006, 008; F-AI-INFRA-004, 005 |
 | **UX** | F-INT-006, 008; F-A11Y-007; F-LEARN-003-006 |
@@ -348,8 +350,9 @@ Comprehensive list of potential features for open-re. Each feature includes desc
 | **Platform** | F-PERF-005; F-SEC-005; F-DIST-004, 005 |
 
 ### Phase 3 - Could Have
+
 | Category | Features |
-|----------|----------|
+| ---------- | ---------- |
 | **Dynamic** | F-DYN-003-006 |
 | **Domains** | F-VULN-002, 005; F-FW-002-004; F-EDU-003 |
 | **Experimental** | F-EXP-001-003 |
@@ -383,7 +386,7 @@ F-CORE-001 (Disassembler)
 When evaluating new feature proposals, score on:
 
 | Criterion | Weight | Questions |
-|-----------|--------|-----------|
+| ----------- | -------- | ----------- |
 | **User Value** | 30% | Which personas? How much time saved? |
 | **Differentiation** | 25% | Unique vs. competitors? Moat? |
 | **Strategic Alignment** | 20% | Advances vision? Enables other features? |
@@ -394,4 +397,4 @@ When evaluating new feature proposals, score on:
 
 ---
 
-*This brainstorm is exhaustive but not binding. Features move between phases based on learning. Review quarterly.*
+_This brainstorm is exhaustive but not binding. Features move between phases based on learning. Review quarterly._

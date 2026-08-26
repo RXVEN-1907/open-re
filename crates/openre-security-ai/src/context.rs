@@ -98,6 +98,11 @@ impl ContextBuilder {
         Self { max_tokens }
     }
 
+    /// Maximum token budget for contexts
+    pub fn max_tokens(&self) -> usize {
+        self.max_tokens
+    }
+
     /// Build context for explaining a finding
     pub fn build_finding_context(&self, finding: &Finding) -> AiResult<FindingExplanationContext> {
         let mut budget = TokenBudget::new(self.max_tokens);

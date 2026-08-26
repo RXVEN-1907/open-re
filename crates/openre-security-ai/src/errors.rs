@@ -1,6 +1,5 @@
 //! Error types for the AI Security Analyst
 
-use openre_ai::providers::AiError;
 use openre_core::ids::{FindingId, ScanId};
 use thiserror::Error;
 
@@ -32,7 +31,7 @@ pub enum AiAnalystError {
     TemplateNotFound(String),
 
     #[error("Provider error: {0}")]
-    Provider(#[from] AiError),
+    Provider(String),
 
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),

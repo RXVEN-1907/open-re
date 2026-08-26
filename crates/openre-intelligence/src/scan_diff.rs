@@ -3,10 +3,22 @@
 use crate::{error::IntelligenceError, types::*, IntelligenceResult};
 use chrono::{DateTime, Utc};
 use openre_core::ids::{FindingId, ScanId};
-use openre_core::result::{Finding, ScanMetadata};
+use openre_core::result::Finding;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, info, warn};
+
+/// Metadata describing a scan used for diffing
+#[derive(Debug, Clone)]
+pub struct ScanMetadata {
+    pub scan_id: ScanId,
+    pub start_time: DateTime<Utc>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub target: String,
+    pub plugins_used: Vec<String>,
+    pub configuration: HashMap<String, serde_json::Value>,
+    pub tags: Vec<String>,
+}
 
 /// Configuration for scan diff analysis
 #[derive(Debug, Clone)]
@@ -70,22 +82,34 @@ impl ScanDiffAnalyzer {
         let previous_findings = &previous_scan.findings;
         let current_findings = &current_scan.findings;
 
-        // Create maps for easier lookup
-        let previous_map: HashMap<FindingId, &Finding> =
-            previous_findings.iter().map(|f| (f.id, f)).collect();
-        let current_map: HashMap<FindingId, &Finding> =
-            current_findings.iter().map(|f| (f.id, f)).collect();
+        // Findings are matched across scans by fingerprint when available,
+        // falling back to the finding title so re-discovered issues correlate
+        // even when ids differ between scanner runs.
+        fn identity_key(f: &Finding) -> String {
+            f.fingerprint
+                .clone()
+                .unwrap_or_else(|| format!("title:{}", f.title))
+        }
+
+        let previous_map: HashMap<String, &Finding> = previous_findings
+            .iter()
+            .map(|f| (identity_key(f), f))
+            .collect();
+        let current_map: HashMap<String, &Finding> = current_findings
+            .iter()
+            .map(|f| (identity_key(f), f))
+            .collect();
 
         // Identify new findings
         let new_findings: Vec<&Finding> = current_findings
             .iter()
-            .filter(|f| !previous_map.contains_key(&f.id))
+            .filter(|f| !previous_map.contains_key(&identity_key(f)))
             .collect();
 
         // Identify resolved findings
         let resolved_findings: Vec<&Finding> = previous_findings
             .iter()
-            .filter(|f| !current_map.contains_key(&f.id))
+            .filter(|f| !current_map.contains_key(&identity_key(f)))
             .collect();
 
         // Identify persistent findings (in both scans)
@@ -93,8 +117,8 @@ impl ScanDiffAnalyzer {
             .iter()
             .filter_map(|current_finding| {
                 previous_map
-                    .get(&current_finding.id)
-                    .map(|prev_finding| (*prev_finding, *current_finding))
+                    .get(&identity_key(current_finding))
+                    .map(|prev_finding| (*prev_finding, current_finding))
             })
             .collect();
 
@@ -104,15 +128,23 @@ impl ScanDiffAnalyzer {
 
         for (prev_finding, current_finding) in &persistent_findings {
             if prev_finding.severity != current_finding.severity {
+                let change_type = if current_finding.severity > prev_finding.severity {
+                    SeverityChangeType::Increased
+                } else {
+                    SeverityChangeType::Decreased
+                };
+                let change_magnitude = (current_finding.severity.value() as i8)
+                    - (prev_finding.severity.value() as i8);
                 severity_changes.push(SeverityChange {
                     finding_id: current_finding.id,
+                    fingerprint: current_finding
+                        .fingerprint
+                        .clone()
+                        .unwrap_or_else(|| current_finding.id.to_string()),
                     previous_severity: prev_finding.severity.into(),
                     current_severity: current_finding.severity.into(),
-                    change_type: if current_finding.severity > prev_finding.severity {
-                        SeverityChangeType::Increased
-                    } else {
-                        SeverityChangeType::Decreased
-                    },
+                    change_magnitude,
+                    change_type,
                 });
             }
 
@@ -161,8 +193,47 @@ impl ScanDiffAnalyzer {
                     && sc.current_severity >= self.config.min_severity_for_significant_change
             });
 
+        // Detailed trend analysis (optional)
+        let trend_analysis = if self.config.enable_trend_analysis {
+            Some(self.analyze_trends(previous_scan, current_scan)?)
+        } else {
+            None
+        };
+
+        // Simple risk trend derived from net finding count and trend direction
+        let risk_direction = match &trend_analysis {
+            Some(trend) => {
+                if trend
+                    .worsening_trends
+                    .iter()
+                    .any(|t| t.severity >= self.config.min_severity_for_significant_change)
+                {
+                    TrendDirection::Worsening
+                } else if trend
+                    .improving_trends
+                    .iter()
+                    .any(|t| t.severity >= self.config.min_severity_for_significant_change)
+                {
+                    TrendDirection::Improving
+                } else {
+                    TrendDirection::Stable
+                }
+            }
+            None => TrendDirection::Stable,
+        };
+        let risk_trend = RiskTrend {
+            overall_change: net_change.clamp(i8::MIN as i32, i8::MAX as i32) as i8,
+            trend_direction: risk_direction,
+            key_factors: vec![
+                format!("{} new findings", new_findings.len()),
+                format!("{} resolved findings", resolved_findings.len()),
+                format!("{} severity changes", severity_changes.len()),
+            ],
+        };
+
         // Create the analysis result
         let analysis = ScanDiffAnalysis {
+            baseline_scan_id: previous_scan.metadata.scan_id,
             previous_scan_id: previous_scan.metadata.scan_id,
             current_scan_id: current_scan.metadata.scan_id,
             comparison_timestamp: Utc::now(),
@@ -172,6 +243,8 @@ impl ScanDiffAnalyzer {
             change_percentage: change_percent,
             is_significant_change,
             new_findings: new_findings.iter().map(|f| f.id).collect(),
+            fixed_findings: Vec::new(),
+            regressed_findings: Vec::new(),
             resolved_findings: resolved_findings.iter().map(|f| f.id).collect(),
             persistent_findings: persistent_findings
                 .iter()
@@ -181,11 +254,9 @@ impl ScanDiffAnalyzer {
             critical_new_findings: critical_new_findings.iter().map(|f| f.id).collect(),
             severity_changes,
             confidence_changes,
-            trend_analysis: if self.config.enable_trend_analysis {
-                Some(self.analyze_trends(previous_scan, current_scan)?)
-            } else {
-                None
-            },
+            technology_changes: Vec::new(),
+            trend_analysis,
+            risk_trend,
         };
 
         Ok(analysis)
@@ -502,6 +573,9 @@ impl ScanDiffAnalyzer {
                     report.push_str("- **Overall Security Posture: WORSENING**\n")
                 }
                 TrendDirection::Stable => report.push_str("- Overall Security Posture: Stable\n"),
+                TrendDirection::Mixed => {
+                    report.push_str("- Overall Security Posture: MIXED RESULTS\n")
+                }
             }
 
             if !trend.improving_trends.is_empty() {
@@ -571,6 +645,11 @@ impl ScanDiffAnalyzer {
                 TrendDirection::Stable => {
                     report.push_str("- Maintain current security practices while monitoring for emerging threats\n");
                 }
+                TrendDirection::Mixed => {
+                    report.push_str(
+                        "- Review mixed results to understand which areas improved or regressed\n",
+                    );
+                }
             }
         }
 
@@ -628,7 +707,7 @@ mod tests {
 
     fn create_test_finding(title: &str, severity: Severity) -> Finding {
         Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: title.to_string(),
             description: "Test finding".to_string(),
             severity,
@@ -641,7 +720,7 @@ mod tests {
             plugin_source: "test".to_string(),
             plugin_version: "1.0".to_string(),
             timestamp: Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: HashMap::new(),
             tags: Vec::new(),
             verified: false,
@@ -653,7 +732,7 @@ mod tests {
             capec_ids: Vec::new(),
             mitre_attack_ids: Vec::new(),
             owasp_category: None,
-            fingerprint: Some("test-fingerprint".to_string()),
+            fingerprint: Some(format!("test-fp-{}", title)),
             related_findings: Vec::new(),
             remediation: None,
             exploitability: None,
@@ -662,7 +741,7 @@ mod tests {
     }
 
     fn create_test_scan_data(findings: Vec<Finding>) -> ScanData {
-        let scan_id = ScanId::new_v4();
+        let scan_id = ScanId::new();
         let metadata = ScanMetadata {
             scan_id,
             start_time: Utc::now(),
@@ -784,13 +863,14 @@ mod tests {
         let analyzer = ScanDiffAnalyzer::new();
 
         // Create a mock analysis with critical and significant findings
-        let critical_finding_id = FindingId::new_v4();
-        let significant_finding_id = FindingId::new_v4();
-        let increased_severity_id = FindingId::new_v4();
+        let critical_finding_id = FindingId::new();
+        let significant_finding_id = FindingId::new();
+        let increased_severity_id = FindingId::new();
 
         let analysis = ScanDiffAnalysis {
-            previous_scan_id: ScanId::new_v4(),
-            current_scan_id: ScanId::new_v4(),
+            baseline_scan_id: ScanId::new(),
+            previous_scan_id: ScanId::new(),
+            current_scan_id: ScanId::new(),
             comparison_timestamp: Utc::now(),
             total_findings_previous: 5,
             total_findings_current: 8,
@@ -798,18 +878,28 @@ mod tests {
             change_percentage: 60.0,
             is_significant_change: true,
             new_findings: vec![critical_finding_id, significant_finding_id],
+            fixed_findings: vec![],
+            regressed_findings: vec![],
             resolved_findings: vec![],
             persistent_findings: vec![increased_severity_id],
             significant_new_findings: vec![significant_finding_id],
             critical_new_findings: vec![critical_finding_id],
             severity_changes: vec![SeverityChange {
                 finding_id: increased_severity_id,
+                fingerprint: "test-fingerprint".to_string(),
                 previous_severity: crate::SeverityLevel::Medium,
                 current_severity: crate::SeverityLevel::High,
+                change_magnitude: 1,
                 change_type: SeverityChangeType::Increased,
             }],
             confidence_changes: vec![],
+            technology_changes: vec![],
             trend_analysis: None,
+            risk_trend: RiskTrend {
+                overall_change: 20,
+                trend_direction: TrendDirection::Worsening,
+                key_factors: vec!["New critical findings".to_string()],
+            },
         };
 
         let curr_findings = vec![

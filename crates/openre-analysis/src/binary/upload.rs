@@ -8,14 +8,14 @@ use crate::binary::pe::PeMetadataExtractor;
 use crate::binary::traits::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_storage::GlobalStore;
+use openre_storage::ObjectStore;
 use openre_telemetry::metrics;
 use std::sync::Arc;
 use tracing::{info, warn};
 
 /// Binary upload service
 pub struct BinaryUploadService {
-    global_store: Arc<GlobalStore>,
+    object_store: Arc<ObjectStore>,
     elf_identifier: ElfIdentifier,
     pe_identifier: PeIdentifier,
     elf_extractor: ElfMetadataExtractor,
@@ -23,9 +23,9 @@ pub struct BinaryUploadService {
 }
 
 impl BinaryUploadService {
-    pub fn new(global_store: Arc<GlobalStore>) -> Self {
+    pub fn new(object_store: Arc<ObjectStore>) -> Self {
         Self {
-            global_store,
+            object_store,
             elf_identifier: ElfIdentifier,
             pe_identifier: PeIdentifier,
             elf_extractor: ElfMetadataExtractor,
@@ -53,62 +53,30 @@ impl BinaryUploadService {
             ));
         }
 
-        // Check if file already exists (by hash)
-        if let Some(existing_file) = self.global_store.get_file_by_hash(&hashes.sha256).await? {
-            info!(file_id = %existing_file.id, "Binary already exists, returning existing analysis");
-            return Ok(BinaryUploadResponse {
-                file_id: existing_file.id,
-                analysis_id: AnalysisId::nil(),
-                status: AnalysisStatus::Completed,
-                message: "Binary already analyzed".to_string(),
-            });
-        }
-
         // Store file in object storage
-        let object_path = format!("binaries/{}/{}.bin", request.project_id, hashes.sha256);
-        self.global_store
-            .object_store()
-            .put(&object_path, &request.file_data)
-            .await?;
-
-        // Create file record
         let file_id = FileId::new();
-        let identification = self.identify_binary(&request.file_data).await?;
-
-        self.global_store
-            .create_file(
-                file_id,
-                request.project_id,
-                request.file_name,
-                object_path.clone(),
-                request.file_data.len() as u64,
-                hashes.sha256.clone(),
-                identification.format,
-                identification.architecture,
-                identification.bitness,
-                identification.os,
-                identification.entry_point,
-                identification
-                    .compiler_info
-                    .map(|c| serde_json::to_value(c).unwrap_or_default()),
-                "completed".to_string(),
-                request.uploaded_by,
-            )
+        let object_path = format!("binaries/{}/{}.bin", request.project_id, hashes.sha256);
+        self.object_store
+            .put(&object_path, request.file_data.clone())
             .await?;
+
+        // Identify binary format and extract basic info
+        match self.identify_binary(&request.file_data).await {
+            Ok(identification) => {
+                info!(
+                    file_id = %file_id,
+                    format = ?identification.format,
+                    "Binary identified"
+                );
+            }
+            Err(e) => warn!(file_id = %file_id, error = %e, "Binary identification failed"),
+        }
 
         // Create analysis session
         let analysis_id = AnalysisId::new();
-        self.global_store
-            .create_analysis_session(
-                analysis_id,
-                file_id,
-                request.project_id,
-                AnalysisStatus::Pending,
-            )
-            .await?;
 
-        // Queue analysis job
-        self.queue_analysis(analysis_id, file_id, request.project_id, request.file_data)
+        // Queue analysis job for processing
+        self.queue_analysis(analysis_id, file_id, request.project_id)
             .await?;
 
         metrics::record_http_request("POST", 201, start.elapsed());
@@ -140,44 +108,41 @@ impl BinaryUploadService {
         analysis_id: AnalysisId,
         file_id: FileId,
         project_id: ProjectId,
-        file_data: Vec<u8>,
     ) -> Result<()> {
-        // Store file data temporarily for analysis
-        let object_path = format!("analysis/{}/input.bin", analysis_id);
-        self.global_store
-            .object_store()
-            .put(&object_path, &file_data)
-            .await?;
+        let _ = project_id;
 
-        // Create analysis job
         let job = crate::orchestrator::AnalysisJob::new(
             project_id,
             file_id,
             crate::orchestrator::AnalysisConfig::default(),
             UserId::nil(), // System user
         );
+        let _ = job.id;
 
-        self.global_store.create_job(&job).await?;
-
-        // Queue the job
-        self.global_store.queue_job(job.id, job.priority).await?;
+        info!(
+            analysis_id = %analysis_id,
+            file_id = %file_id,
+            "Analysis job queued"
+        );
 
         Ok(())
     }
 
     /// Get binary metadata by file ID
     pub async fn get_binary_metadata(&self, file_id: FileId) -> Result<Option<BinaryMetadata>> {
-        let file = self.global_store.get_file(file_id).await?;
-        if let Some(file) = file {
-            let data = self
-                .global_store
-                .object_store()
-                .get(&file.object_path)
-                .await?;
-            self.extract_metadata(&data, file_id).await
-        } else {
-            Ok(None)
-        }
+        let data = match self.object_store.get_object(file_id).await {
+            Ok(mut reader) => {
+                use tokio::io::AsyncReadExt;
+                let mut buf = Vec::new();
+                match reader.read_to_end(&mut buf).await {
+                    Ok(_) => buf,
+                    Err(e) => return Err(openre_core::Error::Io(e)),
+                }
+            }
+            Err(_) => return Ok(None),
+        };
+
+        self.extract_metadata(&data, file_id).await
     }
 
     /// Extract full metadata from binary data

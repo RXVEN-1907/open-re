@@ -6,9 +6,9 @@ This guide explains how to create new injection vulnerability detection plugins 
 
 ## Prerequisites
 
-- Rust 1.75+
-- Understanding of the target injection vulnerability
-- Familiarity with the open-re plugin system
+-   Rust 1.75+
+-   Understanding of the target injection vulnerability
+-   Familiarity with the open-re plugin system
 
 ## Quick Start
 
@@ -16,8 +16,8 @@ This guide explains how to create new injection vulnerability detection plugins 
 
 ```
 plugins/security/my_injection/
-├── plugin.toml
-└── config_schema.json
+├── plugin.TOML
+└── config_schema.JSON
 ```
 
 ### 2. Implement Plugin in `crates/openre-plugins/src/injection/`
@@ -78,13 +78,13 @@ impl MyInjectionPlugin {
             crate::injection::SecurityReference {
                 ref_type: "OWASP".to_string(),
                 id: "A03:2021".to_string(),
-                url: "https://owasp.org/Top10/A03_2021-Injection/".to_string(),
+                url: "HTTPS://owasp.org/Top10/A03_2021-Injection/".to_string(),
                 description: "OWASP Top 10 2021 - Injection".to_string(),
             },
             crate::injection::SecurityReference {
                 ref_type: "CWE".to_string(),
                 id: "CWE-XXX".to_string(),
-                url: "https://cwe.mitre.org/data/definitions/XXX.html".to_string(),
+                url: "HTTPS://cwe.mitre.org/data/definitions/XXX.HTML".to_string(),
                 description: "CWE description".to_string(),
             },
         ]
@@ -120,7 +120,7 @@ impl Plugin for MyInjectionPlugin {
         let context = request.context;
         let target_url = request.input.get("target_url")
             .and_then(|v| v.as_str())
-            .unwrap_or("http://localhost");
+            .unwrap_or("HTTP://localhost");
         
         info!("Starting [vulnerability] testing for {}", target_url);
         
@@ -156,7 +156,7 @@ impl Plugin for MyInjectionPlugin {
         let scan_id = context.job_id.into();
         let findings = self.base.results_to_findings(results, scan_id, target_url);
         
-        Ok(CapabilityResponse::success(serde_json::json!({
+        Ok(CapabilityResponse::success(serde_json::JSON!({
             "findings": findings,
             "tests_performed": results.len(),
             "vulnerabilities_found": findings.len(),
@@ -251,7 +251,7 @@ fn check_my_patterns(&self, result: &TestResult, body: &str) -> Vec<InjectionTes
     ];
     
     for (pattern, desc) in &patterns {
-        if regex::Regex::new(pattern).map_or(false, |re| re.is_match(&body_lower)) {
+        if Regex::Regex::new(pattern).map_or(false, |re| re.is_match(&body_lower)) {
             findings.push(InjectionTestResult {
                 category: self.category,
                 parameter: result.parameter.clone(),
@@ -289,7 +289,7 @@ fn check_my_patterns(&self, result: &TestResult, body: &str) -> Vec<InjectionTes
     findings
 }
 
-// In check_patterns() match arm:
+// In check_patterns() match ARM:
 InjectionCategory::Custom => {
     findings.extend(self.check_my_patterns(result, body));
 }
@@ -306,7 +306,7 @@ In `payload_engine.rs` in `get_payloads()`:
 
 ### 6. Create Plugin Manifest
 
-`plugins/security/my_injection/plugin.toml`:
+`plugins/security/my_injection/plugin.TOML`:
 
 ```toml
 name = "my_injection"
@@ -324,11 +324,11 @@ min_core_version = "0.1.0"
 max_core_version = "1.0.0"
 
 [plugin.entry]
-wasm = "my_injection.wasm"
-native = { linux = "libmy_injection.so", macos = "libmy_injection.dylib", windows = "my_injection.dll" }
+WASM = "my_injection.WASM"
+native = { Linux = "libmy_injection.so", macOS = "libmy_injection.dylib", Windows = "my_injection.dll" }
 
 [build]
-target = "wasm"
+target = "WASM"
 rust_version = "1.75"
 features = []
 
@@ -343,13 +343,13 @@ panels = []
 menus = []
 
 [config]
-schema = "config_schema.json"
+schema = "config_schema.JSON"
 defaults = {}
 ```
 
 ### 7. Create Config Schema
 
-`plugins/security/my_injection/config_schema.json`:
+`plugins/security/my_injection/config_schema.JSON`:
 
 ```json
 {
@@ -498,54 +498,57 @@ defaults = {}
 
 ### Payload Design
 
-1. **Start Safe**: Begin with non-destructive payloads (`is_safe: true`)
-2. **Use Context Hints**: Filter payloads by technology/database/OS
-3. **Multiple Detection Methods**: Include error-based, boolean-based, time-based, reflection
-4. **Encoding Variants**: Test with multiple encodings (URL, HTML entity, etc.)
-5. **Risk Levels**: Assign appropriate risk levels (1-10)
+1.  **Start Safe**: Begin with non-destructive payloads (`is_safe: true`)
+2.  **Use Context Hints**: Filter payloads by technology/database/OS
+3.  **Multiple Detection Methods**: Include error-based, boolean-based, time-based, reflection
+4.  **Encoding Variants**: Test with multiple encodings (URL, HTML entity, etc.)
+5.  **Risk Levels**: Assign appropriate risk levels (1-10)
 
 ### Response Analysis
 
-1. **Error Patterns**: Add specific error messages for the technology
-2. **Pattern Matching**: Look for unique indicators in responses
-3. **Differential Analysis**: Compare baseline vs test responses
-4. **Timing Analysis**: For time-based blind injection
-5. **Reflection Detection**: Check if payload appears in response
+1.  **Error Patterns**: Add specific error messages for the technology
+2.  **Pattern Matching**: Look for unique indicators in responses
+3.  **Differential Analysis**: Compare baseline vs test responses
+4.  **Timing Analysis**: For time-based blind injection
+5.  **Reflection Detection**: Check if payload appears in response
 
 ### Safety
 
-1. **Block Destructive Patterns**: Add to `blocked_patterns` in safety config
-2. **Limit Requests**: Set reasonable `max_requests_per_test`
-3. **Rate Limit**: Configure `rate_limit_rps` appropriately
-4. **Scope Enforcement**: Define `allowed_scopes` for target restriction
-5. **Authorization**: Require explicit authorization
+1.  **Block Destructive Patterns**: Add to `blocked_patterns` in safety config
+2.  **Limit Requests**: Set reasonable `max_requests_per_test`
+3.  **Rate Limit**: Configure `rate_limit_rps` appropriately
+4.  **Scope Enforcement**: Define `allowed_scopes` for target restriction
+5.  **Authorization**: Require explicit authorization
 
 ### Testing
 
-1. **Unit Tests**: Test payload generation, encoding, mutation
-2. **Integration Tests**: Test against vulnerable applications
-3. **False Positive Reduction**: Verify findings with multiple methods
-4. **Regression Tests**: Ensure existing tests still pass
+1.  **Unit Tests**: Test payload generation, encoding, mutation
+2.  **Integration Tests**: Test against vulnerable applications
+3.  **False Positive Reduction**: Verify findings with multiple methods
+4.  **Regression Tests**: Ensure existing tests still pass
 
 ## Example: Complete LDAP Injection Plugin
 
 See `crates/openre-plugins/src/injection/ldap_injection.rs` for a complete example with:
-- Authentication bypass payloads
-- Blind injection payloads
-- LDAP-specific error patterns
-- LDAP data exposure pattern matching
-- Proper references (CWE-90, OWASP A03:2021)
+
+-   Authentication bypass payloads
+-   Blind injection payloads
+-   LDAP-specific error patterns
+-   LDAP data exposure pattern matching
+-   Proper references (CWE-90, OWASP A03:2021)
 
 ## Registering the Plugin
 
-1. Build the plugin:
+1.  Build the plugin:
+
    ```bash
-   cargo build --release -p openre-plugins
+   Cargo build --release -p openre-plugins
    ```
 
-2. The plugin will be auto-discovered from `local_plugin_dir` (configured in `PluginConfig`)
+2.  The plugin will be auto-discovered from `local_plugin_dir` (configured in `PluginConfig`)
 
-3. Or manually register via API:
+3.  Or manually register via API:
+
    ```bash
    curl -X POST /api/plugins/register \
      -H "Authorization: Bearer <token>" \
@@ -555,11 +558,13 @@ See `crates/openre-plugins/src/injection/ldap_injection.rs` for a complete examp
 ## Running the Plugin
 
 Via CLI:
+
 ```bash
 sentinel scan start --target <target_id> --plugins my_injection
 ```
 
 Via API:
+
 ```bash
 curl -X POST /api/scans \
   -H "Authorization: Bearer <token>" \
@@ -569,24 +574,27 @@ curl -X POST /api/scans \
 ## Debugging
 
 Enable debug logging:
+
 ```bash
 RUST_LOG=openre_plugins::injection=debug sentinel scan start ...
 ```
 
 Check plugin health:
+
 ```bash
 sentinel plugin health --id my_injection
 ```
 
 View findings:
+
 ```bash
 sentinel finding security injection --scan-id <scan_id>
 ```
 
 ## Contributing
 
-1. Follow the existing code style
-2. Add comprehensive tests
-3. Update documentation
-4. Submit PR with description of vulnerability type detected
-5. Include test results against vulnerable applications
+1.  Follow the existing code style
+2.  Add comprehensive tests
+3.  Update documentation
+4.  Submit PR with description of vulnerability type detected
+5.  Include test results against vulnerable applications

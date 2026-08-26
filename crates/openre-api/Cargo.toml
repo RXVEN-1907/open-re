@@ -17,7 +17,7 @@ openre-queue = { path = "../openre-queue" }
 openre-ai = { path = "../openre-ai" }
 openre-plugins = { path = "../openre-plugins" }
 axum = { workspace = true }
-axum-extra = { workspace = true }
+axum-extra = { workspace = true, features = ["cookie"] }
 tower = { workspace = true }
 tower-http = { workspace = true }
 tonic = { workspace = true }
@@ -33,4 +33,13 @@ jsonwebtoken = { workspace = true }
 bcrypt = { workspace = true }
 validator = { workspace = true }
 utoipa = { workspace = true }
-utoipa-swagger-ui = { workspace = true }
+utoipa-swagger-ui = { workspace = true, features = ["axum"] }
+tracing = { workspace = true }
+futures = { workspace = true }
+governor = { workspace = true }
+async-stream = "0.3"
+async-trait = { workspace = true }
+redis = { workspace = true }
+openre-scanner = { path = "../openre-scanner" }
+openre-security-ai = { path = "../openre-security-ai" }
+base64 = { workspace = true }

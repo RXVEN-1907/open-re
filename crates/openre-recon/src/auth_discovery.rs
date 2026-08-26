@@ -5,6 +5,7 @@
 
 use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use openre_core::error::OpenreResult as Result;
+use openre_core::result::FindingConfig;
 use openre_plugins::sdk::{
     AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
 };
@@ -36,7 +37,8 @@ impl AuthDiscoveryPlugin {
             .redirect(reqwest::redirect::Policy::limited(config.max_redirects))
             .user_agent(&config.user_agent)
             .danger_accept_invalid_certs(!config.verify_tls)
-            .build()?;
+            .build()
+            .map_err(crate::internal_err)?;
 
         Ok(Self { config, client })
     }
@@ -45,7 +47,12 @@ impl AuthDiscoveryPlugin {
     async fn discover_auth(&self, url: &str) -> Result<AuthDiscoveryResult> {
         let mut result = AuthDiscoveryResult::default();
 
-        let response = self.client.get(url).send().await?;
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .map_err(crate::internal_err)?;
         let headers: HashMap<String, String> = response
             .headers()
             .iter()
@@ -75,7 +82,7 @@ impl AuthDiscoveryPlugin {
         self.detect_oauth(&headers, &body, &mut result);
 
         // Check for login forms
-        self.detect_login_forms(&body, &mut result);
+        self.detect_login_forms(&body, &mut result)?;
 
         // Check for session cookies
         self.detect_session_cookies(&headers, &mut result);
@@ -165,8 +172,8 @@ impl AuthDiscoveryPlugin {
         }
     }
 
-    fn detect_login_forms(&self, body: &str, result: &mut AuthDiscoveryResult) {
-        let doc = Document::from(body.as_bytes());
+    fn detect_login_forms(&self, body: &str, result: &mut AuthDiscoveryResult) -> Result<()> {
+        let doc = crate::parse_html(body)?;
 
         for form in doc.find(Name("form")) {
             let mut login_form = LoginFormInfo::default();
@@ -234,6 +241,8 @@ impl AuthDiscoveryPlugin {
                 result.login_forms.push(login_form);
             }
         }
+
+        Ok(())
     }
 
     fn detect_session_cookies(
@@ -356,12 +365,14 @@ impl Plugin for AuthDiscoveryPlugin {
         vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
-    async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
-        let context = request.context;
-        let findings = self.recon(&context).await?;
+    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
+        let _ = request;
 
+        // Recon plugins perform their work through the scan pipeline, which
+        // supplies a full ScanContext. Capability execution has no scan context,
+        // so report an empty result set instead.
         Ok(CapabilityResponse::success(serde_json::json!({
-            "findings": findings,
+            "findings": [],
             "recon_type": ReconType::AuthDiscovery,
         })))
     }
@@ -382,9 +393,9 @@ impl ReconPlugin for AuthDiscoveryPlugin {
         ]
     }
 
-    async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
+    async fn recon(&self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
-        let target_url = context.target.to_string();
+        let target_url = context.target.metadata.base_url.as_str().to_string();
 
         info!("Starting authentication discovery for: {}", target_url);
 
@@ -393,18 +404,18 @@ impl ReconPlugin for AuthDiscoveryPlugin {
         // Basic Auth findings
         if let Some(basic) = &discovery.basic_auth {
             findings.push(
-                Finding::new(
-                    "Basic Authentication Detected".to_string(),
-                    format!("WWW-Authenticate header present: {}", basic.challenge),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::BrokenAuthentication,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "auth_discovery".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Basic Authentication Detected".to_string(),
+                    description: format!("WWW-Authenticate header present: {}", basic.challenge),
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::BrokenAuthentication,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "auth_discovery".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Basic Auth challenge".to_string(),
@@ -414,6 +425,13 @@ impl ReconPlugin for AuthDiscoveryPlugin {
                     })),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -421,21 +439,21 @@ impl ReconPlugin for AuthDiscoveryPlugin {
         // Bearer Auth findings
         if let Some(bearer) = &discovery.bearer_auth {
             findings.push(
-                Finding::new(
-                    "Bearer Token Authentication Detected".to_string(),
-                    format!(
+                Finding::new(FindingConfig {
+                    title: "Bearer Token Authentication Detected".to_string(),
+                    description: format!(
                         "WWW-Authenticate header indicates Bearer token: {}",
                         bearer.challenge
                     ),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::BrokenAuthentication,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "auth_discovery".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::BrokenAuthentication,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "auth_discovery".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Bearer token challenge".to_string(),
@@ -444,6 +462,13 @@ impl ReconPlugin for AuthDiscoveryPlugin {
                     })),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -451,18 +476,18 @@ impl ReconPlugin for AuthDiscoveryPlugin {
         // OAuth findings
         for oauth in &discovery.oauth_indicators {
             findings.push(
-                Finding::new(
-                    "OAuth Indicator Detected".to_string(),
-                    oauth.detail.clone(),
-                    Severity::Info,
-                    Confidence::Medium,
-                    Category::BrokenAuthentication,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "auth_discovery".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "OAuth Indicator Detected".to_string(),
+                    description: oauth.detail.clone(),
+                    severity: Severity::Info,
+                    confidence: Confidence::Medium,
+                    category: Category::BrokenAuthentication,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "auth_discovery".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "OAuth indicator".to_string(),
@@ -472,6 +497,13 @@ impl ReconPlugin for AuthDiscoveryPlugin {
                     })),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -500,18 +532,18 @@ impl ReconPlugin for AuthDiscoveryPlugin {
             }
 
             findings.push(
-                Finding::new(
-                    "Login Form Detected".to_string(),
-                    details.join(", "),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::BrokenAuthentication,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "auth_discovery".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Login Form Detected".to_string(),
+                    description: details.join(", "),
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::BrokenAuthentication,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "auth_discovery".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Login form found".to_string(),
@@ -526,6 +558,13 @@ impl ReconPlugin for AuthDiscoveryPlugin {
                     })),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -533,21 +572,21 @@ impl ReconPlugin for AuthDiscoveryPlugin {
         // Session cookie findings
         for cookie in &discovery.session_cookies {
             findings.push(
-                Finding::new(
-                    "Session Cookie Detected".to_string(),
-                    format!(
+                Finding::new(FindingConfig {
+                    title: "Session Cookie Detected".to_string(),
+                    description: format!(
                         "Session cookie pattern found: {} ({})",
                         cookie.name, cookie.pattern
                     ),
-                    Severity::Info,
-                    Confidence::Medium,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "auth_discovery".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                    severity: Severity::Info,
+                    confidence: Confidence::Medium,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "auth_discovery".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Session cookie pattern".to_string(),
@@ -557,6 +596,13 @@ impl ReconPlugin for AuthDiscoveryPlugin {
                     })),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -564,18 +610,18 @@ impl ReconPlugin for AuthDiscoveryPlugin {
         // Auth header findings
         for header in &discovery.auth_headers {
             findings.push(
-                Finding::new(
-                    "Authentication Header Detected".to_string(),
-                    format!("{} header present", header.name),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "auth_discovery".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Authentication Header Detected".to_string(),
+                    description: format!("{} header present", header.name),
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "auth_discovery".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Auth header found".to_string(),
@@ -585,6 +631,13 @@ impl ReconPlugin for AuthDiscoveryPlugin {
                     })),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -599,6 +652,7 @@ impl ReconPlugin for AuthDiscoveryPlugin {
 }
 
 /// Plugin entry point
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     if config_ptr.is_null() || config_len == 0 {
@@ -613,6 +667,7 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_execute(
     request_ptr: *const u8,
@@ -623,6 +678,7 @@ pub extern "C" fn plugin_execute(
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_shutdown() -> i32 {
     0

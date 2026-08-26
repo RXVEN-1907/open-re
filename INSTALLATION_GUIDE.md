@@ -43,7 +43,7 @@ Invoke-WebRequest -Uri "https://github.com/RXVEN-1907/open-re/releases/latest/do
 curl -L -o openre-scan.sha256 https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64.sha256
 
 # Verify
-sha256sum -c openre-scan.sha256
+sha256sum -C openre-scan.sha256
 ```
 
 ---
@@ -53,7 +53,7 @@ sha256sum -c openre-scan.sha256
 ### Cargo (Rust)
 
 ```bash
-cargo install openre-scan
+Cargo install openre-scan
 openre-scan --help
 ```
 
@@ -68,13 +68,13 @@ brew install openre-scan
 
 ```bash
 # Pull image
-docker pull ghcr.io/rxven-1907/openre-scan:latest
+Docker pull ghcr.io/rxven-1907/openre-scan:latest
 
 # Run scan
-docker run --rm ghcr.io/rxven-1907/openre-scan:latest scan https://example.com --profile standard
+Docker run --rm ghcr.io/rxven-1907/openre-scan:latest scan https://example.com --profile standard
 
 # With output file
-docker run --rm -v $(pwd):/data ghcr.io/rxven-1907/openre-scan:latest \
+Docker run --rm -v $(pwd):/data ghcr.io/rxven-1907/openre-scan:latest \
   scan https://example.com --format sarif --output /data/results.sarif
 ```
 
@@ -84,8 +84,8 @@ docker run --rm -v $(pwd):/data ghcr.io/rxven-1907/openre-scan:latest \
 
 ### Prerequisites
 
-- **Rust 1.78+** (install via `rustup.rs`)
-- **Git**
+-   **Rust 1.78+** (install via `rustup.rs`)
+-   **Git**
 
 ### Build Steps
 
@@ -95,7 +95,7 @@ git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
 
 # Build release binary (CLI only)
-cargo build --release -p openre-scan
+Cargo build --release -p openre-scan
 
 # Binary at ./target/release/openre-scan
 ./target/release/openre-scan --help
@@ -104,14 +104,14 @@ cargo build --release -p openre-scan
 ### With TUI (Experimental)
 
 ```bash
-cargo build --release -p openre-scan --features tui
+Cargo build --release -p openre-scan --features tui
 ./target/release/openre-scan tui
 ```
 
 ### Minimal Build (No Default Features)
 
 ```bash
-cargo build --release -p openre-scan --no-default-features
+Cargo build --release -p openre-scan --no-default-features
 ```
 
 ---
@@ -122,41 +122,43 @@ cargo build --release -p openre-scan --no-default-features
 
 ```bash
 # Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source ~/.cargo/env
+curl --proto '=HTTPS' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.Cargo/env
 
 # Build
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
-cargo build --release -p openre-scan
+Cargo build --release -p openre-scan
 ```
 
 ### macOS
 
 ```bash
 # Install Rust
-brew install rust
+brew install Rust
 
 # Or via rustup
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source ~/.cargo/env
+curl --proto '=HTTPS' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.Cargo/env
 
 # Build
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
-cargo build --release -p openre-scan
+Cargo build --release -p openre-scan
 ```
 
 ### Windows
 
 **Option 1: WSL2 (Recommended)**
-1. Install WSL2 + Ubuntu from Microsoft Store
-2. Follow Linux instructions above
+
+1.  Install WSL2 + Ubuntu from Microsoft Store
+2.  Follow Linux instructions above
 
 **Option 2: Native (MSVC)**
-1. Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with "C++ build tools"
-2. Install Rust via [rustup-init.exe](https://rustup.rs)
-3. Build in Developer Command Prompt
+
+1.  Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with "C++ build tools"
+2.  Install Rust via [rustup-init.exe](https://rustup.rs)
+3.  Build in Developer Command Prompt
 
 ---
 
@@ -263,7 +265,7 @@ chmod +x openre-scan
 ### Cargo
 
 ```bash
-cargo install --force openre-scan
+Cargo install --force openre-scan
 ```
 
 ### Homebrew
@@ -277,7 +279,7 @@ brew upgrade openre-scan
 ```bash
 cd open-re
 git pull origin main
-cargo build --release -p openre-scan
+Cargo build --release -p openre-scan
 ```
 
 ---
@@ -293,7 +295,7 @@ rm openre-scan  # or openre-scan.exe
 ### Cargo
 
 ```bash
-cargo uninstall openre-scan
+Cargo uninstall openre-scan
 ```
 
 ### Homebrew
@@ -316,7 +318,7 @@ rm -rf open-re/
 ### Build Errors
 
 | Error | Fix |
-|-------|-----|
+| ------- | ----- |
 | `linker 'cc' not found` | Install build tools: `sudo apt install build-essential` (Debian/Ubuntu), `xcode-select --install` (macOS) |
 | `openssl` missing | `sudo apt install libssl-dev pkg-config` |
 | Rust version too old | `rustup update` |
@@ -324,7 +326,7 @@ rm -rf open-re/
 ### Runtime Issues
 
 | Issue | Fix |
-|-------|-----|
+| ------- | ----- |
 | `Permission denied` | `chmod +x openre-scan` |
 | `Certificate verification failed` | Target uses self-signed cert — use `--timeout` and verify manually |
 | `Connection timeout` | Increase `--timeout` or check network/firewall |
@@ -337,16 +339,16 @@ openre-scan --help
 openre-scan scan --help
 ```
 
-- **GitHub Issues**: Bug reports and feature requests
-- **GitHub Discussions**: Questions and ideas
-- **Security**: security@open-re.org
+-   **GitHub Issues**: Bug reports and feature requests
+-   **GitHub Discussions**: Questions and ideas
+-   **Security**: <security@open-re.org>
 
 ---
 
 ## Requirements Summary
 
 | Component | Minimum | Recommended |
-|-----------|---------|-------------|
+| ----------- | --------- | ------------- |
 | Rust | 1.78 | Latest stable |
 | OS | Linux/macOS/Windows | Any |
 | Arch | x86_64 | x86_64 (ARM64 coming) |

@@ -16,6 +16,20 @@ pub trait PluginInstance: Send + Sync {
     async fn stop(&self) -> Result<()>;
     async fn shutdown(&self) -> Result<()>;
     async fn health_check(&self) -> Result<bool>;
+
+    /// Apply a JSON configuration payload to the instance.
+    ///
+    /// The payload is intentionally untyped so hosts and plugins do not need
+    /// to share concrete configuration structs. Default: no-op.
+    async fn configure(&self, _config: Value) -> Result<()> {
+        Ok(())
+    }
+
+    /// Execute a scan task with a serialized input payload, returning the raw
+    /// output payload. Default: no-op returning `null`.
+    async fn execute(&self, _input: Value) -> Result<Value> {
+        Ok(Value::Null)
+    }
 }
 
 /// Plugin trait that all plugins must implement

@@ -19,10 +19,16 @@ openre-telemetry = { path = "../openre-telemetry" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+sha1 = "0.10"
+sha2 = { workspace = true }
+md5 = { package = "md-5", version = "0.10" }
 dashmap = "5.5"
 tokio-util = { version = "0.7" }
 goblin = { workspace = true }

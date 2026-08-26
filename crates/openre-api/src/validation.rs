@@ -8,6 +8,7 @@ use axum::{
     Json,
 };
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use validator::{Validate, ValidationErrors};
 
@@ -33,33 +34,31 @@ where
     }
 }
 
-/// Validation error response
-impl IntoResponse for ValidationErrors {
-    fn into_response(self) -> Response {
-        let errors: Vec<ValidationErrorResponse> = self
-            .field_errors()
-            .iter()
-            .flat_map(|(field, errors)| {
-                errors.iter().map(move |error| ValidationErrorResponse {
-                    field: field.to_string(),
-                    message: error
-                        .message
-                        .as_ref()
-                        .map(|m| m.to_string())
-                        .unwrap_or_else(|| "Invalid value".to_string()),
-                    code: error.code.to_string(),
-                })
+/// Convert validation errors into an HTTP response
+pub fn validation_errors_response(errors: ValidationErrors) -> Response {
+    let error_list: Vec<ValidationErrorResponse> = errors
+        .field_errors()
+        .iter()
+        .flat_map(|(field, errs)| {
+            errs.iter().map(move |error| ValidationErrorResponse {
+                field: field.to_string(),
+                message: error
+                    .message
+                    .as_ref()
+                    .map(|m| m.to_string())
+                    .unwrap_or_else(|| "Invalid value".to_string()),
+                code: error.code.to_string(),
             })
-            .collect();
+        })
+        .collect();
 
-        let body = serde_json::json!({
-            "error": "validation_failed",
-            "message": "Request validation failed",
-            "details": errors,
-        });
+    let body = serde_json::json!({
+        "error": "validation_failed",
+        "message": "Request validation failed",
+        "details": error_list,
+    });
 
-        (StatusCode::UNPROCESSABLE_ENTITY, Json(body)).into_response()
-    }
+    (StatusCode::UNPROCESSABLE_ENTITY, Json(body)).into_response()
 }
 
 #[derive(Debug, Serialize)]
@@ -110,9 +109,9 @@ pub mod rules {
     }
 
     /// Validate file size (in bytes)
-    pub fn validate_file_size(size: &u64) -> Result<(), ValidationError> {
+    pub fn validate_file_size(size: u64) -> Result<(), ValidationError> {
         const MAX_FILE_SIZE: u64 = 1024 * 1024 * 1024; // 1GB
-        if *size <= MAX_FILE_SIZE {
+        if size <= MAX_FILE_SIZE {
             Ok(())
         } else {
             Err(ValidationError::new("file_too_large"))
@@ -128,7 +127,7 @@ pub mod rules {
 }
 
 /// Pagination parameters
-#[derive(Debug, Clone, serde::Deserialize, Validate)]
+#[derive(Debug, Clone, serde::Deserialize, Validate, utoipa::IntoParams)]
 pub struct PaginationParams {
     #[validate(range(min = 1, max = 1000))]
     pub page: Option<u32>,
@@ -169,7 +168,7 @@ impl PaginationParams {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SortOrder {
     Asc,
@@ -183,7 +182,7 @@ impl Default for SortOrder {
 }
 
 /// Filter parameters
-#[derive(Debug, Clone, serde::Deserialize, Validate)]
+#[derive(Debug, Clone, serde::Deserialize, Validate, utoipa::IntoParams)]
 pub struct FilterParams {
     pub search: Option<String>,
     pub status: Option<String>,
@@ -201,7 +200,7 @@ pub struct DateRangeParams {
 }
 
 /// ID parameter validation
-#[derive(Debug, Clone, serde::Deserialize, Validate)]
+#[derive(Debug, Clone, serde::Deserialize, Validate, utoipa::IntoParams)]
 pub struct IdParam {
     #[validate(custom(function = "rules::validate_uuid"))]
     pub id: String,

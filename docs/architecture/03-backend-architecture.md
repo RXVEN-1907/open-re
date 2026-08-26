@@ -12,7 +12,7 @@ The backend is built in **Rust** using a **modular, async-first** architecture. 
 graph TB
     subgraph "External Interfaces"
         HTTP[HTTP API<br/>Axum]
-        GRPC[gRPC API<br/>Tonic]
+        gRPC[gRPC API<br/>Tonic]
         CLI[CLI Interface<br/>Typer]
         PY[Python Bindings<br/>PyO3]
     end
@@ -45,14 +45,14 @@ graph TB
         PG[PostgreSQL<br/>sqlx]
         SQ[SQLite<br/>sqlx + rusqlite]
         RD[Redis<br/>redis-rs]
-        OB[Object Storage<br/>aws-sdk-s3 / minio]
+        OB[Object Storage<br/>AWS-sdk-s3 / minio]
         QU[Queue<br/>BullMQ / custom]
         WM[WASM Runtime<br/>Wasmtime]
         LM[Local Models<br/>ONNX / llama.cpp]
     end
 
     HTTP --> API
-    GRPC --> API
+    gRPC --> API
     CLI --> API
     PY --> API
     API --> AUTH
@@ -130,7 +130,7 @@ impl AnalysisService {
 **Key Components:**
 
 | Component | Purpose |
-|-----------|---------|
+| ----------- | --------- |
 | `PipelineOrchestrator` | Builds DAG from config, manages stage execution order |
 | `StageExecutor` | Runs individual stages with timeout, retry, cancellation |
 | `ProgressTracker` | Emits progress events via Redis Pub/Sub |
@@ -171,6 +171,7 @@ impl PluginService {
 ```
 
 **Plugin Lifecycle:**
+
 ```mermaid
 stateDiagram-v2
     [*] --> Discovered: Scan plugin dirs
@@ -300,7 +301,7 @@ graph LR
         ANA --> STO
         ANA --> BIN[openre-binary]
         ANA --> DIS[openre-disasm]
-        ANA --> CFG[openre-cfg]
+        ANA --> CFG[openre-CFG]
         ANA --> DEC[openre-decompiler]
         ANA --> TYP[openre-types]
         
@@ -328,11 +329,12 @@ graph LR
 ```
 
 **Boundary Rules:**
-1. **Core** (`openre-core`) has **zero dependencies** on other crates
-2. **Domain crates** (binary, disasm, cfg, etc.) depend only on `core`
-3. **Service crates** (analysis, plugins, ai, storage) depend on domain crates
-4. **API crate** depends on service crates, **never** the reverse
-5. **Plugins** depend only on `openre-plugins-sdk` (published separately)
+
+1.  **Core** (`openre-core`) has **zero dependencies** on other crates
+2.  **Domain crates** (binary, disasm, CFG, etc.) depend only on `core`
+3.  **Service crates** (analysis, plugins, ai, storage) depend on domain crates
+4.  **API crate** depends on service crates, **never** the reverse
+5.  **Plugins** depend only on `openre-plugins-sdk` (published separately)
 
 ---
 
@@ -359,10 +361,10 @@ pub struct AppState {
 // Axum extractor for handlers
 async fn start_analysis(
     State(state): State<AppState>,
-    Json(req): Json<StartAnalysisRequest>,
-) -> Result<Json<JobResponse>, ApiError> {
+    JSON(req): JSON<StartAnalysisRequest>,
+) -> Result<JSON<JobResponse>, ApiError> {
     let job_id = state.analysis.start_analysis(...).await?;
-    Ok(Json(JobResponse { job_id }))
+    Ok(JSON(JobResponse { job_id }))
 }
 ```
 
@@ -532,7 +534,7 @@ impl From<AnalysisError> for ApiError {
 // crates/openre-telemetry/src/lib.rs
 pub fn init_telemetry(config: &TelemetryConfig) -> Result<WorkerGuard, TelemetryError> {
     let fmt_layer = tracing_subscriber::fmt::layer()
-        .json()
+        .JSON()
         .with_current_span(true)
         .with_span_list(true)
         .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339());
@@ -578,7 +580,7 @@ pub fn init_telemetry(config: &TelemetryConfig) -> Result<WorkerGuard, Telemetry
 ### Log Levels
 
 | Level | Use Case |
-|-------|----------|
+| ------- | ---------- |
 | `ERROR` | Failures requiring attention (job failed, plugin crash) |
 | `WARN` | Degraded operation (fallback to remote AI, retry) |
 | `INFO` | Major lifecycle events (job started, stage completed) |
@@ -593,7 +595,7 @@ pub fn init_telemetry(config: &TelemetryConfig) -> Result<WorkerGuard, Telemetry
 
 ```rust
 // crates/openre-config/src/lib.rs
-use figment::{Figment, providers::{Env, Format, Toml, Serialized}};
+use figment::{Figment, providers::{Env, Format, TOML, Serialized}};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -613,7 +615,7 @@ impl Config {
     pub fn load() -> Result<Self, ConfigError> {
         Figment::new()
             .merge(Serialized::defaults(Config::default()))
-            .merge(Toml::file("config.toml").nested())
+            .merge(TOML::file("config.TOML").nested())
             .merge(Env::prefixed("OPENRE_").split("__"))
             .extract()
     }
@@ -677,7 +679,7 @@ where
 
 ```rust
 // crates/openre-analysis/src/pipeline_orchestrator_tests.rs
-#[cfg(test)]
+#[CFG(test)]
 mod tests {
     use super::*;
     use openre_core::test_utils::*;
@@ -722,7 +724,7 @@ async fn test_full_analysis_pipeline() {
     
     // Verify results
     assert!(result.functions.len() > 0);
-    assert!(result.cfg.nodes.len() > 0);
+    assert!(result.CFG.nodes.len() > 0);
     assert!(result.decompilation.is_some());
     
     // Verify AI annotations
@@ -734,7 +736,7 @@ async fn test_full_analysis_pipeline() {
 ### Property-Based Testing
 
 ```rust
-// crates/openre-cfg/src/proptests.rs
+// crates/openre-CFG/src/proptests.rs
 use proptest::prelude::*;
 
 proptest! {
@@ -763,7 +765,7 @@ proptest! {
 ## Performance Considerations
 
 | Concern | Solution |
-|---------|----------|
+| --------- | ---------- |
 | **Cold Start** | Pre-warm worker pool, lazy plugin loading, model pre-loading |
 | **Memory Pressure** | Streaming processing, chunked binary access, explicit drop |
 | **CPU Utilization** | Work-stealing scheduler, `rayon` for parallel stages |
@@ -773,4 +775,4 @@ proptest! {
 
 ---
 
-*This backend architecture provides a solid foundation for Phase 1 implementation. Each service is independently deployable, testable, and replaceable.*
+_This backend architecture provides a solid foundation for Phase 1 implementation. Each service is independently deployable, testable, and replaceable._

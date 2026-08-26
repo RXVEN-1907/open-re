@@ -53,19 +53,22 @@ impl AnalysisJob {
         config: AnalysisConfig,
         created_by: UserId,
     ) -> Self {
+        let priority = config.priority.0;
+        let max_retries = config.max_retries;
+        let timeout_secs = config.timeout_secs;
         Self {
             id: JobId::new(),
             project_id,
             file_id,
-            priority: config.priority.0,
+            priority,
             config,
             created_at: chrono::Utc::now(),
             scheduled_at: None,
             retry_count: 0,
-            max_retries: config.max_retries,
+            max_retries,
             idempotency_key: None,
             tags: Vec::new(),
-            timeout_secs: config.timeout_secs,
+            timeout_secs,
             created_by,
         }
     }
@@ -182,21 +185,24 @@ impl Orchestrator {
                 .iter()
                 .find(|s| s.id() == stage_id)
                 .ok_or_else(|| {
-                    openre_core::Error::Internal(format!("Stage not found: {}", stage_id).into())
+                    openre_core::Error::Internal(anyhow::anyhow!("Stage not found: {}", stage_id))
                 })?;
 
             // Check if stage can be skipped (incremental)
-            if self.can_skip_stage(&ctx, stage_id, &stage_results).await? {
+            if self.can_skip_stage(&ctx, &stage_id, &stage_results).await? {
                 info!(job_id = %ctx.job.id, stage = %stage_id, "Skipping stage (incremental)");
                 continue;
             }
 
             // Execute stage
-            let result = self.execute_stage(&ctx, stage, &stage_results).await?;
-            stage_results.insert(stage_id, result);
+            let result = self
+                .execute_stage(&ctx, stage.as_ref(), &stage_results)
+                .await?;
 
             // Emit progress
-            self.emit_progress(&ctx, stage_id, &stage_results).await?;
+            self.emit_progress(&ctx, &stage_id, &stage_results).await?;
+
+            stage_results.insert(stage_id, result);
         }
 
         // 3. Aggregate final result
@@ -228,13 +234,12 @@ impl Orchestrator {
     ) -> Result<StageResult> {
         let stage_ctx = StageContext {
             job: ctx.job.clone(),
-            binary: ctx.binary.clone(),
+            binary: ctx.binary,
             project_store: ctx.project_store.clone(),
-            plugin_registry: ctx.plugin_registry.clone(),
             ai_service: ctx.ai_service.clone(),
             previous_results: previous_results.clone(),
             cancellation: ctx.cancellation.clone(),
-            telemetry: ctx.telemetry.clone(),
+            telemetry: ctx.telemetry,
         };
 
         // Execute with timeout and retry
@@ -244,7 +249,7 @@ impl Orchestrator {
     async fn can_skip_stage(
         &self,
         ctx: &PipelineContext,
-        stage_id: StageId,
+        stage_id: &StageId,
         previous_results: &HashMap<StageId, StageResult>,
     ) -> Result<bool> {
         if !ctx.job.config.incremental {
@@ -265,12 +270,25 @@ impl Orchestrator {
     async fn emit_progress(
         &self,
         ctx: &PipelineContext,
-        stage_id: StageId,
+        stage_id: &StageId,
         results: &HashMap<StageId, StageResult>,
     ) -> Result<()> {
         let completed = results.len();
         let total = self.stages.len();
         let overall_progress = completed as f32 / total as f32;
+
+        // Map internal stage status to progress status
+        fn map_status(status: StageStatus) -> crate::progress::StageStatus {
+            match status {
+                StageStatus::Success | StageStatus::PartialSuccess => {
+                    crate::progress::StageStatus::Completed
+                }
+                StageStatus::Failed | StageStatus::Cancelled => {
+                    crate::progress::StageStatus::Failed
+                }
+                StageStatus::Skipped => crate::progress::StageStatus::Skipped,
+            }
+        }
 
         let current_stage_result = results.get(&stage_id);
         let stage_progress = current_stage_result
@@ -285,12 +303,12 @@ impl Orchestrator {
 
         let progress = JobProgress {
             job_id: ctx.job.id,
-            status: JobStatus::Running {
-                worker_id: ctx.worker_id.clone(),
+            status: crate::progress::JobStatus::Running {
+                worker_id: ctx.worker_id,
                 started_at: ctx.job.created_at,
-                stage: stage_id,
+                stage: stage_id.clone(),
             },
-            current_stage: Some(stage_id),
+            current_stage: Some(stage_id.clone()),
             stage_progress,
             overall_progress,
             message: format!("Running stage: {}", stage_id),
@@ -304,8 +322,8 @@ impl Orchestrator {
                     name: s.id(),
                     status: results
                         .get(&s.id())
-                        .map(|r| r.status)
-                        .unwrap_or(StageStatus::Pending),
+                        .map(|r| map_status(r.status))
+                        .unwrap_or(crate::progress::StageStatus::Pending),
                     progress: results
                         .get(&s.id())
                         .map(|r| {
@@ -325,7 +343,12 @@ impl Orchestrator {
                 .collect(),
         };
 
-        self.queue.update_progress(progress).await?;
+        info!(
+            job_id = %ctx.job.id,
+            stage = %stage_id,
+            overall = overall_progress,
+            "{}", progress.message
+        );
         Ok(())
     }
 
@@ -403,7 +426,7 @@ impl StageDag {
             visited: &mut std::collections::HashSet<StageId>,
             temp: &mut std::collections::HashSet<StageId>,
             order: &mut Vec<StageId>,
-        ) -> Result<(), String> {
+        ) -> std::result::Result<(), String> {
             if temp.contains(&stage_id) {
                 return Err(format!("Cycle detected at stage: {}", stage_id));
             }
@@ -411,22 +434,28 @@ impl StageDag {
                 return Ok(());
             }
 
-            temp.insert(stage_id);
+            temp.insert(stage_id.clone());
             if let Some(deps) = stages.get(&stage_id) {
                 for dep in deps {
-                    visit(*dep, stages, visited, temp, order)?;
+                    visit(dep.clone(), stages, visited, temp, order)?;
                 }
             }
             temp.remove(&stage_id);
-            visited.insert(stage_id);
+            visited.insert(stage_id.clone());
             order.push(stage_id);
             Ok(())
         }
 
         for stage_id in self.stages.keys() {
             if !visited.contains(stage_id) {
-                visit(*stage_id, &self.stages, &mut visited, &mut temp, &mut order)
-                    .expect("Cycle detected in pipeline DAG");
+                visit(
+                    stage_id.clone(),
+                    &self.stages,
+                    &mut visited,
+                    &mut temp,
+                    &mut order,
+                )
+                .expect("Cycle detected in pipeline DAG");
             }
         }
 
@@ -442,7 +471,7 @@ impl StageDag {
             stages: &HashMap<StageId, Vec<StageId>>,
             visited: &mut std::collections::HashSet<StageId>,
             temp: &mut std::collections::HashSet<StageId>,
-        ) -> Result<(), String> {
+        ) -> std::result::Result<(), String> {
             if temp.contains(&stage_id) {
                 return Err(format!("Cycle detected at stage: {}", stage_id));
             }
@@ -450,10 +479,10 @@ impl StageDag {
                 return Ok(());
             }
 
-            temp.insert(stage_id);
+            temp.insert(stage_id.clone());
             if let Some(deps) = stages.get(&stage_id) {
                 for dep in deps {
-                    visit(*dep, stages, visited, temp)?;
+                    visit(dep.clone(), stages, visited, temp)?;
                 }
             }
             temp.remove(&stage_id);
@@ -463,7 +492,8 @@ impl StageDag {
 
         for stage_id in self.stages.keys() {
             if !visited.contains(stage_id) {
-                visit(*stage_id, &self.stages, &mut visited, &mut temp)?;
+                visit(stage_id.clone(), &self.stages, &mut visited, &mut temp)
+                    .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("{}", e)))?;
             }
         }
 
@@ -490,6 +520,10 @@ pub struct ExecutorConfig {
 impl StageExecutor {
     pub fn new(config: ExecutorConfig, telemetry: TelemetryHandle) -> Self {
         Self { config, telemetry }
+    }
+
+    pub fn max_parallel_functions(&self) -> usize {
+        self.config.max_parallel_functions
     }
 
     pub async fn execute(
@@ -553,7 +587,6 @@ pub struct StageContext {
     pub job: AnalysisJob,
     pub binary: IsolatedBinary,
     pub project_store: Arc<ProjectStore>,
-    pub plugin_registry: Arc<PluginRegistry>,
     pub ai_service: Arc<dyn AiService>,
     pub previous_results: HashMap<StageId, StageResult>,
     pub cancellation: CancellationToken,
@@ -649,32 +682,39 @@ impl CancellationToken {
 }
 
 // Placeholder types
+#[derive(Debug, Clone, Copy, Default)]
 pub struct IsolatedBinary;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct FunctionInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct BasicBlockInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct InstructionInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CfgEdgeInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CallEdgeInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct LoopInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct VariableInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct TypeInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct AnnotationInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct StringInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ConstantInfo;
+#[derive(Debug, Clone, Copy, Default)]
 pub struct AnalysisStatistics;
 
-impl Default for AnalysisStatistics {
-    fn default() -> Self {
-        Self
-    }
-}
+/// Job priority
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Priority(pub i32);
 
-pub struct AiService;
-pub struct JobProgress;
-pub struct JobStatus;
-pub struct StageProgress;
-pub struct StageId;
-pub struct Priority;
-pub struct WorkerId;
-pub struct RequestContext;
-pub struct CreateAnalysisRequest;
+impl Priority {
+    pub const LOW: Priority = Priority(0);
+    pub const DEFAULT: Priority = Priority(5);
+    pub const HIGH: Priority = Priority(10);
+}

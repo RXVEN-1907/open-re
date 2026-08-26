@@ -45,13 +45,15 @@ async fn chat_completion(
 ) -> ApiResult<Json<ChatCompletionResponse>> {
     let request = openre_ai::providers::CompletionRequest {
         messages: payload.messages.into_iter().map(|m| m.into()).collect(),
-        tools: payload.tools,
-        tool_choice: payload.tool_choice,
+        tools: payload
+            .tools
+            .map(|tools| tools.into_iter().map(Into::into).collect()),
+        tool_choice: payload.tool_choice.map(Into::into),
         temperature: payload.temperature,
         max_tokens: payload.max_tokens,
         top_p: payload.top_p,
         stop: payload.stop,
-        response_format: payload.response_format,
+        response_format: payload.response_format.map(Into::into),
         stream: false,
         metadata: HashMap::new(),
     };
@@ -69,13 +71,15 @@ async fn chat_completion_stream(
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     let request = openre_ai::providers::CompletionRequest {
         messages: payload.messages.into_iter().map(|m| m.into()).collect(),
-        tools: payload.tools,
-        tool_choice: payload.tool_choice,
+        tools: payload
+            .tools
+            .map(|tools| tools.into_iter().map(Into::into).collect()),
+        tool_choice: payload.tool_choice.map(Into::into),
         temperature: payload.temperature,
         max_tokens: payload.max_tokens,
         top_p: payload.top_p,
         stop: payload.stop,
-        response_format: payload.response_format,
+        response_format: payload.response_format.map(Into::into),
         stream: true,
         metadata: HashMap::new(),
     };
@@ -136,7 +140,12 @@ async fn analyze_function(
     let function_id: FunctionId = payload.function_id.parse()?;
 
     // Get project store
-    let project_store = state.get_project_store(payload.project_id.parse()?).await?;
+    let project_id: ProjectId = payload
+        .project_id
+        .as_deref()
+        .ok_or_else(|| crate::error::ApiError::BadRequest("project_id is required".into()))?
+        .parse()?;
+    let project_store = state.get_project_store(project_id).await?;
 
     let response = state
         .ai_service
@@ -159,7 +168,12 @@ async fn analyze_function_stream(
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     let function_id: FunctionId = payload.function_id.parse()?;
 
-    let project_store = state.get_project_store(payload.project_id.parse()?).await?;
+    let project_id: ProjectId = payload
+        .project_id
+        .as_deref()
+        .ok_or_else(|| crate::error::ApiError::BadRequest("project_id is required".into()))?
+        .parse()?;
+    let project_store = state.get_project_store(project_id).await?;
 
     let stream = state
         .ai_service
@@ -269,7 +283,7 @@ pub struct ChatCompletionRequest {
     pub response_format: Option<ResponseFormat>,
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
 pub struct ChatMessage {
     pub role: MessageRole,
     pub content: Option<String>,
@@ -278,7 +292,7 @@ pub struct ChatMessage {
     pub name: Option<String>,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageRole {
     System,
@@ -287,7 +301,7 @@ pub enum MessageRole {
     Tool,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ToolCall {
     pub id: String,
     pub name: String,
@@ -333,6 +347,38 @@ impl From<ChatMessage> for openre_ai::providers::Message {
                 m.tool_call_id.unwrap_or_default(),
                 m.content.unwrap_or_default(),
             ),
+        }
+    }
+}
+
+impl From<ToolDefinition> for openre_ai::providers::ToolDefinition {
+    fn from(t: ToolDefinition) -> Self {
+        Self {
+            name: t.name,
+            description: t.description,
+            parameters: t.parameters,
+            required: t.required,
+        }
+    }
+}
+
+impl From<ToolChoice> for openre_ai::providers::ToolChoice {
+    fn from(c: ToolChoice) -> Self {
+        match c {
+            ToolChoice::Auto => Self::Auto,
+            ToolChoice::None => Self::None,
+            ToolChoice::Required => Self::Required,
+            ToolChoice::Specific(name) => Self::Specific(name),
+        }
+    }
+}
+
+impl From<ResponseFormat> for openre_ai::providers::ResponseFormat {
+    fn from(f: ResponseFormat) -> Self {
+        match f {
+            ResponseFormat::Text => Self::Text,
+            ResponseFormat::JsonObject => Self::JsonObject,
+            ResponseFormat::JsonSchema(schema) => Self::JsonSchema(schema),
         }
     }
 }

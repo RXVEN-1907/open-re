@@ -133,6 +133,32 @@ pub struct CveReference {
     pub description: Option<String>,
 }
 
+impl std::fmt::Display for VersionRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match (&self.start_version, &self.end_version) {
+            (Some(start), Some(end)) => write!(f, ">={} <{}", start, end),
+            (Some(start), None) => write!(f, ">={}", start),
+            (None, Some(end)) => write!(f, "<{}", end),
+            (None, None) => write!(f, "any version"),
+        }
+    }
+}
+
+impl std::fmt::Display for CveReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.description {
+            Some(description) => write!(f, "{} ({})", self.url, description),
+            None => write!(f, "{}", self.url),
+        }
+    }
+}
+
+impl std::fmt::Display for DependencyVulnerability {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} [{}] {}", self.id, self.severity, self.description)
+    }
+}
+
 /// Dependency information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DependencyInfo {
@@ -300,6 +326,76 @@ pub enum RemediationPriority {
     Deferred,
 }
 
+/// Alias aligning TUI confidence terminology with core confidence
+pub type ConfidenceLevel = Confidence;
+
+/// Alias aligning scan-diff severity terminology with core severity
+pub type SeverityLevel = Severity;
+
+/// Direction of a severity change between scans
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SeverityChangeType {
+    Increased,
+    Decreased,
+}
+
+/// Direction of a confidence change between scans
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConfidenceChangeType {
+    Increased,
+    Decreased,
+}
+
+/// Confidence change in a finding
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfidenceChange {
+    /// Finding ID for matching
+    pub finding_id: FindingId,
+
+    /// Previous confidence
+    pub previous_confidence: Confidence,
+
+    /// Current confidence
+    pub current_confidence: Confidence,
+
+    /// Change direction
+    pub change_type: ConfidenceChangeType,
+}
+
+/// Per-severity trend between two scans
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SeverityTrend {
+    /// Severity level this trend refers to
+    pub severity: SeverityLevel,
+
+    /// Count in the previous scan
+    pub previous_count: usize,
+
+    /// Count in the current scan
+    pub current_count: usize,
+
+    /// Absolute change (positive = increase)
+    pub change: i32,
+}
+
+/// Trend analysis across scans
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrendAnalysis {
+    /// Overall trend direction
+    pub trend_direction: TrendDirection,
+
+    /// Severities that improved (count decreased)
+    pub improving_trends: Vec<SeverityTrend>,
+
+    /// Severities that worsened (count increased)
+    pub worsening_trends: Vec<SeverityTrend>,
+
+    /// Time period covered by this analysis
+    pub time_period_hours: i64,
+}
+
 /// Scan difference analysis result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScanDiffAnalysis {
@@ -309,8 +405,29 @@ pub struct ScanDiffAnalysis {
     /// Current scan ID
     pub current_scan_id: ScanId,
 
-    /// New findings
-    pub new_findings: Vec<Finding>,
+    /// Previous (baseline) scan ID
+    pub previous_scan_id: ScanId,
+
+    /// When this comparison was performed
+    pub comparison_timestamp: DateTime<Utc>,
+
+    /// Number of findings in the previous scan
+    pub total_findings_previous: usize,
+
+    /// Number of findings in the current scan
+    pub total_findings_current: usize,
+
+    /// Net change in finding count
+    pub net_change: i32,
+
+    /// Percentage change in finding count
+    pub change_percentage: f32,
+
+    /// Whether the change crosses the significance threshold
+    pub is_significant_change: bool,
+
+    /// New findings (by ID)
+    pub new_findings: Vec<FindingId>,
 
     /// Fixed findings
     pub fixed_findings: Vec<Finding>,
@@ -318,11 +435,29 @@ pub struct ScanDiffAnalysis {
     /// Regressed findings (reappeared)
     pub regressed_findings: Vec<Finding>,
 
+    /// Resolved findings (by ID)
+    pub resolved_findings: Vec<FindingId>,
+
+    /// Findings present in both scans (by ID)
+    pub persistent_findings: Vec<FindingId>,
+
+    /// New findings above the significance threshold (by ID)
+    pub significant_new_findings: Vec<FindingId>,
+
+    /// New critical findings (by ID)
+    pub critical_new_findings: Vec<FindingId>,
+
     /// Severity changes
     pub severity_changes: Vec<SeverityChange>,
 
+    /// Confidence changes
+    pub confidence_changes: Vec<ConfidenceChange>,
+
     /// Technology changes
     pub technology_changes: Vec<TechnologyChange>,
+
+    /// Detailed trend analysis (if enabled)
+    pub trend_analysis: Option<TrendAnalysis>,
 
     /// Risk trend analysis
     pub risk_trend: RiskTrend,
@@ -331,6 +466,9 @@ pub struct ScanDiffAnalysis {
 /// Severity change in a finding
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SeverityChange {
+    /// Finding ID for matching
+    pub finding_id: FindingId,
+
     /// Finding fingerprint for matching
     pub fingerprint: String,
 
@@ -342,6 +480,9 @@ pub struct SeverityChange {
 
     /// Change magnitude (-1 to +1)
     pub change_magnitude: i8,
+
+    /// Change direction
+    pub change_type: SeverityChangeType,
 }
 
 /// Technology change detected between scans
@@ -456,11 +597,17 @@ pub struct IgnoreRule {
     /// Rule ID
     pub id: String,
 
+    /// Regex pattern used for matching findings to ignore
+    pub pattern: String,
+
     /// Reason for ignoring
     pub reason: String,
 
     /// Author
     pub author: String,
+
+    /// User who created the rule
+    pub created_by: String,
 
     /// Creation timestamp
     pub created_at: DateTime<Utc>,
@@ -470,6 +617,12 @@ pub struct IgnoreRule {
 
     /// Scope of the rule
     pub scope: IgnoreScope,
+
+    /// Minimum severity this rule applies to (if any)
+    pub severity_threshold: Option<Severity>,
+
+    /// Regex pattern restricting the rule to specific targets
+    pub target_pattern: Option<String>,
 }
 
 /// Scope for ignore rules
@@ -486,4 +639,89 @@ pub struct IgnoreScope {
 
     /// Custom tags to match
     pub tags: Vec<String>,
+}
+
+/// Status of a finding acknowledgment
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AcknowledgmentStatus {
+    Pending,
+    Acknowledged,
+    Rejected,
+}
+
+/// Record of a finding acknowledgment
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Acknowledgment {
+    /// Finding that was acknowledged
+    pub finding_id: FindingId,
+
+    /// User who acknowledged
+    pub acknowledged_by: String,
+
+    /// When the finding was acknowledged
+    pub acknowledged_at: DateTime<Utc>,
+
+    /// Optional notes
+    pub notes: Option<String>,
+
+    /// Current status
+    pub status: AcknowledgmentStatus,
+}
+
+/// Record of a false positive marking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FalsePositiveRecord {
+    /// Finding marked as false positive
+    pub finding_id: FindingId,
+
+    /// User who marked it
+    pub marked_by: String,
+
+    /// When it was marked
+    pub marked_at: DateTime<Utc>,
+
+    /// Reason for marking as false positive
+    pub reason: String,
+
+    /// Optional supporting evidence
+    pub evidence: Option<serde_json::Value>,
+}
+
+/// Result of processing findings through workflow filters
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowProcessingResult {
+    /// Total findings processed
+    pub total_findings: usize,
+
+    /// Findings already acknowledged
+    pub acknowledged_count: usize,
+
+    /// Findings marked false positive
+    pub false_positive_count: usize,
+
+    /// Findings ignored by rules
+    pub ignored_count: usize,
+
+    /// Findings remaining after filtering
+    pub remaining_count: usize,
+
+    /// Findings kept after filtering (with workflow metadata)
+    pub filtered_findings: Vec<Finding>,
+}
+
+/// Snapshot of workflow data for persistence
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowDataSnapshot {
+    /// All acknowledgments
+    pub acknowledged_findings: HashMap<FindingId, Acknowledgment>,
+
+    /// All false positive records
+    pub false_positives: HashMap<FindingId, FalsePositiveRecord>,
+
+    /// All ignore rules
+    pub ignore_rules: Vec<IgnoreRule>,
+
+    /// When the snapshot was exported
+    pub exported_at: DateTime<Utc>,
 }

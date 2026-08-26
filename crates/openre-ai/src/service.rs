@@ -363,6 +363,18 @@ impl AiService {
     }
 
     /// Get available providers
+    pub fn list_provider_ids(&self) -> Vec<ProviderId> {
+        self.provider_registry
+            .all()
+            .iter()
+            .map(|p| p.id())
+            .collect()
+    }
+
+    pub fn get_provider_arc(&self, id: &ProviderId) -> Option<Arc<dyn ModelProvider>> {
+        self.provider_registry.get_arc(id)
+    }
+
     pub fn list_providers(&self) -> Vec<&dyn ModelProvider> {
         self.provider_registry.all()
     }

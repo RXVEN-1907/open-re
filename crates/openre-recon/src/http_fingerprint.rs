@@ -5,6 +5,7 @@
 
 use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
 use openre_core::error::OpenreResult as Result;
+use openre_core::result::FindingConfig;
 use openre_plugins::sdk::{
     AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
 };
@@ -34,7 +35,8 @@ impl HttpFingerprintPlugin {
             .redirect(Policy::limited(config.max_redirects))
             .user_agent(&config.user_agent)
             .danger_accept_invalid_certs(!config.verify_tls)
-            .build()?;
+            .build()
+            .map_err(crate::internal_err)?;
 
         Ok(Self { config, client })
     }
@@ -46,7 +48,12 @@ impl HttpFingerprintPlugin {
         let mut redirect_chain = Vec::new();
 
         for _ in 0..self.config.max_redirects {
-            let response = self.client.get(&current_url).send().await?;
+            let response = self
+                .client
+                .get(&current_url)
+                .send()
+                .await
+                .map_err(crate::internal_err)?;
 
             // Collect headers
             let headers: HashMap<String, String> = response
@@ -167,14 +174,14 @@ impl Plugin for HttpFingerprintPlugin {
         vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
-    async fn execute(&mut self, request: CapabilityRequest) -> Result<CapabilityResponse> {
-        let context = request.context;
-        let target_url = context.binary_size.to_string(); // This would be the target URL in practice
+    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
+        let _ = request;
 
-        let findings = self.recon(&context).await?;
-
+        // Recon plugins perform their work through the scan pipeline, which
+        // supplies a full ScanContext. Capability execution has no scan context,
+        // so report an empty result set instead.
         Ok(CapabilityResponse::success(serde_json::json!({
-            "findings": findings,
+            "findings": [],
             "recon_type": ReconType::HttpFingerprint,
         })))
     }
@@ -195,11 +202,11 @@ impl ReconPlugin for HttpFingerprintPlugin {
         ]
     }
 
-    async fn recon(&mut self, context: &ScanContext) -> Result<Vec<Finding>> {
+    async fn recon(&self, context: &ScanContext) -> Result<Vec<Finding>> {
         let mut findings = Vec::new();
 
         // Get target URL from context
-        let target_url = context.target.to_string();
+        let target_url = context.target.metadata.base_url.as_str().to_string();
 
         info!("Starting HTTP fingerprinting for: {}", target_url);
 
@@ -210,24 +217,31 @@ impl ReconPlugin for HttpFingerprintPlugin {
         // Server banner finding
         if let Some(server) = &fingerprint.server_banner {
             findings.push(
-                Finding::new(
-                    "Server Banner Disclosure".to_string(),
-                    format!("Server header reveals: {}", server),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "http_fingerprint".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                Finding::new(FindingConfig {
+                    title: "Server Banner Disclosure".to_string(),
+                    description: format!("Server header reveals: {}", server),
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "http_fingerprint".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: format!("Server header: {}", server),
                     data: Some(serde_json::json!({"server": server})),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -270,24 +284,31 @@ impl ReconPlugin for HttpFingerprintPlugin {
         for (header_name, header_value, description) in missing_headers {
             if header_value.is_none() {
                 findings.push(
-                    Finding::new(
-                        format!("Missing Security Header: {}", header_name),
-                        description.to_string(),
-                        Severity::Low,
-                        Confidence::High,
-                        Category::SecurityMisconfiguration,
-                        target_url.clone(),
-                        "web_application".to_string(),
-                        "http_fingerprint".to_string(),
-                        "0.1.0".to_string(),
-                        context.scan_id,
-                    )
+                    Finding::new(FindingConfig {
+                        title: format!("Missing Security Header: {}", header_name),
+                        description: description.to_string(),
+                        severity: Severity::Low,
+                        confidence: Confidence::High,
+                        category: Category::SecurityMisconfiguration,
+                        target: target_url.clone(),
+                        target_type: "web_application".to_string(),
+                        plugin_source: "http_fingerprint".to_string(),
+                        plugin_version: "0.1.0".to_string(),
+                        scan_id: context.scan_id,
+                    })
                     .with_evidence(Evidence {
                         evidence_type: EvidenceType::HttpResponse,
                         description: format!("Missing {} header", header_name),
                         data: Some(serde_json::json!({"missing_header": header_name})),
                         location: Some(target_url.clone()),
                         metadata: HashMap::new(),
+                        http_request: None,
+                        http_response: None,
+                        timing: None,
+                        payload: None,
+                        reproduction_steps: None,
+                        plugin_source: None,
+                        timestamp: chrono::Utc::now(),
                     }),
                 );
             }
@@ -296,27 +317,34 @@ impl ReconPlugin for HttpFingerprintPlugin {
         // Redirect chain finding
         if !fingerprint.redirect_chain.is_empty() {
             findings.push(
-                Finding::new(
-                    "Redirect Chain Detected".to_string(),
-                    format!(
+                Finding::new(FindingConfig {
+                    title: "Redirect Chain Detected".to_string(),
+                    description: format!(
                         "Request redirected through {} hops",
                         fingerprint.redirect_chain.len()
                     ),
-                    Severity::Info,
-                    Confidence::High,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "http_fingerprint".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                    severity: Severity::Info,
+                    confidence: Confidence::High,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "http_fingerprint".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Redirect chain detected".to_string(),
                     data: Some(serde_json::json!({"redirect_chain": fingerprint.redirect_chain})),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -324,27 +352,34 @@ impl ReconPlugin for HttpFingerprintPlugin {
         // Allowed methods
         if !fingerprint.allowed_methods.is_empty() {
             findings.push(
-                Finding::new(
-                    "HTTP Methods Enumerated".to_string(),
-                    format!(
+                Finding::new(FindingConfig {
+                    title: "HTTP Methods Enumerated".to_string(),
+                    description: format!(
                         "Allowed methods: {}",
                         fingerprint.allowed_methods.join(", ")
                     ),
-                    Severity::Info,
-                    Confidence::Medium,
-                    Category::InformationDisclosure,
-                    target_url.clone(),
-                    "web_application".to_string(),
-                    "http_fingerprint".to_string(),
-                    "0.1.0".to_string(),
-                    context.scan_id,
-                )
+                    severity: Severity::Info,
+                    confidence: Confidence::Medium,
+                    category: Category::InformationDisclosure,
+                    target: target_url.clone(),
+                    target_type: "web_application".to_string(),
+                    plugin_source: "http_fingerprint".to_string(),
+                    plugin_version: "0.1.0".to_string(),
+                    scan_id: context.scan_id,
+                })
                 .with_evidence(Evidence {
                     evidence_type: EvidenceType::HttpResponse,
                     description: "Allowed HTTP methods".to_string(),
                     data: Some(serde_json::json!({"methods": fingerprint.allowed_methods})),
                     location: Some(target_url.clone()),
                     metadata: HashMap::new(),
+                    http_request: None,
+                    http_response: None,
+                    timing: None,
+                    payload: None,
+                    reproduction_steps: None,
+                    plugin_source: None,
+                    timestamp: chrono::Utc::now(),
                 }),
             );
         }
@@ -359,6 +394,7 @@ impl ReconPlugin for HttpFingerprintPlugin {
 }
 
 /// Plugin entry point
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     if config_ptr.is_null() || config_len == 0 {
@@ -374,6 +410,7 @@ pub extern "C" fn plugin_init(config_ptr: *const u8, config_len: usize) -> i32 {
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_execute(
     request_ptr: *const u8,
@@ -385,6 +422,7 @@ pub extern "C" fn plugin_execute(
     0
 }
 
+#[cfg(feature = "wasm-plugin")]
 #[no_mangle]
 pub extern "C" fn plugin_shutdown() -> i32 {
     0

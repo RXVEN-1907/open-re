@@ -51,6 +51,20 @@ impl ReconPluginConfig {
     }
 }
 
+/// Map a foreign error into the core error type.
+pub(crate) fn internal_err<E>(e: E) -> openre_core::Error
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    openre_core::Error::Internal(anyhow::Error::from(e))
+}
+
+/// Parse an HTML document, mapping errors to the core error type.
+pub(crate) fn parse_html(content: &str) -> Result<select::document::Document> {
+    select::document::Document::from_read(std::io::Cursor::new(content.as_bytes().to_vec()))
+        .map_err(internal_err)
+}
+
 /// Base reconnaissance plugin trait
 #[async_trait::async_trait]
 pub trait ReconPlugin: Plugin {
@@ -62,7 +76,7 @@ pub trait ReconPlugin: Plugin {
 
     /// Perform reconnaissance
     async fn recon(
-        &mut self,
+        &self,
         context: &openre_scanner::context::ScanContext,
     ) -> Result<Vec<openre_scanner::result::Finding>>;
 }

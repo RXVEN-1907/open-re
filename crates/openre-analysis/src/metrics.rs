@@ -1,5 +1,7 @@
 //! Metrics collection for analysis pipeline
 
+use serde::{Deserialize, Serialize};
+
 use openre_core::ids::StageId;
 use openre_telemetry::metrics;
 use std::collections::HashMap;
@@ -7,6 +9,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::debug;
+
+use crate::orchestrator::{StageResult, StageStatus};
 
 /// Pipeline metrics collector
 pub struct PipelineMetrics {
@@ -30,11 +34,12 @@ impl PipelineMetrics {
 
     pub async fn record_stage(&self, stage_id: StageId, result: &StageResult) {
         // Record duration
-        let duration = result.completed_at - result.started_at;
+        let duration_chrono = result.completed_at - result.started_at;
+        let duration = Duration::from_millis(duration_chrono.num_milliseconds().max(0) as u64);
         self.stage_durations
             .write()
             .await
-            .entry(stage_id)
+            .entry(stage_id.clone())
             .or_default()
             .push(duration);
 
@@ -42,27 +47,25 @@ impl PipelineMetrics {
         self.stage_memory
             .write()
             .await
-            .entry(stage_id)
+            .entry(stage_id.clone())
             .or_default()
             .push(result.metrics.memory_peak_mb);
 
         // Record success rate
-        let (success, total) = self
-            .stage_success_rate
-            .write()
-            .await
-            .entry(stage_id)
-            .or_default();
-        *total += 1;
-        if result.status == StageStatus::Success {
-            *success += 1;
+        {
+            let mut map = self.stage_success_rate.write().await;
+            let (success, total) = map.entry(stage_id.clone()).or_default();
+            *total += 1;
+            if result.status == StageStatus::Success {
+                *success += 1;
+            }
         }
 
         // Record function count
         self.function_counts
             .write()
             .await
-            .entry(stage_id)
+            .entry(stage_id.clone())
             .or_default()
             .push(result.metrics.functions_analyzed);
 
@@ -70,16 +73,12 @@ impl PipelineMetrics {
         self.instruction_counts
             .write()
             .await
-            .entry(stage_id)
+            .entry(stage_id.clone())
             .or_default()
             .push(result.metrics.instructions_processed);
 
         // Emit to global metrics
-        metrics::record_stage_completed(
-            &stage_id.to_string(),
-            duration,
-            result.metrics.memory_peak_mb,
-        );
+        metrics::record_stage_completed(&stage_id.to_string(), duration);
     }
 
     pub async fn get_summary(&self) -> PipelineSummary {
@@ -92,15 +91,15 @@ impl PipelineMetrics {
         PipelineSummary {
             avg_stage_duration: durations
                 .iter()
-                .map(|(k, v)| (*k, v.iter().sum::<Duration>() / v.len() as u32))
+                .map(|(k, v)| (k.clone(), v.iter().sum::<Duration>() / v.len() as u32))
                 .collect(),
             avg_memory_mb: memory
                 .iter()
-                .map(|(k, v)| (*k, v.iter().sum::<u64>() / v.len() as u64))
+                .map(|(k, v)| (k.clone(), v.iter().sum::<u64>() / v.len() as u64))
                 .collect(),
             success_rates: success_rates
                 .iter()
-                .map(|(k, (s, t))| (*k, *s as f64 / *t as f64))
+                .map(|(k, (s, t))| (k.clone(), *s as f64 / *t as f64))
                 .collect(),
             throughput: instructions
                 .iter()
@@ -110,7 +109,7 @@ impl PipelineMetrics {
                         .get(k)
                         .map(|d| d.iter().map(|dur| dur.as_secs_f64()).sum::<f64>())
                         .unwrap_or(1.0);
-                    (*k, total_instructions as f64 / total_duration)
+                    (k.clone(), total_instructions as f64 / total_duration)
                 })
                 .collect(),
         }

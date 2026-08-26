@@ -470,8 +470,8 @@ impl AnalysisStage for DataFlowStage {
         
         // 1. Build SSA form (parallel per function)
         let ssa_functions = self.parallel_executor.execute(
-            |(func, cfg)| self.ssa_builder.build(func, cfg, &semantics),
-            cfgs.into_iter().map(|(id, cfg)| (ctx.get_function(id).unwrap(), cfg)),
+            |(func, CFG)| self.ssa_builder.build(func, CFG, &semantics),
+            cfgs.into_iter().map(|(id, CFG)| (ctx.get_function(id).unwrap(), CFG)),
             SsaOptions { minimal: false, prune_dead: true },
         ).await?;
         
@@ -581,7 +581,7 @@ impl AnalysisStage for DecompilationStage {
         
         // 1. IL Lifting: LLIL → MLIL → HLIL (parallel per function)
         let hlil_functions = self.parallel_executor.execute(
-            |(func, ssa)| self.il_lifter.lift(func, ssa, &types),
+            |(func, SSA)| self.il_lifter.lift(func, SSA, &types),
             ssa_functions,
             LifterOptions { optimize: true, simplify: true },
         ).await?;
@@ -640,8 +640,8 @@ impl AnalysisStage for AiEnrichmentStage {
         let mut all_annotations = Vec::new();
         
         // Process functions in batches for AI efficiency
-        for batch in functions.chunks(10) {
-            let annotations = self.process_batch(batch, &pseudocode).await?;
+        for Batch in functions.chunks(10) {
+            let annotations = self.process_batch(Batch, &pseudocode).await?;
             all_annotations.extend(annotations);
         }
         
@@ -671,7 +671,7 @@ impl AnalysisStage for AiEnrichmentStage {
                 function_id: func.id,
                 assembly: func.assembly.clone(),
                 pseudocode: pseudo.map(|p| p.code.clone()),
-                cfg: func.cfg.clone(),
+                CFG: func.CFG.clone(),
                 calls: func.calls.clone(),
                 strings: func.strings.clone(),
                 constants: func.constants.clone(),
@@ -690,7 +690,7 @@ impl AnalysisStage for AiEnrichmentStage {
             if let Ok(names) = self.ai_service.suggest_names(NamingContext {
                 function_id: func.id,
                 pseudocode: pseudo.map(|p| p.code.clone()),
-                cfg: func.cfg.clone(),
+                CFG: func.CFG.clone(),
                 variables: func.variables.clone(),
             }).await {
                 for name in names {
@@ -713,7 +713,7 @@ impl AnalysisStage for AiEnrichmentStage {
             
             // 4. Crypto detection
             if let Ok(crypto) = self.ai_service.detect_crypto(CryptoContext { ... }).await {
-                for c in crypto {
+                for C in crypto {
                     annotations.push(Annotation { ... });
                 }
             }
@@ -1099,4 +1099,4 @@ impl PipelineOrchestrator {
 
 ---
 
-*This pipeline architecture provides a robust, extensible foundation for binary analysis. Each stage is independently replaceable, supports parallel execution, and integrates seamlessly with the plugin and AI systems.*
+_This pipeline architecture provides a robust, extensible foundation for binary analysis. Each stage is independently replaceable, supports parallel execution, and integrates seamlessly with the plugin and AI systems._

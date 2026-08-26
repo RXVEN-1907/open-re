@@ -1,5 +1,7 @@
 use openre_core::ids::{FindingId, ScanId};
-use openre_core::result::{Category, Confidence, Evidence, EvidenceType, Finding, Severity};
+use openre_core::result::{
+    Category, Confidence, Evidence, EvidenceType, Finding, FindingConfig, Severity,
+};
 use openre_security_ai::context::{ContextBuilder, TokenBudget};
 
 #[test]
@@ -28,25 +30,25 @@ fn test_token_budget() {
 #[test]
 fn test_context_builder_creation() {
     let builder = ContextBuilder::new(2048);
-    assert_eq!(builder.max_tokens, 2048);
+    assert_eq!(builder.max_tokens(), 2048);
 }
 
 #[test]
 fn test_finding_summary_creation() {
     let scan_id = ScanId::new();
 
-    let finding = Finding::new(
-        "Test SQL Injection".to_string(),
-        "User input is not properly sanitized in login form".to_string(),
-        Severity::High,
-        Confidence::Medium,
-        Category::Injection,
-        "http://example.com/login".to_string(),
-        "web_application".to_string(),
-        "sql_injection_scanner".to_string(),
-        "1.0.0".to_string(),
+    let finding = Finding::new(FindingConfig {
+        title: "Test SQL Injection".to_string(),
+        description: "User input is not properly sanitized in login form".to_string(),
+        severity: Severity::High,
+        confidence: Confidence::Medium,
+        category: Category::Injection,
+        target: "http://example.com/login".to_string(),
+        target_type: "web_application".to_string(),
+        plugin_source: "sql_injection_scanner".to_string(),
+        plugin_version: "1.0.0".to_string(),
         scan_id,
-    );
+    });
 
     let builder = ContextBuilder::new(2048);
     let context = builder.build_finding_context(&finding);

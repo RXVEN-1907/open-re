@@ -57,6 +57,7 @@ for finding in &findings {
 ### 1. Correlation Engine
 
 #### Basic Correlation
+
 ```rust
 use openre_intelligence::correlation::{CorrelationEngine, CorrelationConfig};
 
@@ -93,6 +94,7 @@ for correlation in &correlations {
 ```
 
 #### Custom Correlation Patterns
+
 ```rust
 impl CorrelationEngine {
     fn correlate_custom_pattern(&self, findings: &[Finding]) -> IntelligenceResult<Vec<EnhancedCorrelation>> {
@@ -109,6 +111,7 @@ impl CorrelationEngine {
 ### 2. CVE Intelligence
 
 #### Setting up CVE Providers
+
 ```rust
 use openre_intelligence::cve_intelligence::{CveIntelligence, CveIntelligenceConfig, MockCveProvider};
 use std::sync::Arc;
@@ -130,6 +133,7 @@ cve_intel.add_provider(Arc::new(MockCveProvider::new()));
 ```
 
 #### Matching Findings Against CVEs
+
 ```rust
 // Match findings against known CVEs
 let cve_matches = cve_intel.match_findings_against_cves(&findings).await?;
@@ -156,6 +160,7 @@ for finding in &findings {
 ### 3. Dependency Analysis
 
 #### Analyzing Different Package Ecosystems
+
 ```rust
 use openre_intelligence::dependency_analysis::{DependencyAnalyzer, DependencyAnalysisConfig};
 
@@ -170,11 +175,11 @@ let mut dep_analyzer = DependencyAnalyzer::new(config);
 
 // Add registry clients for different ecosystems
 dep_analyzer.add_registry_client("npm", Box::new(NpmRegistryClient::new()));
-dep_analyzer.add_registry_client("cargo", Box::new(CratesIoRegistryClient::new()));
+dep_analyzer.add_registry_client("Cargo", Box::new(CratesIoRegistryClient::new()));
 dep_analyzer.add_registry_client("pypi", Box::new(PyPiRegistryClient::new()));
 
 // Analyze different dependency files
-let npm_deps = dep_analyzer.analyze_dependencies_file("package-lock.json").await?;
+let npm_deps = dep_analyzer.analyze_dependencies_file("package-lock.JSON").await?;
 let cargo_deps = dep_analyzer.analyze_dependencies_file("Cargo.lock").await?;
 let python_deps = dep_analyzer.analyze_dependencies_file("requirements.txt").await?;
 
@@ -192,6 +197,7 @@ println!("{}", report);
 ### 4. Security Knowledge Base
 
 #### Enriching Findings with Security Standards
+
 ```rust
 use openre_intelligence::knowledge_base::{KnowledgeBase, KnowledgeBaseConfig};
 
@@ -220,6 +226,7 @@ println!("{}", kb_report);
 ### 5. Root Cause Analysis
 
 #### Identifying Systemic Issues
+
 ```rust
 use openre_intelligence::root_cause::{RootCauseAnalyzer, RootCauseConfig};
 
@@ -248,6 +255,7 @@ println!("{}", root_cause_report);
 ### 6. Scan Diff Intelligence
 
 #### Comparing Scans Over Time
+
 ```rust
 use openre_intelligence::scan_diff::{ScanDiffAnalyzer, ScanDiffConfig, ScanData};
 
@@ -280,6 +288,7 @@ let priority_findings = scan_diff_analyzer.identify_priority_findings(&diff_anal
 ### 7. Workflow Management
 
 #### Managing Finding Lifecycle
+
 ```rust
 use openre_intelligence::workflow::{WorkflowManager, WorkflowConfig};
 
@@ -309,7 +318,7 @@ let ignore_rule = IgnoreRule {
     created_at: Utc::now(),
     expires_at: Some(Utc::now() + chrono::Duration::days(7)),
     severity_threshold: Some(SeverityLevel::Medium),
-    target_pattern: Some(r"https://test\..*".to_string()),
+    target_pattern: Some(r"HTTPS://test\..*".to_string()),
 };
 
 workflow_manager.add_ignore_rule(ignore_rule)?;
@@ -332,6 +341,7 @@ println!("{}", workflow_report);
 ### 8. Performance Optimization
 
 #### Caching and Deduplication
+
 ```rust
 use openre_intelligence::performance::{PerformanceOptimizer, PerformanceConfig};
 
@@ -378,6 +388,7 @@ println!("Cache hit rate: {:.1}%", cache_stats.hit_rate);
 ### 9. TUI Enhancements
 
 #### Enhanced Terminal Output
+
 ```rust
 use openre_intelligence::tui_enhancements::{TuiEnhancer, TuiConfig};
 
@@ -411,8 +422,8 @@ for (_, cves) in &cve_matches {
 }
 
 // Format dependency analysis results
-for dep in &dependencies {
-    println!("{}", tui_enhancer.format_dependency_result(dep));
+for DEP in &dependencies {
+    println!("{}", tui_enhancer.format_dependency_result(DEP));
 }
 
 // Generate comprehensive dashboard
@@ -431,6 +442,7 @@ progress.finish();
 ## Advanced Integration Examples
 
 ### Complete Security Pipeline
+
 ```rust
 use openre_intelligence::*;
 use std::sync::Arc;
@@ -480,8 +492,8 @@ async fn run_complete_security_pipeline(
 
     // 3. Dependency Analysis
     println!("📦 Analyzing project dependencies...");
-    let dependencies = if std::path::Path::new("package-lock.json").exists() {
-        dep_analyzer.analyze_dependencies_file("package-lock.json").await?
+    let dependencies = if std::path::Path::new("package-lock.JSON").exists() {
+        dep_analyzer.analyze_dependencies_file("package-lock.JSON").await?
     } else {
         Vec::new()
     };
@@ -560,6 +572,7 @@ pub struct SecurityAnalysisReport {
 ```
 
 ### Custom Intelligence Module
+
 ```rust
 // Example of creating a custom intelligence module
 use openre_intelligence::{types::*, error::IntelligenceError, IntelligenceResult};

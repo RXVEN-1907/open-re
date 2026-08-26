@@ -1,5 +1,6 @@
 //! Prompt compiler and template management for AI Security Analyst
 
+use crate::AiAnalystError;
 use std::collections::HashMap;
 
 /// A prompt template with versioning

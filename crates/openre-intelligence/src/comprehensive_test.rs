@@ -17,7 +17,7 @@ mod tests {
         target: &str,
     ) -> Finding {
         Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: title.to_string(),
             description: description.to_string(),
             severity: Severity::Medium,
@@ -30,7 +30,7 @@ mod tests {
             plugin_source: "test".to_string(),
             plugin_version: "1.0".to_string(),
             timestamp: Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: HashMap::new(),
             tags: Vec::new(),
             verified: false,
@@ -42,7 +42,7 @@ mod tests {
             capec_ids: Vec::new(),
             mitre_attack_ids: Vec::new(),
             owasp_category: None,
-            fingerprint: Some(format!("test-fingerprint-{}", uuid::Uuid::new_v4())),
+            fingerprint: Some(format!("test-fingerprint-{}", title)),
             related_findings: Vec::new(),
             remediation: None,
             exploitability: None,
@@ -198,7 +198,7 @@ mod tests {
                 timing: None,
                 payload: None,
                 reproduction_steps: None,
-                plugin_source: "test".to_string(),
+                plugin_source: Some("test".to_string()),
                 timestamp: Utc::now(),
             });
         }
@@ -351,8 +351,8 @@ lodash==4.17.20
 
         // Create mock previous and current scan data
         let previous_scan = scan_diff::ScanData::new(
-            openre_core::result::ScanMetadata {
-                scan_id: ScanId::new_v4(),
+            scan_diff::ScanMetadata {
+                scan_id: ScanId::new(),
                 start_time: Utc::now() - chrono::Duration::days(1),
                 end_time: Some(Utc::now() - chrono::Duration::hours(23)),
                 target: "https://example.com".to_string(),
@@ -379,8 +379,8 @@ lodash==4.17.20
         );
 
         let current_scan = scan_diff::ScanData::new(
-            openre_core::result::ScanMetadata {
-                scan_id: ScanId::new_v4(),
+            scan_diff::ScanMetadata {
+                scan_id: ScanId::new(),
                 start_time: Utc::now(),
                 end_time: Some(Utc::now() + chrono::Duration::minutes(30)),
                 target: "https://example.com".to_string(),
@@ -444,9 +444,16 @@ lodash==4.17.20
             id: uuid::Uuid::new_v4().to_string(),
             pattern: r"title:.*Directory listing.*".to_string(),
             reason: "Known issue in dev environment".to_string(),
+            author: "test_user".to_string(),
             created_by: "test_user".to_string(),
             created_at: Utc::now(),
             expires_at: Some(Utc::now() + chrono::Duration::days(7)),
+            scope: types::IgnoreScope {
+                targets: Vec::new(),
+                categories: Vec::new(),
+                severities: Vec::new(),
+                tags: Vec::new(),
+            },
             severity_threshold: None,
             target_pattern: Some(r"https://api\.example\.com.*".to_string()),
         };
@@ -687,19 +694,19 @@ lodash==4.17.20
 
         // CVE Intelligence
         let cve_intel = CveIntelligence::new(cve_intelligence::CveIntelligenceConfig::default());
-        assert_eq!(cve_intel.providers.len(), 0);
+        assert_eq!(cve_intel.provider_count(), 0);
         println!("   ✅ CVE Intelligence isolated correctly");
 
         // Dependency Analyzer
         let dep_analyzer =
             DependencyAnalyzer::new(dependency_analysis::DependencyAnalysisConfig::default());
-        assert_eq!(dep_analyzer.registry_clients.len(), 0);
+        assert_eq!(dep_analyzer.registry_client_count(), 0);
         println!("   ✅ Dependency Analyzer isolated correctly");
 
         // Knowledge Base
         let knowledge_base = KnowledgeBase::new();
-        assert!(!knowledge_base.cwe_database.is_empty());
-        assert!(!knowledge_base.owasp_mappings.is_empty());
+        assert!(knowledge_base.cwe_entry_count() > 0);
+        assert!(knowledge_base.owasp_mapping_count() > 0);
         println!("   ✅ Knowledge Base isolated correctly");
 
         // Root Cause Analyzer

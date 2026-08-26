@@ -10,11 +10,11 @@ Security plugins are implemented as standard open-re plugins with the `PluginTyp
 
 ```
 plugins/security/<plugin_name>/
-├── plugin.toml          # Plugin manifest
-├── config_schema.json   # Configuration schema (JSON Schema)
+├── plugin.TOML          # Plugin manifest
+├── config_schema.JSON   # Configuration schema (JSON Schema)
 ├── src/
 │   └── lib.rs           # Plugin implementation
-└── Cargo.toml           # Plugin dependencies (optional)
+└── Cargo.TOML           # Plugin dependencies (optional)
 ```
 
 ## Creating a New Security Plugin
@@ -87,7 +87,7 @@ impl Plugin for <PluginName>Plugin {
         let context = request.context;
         let target_url = context.metadata.get("target_url")
             .and_then(|v| v.as_str())
-            .unwrap_or("http://localhost");
+            .unwrap_or("HTTP://localhost");
         
         info!("Starting <plugin> analysis for {}", target_url);
         
@@ -135,7 +135,7 @@ impl Plugin for <PluginName>Plugin {
             findings.push(finding);
         }
         
-        Ok(CapabilityResponse::success(serde_json::json!({
+        Ok(CapabilityResponse::success(serde_json::JSON!({
             "findings": findings,
             "total_issues": findings.len(),
         })))
@@ -161,13 +161,13 @@ impl SecurityPlugin for <PluginName>Plugin {
             SecurityReference {
                 ref_type: "CWE".to_string(),
                 id: "CWE-XXX".to_string(),
-                url: "https://cwe.mitre.org/data/definitions/XXX.html".to_string(),
+                url: "HTTPS://cwe.mitre.org/data/definitions/XXX.HTML".to_string(),
                 description: "Description".to_string(),
             },
             SecurityReference {
                 ref_type: "OWASP".to_string(),
                 id: "A0X:2021".to_string(),
-                url: "https://owasp.org/Top10/A0X_2021-...".to_string(),
+                url: "HTTPS://owasp.org/Top10/A0X_2021-...".to_string(),
                 description: "OWASP Top 10 2021 - ...".to_string(),
             },
         ]);
@@ -210,7 +210,7 @@ struct SecurityIssue {
 
 ### 3. Create Plugin Manifest
 
-Create `plugins/security/<name>/plugin.toml`:
+Create `plugins/security/<name>/plugin.TOML`:
 
 ```toml
 name = "<plugin_name>"
@@ -228,11 +228,11 @@ min_core_version = "0.1.0"
 max_core_version = "1.0.0"
 
 [plugin.entry]
-wasm = "<plugin_name>.wasm"
-native = { linux = "lib<plugin_name>.so", macos = "lib<plugin_name>.dylib", windows = "<plugin_name>.dll" }
+WASM = "<plugin_name>.WASM"
+native = { Linux = "lib<plugin_name>.so", macOS = "lib<plugin_name>.dylib", Windows = "<plugin_name>.dll" }
 
 [build]
-target = "wasm"
+target = "WASM"
 rust_version = "1.75"
 features = []
 
@@ -247,13 +247,13 @@ panels = []
 menus = []
 
 [config]
-schema = "config_schema.json"
+schema = "config_schema.JSON"
 defaults = {}
 ```
 
 ### 4. Create Configuration Schema
 
-Create `plugins/security/<name>/config_schema.json`:
+Create `plugins/security/<name>/config_schema.JSON`:
 
 ```json
 {
@@ -345,8 +345,8 @@ async fn test_<plugin_name>_plugin() {
     Mock::given(method("GET"))
         .and(path("/"))
         .respond_with(ResponseTemplate::new(200)
-            .set_body_string("<html>Test</html>")
-            .insert_header("content-type", "text/html"))
+            .set_body_string("<HTML>Test</HTML>")
+            .insert_header("content-type", "text/HTML"))
         .mount(&mock_server)
         .await;
     
@@ -357,7 +357,7 @@ async fn test_<plugin_name>_plugin() {
     let request = CapabilityRequest {
         capability: openre_core::ids::Capability::NetworkAccess,
         context,
-        input: serde_json::json!({"target_url": mock_server.uri()}),
+        input: serde_json::JSON!({"target_url": mock_server.uri()}),
     };
     
     let response = plugin.execute(request).await.unwrap();
@@ -426,7 +426,7 @@ if is_auth_page(&url, &body) {
 ### Severity Guidelines
 
 | Severity | When to Use |
-|----------|-------------|
+| ---------- | ------------- |
 | Critical | Immediate exploitation possible, sensitive data exposure |
 | High | Significant security weakness, likely exploitable |
 | Medium | Security weakness, may be exploitable under conditions |
@@ -436,7 +436,7 @@ if is_auth_page(&url, &body) {
 ### Confidence Guidelines
 
 | Confidence | When to Use |
-|------------|-------------|
+| ------------ | ------------- |
 | Very High | Confirmed vulnerability, direct evidence |
 | High | Strong evidence, minimal false positive risk |
 | Medium | Reasonable evidence, some uncertainty |
@@ -451,12 +451,12 @@ Always include evidence with findings:
 finding = finding.with_evidence(Evidence {
     evidence_type: EvidenceType::HttpResponse,  // or HttpRequest, CodeSnippet, etc.
     description: "Description of what the evidence shows",
-    data: Some(serde_json::json!({
+    data: Some(serde_json::JSON!({
         "key": "value",
-        "url": "https://example.com",
+        "url": "HTTPS://example.com",
         "status": 200,
     })),
-    location: Some("https://example.com/path".to_string()),
+    location: Some("HTTPS://example.com/path".to_string()),
     metadata: HashMap::new(),
 });
 ```
@@ -469,7 +469,7 @@ Include relevant references:
 finding = finding.with_reference(Reference {
     reference_type: ReferenceType::Cwe,  // or Owasp, Cve, etc.
     title: "CWE-XXX".to_string(),
-    url: "https://cwe.mitre.org/data/definitions/XXX.html".to_string(),
+    url: "HTTPS://cwe.mitre.org/data/definitions/XXX.HTML".to_string(),
     description: Some("Description of the weakness".to_string()),
 });
 ```
@@ -509,7 +509,7 @@ async fn test_plugin_integration() {
     Mock::given(method("GET"))
         .and(path("/test"))
         .respond_with(ResponseTemplate::new(200)
-            .set_body_string("<html>Test</html>"))
+            .set_body_string("<HTML>Test</HTML>"))
         .mount(&mock_server)
         .await;
     
@@ -520,26 +520,27 @@ async fn test_plugin_integration() {
 ### Test Coverage
 
 Aim for:
-- Unit tests for all helper functions
-- Integration tests for each check type
-- Edge case testing (empty responses, malformed headers, etc.)
-- False positive verification
+
+-   Unit tests for all helper functions
+-   Integration tests for each check type
+-   Edge case testing (empty responses, malformed headers, etc.)
+-   False positive verification
 
 ## Performance Considerations
 
-1. **Concurrency**: Use `max_concurrent_requests` to limit parallelism
-2. **Timeouts**: Respect `request_timeout` for all HTTP requests
-3. **Caching**: Use `ScanCache` for sharing data between plugins
-4. **Rate Limiting**: Be conservative with request rates
-5. **Memory**: Stay within `max_memory_mb` limit
+1.  **Concurrency**: Use `max_concurrent_requests` to limit parallelism
+2.  **Timeouts**: Respect `request_timeout` for all HTTP requests
+3.  **Caching**: Use `ScanCache` for sharing data between plugins
+4.  **Rate Limiting**: Be conservative with request rates
+5.  **Memory**: Stay within `max_memory_mb` limit
 
 ## Security Considerations
 
-1. **No Credential Attacks**: Never attempt to guess passwords or exploit vulnerabilities
-2. **Safe Testing**: Rate limiting tests should be conservative
-3. **SSL Verification**: Respect `verify_ssl` setting
-4. **Input Validation**: Validate all user inputs and configuration
-5. **Error Handling**: Don't leak sensitive information in errors
+1.  **No Credential Attacks**: Never attempt to guess passwords or exploit vulnerabilities
+2.  **Safe Testing**: Rate limiting tests should be conservative
+3.  **SSL Verification**: Respect `verify_ssl` setting
+4.  **Input Validation**: Validate all user inputs and configuration
+5.  **Error Handling**: Don't leak sensitive information in errors
 
 ## Common Patterns
 
@@ -565,11 +566,11 @@ if let Some(header_value) = response.headers.get("header-name") {
 
 ### Parsing HTML (Simple)
 
-For simple HTML parsing, use regex (for production, consider a proper HTML parser):
+For simple HTML parsing, use Regex (for production, consider a proper HTML parser):
 
 ```rust
-let regex = Regex::new(r#"<input[^>]*name=["']([^"']+)["']"#).unwrap();
-for cap in regex.captures_iter(&body) {
+let Regex = Regex::new(r#"<input[^>]*name=["']([^"']+)["']"#).unwrap();
+for cap in Regex.captures_iter(&body) {
     if let Some(name) = cap.get(1) {
         // Found input field
     }
@@ -588,10 +589,10 @@ tracing::debug!("Found issue: {:?}", issue);
 
 ## Publishing
 
-1. Build the plugin: `cargo build --release --target wasm32-wasip1`
-2. Test with the scanner
-3. Create a release with the WASM file and manifest
-4. Submit to the plugin registry (when available)
+1.  Build the plugin: `Cargo build --release --target wasm32-wasip1`
+2.  Test with the scanner
+3.  Create a release with the WASM file and manifest
+4.  Submit to the plugin registry (when available)
 
 ## Example: Complete Minimal Plugin
 
@@ -600,6 +601,7 @@ See `crates/openre-plugins/src/security/auth_discovery.rs` for a complete exampl
 ## Support
 
 For questions about plugin development:
-- Check existing plugins for patterns
-- Review the plugin SDK documentation
-- Open an issue on GitHub
+
+-   Check existing plugins for patterns
+-   Review the plugin SDK documentation
+-   Open an issue on GitHub

@@ -3,11 +3,12 @@
 Thank you for contributing to **openre-scan** — a lightweight, standalone web security scanner.
 
 We welcome:
-- **Security checks** (new vulnerability detections)
-- **Bug fixes** and **improvements**
-- **Documentation** updates
-- **Tests** and **CI** improvements
-- **AI integration** enhancements
+
+-   **Security checks** (new vulnerability detections)
+-   **Bug fixes** and **improvements**
+-   **Documentation** updates
+-   **Tests** and **CI** improvements
+-   **AI integration** enhancements
 
 ---
 
@@ -19,10 +20,10 @@ git clone https://github.com/YOUR_USERNAME/open-re.git
 cd open-re
 
 # 2. Build the scanner
-cargo build --release -p openre-scan
+Cargo build --release -p openre-scan
 
 # 3. Run tests
-cargo test -p openre-scan
+Cargo test -p openre-scan
 
 # 4. Try it
 ./target/release/openre-scan scan https://example.com --profile standard
@@ -86,11 +87,13 @@ impl Check for MyNewCheck {
 ### 3. Register the Check
 
 Add to `crates/openre-scan/src/checks/mod.rs`:
+
 ```rust
 pub mod my_new_check;
 ```
 
 Add to `get_all_checks()` in `main.rs`:
+
 ```rust
 ScanProfile::Standard => vec![
     // ... existing checks
@@ -120,7 +123,7 @@ async fn test_my_new_check() {
 ### 5. Run Tests
 
 ```bash
-cargo test -p openre-scan --test integration test_my_new_check
+Cargo test -p openre-scan --test integration test_my_new_check
 ```
 
 ### 6. Submit PR
@@ -138,7 +141,7 @@ git push origin feat/my-new-check
 ## Check Design Guidelines
 
 | Principle | Details |
-|-----------|---------|
+| ----------- | --------- |
 | **Single responsibility** | One check = one vulnerability class |
 | **Evidence required** | Every finding must include `Evidence` (HTTP headers, body snippets, locations) |
 | **Remediation included** | Provide actionable steps with effort/priority |
@@ -153,16 +156,16 @@ git push origin feat/my-new-check
 
 ```bash
 # All openre-scan tests (unit + integration)
-cargo test -p openre-scan
+Cargo test -p openre-scan
 
 # Just integration tests
-cargo test -p openre-scan --test integration
+Cargo test -p openre-scan --test integration
 
 # With output
-cargo test -p openre-scan --test integration -- --nocapture
+Cargo test -p openre-scan --test integration -- --nocapture
 
 # Core crate tests
-cargo test -p openre-core -p openre-config -p openre-telemetry -p openre-storage
+Cargo test -p openre-core -p openre-config -p openre-telemetry -p openre-storage
 ```
 
 ---
@@ -171,13 +174,13 @@ cargo test -p openre-core -p openre-config -p openre-telemetry -p openre-storage
 
 ```bash
 # Format
-cargo fmt --all -- --check
+Cargo fmt --all -- --check
 
 # Lint (must pass with zero warnings)
-cargo clippy -p openre-scan -- -D warnings
+Cargo clippy -p openre-scan -- -D warnings
 
 # Build release
-cargo build --release -p openre-scan
+Cargo build --release -p openre-scan
 ```
 
 ---
@@ -187,6 +190,7 @@ cargo build --release -p openre-scan
 ### PR Title Format
 
 Use conventional commits:
+
 ```
 feat: add check for X vulnerability
 fix: resolve false positive in security-headers check
@@ -198,20 +202,20 @@ chore: update dependencies
 
 ### PR Requirements
 
-- [ ] All tests pass (`cargo test -p openre-scan`)
-- [ ] Code formatted (`cargo fmt --all -- --check`)
-- [ ] Zero clippy warnings (`cargo clippy -p openre-scan -- -D warnings`)
-- [ ] Release build succeeds (`cargo build --release -p openre-scan`)
-- [ ] Documentation updated if CLI changes
-- [ ] CHANGELOG.md updated for user-facing changes
-- [ ] Linked to relevant issue
+-   [ ] All tests pass (`Cargo test -p openre-scan`)
+-   [ ] Code formatted (`Cargo fmt --all -- --check`)
+-   [ ] Zero clippy warnings (`Cargo clippy -p openre-scan -- -D warnings`)
+-   [ ] Release build succeeds (`Cargo build --release -p openre-scan`)
+-   [ ] Documentation updated if CLI changes
+-   [ ] CHANGELOG.md updated for user-facing changes
+-   [ ] Linked to relevant issue
 
 ### Review Process
 
-1. Automated CI checks must pass
-2. At least one maintainer review
-3. Address review comments
-4. Maintainer merges after approval
+1.  Automated CI checks must pass
+2.  At least one maintainer review
+3.  Address review comments
+4.  Maintainer merges after approval
 
 ---
 
@@ -233,34 +237,36 @@ openre-scan/
 
 ### Key Types (from `openre-core`)
 
-- `Finding` — Core finding with severity, confidence, category, evidence, remediation
-- `Evidence` — Proof: HTTP request/response, location, timing, payload
-- `Severity` — Critical, High, Medium, Low, Info
-- `Confidence` — VeryHigh, High, Medium, Low
-- `Category` — SecurityMisconfiguration, InformationDisclosure, etc.
-- `RemediationGuidance` — Summary, steps, effort (Low/Medium/High), priority (Immediate/High/Medium/Low)
+-   `Finding` — Core finding with severity, confidence, category, evidence, remediation
+-   `Evidence` — Proof: HTTP request/response, location, timing, payload
+-   `Severity` — Critical, High, Medium, Low, Info
+-   `Confidence` — VeryHigh, High, Medium, Low
+-   `Category` — SecurityMisconfiguration, InformationDisclosure, etc.
+-   `RemediationGuidance` — Summary, steps, effort (Low/Medium/High), priority (Immediate/High/Medium/Low)
 
 ---
 
 ## Reporting Bugs
 
 Use the **Bug Report** template and include:
-- Clear description
-- Steps to reproduce
-- Expected vs actual behavior
-- Target URL (if safe to share)
-- Scanner version (`openre-scan --version`)
-- OS/Rust version
+
+-   Clear description
+-   Steps to reproduce
+-   Expected vs actual behavior
+-   Target URL (if safe to share)
+-   Scanner version (`openre-scan --version`)
+-   OS/Rust version
 
 ---
 
 ## Feature Requests
 
 Use the **Feature Request** template:
-- Problem statement
-- Proposed solution
-- User value / use cases
-- Technical considerations
+
+-   Problem statement
+-   Proposed solution
+-   User value / use cases
+-   Technical considerations
 
 ---
 
@@ -268,30 +274,32 @@ Use the **Feature Request** template:
 
 **Do not** open public issues for security vulnerabilities.
 
-Email: **security@open-re.org** (or use GitHub Security Advisories)
+Email: **<security@open-re.org>** (or use GitHub Security Advisories)
 
 Include:
-- Description and impact
-- Reproduction steps
-- Affected versions
-- Suggested fix (if any)
+
+-   Description and impact
+-   Reproduction steps
+-   Affected versions
+-   Suggested fix (if any)
 
 ---
 
 ## Recognition
 
 Contributors are recognized in:
-- `CONTRIBUTORS.md`
-- Release notes
-- GitHub contributor graphs
+
+-   `CONTRIBUTORS.md`
+-   Release notes
+-   GitHub contributor graphs
 
 ---
 
-## Questions?
+## Questions
 
-- **GitHub Discussions** for questions and ideas
-- **GitHub Issues** for bugs and feature requests
-- **Pull Requests** for code reviews
+-   **GitHub Discussions** for questions and ideas
+-   **GitHub Issues** for bugs and feature requests
+-   **Pull Requests** for code reviews
 
 ---
 

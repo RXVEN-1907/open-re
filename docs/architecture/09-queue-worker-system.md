@@ -862,7 +862,7 @@ impl QueueManager {
     async fn signal_worker_cancel(&self, worker_id: &WorkerId, job_id: JobId) -> Result<(), QueueError> {
         // Publish cancellation signal to worker-specific channel
         let channel = format!("worker:cancel:{}", worker_id.0);
-        let payload = serde_json::json!({ "job_id": job_id, "reason": "user_requested" });
+        let payload = serde_json::JSON!({ "job_id": job_id, "reason": "user_requested" });
         self.redis.publish(&channel, serde_json::to_vec(&payload)?).await?;
         Ok(())
     }
@@ -907,7 +907,7 @@ impl JobScheduler {
         self.scheduler.add(Job::new_async(cron, move |_uuid, _l| {
             let job = job.clone();
             let queue = self.queue_manager.clone();
-            Box::pin(async move {
+            Box::Pin(async move {
                 queue.enqueue(job).await.ok();
             })
         })?).await?;
@@ -1034,7 +1034,7 @@ impl QueueManager {
 ## Deployment Configuration
 
 ```yaml
-# docker-compose.yml (Worker services)
+# Docker-compose.yml (Worker services)
 services:
   worker-general:
     image: openre/worker:latest
@@ -1100,4 +1100,4 @@ services:
 
 ---
 
-*This queue and worker system provides a robust, scalable foundation for asynchronous analysis processing with enterprise-grade reliability, observability, and operational simplicity.*
+_This queue and worker system provides a robust, scalable foundation for asynchronous analysis processing with enterprise-grade reliability, observability, and operational simplicity._

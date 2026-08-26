@@ -38,6 +38,11 @@ pub struct SafetyGuard {
 
 impl SafetyGuard {
     /// Create a new safety guard
+    /// Whether strict evidence checking is enabled
+    pub fn strict_evidence_checking(&self) -> bool {
+        self.strict_evidence_checking
+    }
+
     pub fn new(strict_evidence_checking: bool) -> Self {
         Self {
             strict_evidence_checking,
@@ -116,7 +121,8 @@ impl SafetyGuard {
         T: serde::Serialize + serde::de::DeserializeOwned,
     {
         if !self.strict_evidence_checking {
-            return Ok(response.clone());
+            let cloned = T::deserialize(serde_json::to_value(response)?)?;
+            return Ok(cloned);
         }
 
         // Convert to JSON and back to validate structure

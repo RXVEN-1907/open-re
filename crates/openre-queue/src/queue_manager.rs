@@ -130,6 +130,18 @@ impl QueueManager {
     }
 
     /// Enqueue a job
+    /// Verify connectivity to Redis
+    pub async fn health_check(&self) -> OpenreResult<()> {
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
+        redis::cmd("PING").query_async::<_, ()>(&mut conn).await?;
+        Ok(())
+    }
+
+    /// Access the underlying Redis client
+    pub fn client(&self) -> &Client {
+        &self.client
+    }
+
     pub async fn enqueue(&self, mut job: Job) -> OpenreResult<JobId> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
 

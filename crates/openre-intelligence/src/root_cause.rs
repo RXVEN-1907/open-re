@@ -35,7 +35,7 @@ impl Default for RootCauseConfig {
             enable_misconfig_patterns: true,
             enable_auth_patterns: true,
             enable_input_validation_patterns: true,
-            min_related_findings: 3,
+            min_related_findings: 2,
             confidence_threshold: 0.6,
         }
     }
@@ -109,10 +109,6 @@ impl RootCauseAnalyzer {
         if self.config.enable_input_validation_patterns {
             root_causes.extend(self.analyze_input_validation_patterns(findings)?);
         }
-
-        // Filter by confidence threshold
-        root_causes
-            .retain(|rc| rc.priority as u8 >= (self.config.confidence_threshold * 5.0) as u8);
 
         Ok(root_causes)
     }
@@ -215,7 +211,7 @@ impl RootCauseAnalyzer {
             let root_cause = RootCauseAnalysis {
                 root_cause_id: finding_ids[0],
                 related_findings: finding_ids.clone(),
-                description: "Multiple security misconfigurations indicate a lack of systematic hardening and security configuration management across the infrastructure.".to_string(),
+                description: "Multiple security misconfigurations indicate a systemic hardening gap and weak security configuration management across the infrastructure.".to_string(),
                 impact_assessment: "This root cause exposes the application to various attacks due to insecure default configurations, incomplete or ad-hoc hardening, and lack of configuration governance. Misconfigurations can affect servers, databases, frameworks, and cloud services.".to_string(),
                 remediation_approach: "Implement comprehensive security hardening:\n1. Standardized security baselines for all components\n2. Automated configuration validation\n3. Regular security assessments\n4. Configuration management tools\n5. Security-focused deployment pipelines".to_string(),
                 priority: RemediationPriority::High,
@@ -477,7 +473,7 @@ mod tests {
 
     fn create_test_finding(title: &str, category: Category, description: &str) -> Finding {
         Finding {
-            id: FindingId::new_v4(),
+            id: FindingId::new(),
             title: title.to_string(),
             description: description.to_string(),
             severity: Severity::Medium,
@@ -490,7 +486,7 @@ mod tests {
             plugin_source: "test".to_string(),
             plugin_version: "1.0".to_string(),
             timestamp: Utc::now(),
-            scan_id: ScanId::new_v4(),
+            scan_id: ScanId::new(),
             metadata: HashMap::new(),
             tags: Vec::new(),
             verified: false,

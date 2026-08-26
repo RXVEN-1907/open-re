@@ -13,11 +13,15 @@ All endpoints require authentication via Bearer token, API key, or session cooki
 ```
 Authorization: Bearer <token>
 ```
+
 or
+
 ```
 X-API-Key: <api_key>
 ```
+
 or
+
 ```
 Cookie: session=<session_id>
 ```
@@ -33,7 +37,7 @@ Retrieve a paginated list of security findings with filtering options.
 **Query Parameters**:
 
 | Parameter | Type | Description |
-|-----------|------|-------------|
+| ----------- | ------ | ------------- |
 | `page` | integer | Page number (default: 1) |
 | `per_page` | integer | Items per page (default: 50, max: 100) |
 | `severity` | string | Comma-separated list: info,low,medium,high,critical |
@@ -53,24 +57,25 @@ Retrieve a paginated list of security findings with filtering options.
 | `sort` | string | Sort order: severity_desc, severity_asc, confidence_desc, timestamp_desc, timestamp_asc, risk_score_desc, target_asc |
 
 **Response** (200 OK):
+
 ```json
 {
   "findings": [
     {
       "id": "uuid",
       "title": "Authentication Endpoint Discovered: /login",
-      "description": "Discovered authentication endpoint at https://example.com/login with status 200. Login form: true, Registration form: false, Password reset: false. MFA indicators: [\"TOTP (Time-based One-Time Password)\"], SSO providers: [\"Google OAuth\", \"GitHub OAuth\"], OAuth indicators: [\"OAuth\", \"Authorization Code Flow\"]",
+      "description": "Discovered authentication endpoint at HTTPS://example.com/login with status 200. Login form: true, Registration form: false, Password reset: false. MFA indicators: [\"TOTP (Time-based One-Time Password)\"], SSO providers: [\"Google OAuth\", \"GitHub OAuth\"], OAuth indicators: [\"OAuth\", \"Authorization Code Flow\"]",
       "severity": "info",
       "confidence": "high",
       "category": "broken_authentication",
-      "target": "https://example.com/login",
+      "target": "HTTPS://example.com/login",
       "target_type": "web_application",
       "evidence": [
         {
           "evidence_type": "HttpResponse",
           "description": "Authentication endpoint response (status: 200)",
           "data": {
-            "url": "https://example.com/login",
+            "url": "HTTPS://example.com/login",
             "status": 200,
             "login_form": true,
             "registration_form": false,
@@ -81,7 +86,7 @@ Retrieve a paginated list of security findings with filtering options.
             "csrf_tokens": ["csrf_token"],
             "form_fields": [{"name": "username", "field_type": "text"}, {"name": "password", "field_type": "password"}]
           },
-          "location": "https://example.com/login",
+          "location": "HTTPS://example.com/login",
           "metadata": {}
         }
       ],
@@ -89,13 +94,13 @@ Retrieve a paginated list of security findings with filtering options.
         {
           "reference_type": "Cwe",
           "title": "CWE-306",
-          "url": "https://cwe.mitre.org/data/definitions/306.html",
+          "url": "HTTPS://cwe.mitre.org/data/definitions/306.HTML",
           "description": "Missing Authentication for Critical Function"
         },
         {
           "reference_type": "Owasp",
           "title": "A07:2021",
-          "url": "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/",
+          "url": "HTTPS://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/",
           "description": "OWASP Top 10 2021 - Identification and Authentication Failures"
         }
       ],
@@ -125,11 +130,13 @@ Retrieve a specific finding by ID.
 **Endpoint**: `GET /api/security/findings/{id}`
 
 **Path Parameters**:
-- `id` (string, required): Finding UUID
+
+-   `id` (string, required): Finding UUID
 
 **Response** (200 OK): Finding object (same as in list)
 
 **Response** (404 Not Found):
+
 ```json
 {
   "error": "Not Found",
@@ -146,6 +153,7 @@ Retrieve aggregated statistics for findings matching the filter.
 **Query Parameters**: Same as list findings (except pagination)
 
 **Response** (200 OK):
+
 ```json
 {
   "total": 42,
@@ -191,13 +199,15 @@ Retrieve findings for a specific scan.
 **Endpoint**: `GET /api/security/scans/{scan_id}/findings`
 
 **Path Parameters**:
-- `scan_id` (string, required): Scan UUID
+
+-   `scan_id` (string, required): Scan UUID
 
 **Query Parameters**: Same as list findings (except scan_id)
 
 **Response** (200 OK): Same as list findings
 
 **Response** (404 Not Found):
+
 ```json
 {
   "error": "Not Found",
@@ -212,7 +222,8 @@ Retrieve statistics for findings in a specific scan.
 **Endpoint**: `GET /api/security/scans/{scan_id}/findings/stats`
 
 **Path Parameters**:
-- `scan_id` (string, required): Scan UUID
+
+-   `scan_id` (string, required): Scan UUID
 
 **Query Parameters**: Same as finding stats (except scan_id)
 
@@ -223,6 +234,7 @@ Retrieve statistics for findings in a specific scan.
 All endpoints may return these error responses:
 
 ### 401 Unauthorized
+
 ```json
 {
   "error": "Unauthorized",
@@ -231,6 +243,7 @@ All endpoints may return these error responses:
 ```
 
 ### 403 Forbidden
+
 ```json
 {
   "error": "Forbidden",
@@ -239,6 +252,7 @@ All endpoints may return these error responses:
 ```
 
 ### 404 Not Found
+
 ```json
 {
   "error": "Not Found",
@@ -247,6 +261,7 @@ All endpoints may return these error responses:
 ```
 
 ### 500 Internal Server Error
+
 ```json
 {
   "error": "Internal Server Error",
@@ -259,32 +274,37 @@ All endpoints may return these error responses:
 API endpoints are rate limited to 60 requests per minute per user/IP.
 
 Rate limit headers:
-- `X-RateLimit-Limit`: Maximum requests per window
-- `X-RateLimit-Remaining`: Remaining requests in current window
-- `X-RateLimit-Reset`: Unix timestamp when limit resets
-- `Retry-After`: Seconds until next request allowed (on 429)
+
+-   `X-RateLimit-Limit`: Maximum requests per window
+-   `X-RateLimit-Remaining`: Remaining requests in current window
+-   `X-RateLimit-Reset`: Unix timestamp when limit resets
+-   `Retry-After`: Seconds until next request allowed (on 429)
 
 ## Examples
 
 ### List High/Critical Authentication Findings
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
   "https://api.example.com/api/security/findings?severity=high,critical&plugin_source=auth_discovery&per_page=20"
 ```
 
 ### Get Statistics for a Scan
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
   "https://api.example.com/api/security/scans/abc123/findings/stats"
 ```
 
 ### Search for Cookie-Related Findings
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
   "https://api.example.com/api/security/findings?search=cookie&category=security_misconfiguration"
 ```
 
 ### Get Findings by Tag
+
 ```bash
 curl -H "Authorization: Bearer <token>" \
   "https://api.example.com/api/security/findings?tags=session_fixation,cookie_secure_flag"
@@ -299,6 +319,7 @@ WS /api/security/findings/stream?scan_id=<scan_id>
 ```
 
 Messages:
+
 ```json
 {
   "type": "finding_created",
@@ -328,6 +349,7 @@ Messages:
 ## SDK Usage
 
 ### Rust
+
 ```rust
 use openre_api::client::ApiClient;
 
@@ -350,6 +372,7 @@ let scan_findings = client.security().get_scan_findings(scan_id, None, None, Non
 ```
 
 ### Python
+
 ```python
 from openre import OpenREClient
 
@@ -372,10 +395,11 @@ scan_findings = client.security.get_scan_findings(scan_id)
 ## Changelog
 
 ### v0.1.0 (2026-01-15)
-- Initial security findings API
-- Endpoints for listing, retrieving, and statistics
-- Scan-specific finding queries
-- Filtering by severity, confidence, category, plugin, tags
-- Full-text search in title/description
-- Risk score filtering
-- WebSocket streaming for real-time updates
+
+-   Initial security findings API
+-   Endpoints for listing, retrieving, and statistics
+-   Scan-specific finding queries
+-   Filtering by severity, confidence, category, plugin, tags
+-   Full-text search in title/description
+-   Risk score filtering
+-   WebSocket streaming for real-time updates

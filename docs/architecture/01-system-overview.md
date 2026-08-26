@@ -164,7 +164,7 @@ sequenceDiagram
 
     User->>GW: POST /api/v1/ai/explain (function_id)
     GW->>AI: ExplainFunctionRequest
-    AI->>SQ: Load function context (asm, cfg, types)
+    AI->>SQ: Load function context (asm, CFG, types)
     AI->>PC: Compile prompt (template + context)
     PC-->>AI: Rendered prompt + tools
     alt Local Model Available
@@ -298,7 +298,7 @@ graph LR
 ## Key Architectural Principles
 
 | Principle | Implementation |
-|-----------|----------------|
+| ----------- | ---------------- |
 | **Plugin-First** | Core analysis (disassembly, decompilation, CFG) are plugins loaded at runtime |
 | **Local-First AI** | Models run locally via ONNX/llama.cpp; remote only as opt-in fallback |
 | **Privacy by Design** | No telemetry, no auto-upload, air-gapped operation supported |
@@ -313,7 +313,7 @@ graph LR
 ## Technology Stack Summary
 
 | Layer | Technology | Rationale |
-|-------|------------|-----------|
+| ------- | ------------ | ----------- |
 | **Core Language** | Rust | Memory safety, performance, WASM target, no GC pauses |
 | **API Layer** | Axum (Rust) / FastAPI (Python) | High performance, async, type-safe |
 | **Frontend** | React 18 + TypeScript + Vite | Modern, accessible, great DX |
@@ -365,7 +365,7 @@ graph TB
 ## Scalability Targets
 
 | Metric | Target | Strategy |
-|--------|--------|----------|
+| -------- | -------- | ---------- |
 | **Concurrent Analyses** | 100+ | Horizontal worker scaling, priority queues |
 | **Binary Size** | 10GB+ | Streaming, memory-mapped, chunked processing |
 | **Project Size** | 100GB+ | SQLite per project, lazy loading, pagination |
@@ -379,7 +379,7 @@ graph TB
 ## Failure Modes & Mitigations
 
 | Failure Mode | Detection | Mitigation |
-|--------------|-----------|------------|
+| -------------- | ----------- | ------------ |
 | **Worker OOM** | Memory metrics, health checks | Restart worker, re-queue job, reduce parallelism |
 | **Plugin Crash** | Panic hook, watchdog | Isolate in WASM, mark plugin unhealthy, continue |
 | **Model Load Fail** | Startup probe | Fallback to smaller model, disable AI features |
@@ -390,4 +390,4 @@ graph TB
 
 ---
 
-*This document is the architectural north star. All ADRs and detailed designs must align with these principles.*
+_This document is the architectural north star. All ADRs and detailed designs must align with these principles._

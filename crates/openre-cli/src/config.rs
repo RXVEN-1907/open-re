@@ -2,8 +2,8 @@
 
 use crate::{CliError, OutputFormat};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 /// CLI configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,7 +14,7 @@ pub struct CliConfig {
     pub refresh_token: Option<String>,
     pub output_format: OutputFormat,
     pub verbose: bool,
-    
+
     #[serde(skip)]
     path: Option<PathBuf>,
 }
@@ -41,7 +41,7 @@ impl CliConfig {
         } else {
             Self::default_config_path()?
         };
-        
+
         if config_path.exists() {
             let content = fs::read_to_string(&config_path)?;
             let mut config: Self = toml::from_str(&content)?;
@@ -53,42 +53,42 @@ impl CliConfig {
             Ok(config)
         }
     }
-    
+
     /// Get default config path
     fn default_config_path() -> Result<PathBuf, CliError> {
         let config_dir = dirs::config_dir()
             .ok_or_else(|| CliError::ConfigError("Could not find config directory".into()))?;
-        
+
         Ok(config_dir.join("openre").join("config.toml"))
     }
-    
+
     /// Save configuration to file
     pub fn save(&self) -> Result<(), CliError> {
         if let Some(path) = &self.path {
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent)?;
             }
-            
+
             let content = toml::to_string_pretty(self)?;
             fs::write(path, content)?;
         }
         Ok(())
     }
-    
+
     /// Save tokens
     pub fn save_tokens(&mut self, access_token: &str, refresh_token: &str) -> Result<(), CliError> {
         self.access_token = Some(access_token.to_string());
         self.refresh_token = Some(refresh_token.to_string());
         self.save()
     }
-    
+
     /// Clear tokens
     pub fn clear_tokens(&mut self) -> Result<(), CliError> {
         self.access_token = None;
         self.refresh_token = None;
         self.save()
     }
-    
+
     /// Get token for authentication
     pub fn get_token(&self) -> Result<String, CliError> {
         if let Some(token) = &self.access_token {
@@ -99,19 +99,32 @@ impl CliConfig {
             Err(CliError::NotAuthenticated)
         }
     }
-    
+
     /// Set a configuration value
     pub fn set(&mut self, key: &str, value: &str) -> Result<(), CliError> {
         match key {
             "server_url" => self.server_url = value.to_string(),
             "api_key" => self.api_key = Some(value.to_string()),
-            "output_format" => self.output_format = value.parse()?,
-            "verbose" => self.verbose = value.parse()?,
-            _ => return Err(CliError::InvalidInput(format!("Unknown config key: {}", key))),
+            "output_format" => {
+                self.output_format = value
+                    .parse()
+                    .map_err(|e: String| CliError::InvalidInput(e))?
+            }
+            "verbose" => {
+                self.verbose = value
+                    .parse()
+                    .map_err(|_| CliError::InvalidInput(format!("Invalid boolean: {}", value)))?
+            }
+            _ => {
+                return Err(CliError::InvalidInput(format!(
+                    "Unknown config key: {}",
+                    key
+                )))
+            }
         }
         Ok(())
     }
-    
+
     /// Get a configuration value
     pub fn get(&self, key: &str) -> Option<String> {
         match key {
@@ -122,14 +135,14 @@ impl CliConfig {
             _ => None,
         }
     }
-    
+
     /// Reset to defaults
     pub fn reset(&mut self) -> Result<(), CliError> {
         *self = Self::default();
         self.path = Self::default_config_path().ok();
         Ok(())
     }
-    
+
     /// Get config file path
     pub fn path(&self) -> Option<&Path> {
         self.path.as_deref()

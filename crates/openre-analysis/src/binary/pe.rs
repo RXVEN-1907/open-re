@@ -4,8 +4,9 @@ use crate::binary::common::*;
 use crate::binary::traits::*;
 use async_trait::async_trait;
 use goblin::container::{Container, Endian};
-use goblin::pe::{Export, Import, PEHeader, SectionTable, PE};
+use goblin::pe::{section_table::SectionTable, PE};
 use openre_core::error::OpenreResult as Result;
+use openre_core::ids::FileId;
 use std::collections::HashMap;
 
 /// PE binary identifier
@@ -42,13 +43,11 @@ impl BinaryIdentifier for PeIdentifier {
 
         let os = OperatingSystem::Windows;
 
-        let entry_point = if pe.header.optional_header.AddressOfEntryPoint != 0 {
-            Some(
-                pe.header.optional_header.AddressOfEntryPoint as u64
-                    + pe.header.optional_header.ImageBase,
-            )
-        } else {
-            None
+        let entry_point = match &pe.header.optional_header {
+            Some(oh) if oh.standard_fields.address_of_entry_point != 0 => {
+                Some(oh.windows_fields.image_base + oh.standard_fields.address_of_entry_point)
+            }
+            _ => None,
         };
 
         // Extract security features
@@ -170,8 +169,7 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
 
         // PE doesn't have explicit segments like ELF, but we can derive them from sections
         // Group sections by their memory permissions
-        let mut segment_map: HashMap<(bool, bool, bool), Vec<&goblin::pe::SectionTable>> =
-            HashMap::new();
+        let mut segment_map: HashMap<(bool, bool, bool), Vec<&SectionTable>> = HashMap::new();
 
         for section in &pe.sections {
             let key = (
@@ -220,7 +218,12 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
                 raw_offset: min_raw as u64,
                 raw_size: (max_raw - min_raw) as u64,
                 permissions,
-                alignment: pe.header.optional_header.SectionAlignment as u64,
+                alignment: pe
+                    .header
+                    .optional_header
+                    .as_ref()
+                    .map(|oh| oh.windows_fields.section_alignment as u64)
+                    .unwrap_or(0),
             });
         }
 
@@ -237,9 +240,9 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
         for export in &pe.exports {
             if let Some(name) = &export.name {
                 symbols.push(SymbolInfo {
-                    name: name.clone(),
-                    address: export.address as u64,
-                    size: 0,
+                    name: name.to_string(),
+                    address: export.rva as u64,
+                    size: export.size as u64,
                     symbol_type: SymbolType::Function,
                     binding: SymbolBinding::Global,
                     visibility: SymbolVisibility::Default,
@@ -250,19 +253,15 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
 
         // Extract symbols from import table (as external symbols)
         for import in &pe.imports {
-            for func in &import.functions {
-                if let Some(name) = &func.name {
-                    symbols.push(SymbolInfo {
-                        name: format!("{}!{}", import.dll_name, name),
-                        address: func.address as u64,
-                        size: 0,
-                        symbol_type: SymbolType::Function,
-                        binding: SymbolBinding::Global,
-                        visibility: SymbolVisibility::Default,
-                        section_index: None,
-                    });
-                }
-            }
+            symbols.push(SymbolInfo {
+                name: format!("{}!{}", import.dll, import.name),
+                address: import.rva as u64,
+                size: import.size as u64,
+                symbol_type: SymbolType::Function,
+                binding: SymbolBinding::Global,
+                visibility: SymbolVisibility::Default,
+                section_index: None,
+            });
         }
 
         Ok(symbols)
@@ -274,24 +273,23 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
 
         let mut imports = Vec::new();
 
+        // goblin 0.7 exposes a flat import list: each entry is a single imported symbol
+        let mut by_library: HashMap<String, Vec<ImportedFunction>> = HashMap::new();
         for import in &pe.imports {
-            let mut functions = Vec::new();
-            for func in &import.functions {
-                functions.push(ImportedFunction {
-                    name: func
-                        .name
-                        .clone()
-                        .unwrap_or_else(|| format!("ordinal_{}", func.ordinal.unwrap_or(0))),
-                    address: Some(func.address as u64),
-                    ordinal: func.ordinal,
+            let name = import.name.to_string();
+            by_library
+                .entry(import.dll.to_string())
+                .or_default()
+                .push(ImportedFunction {
+                    name,
+                    address: Some(import.rva as u64),
+                    ordinal: Some(import.ordinal),
                 });
-            }
+        }
 
+        for (library, functions) in by_library {
             if !functions.is_empty() {
-                imports.push(ImportInfo {
-                    library: import.dll_name.clone(),
-                    functions,
-                });
+                imports.push(ImportInfo { library, functions });
             }
         }
 
@@ -307,10 +305,17 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
         for export in &pe.exports {
             if let Some(name) = &export.name {
                 exports.push(ExportInfo {
-                    name: name.clone(),
-                    address: export.address as u64,
-                    ordinal: export.ordinal as u16,
-                    forwarder: export.forwarder.clone(),
+                    name: name.to_string(),
+                    address: export.rva as u64,
+                    ordinal: 0,
+                    forwarder: export.reexport.as_ref().map(|r| match r {
+                        goblin::pe::export::Reexport::DLLName { export, lib } => {
+                            format!("{}.{}", lib, export)
+                        }
+                        goblin::pe::export::Reexport::DLLOrdinal { ordinal, lib } => {
+                            format!("{}.#{}", lib, ordinal)
+                        }
+                    }),
                 });
             }
         }
@@ -348,82 +353,15 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
     }
 
     async fn extract_resources(&self, data: &[u8]) -> Result<Vec<ResourceInfo>> {
-        let pe = PE::parse(data)
-            .map_err(|e| openre_core::Error::Validation(format!("Failed to parse PE: {}", e)))?;
-
-        let mut resources = Vec::new();
-
-        if let Some(resource_dir) = &pe.resources {
-            extract_resources_recursive(resource_dir, &mut resources, 0);
-        }
-
-        Ok(resources)
+        let _ = data;
+        // goblin 0.7 does not expose PE resource directory parsing
+        Ok(Vec::new())
     }
 
     async fn extract_version_info(&self, data: &[u8]) -> Result<Option<VersionInfo>> {
-        let pe = PE::parse(data)
-            .map_err(|e| openre_core::Error::Validation(format!("Failed to parse PE: {}", e)))?;
-
-        if let Some(version_info) = &pe.version_info {
-            let mut info = VersionInfo {
-                file_version: None,
-                product_version: None,
-                company_name: None,
-                file_description: None,
-                internal_name: None,
-                legal_copyright: None,
-                original_filename: None,
-                product_name: None,
-            };
-
-            // Extract version info from StringFileInfo
-            for (key, value) in &version_info.string_file_info {
-                match key.to_lowercase().as_str() {
-                    "fileversion" => info.file_version = Some(value.clone()),
-                    "productversion" => info.product_version = Some(value.clone()),
-                    "companyname" => info.company_name = Some(value.clone()),
-                    "filedescription" => info.file_description = Some(value.clone()),
-                    "internalname" => info.internal_name = Some(value.clone()),
-                    "legalcopyright" => info.legal_copyright = Some(value.clone()),
-                    "originalfilename" => info.original_filename = Some(value.clone()),
-                    "productname" => info.product_name = Some(value.clone()),
-                    _ => {}
-                }
-            }
-
-            return Ok(Some(info));
-        }
-
+        let _ = data;
+        // goblin 0.7 does not expose PE version info parsing
         Ok(None)
-    }
-}
-
-/// Recursively extract resources
-fn extract_resources_recursive(
-    resource_dir: &goblin::pe::resource::ResourceDirectory,
-    resources: &mut Vec<ResourceInfo>,
-    depth: u32,
-) {
-    for entry in &resource_dir.entries {
-        match entry {
-            goblin::pe::resource::ResourceEntry::Directory(dir) => {
-                extract_resources_recursive(dir, resources, depth + 1);
-            }
-            goblin::pe::resource::ResourceEntry::Data(data) => {
-                let resource_type = match data.id {
-                    goblin::pe::resource::ResourceId::Name(name) => name,
-                    goblin::pe::resource::ResourceId::Id(id) => format!("#{}", id),
-                };
-
-                resources.push(ResourceInfo {
-                    resource_type,
-                    name: None,
-                    language: data.lang_id,
-                    size: data.size,
-                    offset: data.offset,
-                });
-            }
-        }
     }
 }
 
@@ -431,19 +369,26 @@ fn extract_resources_recursive(
 fn extract_security_features(pe: &PE) -> SecurityFeatures {
     let mut features = SecurityFeatures::default();
 
+    let dll_characteristics = pe
+        .header
+        .optional_header
+        .as_ref()
+        .map(|oh| oh.windows_fields.dll_characteristics)
+        .unwrap_or(0);
+
     // Check for ASLR (Dynamic Base)
-    features.aslr = pe.header.optional_header.DllCharacteristics & 0x0040 != 0; // IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE
+    features.aslr = dll_characteristics & 0x0040 != 0; // IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE
 
     // Check for DEP/NX
-    features.dep_nx = pe.header.optional_header.DllCharacteristics & 0x0100 != 0; // IMAGE_DLLCHARACTERISTICS_NX_COMPAT
+    features.dep_nx = dll_characteristics & 0x0100 != 0; // IMAGE_DLLCHARACTERISTICS_NX_COMPAT
 
     // Check for PIE (Relocations stripped means no ASLR, but PE doesn't have PIE concept like ELF)
     // PE uses ASLR instead
     features.pie = features.aslr;
 
     // Check for RELRO equivalent (SafeSEH, SEH, CFG)
-    let mut has_safeseh = pe.header.optional_header.DllCharacteristics & 0x0004 != 0; // IMAGE_DLLCHARACTERISTICS_NO_SEH
-    let mut has_cfg = pe.header.optional_header.DllCharacteristics & 0x4000 != 0; // IMAGE_DLLCHARACTERISTICS_GUARD_CF
+    let has_safeseh = dll_characteristics & 0x0004 != 0; // IMAGE_DLLCHARACTERISTICS_NO_SEH
+    let has_cfg = dll_characteristics & 0x4000 != 0; // IMAGE_DLLCHARACTERISTICS_GUARD_CF
 
     features.relro = if has_safeseh && has_cfg {
         RelroLevel::Full
@@ -455,7 +400,7 @@ fn extract_security_features(pe: &PE) -> SecurityFeatures {
 
     // Check for stack canary (/GS)
     // This is harder to detect from static analysis, but we can check for security cookie
-    features.stack_canary = pe.header.optional_header.DllCharacteristics & 0x0002 != 0; // IMAGE_DLLCHARACTERISTICS_TERMINAL_SERVER_AWARE (not exactly, but related)
+    features.stack_canary = dll_characteristics & 0x0002 != 0; // IMAGE_DLLCHARACTERISTICS_TERMINAL_SERVER_AWARE (not exactly, but related)
 
     // Check for CFG (Control Flow Guard)
     features.cfi = has_cfg;
@@ -465,22 +410,6 @@ fn extract_security_features(pe: &PE) -> SecurityFeatures {
 
 /// Extract compiler info from PE
 fn extract_compiler_info(pe: &PE) -> Option<CompilerInfo> {
-    // Check for Rich header (MSVC)
-    if let Some(rich_header) = &pe.rich_header {
-        let mut version = None;
-        for entry in &rich_header.entries {
-            if entry.id == 0 && entry.build_number > 0 {
-                version = Some(format!("{}.{}", entry.id, entry.build_number));
-                break;
-            }
-        }
-        return Some(CompilerInfo {
-            name: "MSVC".to_string(),
-            version,
-            language: Some("C/C++".to_string()),
-        });
-    }
-
     // Check for Go (has specific section names)
     for section in &pe.sections {
         let name = String::from_utf8_lossy(&section.name)
@@ -509,9 +438,15 @@ fn extract_compiler_info(pe: &PE) -> Option<CompilerInfo> {
         }
     }
 
-    // Check for .NET (has CLR header)
-    if pe.header.optional_header.DataDirectories[14].Size > 0 {
-        // CLR Runtime Header
+    // Check for .NET (has CLR header, data directory index 14)
+    let has_clr = pe
+        .header
+        .optional_header
+        .as_ref()
+        .and_then(|oh| oh.data_directories.data_directories.get(14))
+        .map(|dd| dd.as_ref().map(|d| d.size > 0).unwrap_or(false))
+        .unwrap_or(false);
+    if has_clr {
         return Some(CompilerInfo {
             name: ".NET".to_string(),
             version: None,

@@ -145,8 +145,8 @@ CREATE TABLE files (
     stored_name VARCHAR(255) NOT NULL, -- UUID in object storage
     size_bytes BIGINT NOT NULL,
     sha256 CHAR(64) NOT NULL,
-    format VARCHAR(50), -- elf, pe, macho, raw
-    architecture VARCHAR(50), -- x86, x86_64, arm, arm64, mips, riscv
+    format VARCHAR(50), -- ELF, PE, macho, raw
+    architecture VARCHAR(50), -- x86, x86_64, ARM, arm64, MIPS, riscv
     metadata JSONB DEFAULT '{}', -- compiler, packer, entry_points, etc.
     uploaded_by UUID NOT NULL REFERENCES users(id),
     uploaded_at TIMESTAMPTZ DEFAULT NOW(),
@@ -230,7 +230,7 @@ CREATE TABLE exports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     file_id UUID REFERENCES files(id) ON DELETE SET NULL,
-    format VARCHAR(50) NOT NULL, -- c, rust, json, graphviz, sarif
+    format VARCHAR(50) NOT NULL, -- C, Rust, JSON, graphviz, sarif
     status VARCHAR(20) DEFAULT 'pending',
     size_bytes BIGINT,
     download_url TEXT,
@@ -632,16 +632,16 @@ LIMIT 50;
 
 // Get call graph for function
 WITH RECURSIVE call_tree AS (
-    SELECT c.caller_id, c.callee_id, c.call_site_address, 1 as depth
-    FROM calls c
-    WHERE c.caller_id = ?
+    SELECT C.caller_id, C.callee_id, C.call_site_address, 1 as depth
+    FROM calls C
+    WHERE C.caller_id = ?
     
     UNION ALL
     
-    SELECT c.caller_id, c.callee_id, c.call_site_address, ct.depth + 1
-    FROM calls c
-    JOIN call_tree ct ON ct.callee_id = c.caller_id
-    WHERE ct.depth < 10
+    SELECT C.caller_id, C.callee_id, C.call_site_address, CT.depth + 1
+    FROM calls C
+    JOIN call_tree CT ON CT.callee_id = C.caller_id
+    WHERE CT.depth < 10
 )
 SELECT * FROM call_tree;
 ```
@@ -844,7 +844,7 @@ CREATE INDEX idx_annotations_target ON annotations(target_type, target_id);
 ## Data Retention Policy
 
 | Data Type | Retention | Cleanup |
-|-----------|-----------|---------|
+| ----------- | ----------- | --------- |
 | **Projects** | Indefinite | Manual only |
 | **Files** | Indefinite | Manual only |
 | **Analysis Jobs** | 90 days completed | Daily cron |
@@ -856,4 +856,4 @@ CREATE INDEX idx_annotations_target ON annotations(target_type, target_id);
 
 ---
 
-*This database design provides a solid foundation for both global coordination and per-project analysis, with clear separation of concerns and optimized access patterns for each use case.*
+_This database design provides a solid foundation for both global coordination and per-project analysis, with clear separation of concerns and optimized access patterns for each use case._

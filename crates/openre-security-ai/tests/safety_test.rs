@@ -3,10 +3,10 @@ use openre_security_ai::safety::SafetyGuard;
 #[test]
 fn test_safety_guard_creation() {
     let guard = SafetyGuard::new(true);
-    assert_eq!(guard.strict_evidence_checking, true);
+    assert!(guard.strict_evidence_checking());
 
     let guard = SafetyGuard::new(false);
-    assert_eq!(guard.strict_evidence_checking, false);
+    assert!(!guard.strict_evidence_checking());
 }
 
 #[test]

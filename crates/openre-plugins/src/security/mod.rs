@@ -18,6 +18,21 @@ pub mod security_headers;
 pub mod sensitive_info;
 pub mod session_management;
 
+pub use access_control::*;
+pub use api_rate_limiting::*;
+pub use auth_discovery::*;
+pub use cookie_security::*;
+pub use cors_analysis::*;
+pub use file_upload::*;
+pub use graphql::*;
+pub use information_disclosure::*;
+pub use path_traversal::*;
+pub use rate_limiting::*;
+pub use rest_api::*;
+pub use security_headers::*;
+pub use sensitive_info::*;
+pub use session_management::*;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
