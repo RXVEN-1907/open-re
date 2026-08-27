@@ -1,419 +1,226 @@
-//! Plugin registry for open-re
+//! Plugin Registry - Local and Remote
 
-use crate::{capability::*, manifest::*};
-use notify::{RecommendedWatcher, Watcher};
-use openre_config::{PluginConfig as ConfigPluginConfig, RemoteRegistryConfig};
-use openre_core::error::OpenreResult as Result;
-use openre_core::ids::{Capability, PluginId, PluginType};
-use openre_storage::GlobalStore;
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn};
 
-/// Plugin registry
-pub struct PluginRegistry {
-    config: ConfigPluginConfig,
-    global_store: Arc<GlobalStore>,
-    index: Arc<RwLock<PluginIndex>>,
-    local_watcher: Option<RecommendedWatcher>,
+use crate::{CapabilitySet, PluginId, PluginManifest};
+
+/// Plugin registry entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryEntry {
+    pub manifest: PluginManifest,
+    pub installed_path: Option<PathBuf>,
+    pub enabled: bool,
+    pub source: PluginSource,
+    pub installed_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-#[derive(Debug, Default)]
-struct PluginIndex {
-    by_id: HashMap<PluginId, PluginMetadata>,
-    by_type: HashMap<PluginType, Vec<PluginId>>,
-    by_capability: HashMap<Capability, Vec<PluginId>>,
-    by_tag: HashMap<String, Vec<PluginId>>,
+/// Plugin source
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum PluginSource {
+    Local {
+        path: PathBuf,
+    },
+    Remote {
+        registry_url: String,
+        version: String,
+        checksum: String,
+    },
+    Builtin {
+        name: String,
+    },
+}
+
+/// Registry configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryConfig {
+    pub local_path: PathBuf,
+    pub remote_registries: Vec<String>,
+    pub auto_update: bool,
+    pub verify_signatures: bool,
+}
+
+impl Default for RegistryConfig {
+    fn default() -> Self {
+        let data_dir = dirs::data_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("openre");
+
+        Self {
+            local_path: data_dir.join("plugins"),
+            remote_registries: vec!["https://plugins.openre.dev".to_string()],
+            auto_update: false,
+            verify_signatures: true,
+        }
+    }
+}
+
+/// Plugin Registry
+pub struct PluginRegistry {
+    config: RegistryConfig,
+    entries: Arc<RwLock<HashMap<PluginId, RegistryEntry>>>,
 }
 
 impl PluginRegistry {
-    pub fn new(config: ConfigPluginConfig, global_store: Arc<GlobalStore>) -> Self {
-        Self {
+    pub fn new(config: RegistryConfig) -> Result<Self> {
+        std::fs::create_dir_all(&config.local_path)?;
+
+        let registry = Self {
             config,
-            global_store,
-            index: Arc::new(RwLock::new(PluginIndex::default())),
-            local_watcher: None,
-        }
+            entries: Arc::new(RwLock::new(HashMap::new())),
+        };
+
+        registry.load_local()?;
+        Ok(registry)
     }
 
-    /// Initialize the registry
-    pub async fn initialize(&mut self) -> Result<()> {
-        // 1. Load built-in plugins
-        self.load_builtin_plugins().await?;
-
-        // 2. Scan local directory
-        self.scan_local().await?;
-
-        // 3. Fetch remote registries (async)
-        if let Some(remote) = &self.config.remote_registry {
-            self.fetch_remote(remote).await?;
-        }
-
-        // 4. Start file watcher for hot reload
-        self.start_file_watcher().await?;
-
-        Ok(())
-    }
-
-    /// Load built-in plugins
-    async fn load_builtin_plugins(&self) -> Result<()> {
-        // Built-in plugins are compiled into the binary
-        // For now, we just register placeholder entries
-        info!("Loading built-in plugins");
-        Ok(())
-    }
-
-    /// Scan local plugin directory
-    async fn scan_local(&self) -> Result<()> {
-        let local_dir = &self.config.local_plugin_dir;
-        if !local_dir.exists() {
-            info!(
-                "Local plugin directory does not exist: {}",
-                local_dir.display()
-            );
+    fn load_local(&self) -> Result<()> {
+        let entries_dir = self.config.local_path.join("entries");
+        if !entries_dir.exists() {
             return Ok(());
         }
 
-        let mut entries = tokio::fs::read_dir(local_dir).await?;
-        while let Some(entry) = entries.next_entry().await? {
+        for entry in std::fs::read_dir(entries_dir)? {
+            let entry = entry?;
             let path = entry.path();
-            if path.is_dir() {
-                if let Ok(manifest) = PluginManifest::from_dir(&path) {
-                    let metadata = PluginMetadata {
-                        id: manifest.plugin_id(),
-                        manifest,
-                        source: PluginSource::Local,
-                        path: path.clone(),
-                        installed_at: chrono::Utc::now(),
-                        status: PluginStatus::Active,
-                    };
-                    self.register(metadata).await?;
-                }
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                let content = std::fs::read_to_string(&path)?;
+                let entry: RegistryEntry = serde_json::from_str(&content)?;
+                let id = entry.manifest.id.clone();
+                self.entries.blocking_write().insert(id, entry);
             }
         }
-
         Ok(())
     }
 
-    /// Fetch plugins from remote registry
-    async fn fetch_remote(&self, remote: &RemoteRegistryConfig) -> Result<()> {
-        // In a real implementation, this would fetch from a remote registry
-        info!("Fetching plugins from remote registry: {}", remote.url);
-        Ok(())
-    }
-
-    /// Start file watcher for hot reload
-    async fn start_file_watcher(&mut self) -> Result<()> {
-        let index = self.index.clone();
-        let local_dir = self.config.local_plugin_dir.clone();
-
-        let (tx, mut rx) = tokio::sync::mpsc::channel(32);
-        let watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-            if let Ok(event) = res {
-                if matches!(
-                    event.kind,
-                    notify::EventKind::Modify(_)
-                        | notify::EventKind::Create(_)
-                        | notify::EventKind::Remove(_)
-                ) {
-                    let _ = tx.try_send(event);
-                }
+    pub async fn install(&self, source: PluginSource) -> Result<PluginId> {
+        match source {
+            PluginSource::Local { path } => self.install_local(path).await,
+            PluginSource::Remote {
+                registry_url,
+                version,
+                checksum,
+            } => {
+                self.install_remote(&registry_url, &version, &checksum)
+                    .await
             }
-        })?;
-
-        let mut watcher = watcher;
-        watcher.watch(&local_dir, notify::RecursiveMode::Recursive)?;
-
-        tokio::spawn(async move {
-            while let Some(event) = rx.recv().await {
-                for path in event.paths {
-                    if path.is_dir() && path.join("plugin.toml").exists() {
-                        // Reload plugin
-                        if let Ok(manifest) = PluginManifest::from_dir(&path) {
-                            let mut idx = index.write().await;
-                            // Remove old entry if exists
-                            let old_id = idx.by_id.values().find(|m| m.path == path).map(|m| m.id);
-                            if let Some(old_id) = old_id {
-                                idx.by_id.remove(&old_id);
-                                for (_, ids) in idx.by_type.iter_mut() {
-                                    ids.retain(|id| id != &old_id);
-                                }
-                                for (_, ids) in idx.by_capability.iter_mut() {
-                                    ids.retain(|id| id != &old_id);
-                                }
-                            }
-                            // Add new entry
-                            let metadata = PluginMetadata {
-                                id: manifest.plugin_id(),
-                                manifest,
-                                source: PluginSource::Local,
-                                path: path.clone(),
-                                installed_at: chrono::Utc::now(),
-                                status: PluginStatus::Active,
-                            };
-                            Self::add_to_index(&mut idx, metadata);
-                        }
-                    }
-                }
-            }
-        });
-
-        self.local_watcher = Some(watcher);
-        Ok(())
-    }
-
-    fn add_to_index(index: &mut PluginIndex, metadata: PluginMetadata) {
-        let id = metadata.id;
-        let plugin_type = metadata.manifest.plugin.r#type;
-        let capabilities = metadata.manifest.plugin.capabilities.clone();
-        let tags = metadata
-            .manifest
-            .plugin
-            .capabilities
-            .iter()
-            .map(|c| format!("{:?}", c))
-            .collect::<Vec<_>>();
-
-        index.by_id.insert(id, metadata);
-        index.by_type.entry(plugin_type).or_default().push(id);
-        for cap in capabilities {
-            index.by_capability.entry(cap).or_default().push(id);
-        }
-        for tag in tags {
-            index.by_tag.entry(tag).or_default().push(id);
+            PluginSource::Builtin { name } => self.enable_builtin(&name).await,
         }
     }
 
-    /// Register a plugin
-    pub async fn register(&self, metadata: PluginMetadata) -> Result<()> {
-        // Validate manifest
-        metadata.manifest.validate()?;
+    async fn install_local(&self, path: PathBuf) -> Result<PluginId> {
+        // Read manifest
+        let manifest_path = path.join("plugin.json");
+        let manifest_content = tokio::fs::read_to_string(manifest_path).await?;
+        let manifest: PluginManifest = serde_json::from_str(&manifest_content)?;
+        let plugin_id = manifest.id.clone();
 
-        // Check version compatibility
-        self.check_version_compatibility(&metadata.manifest)?;
+        // Copy to local registry
+        let install_path = self
+            .config
+            .local_path
+            .join("installed")
+            .join(&plugin_id.to_string());
+        tokio::fs::create_dir_all(&install_path).await?;
 
-        // Add to index
-        let mut index = self.index.write().await;
-        Self::add_to_index(&mut index, metadata.clone());
+        // Copy plugin files
+        // ... (implementation for copying WASM binary, etc.)
 
-        // Persist to database
-        self.persist(&metadata).await?;
+        // Save entry
+        let entry = RegistryEntry {
+            manifest: manifest.clone(),
+            installed_path: Some(install_path),
+            enabled: true,
+            source: PluginSource::Local { path },
+            installed_at: chrono::Utc::now(),
+            updated_at: None,
+        };
 
-        info!(
-            "Registered plugin: {} v{}",
-            metadata.manifest.name, metadata.manifest.version
-        );
+        self.save_entry(&entry).await?;
+        self.entries.write().await.insert(plugin_id.clone(), entry);
+
+        Ok(plugin_id)
+    }
+
+    async fn install_remote(
+        &self,
+        registry_url: &str,
+        version: &str,
+        checksum: &str,
+    ) -> Result<PluginId> {
+        // Download from remote registry
+        // Verify checksum
+        // Install locally
+        todo!("Implement remote plugin installation")
+    }
+
+    async fn enable_builtin(&self, name: &str) -> Result<PluginId> {
+        // Enable built-in plugin
+        todo!("Implement builtin plugin enabling")
+    }
+
+    async fn save_entry(&self, entry: &RegistryEntry) -> Result<()> {
+        let entries_dir = self.config.local_path.join("entries");
+        tokio::fs::create_dir_all(&entries_dir).await?;
+
+        let path = entries_dir.join(format!("{}.json", entry.manifest.id));
+        let content = serde_json::to_string_pretty(entry)?;
+        tokio::fs::write(path, content).await?;
         Ok(())
     }
 
-    /// Unregister a plugin
-    pub async fn unregister(&self, plugin_id: &PluginId) -> Result<()> {
-        let mut index = self.index.write().await;
-        if let Some(metadata) = index.by_id.remove(plugin_id) {
-            for (_, ids) in index.by_type.iter_mut() {
-                ids.retain(|id| id != plugin_id);
-            }
-            for (_, ids) in index.by_capability.iter_mut() {
-                ids.retain(|id| id != plugin_id);
-            }
-            for (_, ids) in index.by_tag.iter_mut() {
-                ids.retain(|id| id != plugin_id);
-            }
+    pub async fn list(&self) -> Vec<RegistryEntry> {
+        self.entries.read().await.values().cloned().collect()
+    }
 
-            // Remove from database
-            self.remove_from_db(plugin_id).await?;
+    pub async fn get(&self, id: &PluginId) -> Option<RegistryEntry> {
+        self.entries.read().await.get(id).cloned()
+    }
 
-            info!("Unregistered plugin: {}", metadata.manifest.name);
+    pub async fn enable(&self, id: &PluginId) -> Result<()> {
+        let mut entries = self.entries.write().await;
+        if let Some(entry) = entries.get_mut(id) {
+            entry.enabled = true;
+            entry.updated_at = Some(chrono::Utc::now());
+            self.save_entry(entry).await?;
         }
         Ok(())
     }
 
-    /// Get plugin manifest by ID
-    pub async fn get_manifest(&self, plugin_id: &PluginId) -> Result<PluginManifest> {
-        let index = self.index.read().await;
-        index
-            .by_id
-            .get(plugin_id)
-            .map(|m| m.manifest.clone())
-            .ok_or_else(|| openre_core::Error::NotFound(format!("Plugin not found: {}", plugin_id)))
-    }
-
-    /// Get plugin metadata by ID
-    pub async fn get_metadata(&self, plugin_id: &PluginId) -> Result<PluginMetadata> {
-        let index = self.index.read().await;
-        index
-            .by_id
-            .get(plugin_id)
-            .cloned()
-            .ok_or_else(|| openre_core::Error::NotFound(format!("Plugin not found: {}", plugin_id)))
-    }
-
-    /// Find plugins by capability
-    pub async fn find_by_capability(&self, capability: Capability) -> Vec<PluginMetadata> {
-        let index = self.index.read().await;
-        index
-            .by_capability
-            .get(&capability)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| index.by_id.get(id))
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    /// Find plugins by type
-    pub async fn find_by_type(&self, plugin_type: PluginType) -> Vec<PluginMetadata> {
-        let index = self.index.read().await;
-        index
-            .by_type
-            .get(&plugin_type)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| index.by_id.get(id))
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    /// Search plugins by query
-    pub async fn search(&self, query: &str) -> Vec<PluginMetadata> {
-        let index = self.index.read().await;
-        index
-            .by_id
-            .values()
-            .filter(|m| {
-                m.manifest.name.contains(query)
-                    || m.manifest.description.contains(query)
-                    || m.manifest
-                        .plugin
-                        .capabilities
-                        .iter()
-                        .any(|c| format!("{:?}", c).contains(query))
-            })
-            .cloned()
-            .collect()
-    }
-
-    /// List all plugins
-    pub async fn list_all(&self) -> Vec<PluginMetadata> {
-        let index = self.index.read().await;
-        index.by_id.values().cloned().collect()
-    }
-
-    /// Check version compatibility
-    fn check_version_compatibility(&self, manifest: &PluginManifest) -> Result<()> {
-        let min_version =
-            semver::Version::parse(&manifest.plugin.min_core_version).map_err(|e| {
-                openre_core::Error::Validation(format!("Invalid min_core_version: {}", e))
-            })?;
-        let max_version =
-            semver::Version::parse(&manifest.plugin.max_core_version).map_err(|e| {
-                openre_core::Error::Validation(format!("Invalid max_core_version: {}", e))
-            })?;
-        let current_version = semver::Version::parse(env!("CARGO_PKG_VERSION")).map_err(|e| {
-            openre_core::Error::Validation(format!("Invalid current version: {}", e))
-        })?;
-
-        if current_version < min_version || current_version >= max_version {
-            return Err(openre_core::Error::Validation(format!(
-                "Plugin {} v{} requires core version >= {} and < {}, but current is {}",
-                manifest.name, manifest.version, min_version, max_version, current_version
-            )));
+    pub async fn disable(&self, id: &PluginId) -> Result<()> {
+        let mut entries = self.entries.write().await;
+        if let Some(entry) = entries.get_mut(id) {
+            entry.enabled = false;
+            entry.updated_at = Some(chrono::Utc::now());
+            self.save_entry(entry).await?;
         }
-
         Ok(())
     }
 
-    /// Persist plugin to database
-    async fn persist(&self, metadata: &PluginMetadata) -> Result<()> {
-        let manifest_json = serde_json::to_value(&metadata.manifest)?;
-        let source_str = format!("{:?}", metadata.source).to_lowercase();
-        let status_str = format!("{:?}", metadata.status).to_lowercase();
-        let signature = metadata.manifest.dependencies.get("signature").cloned();
-
-        sqlx::query(
-            r#"
-            INSERT INTO plugins (id, name, version, type, description, author, license, repository, manifest, source, source_url, signature, status, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-            ON CONFLICT (name, version) DO UPDATE SET
-                manifest = EXCLUDED.manifest,
-                source = EXCLUDED.source,
-                source_url = EXCLUDED.source_url,
-                signature = EXCLUDED.signature,
-                status = EXCLUDED.status,
-                updated_at = NOW()
-            "#
-        )
-        .bind(metadata.id.as_uuid())
-        .bind(&metadata.manifest.name)
-        .bind(&metadata.manifest.version)
-        .bind(metadata.manifest.plugin.r#type.as_str())
-        .bind(&metadata.manifest.description)
-        .bind(&metadata.manifest.author)
-        .bind(&metadata.manifest.license)
-        .bind(&metadata.manifest.repository)
-        .bind(manifest_json)
-        .bind(source_str)
-        .bind(&metadata.manifest.repository)
-        .bind(signature)
-        .bind(status_str)
-        .bind(metadata.installed_at)
-        .bind(chrono::Utc::now())
-        .execute(self.global_store.pool())
-        .await
-        .map_err(|e| openre_core::Error::Database(e.to_string()))?;
-
-        Ok(())
-    }
-
-    /// Remove plugin from database
-    async fn remove_from_db(&self, plugin_id: &PluginId) -> Result<()> {
-        sqlx::query("DELETE FROM plugins WHERE id = $1")
-            .bind(plugin_id.as_uuid())
-            .execute(self.global_store.pool())
-            .await
-            .map_err(|e| openre_core::Error::Database(e.to_string()))?;
-        Ok(())
-    }
-
-    /// Hot reload a plugin
-    pub async fn hot_reload(&self, plugin_id: &PluginId) -> Result<()> {
-        // Get the plugin metadata
-        let metadata = self.get_metadata(plugin_id).await?;
-
-        // Re-scan the plugin directory
-        if let PluginSource::Local = metadata.source {
-            if let Ok(manifest) = PluginManifest::from_dir(&metadata.path) {
-                let mut index = self.index.write().await;
-                // Remove old entry
-                index.by_id.remove(plugin_id);
-                for (_, ids) in index.by_type.iter_mut() {
-                    ids.retain(|id| id != plugin_id);
-                }
-                for (_, ids) in index.by_capability.iter_mut() {
-                    ids.retain(|id| id != plugin_id);
-                }
-                for (_, ids) in index.by_tag.iter_mut() {
-                    ids.retain(|id| id != plugin_id);
-                }
-                // Add new entry
-                let new_metadata = PluginMetadata {
-                    id: manifest.plugin_id(),
-                    manifest,
-                    source: PluginSource::Local,
-                    path: metadata.path.clone(),
-                    installed_at: chrono::Utc::now(),
-                    status: PluginStatus::Active,
-                };
-                Self::add_to_index(&mut index, new_metadata);
+    pub async fn uninstall(&self, id: &PluginId) -> Result<()> {
+        let mut entries = self.entries.write().await;
+        if let Some(entry) = entries.remove(id) {
+            if let Some(path) = entry.installed_path {
+                tokio::fs::remove_dir_all(path).await.ok();
             }
+            let entry_path = self
+                .config
+                .local_path
+                .join("entries")
+                .join(format!("{}.json", id));
+            tokio::fs::remove_file(entry_path).await.ok();
         }
-
         Ok(())
+    }
+
+    pub async fn update(&self, id: &PluginId) -> Result<()> {
+        // Check for updates and install
+        todo!("Implement plugin update")
     }
 }

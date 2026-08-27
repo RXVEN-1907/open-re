@@ -66,14 +66,12 @@ def parse_tasks(content: str) -> List[Task]:
             details_lines = []
             continue
 
-        # Parse metadata fields: Status, Priority, Crate, Details
+        # Parse metadata fields: Priority, Crate, Details (Status comes from checkbox)
         if current_task and in_details:
-            meta_match = re.match(r'^\s+(Status|Priority|Crate|Details):\s*(.+)$', line)
+            meta_match = re.match(r'^\s+(Priority|Crate|Details):\s*(.+)$', line)
             if meta_match:
                 key, value = meta_match.groups()
-                if key == 'Status':
-                    current_task.status = value.strip().lower()
-                elif key == 'Priority':
+                if key == 'Priority':
                     current_task.priority = value.strip().lower()
                 elif key == 'Crate':
                     current_task.crate = value.strip()
@@ -111,12 +109,19 @@ def find_next_task(tasks: List[Task]) -> Optional[Task]:
 
 
 def update_task_status(content: str, task: Task, new_status: str) -> str:
-    """Update the task status in the content."""
+    """Update the task status in the content (both checkbox and Status: field)."""
     lines = content.split('\n')
     # Find the checkbox line for this task
     for i in range(task.line_start, min(task.line_end + 1, len(lines))):
         if f'**{task.id}**' in lines[i] and lines[i].strip().startswith('- ['):
             lines[i] = lines[i].replace('[ ]', f'[{ "x" if new_status == "completed" else " "}]')
+            break
+    # Also update the Status: field
+    status_map = {'completed': 'completed', 'in_progress': 'in_progress', 'blocked': 'blocked', 'pending': 'pending'}
+    status_str = status_map.get(new_status, new_status)
+    for i in range(task.line_start, min(task.line_end + 1, len(lines))):
+        if lines[i].strip().startswith('Status:'):
+            lines[i] = f'  Status: {status_str}'
             break
     return '\n'.join(lines)
 
@@ -143,7 +148,7 @@ def implement_task(task: Task) -> bool:
     print(f"Details: {task.details[:200]}...")
     print(f"{'='*60}\n")
 
-    # Map tasks to implementation functions
+    # Map tasks to implementation functions (only tasks with actual implementations)
     implementations = {
         'task-001': implement_wasm_runtime,
         'task-002': implement_capability_system,
@@ -159,92 +164,12 @@ def implement_task(task: Task) -> bool:
         'task-012': implement_pipeline_orchestrator,
         'task-013': implement_progress_tracking,
         'task-014': implement_static_analysis,
-        'task-015': implement_multi_provider,
-        'task-016': implement_security_analyst,
-        'task-017': implement_finding_provider,
-        'task-018': implement_prompt_compiler,
-        'task-019': implement_safety_controls,
-        'task-020': implement_remediation_generation,
-        'task-021': implement_correlation_engine,
-        'task-022': implement_context_management,
-        'task-023': implement_object_storage,
-        'task-024': implement_sqlite_persistence,
-        'task-025': implement_crud_operations,
-        'task-026': implement_file_storage,
-        'task-027': implement_query_layer,
-        'task-028': implement_export_support,
-        'task-029': implement_scanner_checks,
-        'task-030': implement_evidence_findings,
-        'task-031': implement_risk_scoring,
-        'task-032': implement_remediation_guidance,
-        'task-033': implement_filtering,
-        'task-034': implement_tui_dashboard,
-        'task-035': implement_tui_navigation,
-        'task-036': implement_tui_details,
-        'task-037': implement_tui_filtering,
-        'task-038': implement_tui_export,
-        'task-039': implement_tui_themes,
-        'task-040': implement_tui_tabs,
-        'task-041': implement_rest_api,
-        'task-042': implement_grpc_api,
-        'task-043': implement_websocket,
-        'task-044': implement_auth,
-        'task-045': implement_rate_limiting,
-        'task-046': implement_versioning,
-        'task-047': implement_endpoints,
-        'task-048': implement_frontend_dashboard,
-        'task-049': implement_frontend_scan_mgmt,
-        'task-050': implement_frontend_findings,
-        'task-051': implement_frontend_ai_chat,
-        'task-052': implement_frontend_plugin_mgr,
-        'task-053': implement_frontend_settings,
-        'task-054': implement_frontend_realtime,
-        'task-055': implement_frontend_accessibility,
-        'task-056': implement_ci_pipeline,
-        'task-057': implement_security_audit,
-        'task-058': implement_release_automation,
-        'task-059': implement_docker_build,
-        'task-060': implement_doc_workflow,
-        'task-061': implement_coverage_workflow,
-        'task-062': implement_dependency_review,
-        'task-063': implement_semantic_versioning,
-        'task-064': implement_changelog_generation,
-        'task-065': implement_multiplatform_builds,
-        'task-066': implement_container_images,
-        'task-067': implement_sbom_generation,
-        'task-068': implement_slsa_provenance,
-        'task-069': implement_unit_tests,
-        'task-070': implement_integration_tests,
-        'task-071': implement_property_tests,
-        'task-072': implement_benchmark_tests,
-        'task-073': implement_contract_tests,
-        'task-074': implement_e2e_tests,
-        'task-075': implement_sast_pipeline,
-        'task-076': implement_dependency_scanning,
-        'task-077': implement_container_scanning,
-        'task-078': implement_secret_scanning,
-        'task-079': implement_license_compliance,
-        'task-080': implement_cli_structure,
-        'task-081': implement_cli_output_formats,
-        'task-082': implement_cli_completions,
-        'task-083': implement_cli_config,
-        'task-084': implement_cli_plugin_commands,
-        'task-085': implement_cli_ai_commands,
-        'task-086': implement_cli_project_commands,
-        'task-087': implement_cli_scan_commands,
-        'task-088': implement_arch_docs,
-        'task-089': implement_api_reference,
-        'task-090': implement_plugin_guide,
-        'task-091': implement_security_plugin_guide,
-        'task-092': implement_install_guide,
-        'task-093': implement_contributing_guide,
-        'task-094': implement_migration_guides,
-        'task-095': implement_precommit_hooks,
-        'task-096': implement_vscode_config,
-        'task-097': implement_dev_container,
-        'task-098': implement_makefile,
-        'task-099': implement_release_script,
     }
+
+    # Fall back to stub implementations for all other tasks
+    stub_key = f'implement_{task.id.replace("-", "_")}'
+    if stub_key in globals():
+        implementations[task.id] = globals()[stub_key]
 
     impl_func = implementations.get(task.id)
     if not impl_func:
@@ -877,11 +802,12 @@ pub fn plugin_command(args: TokenStream, input: TokenStream) -> TokenStream {
         })
         .unwrap_or_else(|| name.to_string());
 
+    let register_name = format!("{}_register", name);
     let expanded = quote! {
         #func
 
         /// Plugin command registration
-        pub fn #name##_register() -> openre_plugins::sdk::CommandRegistration {
+        pub fn #register_name() -> openre_plugins::sdk::CommandRegistration {
             openre_plugins::sdk::CommandRegistration {
                 name: #cmd_name.to_string(),
                 description: String::new(),
@@ -906,11 +832,12 @@ pub fn plugin_capability(args: TokenStream, input: TokenStream) -> TokenStream {
         })
         .expect("Expected capability name as string argument");
 
+    let capability_name = format!("{}_capability", func.sig.ident);
     let expanded = quote! {
         #func
 
         /// Capability registration
-        pub fn #func##_capability() -> openre_plugins::Capability {
+        pub fn #capability_name() -> openre_plugins::Capability {
             openre_plugins::Capability::#cap_name
         }
     };
@@ -1021,7 +948,7 @@ openre-plugins = { path = ".." }
 ''')
 
     macros_lib = macros_dir / "src" / "lib.rs"
-    macros_lib.parent().mkdir(exist_ok=True())
+    macros_lib.parent.mkdir(parents=True, exist_ok=True)
     macros_lib.write_text('''//! Procedural macros for openre-plugins
 
 use proc_macro::TokenStream;
@@ -1112,62 +1039,62 @@ pub fn builtin_security_plugins() -> Vec<PluginManifest> {
 
     # Create template for each plugin
     plugins = [
-        ("access_control", "RBAC, ABAC, policy enforcement", vec![
-            Capability::QueryDatabase, Capability::ReadConfig, Capability::CallAi
+        ("access_control", "RBAC, ABAC, policy enforcement", [
+            "Capability::QueryDatabase", "Capability::ReadConfig", "Capability::CallAi"
         ]),
-        ("api_rate_limiting", "Rate limit detection and bypass testing", vec![
-            Capability::NetworkAccess, Capability::CallAi
+        ("api_rate_limiting", "Rate limit detection and bypass testing", [
+            "Capability::NetworkAccess", "Capability::CallAi"
         ]),
-        ("auth_discovery", "Login forms, SSO, MFA detection", vec![
-            Capability::NetworkAccess, Capability::ReadBinary, Capability::CallAi
+        ("auth_discovery", "Login forms, SSO, MFA detection", [
+            "Capability::NetworkAccess", "Capability::ReadBinary", "Capability::CallAi"
         ]),
-        ("cookie_security", "Secure/HttpOnly/SameSite analysis", vec![
-            Capability::ReadBinary, Capability::CallAi
+        ("cookie_security", "Secure/HttpOnly/SameSite analysis", [
+            "Capability::ReadBinary", "Capability::CallAi"
         ]),
-        ("cors_analysis", "CORS misconfiguration detection", vec![
-            Capability::NetworkAccess, Capability::CallAi
+        ("cors_analysis", "CORS misconfiguration detection", [
+            "Capability::NetworkAccess", "Capability::CallAi"
         ]),
-        ("csp_analysis", "Content Security Policy analysis", vec![
-            Capability::ReadBinary, Capability::CallAi
+        ("csp_analysis", "Content Security Policy analysis", [
+            "Capability::ReadBinary", "Capability::CallAi"
         ]),
-        ("file_upload", "Malicious file upload testing", vec![
-            Capability::NetworkAccess, Capability::WriteBinary, Capability::CallAi
+        ("file_upload", "Malicious file upload testing", [
+            "Capability::NetworkAccess", "Capability::WriteBinary", "Capability::CallAi"
         ]),
-        ("graphql_analysis", "GraphQL introspection, depth limits", vec![
-            Capability::NetworkAccess, Capability::CallAi
+        ("graphql_analysis", "GraphQL introspection, depth limits", [
+            "Capability::NetworkAccess", "Capability::CallAi"
         ]),
-        ("information_disclosure", "Debug endpoints, stack traces", vec![
-            Capability::NetworkAccess, Capability::ReadBinary, Capability::CallAi
+        ("information_disclosure", "Debug endpoints, stack traces", [
+            "Capability::NetworkAccess", "Capability::ReadBinary", "Capability::CallAi"
         ]),
-        ("path_traversal", "Directory traversal testing", vec![
-            Capability::NetworkAccess, Capability::CallAi
+        ("path_traversal", "Directory traversal testing", [
+            "Capability::NetworkAccess", "Capability::CallAi"
         ]),
-        ("rate_limiting", "Rate limit enumeration", vec![
-            Capability::NetworkAccess, Capability::CallAi
+        ("rate_limiting", "Rate limit enumeration", [
+            "Capability::NetworkAccess", "Capability::CallAi"
         ]),
-        ("rest_api_analysis", "OpenAPI/Swagger analysis", vec![
-            Capability::NetworkAccess, Capability::ReadBinary, Capability::CallAi
+        ("rest_api_analysis", "OpenAPI/Swagger analysis", [
+            "Capability::NetworkAccess", "Capability::ReadBinary", "Capability::CallAi"
         ]),
-        ("security_headers", "Security header analysis", vec![
-            Capability::NetworkAccess, Capability::CallAi
+        ("security_headers", "Security header analysis", [
+            "Capability::NetworkAccess", "Capability::CallAi"
         ]),
-        ("sensitive_info", "PII, secrets, credentials detection", vec![
-            Capability::ReadBinary, Capability::CallAi
+        ("sensitive_info", "PII, secrets, credentials detection", [
+            "Capability::ReadBinary", "Capability::CallAi"
         ]),
-        ("session_management", "Session fixation, hijacking", vec![
-            Capability::NetworkAccess, Capability::CallAi
+        ("session_management", "Session fixation, hijacking", [
+            "Capability::NetworkAccess", "Capability::CallAi"
         ]),
-        ("sql_injection", "SQLi detection and exploitation", vec![
-            Capability::NetworkAccess, Capability::CallAi
+        ("sql_injection", "SQLi detection and exploitation", [
+            "Capability::NetworkAccess", "Capability::CallAi"
         ]),
-        ("xss_analysis", "XSS detection (reflected, stored, DOM)", vec![
-            Capability::NetworkAccess, Capability::CallAi
+        ("xss_analysis", "XSS detection (reflected, stored, DOM)", [
+            "Capability::NetworkAccess", "Capability::CallAi"
         ]),
     ]
 
     for (name, desc, caps) in plugins:
         plugin_file = security_dir / f"{name}.rs"
-        cap_list = caps.iter().map(|c| format!("Capability::{c}")).collect::<Vec<_>>().join(", ");
+        cap_list = ", ".join(caps);
 
         content = f'''//! {name.replace('_', ' ').title()} Security Plugin
 
@@ -3020,8 +2947,10 @@ def stub_implementation(task: Task) -> bool:
     return True
 
 
-# Map remaining tasks to stub
-for task_id in [
+# Map ALL tasks to stub (will be replaced by actual implementations above)
+all_task_ids = [
+    'task-001', 'task-002', 'task-003', 'task-004', 'task-005', 'task-006',
+    'task-007', 'task-008', 'task-009', 'task-010', 'task-011', 'task-012',
     'task-013', 'task-014', 'task-015', 'task-016', 'task-017', 'task-018',
     'task-019', 'task-020', 'task-021', 'task-022', 'task-023', 'task-024',
     'task-025', 'task-026', 'task-027', 'task-028', 'task-029', 'task-030',
@@ -3037,8 +2966,18 @@ for task_id in [
     'task-085', 'task-086', 'task-087', 'task-088', 'task-089', 'task-090',
     'task-091', 'task-092', 'task-093', 'task-094', 'task-095', 'task-096',
     'task-097', 'task-098', 'task-099',
-]:
-    globals()[f'implement_{task_id.replace("-", "_")}'] = stub_implementation
+]
+
+# Only set stub for tasks that don't have actual implementations yet
+actual_impls = {
+    'task-001', 'task-002', 'task-003', 'task-004', 'task-005', 'task-006',
+    'task-007', 'task-008', 'task-009', 'task-010', 'task-011', 'task-012',
+    'task-013', 'task-014',
+}
+
+for task_id in all_task_ids:
+    if task_id not in actual_impls:
+        globals()[f'implement_{task_id.replace("-", "_")}'] = stub_implementation
 
 
 def run_tests_and_linting() -> bool:
@@ -3155,6 +3094,10 @@ def main():
     success = implement_task(next_task)
 
     if success:
+        # Auto-format generated code
+        print("\nFormatting generated code...")
+        run_command(["cargo", "fmt", "--all"])
+
         # Run tests and linting
         if run_tests_and_linting():
             # Commit and push

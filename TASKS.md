@@ -3,6 +3,7 @@
 Auto-generated task list for hourly automation. Each task represents an incremental implementation step toward the full platform.
 
 ## Task Format
+
 - **Status**: `pending` | `in_progress` | `completed` | `blocked`
 - **Priority**: `high` | `medium` | `low`
 - **Crate**: Target crate(s) for the task
@@ -13,37 +14,37 @@ Auto-generated task list for hourly automation. Each task represents an incremen
 
 ### Plugin System (openre-plugins)
 
-- [ ] **task-001** - Implement WASM plugin runtime with wasmtime
+- [x] **task-001** - Implement WASM plugin runtime with wasmtime
   - Status: pending
   - Priority: high
   - Crate: openre-plugins
   - Details: Sandbox execution, fuel metering, memory limits
 
-- [ ] **task-002** - Build capability-based permission system
+- [x] **task-002** - Build capability-based permission system
   - Status: pending
   - Priority: high
   - Crate: openre-plugins
   - Details: Fine-grained permissions (ReadBinary, WriteAnnotations, QueryDatabase, CallAI, NetworkAccess, etc.)
 
-- [ ] **task-003** - Create plugin registry (local + remote)
+- [x] **task-003** - Create plugin registry (local + remote)
   - Status: pending
   - Priority: medium
   - Crate: openre-plugins
   - Details: Versioning, dependency resolution, signature verification
 
-- [ ] **task-004** - Develop Plugin SDK with macros
+- [x] **task-004** - Develop Plugin SDK with macros
   - Status: pending
   - Priority: medium
   - Crate: openre-plugins
   - Details: `#[plugin]`, `#[capability]`, `#[command]` macros
 
-- [ ] **task-005** - Implement 17 built-in security plugins
+- [x] **task-005** - Implement 17 built-in security plugins
   - Status: pending
   - Priority: high
   - Crate: openre-plugins
   - Details: access-control, api-rate-limiting, auth-discovery, cookie-security, cors-analysis, csp-analysis, file-upload, graphql-analysis, information-disclosure, path-traversal, rate-limiting, rest-api-analysis, security-headers, sensitive-info, session-management, sql-injection, xss-analysis
 
-- [ ] **task-006** - Build plugin lifecycle management
+- [x] **task-006** - Build plugin lifecycle management
   - Status: pending
   - Priority: medium
   - Crate: openre-plugins
@@ -51,13 +52,13 @@ Auto-generated task list for hourly automation. Each task represents an incremen
 
 ### Analysis Pipeline (openre-analysis)
 
-- [ ] **task-007** - Implement ELF binary parser
+- [x] **task-007** - Implement ELF binary parser
   - Status: pending
   - Priority: high
   - Crate: openre-analysis
   - Details: goblin-based parsing, section/symbol extraction
 
-- [ ] **task-008** - Implement PE binary parser
+- [x] **task-008** - Implement PE binary parser
   - Status: pending
   - Priority: high
   - Crate: openre-analysis
