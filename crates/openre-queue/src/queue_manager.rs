@@ -137,6 +137,23 @@ impl QueueManager {
         Ok(())
     }
 
+    /// Create a QueueManager for testing without Redis connection
+    pub fn new_for_testing() -> Arc<Self> {
+        let config = QueueConfig::default();
+        let semaphore = Arc::new(Semaphore::new(config.worker.max_concurrent_jobs));
+        let manager = Self {
+            client: Client::open("redis://localhost:6379").unwrap(),
+            config,
+            metrics: Arc::new(openre_telemetry::metrics::QueueMetrics::new(
+                &openre_telemetry::MetricsRegistry::default(),
+            )),
+            consumer_groups: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+            pending_jobs: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+            semaphore,
+        };
+        Arc::new(manager)
+    }
+
     /// Access the underlying Redis client
     pub fn client(&self) -> &Client {
         &self.client
@@ -157,10 +174,7 @@ impl QueueManager {
         self.metrics.jobs_queued.increment(1);
         self.metrics.jobs_by_priority.increment(1);
 
-        info!(
-            "Enqueued job {} to stream {} with ID {}",
-            job.id, stream, id
-        );
+        info!("Enqueued job {} to stream {} with ID {}", job.id, stream, id);
 
         Ok(job.id)
     }
@@ -177,12 +191,8 @@ impl QueueManager {
         let score = run_at.timestamp_millis() as f64;
 
         // Use sorted set for scheduled jobs
-        let _: () = conn
-            .zadd("openre:scheduled:jobs", job.id.to_string(), score)
-            .await?;
-        let _: () = conn
-            .hset("openre:scheduled:data", job.id.to_string(), job_data)
-            .await?;
+        let _: () = conn.zadd("openre:scheduled:jobs", job.id.to_string(), score).await?;
+        let _: () = conn.hset("openre:scheduled:data", job.id.to_string(), job_data).await?;
 
         self.metrics.jobs_scheduled.increment(1);
 
@@ -306,8 +316,7 @@ impl QueueManager {
                 pending_job.job.status = JobStatus::Queued;
                 pending_job.job.scheduled_at = Some(scheduled_at);
 
-                self.enqueue_scheduled(pending_job.job, scheduled_at)
-                    .await?;
+                self.enqueue_scheduled(pending_job.job, scheduled_at).await?;
 
                 self.metrics.jobs_retried.increment(1);
                 warn!(
@@ -325,10 +334,7 @@ impl QueueManager {
                 self.metrics.jobs_failed.increment(1);
                 self.metrics.jobs_running.decrement(1.0);
 
-                error!(
-                    "Job {} failed permanently after {} attempts",
-                    job_id, pending_job.attempts
-                );
+                error!("Job {} failed permanently after {} attempts", job_id, pending_job.attempts);
             }
         }
 
@@ -401,14 +407,11 @@ impl QueueManager {
     async fn store_job_result(&self, job: &Job) -> OpenreResult<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let data = serde_json::to_string(job)?;
-        let _: () = conn
-            .hset("openre:job:results", job.id.to_string(), data)
-            .await?;
+        let _: () = conn.hset("openre:job:results", job.id.to_string(), data).await?;
 
         // Set TTL for cleanup
-        let _: () = conn
-            .expire("openre:job:results", self.config.result_ttl_seconds as i64)
-            .await?;
+        let _: () =
+            conn.expire("openre:job:results", self.config.result_ttl_seconds as i64).await?;
 
         Ok(())
     }
