@@ -13,11 +13,14 @@ pub mod tech_detection;
 pub mod tls_analysis;
 
 use openre_core::error::OpenreResult as Result;
-use openre_plugins::sdk::{
-    AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
-};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+// Re-export core plugin types
+pub use openre_core::{
+    Capability, CapabilityRequest, CapabilityResponse, CommandContext, CommandRegistration,
+    CommandResult, Plugin, PluginSdkMetadata,
+};
 
 // Re-export plugin types
 pub use auth_discovery::AuthDiscoveryPlugin;
@@ -120,3 +123,6 @@ pub struct ReconMetadata {
     pub plugin_version: String,
     pub additional: HashMap<String, serde_json::Value>,
 }
+
+/// Plugin metadata type alias for SDK compatibility
+pub type PluginMetadata = PluginSdkMetadata;

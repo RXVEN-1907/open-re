@@ -8,13 +8,14 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Binary file format
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum BinaryFormat {
+    #[default]
+    Unknown,
     Elf,
     Pe,
     MachO,
-    Unknown,
 }
 
 impl BinaryFormat {
@@ -34,9 +35,11 @@ impl BinaryFormat {
 }
 
 /// Architecture
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Architecture {
+    #[default]
+    Unknown,
     X86,
     X86_64,
     Arm,
@@ -47,7 +50,6 @@ pub enum Architecture {
     PowerPc64,
     RiscV32,
     RiscV64,
-    Unknown,
 }
 
 /// Endianness
@@ -97,6 +99,63 @@ pub enum RelroLevel {
     None,
     Partial,
     Full,
+}
+
+/// Binary information extracted from parsing
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct BinaryInfo {
+    pub format: BinaryFormat,
+    pub architecture: Architecture,
+    pub entry_point: u64,
+    pub base_address: u64,
+    pub sections: Vec<Section>,
+    pub symbols: Vec<Symbol>,
+    pub imports: Vec<Import>,
+    pub exports: Vec<Export>,
+    pub strings: Vec<String>,
+}
+
+/// Section information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Section {
+    pub name: String,
+    pub address: u64,
+    pub size: u64,
+    pub flags: SectionFlags,
+    pub data: Option<Vec<u8>>,
+}
+
+/// Section flags
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SectionFlags {
+    pub readable: bool,
+    pub writable: bool,
+    pub executable: bool,
+}
+
+/// Symbol information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Symbol {
+    pub name: String,
+    pub address: u64,
+    pub size: u64,
+    pub symbol_type: SymbolType,
+    pub binding: SymbolBinding,
+    pub section_index: u32,
+}
+
+/// Import information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Import {
+    pub name: String,
+    pub library: Option<String>,
+}
+
+/// Export information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Export {
+    pub name: String,
+    pub address: u64,
 }
 
 impl Default for RelroLevel {

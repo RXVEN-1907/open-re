@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { cn, formatRelativeTime, formatBytes } from '../lib/utils';
 import {
   FolderGit2,
@@ -7,7 +7,6 @@ import {
   Search,
   FunctionSquare,
   Bot,
-  TrendingUp,
   Clock,
   CheckCircle,
   AlertCircle,

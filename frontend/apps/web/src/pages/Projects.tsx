@@ -1,18 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { cn, formatRelativeTime } from '../lib/utils';
 import {
   Plus,
   Search,
-  Filter,
-  MoreVertical,
   Edit,
   Trash2,
-  Users,
-  Link2,
-  Download,
   FolderGit2,
   Lock,
   Globe,

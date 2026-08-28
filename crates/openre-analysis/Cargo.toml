@@ -12,7 +12,7 @@ keywords = { workspace = true }
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-storage = { path = "../openre-storage" }
-openre-plugins = { path = "../openre-plugins" }
+# openre-plugins = { path = "../openre-plugins" }  # Temporarily disabled
 openre-ai = { path = "../openre-ai" }
 openre-queue = { path = "../openre-queue" }
 openre-telemetry = { path = "../openre-telemetry" }

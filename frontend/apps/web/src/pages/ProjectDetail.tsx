@@ -1,18 +1,12 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { cn, formatRelativeTime, formatBytes } from '../lib/utils';
 import {
   ArrowLeft,
   FileCode,
   Search,
-  Users,
-  Link2,
-  Download,
   Settings,
-  MoreVertical,
-  Edit,
-  Trash2,
   Globe,
   Lock,
 } from 'lucide-react';

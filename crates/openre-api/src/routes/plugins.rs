@@ -9,6 +9,7 @@ use axum::{
     Json, Router,
 };
 use openre_core::ids::PluginId;
+use openre_core::plugin::{PluginManifest, PluginMetadata, PluginSource, PluginStatus};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
@@ -50,8 +51,8 @@ async fn list_plugins(
         None => true,
     });
     plugins.retain(|m| match filter.enabled {
-        Some(true) => matches!(m.status, openre_plugins::manifest::PluginStatus::Active),
-        Some(false) => !matches!(m.status, openre_plugins::manifest::PluginStatus::Active),
+        Some(true) => m.enabled,
+        Some(false) => !m.enabled,
         None => true,
     });
     plugins.retain(|m| match filter.search.as_deref() {
@@ -66,7 +67,7 @@ async fn list_plugins(
         .iter()
         .skip(pagination.offset() as usize)
         .take(pagination.limit() as usize)
-        .map(plugin_response_from_metadata)
+        .map(plugin_response_from_entry)
         .collect();
 
     Ok(Json(PluginListResponse {
@@ -134,12 +135,11 @@ async fn install_plugin(
     }
 
     match payload.source {
-        PluginSource::Local { path } => {
+        ApiPluginSource::Local { path } => {
             let dir = std::path::PathBuf::from(path);
-            let manifest =
-                openre_plugins::manifest::PluginManifest::from_dir(&dir).map_err(|e| {
-                    crate::error::ApiError::BadRequest(format!("Invalid plugin manifest: {}", e))
-                })?;
+            let manifest = PluginManifest::from_dir(&dir).map_err(|e| {
+                crate::error::ApiError::BadRequest(format!("Invalid plugin manifest: {}", e))
+            })?;
 
             let id = manifest.plugin_id();
             let name = manifest.name.clone();
@@ -155,13 +155,13 @@ async fn install_plugin(
                 .collect();
 
             let installed_at = chrono::Utc::now();
-            let metadata = openre_plugins::manifest::PluginMetadata {
+            let metadata = PluginMetadata {
                 id,
                 manifest,
-                source: openre_plugins::manifest::PluginSource::Local,
+                source: openre_core::plugin::PluginSource::Local { path: dir.clone() },
                 path: dir,
                 installed_at,
-                status: openre_plugins::manifest::PluginStatus::Active,
+                status: PluginStatus::Active,
             };
 
             state.plugin_registry.register(metadata).await?;
@@ -286,7 +286,29 @@ pub struct PluginResponse {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-fn plugin_response_from_metadata(m: &openre_plugins::manifest::PluginMetadata) -> PluginResponse {
+fn plugin_response_from_entry(entry: &openre_core::plugin::RegistryEntry) -> PluginResponse {
+    PluginResponse {
+        id: entry.manifest.plugin_id(),
+        name: entry.manifest.name.clone(),
+        version: entry.manifest.version.clone(),
+        description: entry.manifest.description.clone(),
+        author: entry.manifest.author.clone(),
+        plugin_type: entry.manifest.plugin.r#type.as_str().to_string(),
+        capabilities: entry
+            .manifest
+            .plugin
+            .capabilities
+            .iter()
+            .map(|c| format!("{:?}", c))
+            .collect(),
+        enabled: entry.enabled,
+        config: None,
+        installed_at: entry.installed_at,
+        updated_at: entry.updated_at.unwrap_or(entry.installed_at),
+    }
+}
+
+fn plugin_response_from_metadata(m: &PluginMetadata) -> PluginResponse {
     PluginResponse {
         id: m.id,
         name: m.manifest.name.clone(),
@@ -301,7 +323,7 @@ fn plugin_response_from_metadata(m: &openre_plugins::manifest::PluginMetadata) -
             .iter()
             .map(|c| format!("{:?}", c))
             .collect(),
-        enabled: matches!(m.status, openre_plugins::manifest::PluginStatus::Active),
+        enabled: matches!(m.status, PluginStatus::Active),
         config: None,
         installed_at: m.installed_at,
         updated_at: m.installed_at,
@@ -310,13 +332,13 @@ fn plugin_response_from_metadata(m: &openre_plugins::manifest::PluginMetadata) -
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct InstallPluginRequest {
-    pub source: PluginSource,
+    pub source: ApiPluginSource,
     pub version: Option<String>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "lowercase")]
-pub enum PluginSource {
+pub enum ApiPluginSource {
     Registry { name: String },
     Local { path: String },
     Git { url: String, rev: Option<String> },

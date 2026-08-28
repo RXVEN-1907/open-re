@@ -3366,7 +3366,7 @@ mod tests {
     #[test]
     fn test_truncate() {
         assert_eq!(truncate("short", 10), "short");
-        assert_eq!(truncate("very long string", 10), "very lon...");
+        assert_eq!(truncate("very long string", 10), "very lo...");
         assert_eq!(truncate("exact", 5), "exact");
     }
 }

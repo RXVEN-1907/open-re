@@ -4,7 +4,8 @@ use crate::{ApiError, ApiResult, AuthService};
 use governor::{Quota, RateLimiter};
 use openre_ai::AiService;
 use openre_config::Config;
-use openre_plugins::PluginRegistry;
+use openre_core::plugin::PluginRegistry;
+use openre_core::plugin::RegistryConfig;
 use openre_queue::{CancellationManager, ProgressTracker, QueueManager, Scheduler};
 use openre_scanner::storage::{MemoryScanStorage, ScanStorage, SqliteScanStorage};
 use openre_security_ai::{
@@ -113,10 +114,7 @@ impl AppState {
         );
 
         // Initialize plugin registry
-        let plugin_registry = Arc::new(PluginRegistry::new(
-            config.plugins.clone(),
-            global_store.clone(),
-        ));
+        let plugin_registry = Arc::new(PluginRegistry::new(RegistryConfig::default())?);
 
         // Initialize auth service
         let auth_service = Arc::new(AuthService::new(crate::auth::AuthConfig::default()));

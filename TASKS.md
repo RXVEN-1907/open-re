@@ -64,7 +64,7 @@ Auto-generated task list for hourly automation. Each task represents an incremen
   - Crate: openre-analysis
   - Details: goblin-based PE parsing, import/export tables
 
-- [ ] **task-009** - Implement MachO binary parser
+- [x] **task-009** - Implement MachO binary parser
   - Status: pending
   - Priority: medium
   - Crate: openre-analysis

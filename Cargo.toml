@@ -6,7 +6,6 @@ members = [
     "crates/openre-telemetry",
     "crates/openre-storage",
     "crates/openre-queue",
-    "crates/openre-plugins",
     "crates/openre-analysis",
     "crates/openre-ai",
     "crates/openre-api",
@@ -17,6 +16,7 @@ members = [
     "crates/openre-intelligence",
     "crates/openre-scan",
     "crates/sentinel",
+    "crates/openre-plugins",
 ]
 
 exclude = [
@@ -131,6 +131,8 @@ clap = { version = "4.5", features = ["derive", "env", "wrap_help", "help", "usa
 clap_complete = "4.5"
 indicatif = "0.17"
 colored = "2.0"
+dirs = "5.0"
+toml = "0.8"
 
 # TUI
 ratatui = "0.26"

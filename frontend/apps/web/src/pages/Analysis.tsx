@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
-import { api } from '../lib/api';
+import { Link } from 'react-router-dom';
+import api from '../lib/api';
 import { cn, formatRelativeTime } from '../lib/utils';
 import {
   Play,
   Search,
-  Filter,
-  MoreVertical,
   RotateCcw,
   X,
   Loader2,
@@ -52,10 +50,8 @@ const stages = [
 
 export default function Analysis() {
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
-  const [selectedFileId, setSelectedFileId] = useState(searchParams.get('file_id') || '');
   const [showStartModal, setShowStartModal] = useState(false);
   const [newAnalysis, setNewAnalysis] = useState({
     file_id: '',

@@ -29,19 +29,32 @@ impl MachoParser {
             MachO::Binary(bin) => {
                 info.architecture = Self::arch_from_macho(&bin);
                 info.entry_point = bin.entry as u64;
-                info.base_address = bin.base_address();
+                info.base_address = 0; // MachO doesn't have a single base address like PE
 
                 // Parse segments/sections
                 for segment in &bin.segments {
-                    for section in &segment.sections() {
-                        if let Ok(sect) = section {
+                    // sections() returns an iterator of Result<Section>
+                    for section_result in segment.sections() {
+                        if let Ok(sect) = section_result {
                             let name = sect.name().unwrap_or("unknown").to_string();
+                            // Get section data
+                            let data = if sect.offset > 0 && sect.size > 0 {
+                                let start = sect.offset as usize;
+                                let end = start + sect.size as usize;
+                                if end <= bytes.len() {
+                                    Some(bytes[start..end].to_vec())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            };
                             info.sections.push(Section {
                                 name,
                                 address: sect.addr,
                                 size: sect.size,
                                 flags: Self::section_flags(sect.flags),
-                                data: Some(sect.data(&bytes).to_vec()),
+                                data,
                             });
                         }
                     }
@@ -50,31 +63,39 @@ impl MachoParser {
                 // Parse symbols
                 if let Ok(symtab) = bin.symbols() {
                     for symbol in symtab {
-                        info.symbols.push(Symbol {
-                            name: symbol.name().unwrap_or("").to_string(),
-                            address: symbol.value,
-                            size: 0,
-                            symbol_type: crate::SymbolType::Unknown,
-                            binding: crate::SymbolBinding::Global,
-                            section_index: symbol.sect as u32,
-                        });
+                        if let Ok(name) = symbol.name() {
+                            if !name.is_empty() {
+                                info.symbols.push(Symbol {
+                                    name: name.to_string(),
+                                    address: symbol.value,
+                                    size: 0,
+                                    symbol_type: crate::SymbolType::Unknown,
+                                    binding: crate::SymbolBinding::Global,
+                                    section_index: symbol.sect as u32,
+                                });
+                            }
+                        }
                     }
                 }
 
                 // Parse imports (dyld)
                 for import in bin.imports() {
-                    info.imports.push(Import {
-                        name: import.name().to_string(),
-                        library: import.library().map(|s| s.to_string()),
-                    });
+                    if let Ok(name) = import.name() {
+                        info.imports.push(Import {
+                            name: name.to_string(),
+                            library: import.library().map(|s| s.to_string()),
+                        });
+                    }
                 }
 
                 // Parse exports
                 for export in bin.exports() {
-                    info.exports.push(Export {
-                        name: export.name().to_string(),
-                        address: export.address(),
-                    });
+                    if let Ok(name) = export.name() {
+                        info.exports.push(Export {
+                            name: name.to_string(),
+                            address: export.address(),
+                        });
+                    }
                 }
             }
             MachO::Fat(multi) => {
@@ -97,6 +118,8 @@ impl MachoParser {
 
     fn parse_single(arch: &goblin::mach::SingleArch, bytes: &[u8]) -> Result<BinaryInfo> {
         // Simplified - would need full implementation
+        let _ = arch;
+        let _ = bytes;
         todo!("Implement fat binary single arch parsing")
     }
 

@@ -648,12 +648,12 @@ mod tests {
     fn test_target_manager() {
         let manager = TargetManager::new();
         let url = "https://example.com".parse().unwrap();
-        let target = Target::from_url(url, TargetType::RemoteWebApp).unwrap();
+        let target = Target::from_url(url, TargetType::LocalWebApp).unwrap();
         let id = manager.register(target.clone()).unwrap();
 
         let retrieved = manager.get(&id).unwrap();
         assert_eq!(retrieved.id, id);
-        assert_eq!(retrieved.target_type, TargetType::RemoteWebApp);
+        assert_eq!(retrieved.target_type, TargetType::LocalWebApp);
 
         let list = manager.list();
         assert_eq!(list.len(), 1);

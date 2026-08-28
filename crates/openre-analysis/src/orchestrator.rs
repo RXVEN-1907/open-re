@@ -4,7 +4,7 @@ use crate::{incremental::*, metrics::*, progress::*, stages::*};
 use openre_config::QueueConfig;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_plugins::PluginRegistry;
+// use openre_plugins::PluginRegistry; // Temporarily disabled
 use openre_queue::QueueManager;
 use openre_storage::{GlobalStore, ProjectStore};
 use openre_telemetry::{metrics, TelemetryHandle};
@@ -13,6 +13,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
+
+/// Placeholder for PluginRegistry (temporarily disabled)
+#[derive(Debug, Clone, Default)]
+pub struct PluginRegistry;
 
 /// Pipeline context passed to stages
 #[derive(Clone)]

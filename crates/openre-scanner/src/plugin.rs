@@ -3,7 +3,22 @@
 use crate::error::{ScannerError, ScannerResult};
 use crate::target::TargetType;
 pub use openre_core::ids::PluginId;
-use openre_plugins::PluginInstance;
+
+/// Plugin instance trait for executing plugins
+#[async_trait::async_trait]
+pub trait PluginInstance: Send + Sync {
+    /// Execute the plugin with JSON input
+    async fn execute(&self, input: serde_json::Value) -> ScannerResult<serde_json::Value>;
+
+    /// Configure the plugin
+    async fn configure(&self, config: serde_json::Value) -> ScannerResult<()>;
+
+    /// Health check
+    async fn health_check(&self) -> ScannerResult<bool>;
+
+    /// Shutdown the plugin
+    async fn shutdown(&self) -> ScannerResult<()>;
+}
 
 /// Plugin manifest file schema (plugin.toml)
 #[derive(Debug, Clone, serde::Deserialize)]

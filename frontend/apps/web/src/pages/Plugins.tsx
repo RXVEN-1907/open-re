@@ -1,20 +1,16 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../lib/api';
-import { cn, formatRelativeTime } from '../lib/utils';
+import api from '../lib/api';
+import { cn } from '../lib/utils';
 import {
   Plus,
   Search,
-  Filter,
-  MoreVertical,
   Plug,
   Check,
   X,
-  Loader2,
   Settings,
   Trash2,
   ExternalLink,
-  Github,
   Package,
 } from 'lucide-react';
 

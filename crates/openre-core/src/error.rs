@@ -26,6 +26,9 @@ pub enum Error {
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
+    #[error("TOML parse error: {0}")]
+    Toml(#[from] toml::de::Error),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -71,6 +74,9 @@ pub enum Error {
     #[error("Service unavailable: {0}")]
     ServiceUnavailable(String),
 
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
+
     #[error("SQLite error: {0}")]
     Rusqlite(#[from] rusqlite::Error),
 }
@@ -85,6 +91,7 @@ impl Error {
             Error::InvalidInput(_) => "INVALID_INPUT",
             Error::Database(_) => "DATABASE_ERROR",
             Error::Serialization(_) => "SERIALIZATION_ERROR",
+            Error::Toml(_) => "TOML_ERROR",
             Error::Io(_) => "IO_ERROR",
             Error::Notify(_) => "NOTIFY_ERROR",
             Error::Tracing(_) => "TRACING_ERROR",
@@ -100,6 +107,7 @@ impl Error {
             Error::RateLimited { .. } => "RATE_LIMITED",
             Error::BadRequest(_) => "BAD_REQUEST",
             Error::ServiceUnavailable(_) => "SERVICE_UNAVAILABLE",
+            Error::NotImplemented(_) => "NOT_IMPLEMENTED",
             Error::Rusqlite(_) => "SQLITE_ERROR",
         }
     }

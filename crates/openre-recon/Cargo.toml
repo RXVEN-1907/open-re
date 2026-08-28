@@ -14,7 +14,7 @@ openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
 openre-scanner = { path = "../openre-scanner" }
-openre-plugins = { path = "../openre-plugins" }
+# openre-plugins = { path = "../openre-plugins" }  # Temporarily disabled
 
 # External dependencies
 tokio = { workspace = true }

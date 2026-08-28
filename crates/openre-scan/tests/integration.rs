@@ -6,44 +6,56 @@ use openre_scan::{
 use std::env;
 use std::time::Duration;
 use tokio::process::Command;
+use tokio::sync::OnceCell;
 use url::Url;
 
-/// Start a test HTTP server and return its base URL
-async fn start_test_server() -> (String, tokio::process::Child) {
-    // Use workspace root (two levels up from crate manifest dir)
-    let workspace_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
-
-    let child = Command::new("python3")
-        .arg("test_server.py")
-        .current_dir(&workspace_root)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .expect("Failed to start test server");
-
-    // Wait for server to be ready
-    tokio::time::sleep(Duration::from_millis(500)).await;
-
-    ("http://localhost:8080".to_string(), child)
+/// Shared test server state
+struct TestServer {
+    base_url: String,
+    _child: tokio::process::Child, // Prefixed with _ to suppress unused warning; kept alive for server lifetime
 }
 
-/// Stop the test server
-async fn stop_test_server(mut child: tokio::process::Child) {
-    child.kill().await.ok();
-    let _ = child.wait().await;
+/// Global test server instance - started once, reused across all tests
+static TEST_SERVER: OnceCell<TestServer> = OnceCell::const_new();
+
+/// Get or start the shared test server
+async fn get_test_server() -> &'static TestServer {
+    TEST_SERVER
+        .get_or_init(|| async {
+            // Use workspace root (two levels up from crate manifest dir)
+            let workspace_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+
+            let child = Command::new("python3")
+                .arg("test_server.py")
+                .current_dir(&workspace_root)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .expect("Failed to start test server");
+
+            // Wait for server to be ready
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+
+            TestServer {
+                base_url: "http://localhost:8080".to_string(),
+                _child: child,
+            }
+        })
+        .await
 }
+
 
 #[tokio::test]
 async fn test_scan_pipeline_quick_profile() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     let findings = run_scan_internal(
         target.clone(),
@@ -54,8 +66,6 @@ async fn test_scan_pipeline_quick_profile() {
         "openre-scan-test/0.1.0".to_string(),
     )
     .await;
-
-    stop_test_server(server).await;
 
     assert!(findings.is_ok(), "Scan should succeed");
     let findings = findings.unwrap();
@@ -76,8 +86,8 @@ async fn test_scan_pipeline_quick_profile() {
 
 #[tokio::test]
 async fn test_scan_pipeline_standard_profile() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     let findings = run_scan_internal(
         target.clone(),
@@ -89,15 +99,14 @@ async fn test_scan_pipeline_standard_profile() {
     )
     .await;
 
-    stop_test_server(server).await;
-
     assert!(findings.is_ok(), "Scan should succeed");
     let findings = findings.unwrap();
 
     // Standard profile should find more issues
     assert!(
         findings.len() > 10,
-        "Standard profile should find more than 10 findings"
+        "Standard profile should find more than 10 findings, got {}",
+        findings.len()
     );
 
     // Should include forms check (GET password form)
@@ -112,8 +121,8 @@ async fn test_scan_pipeline_standard_profile() {
 
 #[tokio::test]
 async fn test_finding_generation_has_evidence() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     let findings = run_scan_internal(
         target.clone(),
@@ -124,8 +133,6 @@ async fn test_finding_generation_has_evidence() {
         "openre-scan-test/0.1.0".to_string(),
     )
     .await;
-
-    stop_test_server(server).await;
 
     let findings = findings.unwrap();
 
@@ -152,8 +159,8 @@ async fn test_finding_generation_has_evidence() {
 
 #[tokio::test]
 async fn test_json_output_format() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     let findings = run_scan_internal(
         target.clone(),
@@ -164,8 +171,6 @@ async fn test_json_output_format() {
         "openre-scan-test/0.1.0".to_string(),
     )
     .await;
-
-    stop_test_server(server).await;
 
     let findings = findings.unwrap();
     assert!(!findings.is_empty());
@@ -182,8 +187,8 @@ async fn test_json_output_format() {
 
 #[tokio::test]
 async fn test_sarif_output_format() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     let findings = run_scan_internal(
         target.clone(),
@@ -195,8 +200,6 @@ async fn test_sarif_output_format() {
     )
     .await;
 
-    stop_test_server(server).await;
-
     let findings = findings.unwrap();
     assert!(!findings.is_empty());
 
@@ -207,16 +210,14 @@ async fn test_sarif_output_format() {
 
 #[tokio::test]
 async fn test_check_filtering() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     // Run only http-headers check
     let client = build_client(10, 10, false, "test".to_string(), None).unwrap();
     let target_url = target.parse::<Url>().unwrap();
 
     let findings = Check::HttpHeaders.run(&client, &target_url).await;
-
-    stop_test_server(server).await;
 
     assert!(findings.is_ok());
     let findings = findings.unwrap();
@@ -233,16 +234,14 @@ async fn test_check_filtering() {
 
 #[tokio::test]
 async fn test_exclude_check() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     let client = build_client(10, 10, false, "test".to_string(), None).unwrap();
     let target_url = target.parse::<Url>().unwrap();
 
     // Run security-headers but we'll filter out in the test logic
     let findings = Check::SecurityHeaders.run(&client, &target_url).await;
-
-    stop_test_server(server).await;
 
     assert!(findings.is_ok());
     let findings = findings.unwrap();
@@ -255,14 +254,15 @@ async fn test_exclude_check() {
     // Should detect multiple missing headers
     assert!(
         findings.len() >= 5,
-        "Should detect multiple missing security headers"
+        "Should detect multiple missing security headers, got {}",
+        findings.len()
     );
 }
 
 #[tokio::test]
 async fn test_remediation_guidance() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     let findings = run_scan_internal(
         target.clone(),
@@ -273,8 +273,6 @@ async fn test_remediation_guidance() {
         "openre-scan-test/0.1.0".to_string(),
     )
     .await;
-
-    stop_test_server(server).await;
 
     let findings = findings.unwrap();
 
@@ -296,8 +294,8 @@ async fn test_remediation_guidance() {
 
 #[tokio::test]
 async fn test_severity_and_confidence() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     let findings = run_scan_internal(
         target.clone(),
@@ -308,8 +306,6 @@ async fn test_severity_and_confidence() {
         "openre-scan-test/0.1.0".to_string(),
     )
     .await;
-
-    stop_test_server(server).await;
 
     let findings = findings.unwrap();
 
@@ -356,8 +352,8 @@ async fn test_cli_version_command() {
 
 #[tokio::test]
 async fn test_cli_scan_json_output() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     let output = Command::new("cargo")
         .args([
@@ -378,8 +374,6 @@ async fn test_cli_scan_json_output() {
         .await
         .expect("Failed to run scan command");
 
-    stop_test_server(server).await;
-
     assert!(output.status.success(), "Scan command should succeed");
     let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -391,8 +385,8 @@ async fn test_cli_scan_json_output() {
 
 #[tokio::test]
 async fn test_cli_scan_sarif_output() {
-    let (base_url, server) = start_test_server().await;
-    let target = format!("{}/", base_url);
+    let server = get_test_server().await;
+    let target = format!("{}/", server.base_url);
 
     let output = Command::new("cargo")
         .args([
@@ -412,8 +406,6 @@ async fn test_cli_scan_sarif_output() {
         .output()
         .await
         .expect("Failed to run scan command");
-
-    stop_test_server(server).await;
 
     assert!(output.status.success(), "Scan command should succeed");
     let stdout = String::from_utf8_lossy(&output.stdout);

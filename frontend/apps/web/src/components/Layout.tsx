@@ -14,10 +14,8 @@ import {
   Settings,
   LogOut,
   Menu,
-  X,
   Sun,
   Moon,
-  Monitor,
   User,
   ChevronDown,
 } from 'lucide-react';
@@ -35,7 +33,7 @@ const navigation = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);

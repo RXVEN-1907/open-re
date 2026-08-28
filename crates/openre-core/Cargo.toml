@@ -26,3 +26,5 @@ sha2 = { workspace = true }
 rusqlite = { workspace = true }
 url = { workspace = true }
 redis = { workspace = true }
+dirs = { workspace = true }
+toml = { workspace = true }

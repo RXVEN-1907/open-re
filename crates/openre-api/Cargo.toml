@@ -15,7 +15,7 @@ openre-telemetry = { path = "../openre-telemetry" }
 openre-storage = { path = "../openre-storage" }
 openre-queue = { path = "../openre-queue" }
 openre-ai = { path = "../openre-ai" }
-openre-plugins = { path = "../openre-plugins" }
+# openre-plugins = { path = "../openre-plugins" }  # Temporarily disabled
 axum = { workspace = true }
 axum-extra = { workspace = true, features = ["cookie"] }
 tower = { workspace = true }

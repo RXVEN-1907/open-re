@@ -2,12 +2,13 @@
 //!
 //! Locates and parses robots.txt and sitemap.xml to extract paths and useful endpoints.
 
-use crate::{ReconMetadata, ReconPlugin, ReconPluginConfig, ReconType};
-use openre_core::error::OpenreResult as Result;
-use openre_core::result::FindingConfig;
-use openre_plugins::sdk::{
-    AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin,
+use crate::{
+    Capability, CapabilityRequest, CapabilityResponse, PluginMetadata, ReconPlugin,
+    ReconPluginConfig, ReconType,
 };
+use openre_core::error::OpenreResult as Result;
+use openre_core::plugin::{CommandContext, CommandRegistration, CommandResult, Plugin};
+use openre_core::result::FindingConfig;
 use openre_scanner::{
     context::ScanContext,
     result::{
@@ -231,26 +232,34 @@ struct SitemapIndexEntry {
 
 #[async_trait::async_trait]
 impl Plugin for RobotsSitemapPlugin {
-    type Config = ReconPluginConfig;
-
-    fn new(config: Self::Config) -> Self {
-        Self::new(config).expect("Failed to create RobotsSitemapPlugin")
+    fn metadata(&self) -> PluginMetadata {
+        PluginMetadata {
+            name: "robots_sitemap".to_string(),
+            version: "0.1.0".to_string(),
+            description: "Robots.txt and sitemap discovery plugin".to_string(),
+            author: "open-re team".to_string(),
+            license: "MIT".to_string(),
+            repository: "https://github.com/RXVEN-1907/open-re".to_string(),
+            homepage: None,
+            categories: vec!["reconnaissance".to_string()],
+            keywords: vec!["robots".to_string(), "sitemap".to_string()],
+        }
     }
 
     fn capabilities(&self) -> Vec<Capability> {
         vec![Capability::NetworkAccess, Capability::ReadConfig]
     }
 
-    async fn execute(&self, request: CapabilityRequest) -> Result<CapabilityResponse> {
-        let _ = request;
+    fn commands(&self) -> Vec<CommandRegistration> {
+        vec![]
+    }
 
-        // Recon plugins perform their work through the scan pipeline, which
-        // supplies a full ScanContext. Capability execution has no scan context,
-        // so report an empty result set instead.
-        Ok(CapabilityResponse::success(serde_json::json!({
-            "findings": [],
-            "recon_type": ReconType::RobotsSitemap,
-        })))
+    async fn initialize(&mut self, _config: serde_json::Value) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn shutdown(&mut self) -> anyhow::Result<()> {
+        Ok(())
     }
 }
 

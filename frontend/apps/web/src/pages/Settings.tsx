@@ -2,23 +2,19 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { cn } from '../lib/utils';
 import {
   User,
-  Mail,
-  Lock,
   Key,
   Trash2,
   Plus,
   Copy,
   Check,
-  Loader2,
   AlertCircle,
   Monitor,
   Sun,
   Moon,
-  Bell,
   Shield,
 } from 'lucide-react';
 
@@ -45,8 +41,8 @@ interface ApiKey {
 }
 
 export default function Settings() {
-  const { user, logout, refreshUser } = useAuth();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { user, refreshUser } = useAuth();
+  const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'api-keys' | 'appearance' | 'danger'>('profile');
   const [showCreateKeyModal, setShowCreateKeyModal] = useState(false);

@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { cn, formatRelativeTime } from '../lib/utils';
 import {
   ArrowLeft,
@@ -12,7 +12,6 @@ import {
   Check,
   AlertCircle,
   FileCode,
-  ChevronRight,
 } from 'lucide-react';
 
 interface Function {

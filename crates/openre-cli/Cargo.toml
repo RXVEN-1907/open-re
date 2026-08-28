@@ -19,7 +19,7 @@ openre-telemetry = { path = "../openre-telemetry" }
 openre-storage = { path = "../openre-storage" }
 openre-queue = { path = "../openre-queue" }
 openre-ai = { path = "../openre-ai" }
-openre-plugins = { path = "../openre-plugins" }
+# openre-plugins = { path = "../openre-plugins" }  # Temporarily disabled
 openre-api = { path = "../openre-api" }
 clap = { workspace = true }
 clap_complete = { workspace = true }

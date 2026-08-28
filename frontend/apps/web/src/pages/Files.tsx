@@ -1,18 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { cn, formatRelativeTime, formatBytes } from '../lib/utils';
 import {
   Upload,
   Search,
-  Filter,
-  MoreVertical,
   FileCode,
   Trash2,
   Eye,
   Play,
-  Loader2,
 } from 'lucide-react';
 
 interface File {
@@ -40,7 +37,7 @@ export default function Files() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<globalThis.File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const { data, isLoading } = useQuery({
@@ -58,13 +55,11 @@ export default function Files() {
   });
 
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async () => {
+      if (!selectedFile) throw new Error('No file selected');
       const formData = new FormData();
-      formData.append('file', file);
-      if (uploadFile) {
-        formData.append('project_id', uploadFile.project_id || '');
-      }
-      
+      formData.append('file', selectedFile);
+
       const response = await api.post('/api/files', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
@@ -78,7 +73,7 @@ export default function Files() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
       setShowUploadModal(false);
-      setUploadFile(null);
+      setSelectedFile(null);
       setUploadProgress(0);
     },
   });
@@ -95,14 +90,14 @@ export default function Files() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setUploadFile(file);
+      setSelectedFile(file);
     }
   };
 
   const handleUpload = (e: React.FormEvent) => {
     e.preventDefault();
-    if (uploadFile) {
-      uploadMutation.mutate(uploadFile);
+    if (selectedFile) {
+      uploadMutation.mutate();
     }
   };
 
@@ -309,8 +304,8 @@ export default function Files() {
                     <p className="text-muted-foreground">Click or drag to upload</p>
                     <p className="text-xs text-muted-foreground mt-1">ELF, PE, Mach-O, APK, IPA, raw binaries</p>
                   </label>
-                  {uploadFile && (
-                    <p className="mt-2 text-sm font-medium text-primary">{uploadFile.name} ({formatBytes(uploadFile.size)})</p>
+                  {selectedFile && (
+                    <p className="mt-2 text-sm font-medium text-primary">{selectedFile.name} ({formatBytes(selectedFile.size)})</p>
                   )}
                 </div>
               </div>
@@ -341,7 +336,7 @@ export default function Files() {
                 </button>
                 <button
                   type="submit"
-                  disabled={uploadMutation.isPending || !uploadFile}
+                  disabled={uploadMutation.isPending || !selectedFile}
                   className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
                   {uploadMutation.isPending ? 'Uploading...' : 'Upload'}

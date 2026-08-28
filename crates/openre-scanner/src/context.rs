@@ -76,10 +76,7 @@ impl SharedHttpClient {
     pub fn new(config: &ScanConfig, target_metadata: &TargetMetadata) -> ScannerResult<Self> {
         let mut builder = ClientBuilder::new()
             .timeout(config.plugin_timeout)
-            .redirect(reqwest::redirect::Policy::limited(10))
-            .gzip(true)
-            .brotli(true)
-            .deflate(true);
+            .redirect(reqwest::redirect::Policy::limited(10));
 
         // Add default headers
         let mut default_headers = HashMap::new();

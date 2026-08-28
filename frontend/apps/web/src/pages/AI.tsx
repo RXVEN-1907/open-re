@@ -1,16 +1,13 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { cn } from '../lib/utils';
 import {
   Send,
   Bot,
   Loader2,
   Copy,
-  Check,
-  FileCode,
   Sparkles,
-  X,
 } from 'lucide-react';
 
 interface ChatMessage {
