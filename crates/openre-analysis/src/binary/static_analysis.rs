@@ -42,12 +42,7 @@ impl StaticAnalysisService {
 
         metrics::record_http_request("POST", 200, start.elapsed());
 
-        Ok(StaticAnalysisResult {
-            section_entropies,
-            functions,
-            control_flow,
-            data_flow,
-        })
+        Ok(StaticAnalysisResult { section_entropies, functions, control_flow, data_flow })
     }
 
     /// Calculate entropy for each section
@@ -117,10 +112,7 @@ impl StaticAnalysisService {
         let functions = self.find_functions(metadata).await?;
 
         // Build call graph from imports/exports
-        let mut call_graph = CallGraph {
-            nodes: Vec::new(),
-            edges: Vec::new(),
-        };
+        let mut call_graph = CallGraph { nodes: Vec::new(), edges: Vec::new() };
 
         // Add function nodes
         for func in &functions {
@@ -143,25 +135,15 @@ impl StaticAnalysisService {
         }
 
         // Build CFG (simplified)
-        let cfg = ControlFlowGraph {
-            nodes: Vec::new(),
-            edges: Vec::new(),
-        };
+        let cfg = ControlFlowGraph { nodes: Vec::new(), edges: Vec::new() };
 
-        Ok(ControlFlowInfo {
-            functions,
-            call_graph,
-            cfg,
-        })
+        Ok(ControlFlowInfo { functions, call_graph, cfg })
     }
 
     /// Analyze data flow
     async fn analyze_data_flow(&self, metadata: &BinaryMetadata) -> Result<DataFlowInfo> {
         // Simplified data flow analysis
-        Ok(DataFlowInfo {
-            variables: Vec::new(),
-            data_dependencies: Vec::new(),
-        })
+        Ok(DataFlowInfo { variables: Vec::new(), data_dependencies: Vec::new() })
     }
 }
 
@@ -267,10 +249,7 @@ impl StaticAnalyzer for StaticAnalyzerImpl {
         let functions = self.find_functions(data, metadata).await?;
 
         // Build call graph
-        let mut call_graph = CallGraph {
-            nodes: Vec::new(),
-            edges: Vec::new(),
-        };
+        let mut call_graph = CallGraph { nodes: Vec::new(), edges: Vec::new() };
 
         // Add function nodes
         for func in &functions {
@@ -313,16 +292,9 @@ impl StaticAnalyzer for StaticAnalyzerImpl {
             }
         }
 
-        let cfg = ControlFlowGraph {
-            nodes: cfg_nodes,
-            edges: cfg_edges,
-        };
+        let cfg = ControlFlowGraph { nodes: cfg_nodes, edges: cfg_edges };
 
-        Ok(ControlFlowInfo {
-            functions,
-            call_graph,
-            cfg,
-        })
+        Ok(ControlFlowInfo { functions, call_graph, cfg })
     }
 
     async fn analyze_data_flow(
@@ -331,10 +303,7 @@ impl StaticAnalyzer for StaticAnalyzerImpl {
         metadata: &BinaryMetadata,
     ) -> Result<DataFlowInfo> {
         // Simplified data flow analysis - would need full disassembly
-        Ok(DataFlowInfo {
-            variables: Vec::new(),
-            data_dependencies: Vec::new(),
-        })
+        Ok(DataFlowInfo { variables: Vec::new(), data_dependencies: Vec::new() })
     }
 }
 
