@@ -1,0 +1,21 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[database]
+url = "postgresql://openre:openre_dev_password@postgres:5432/openre"
+
+[redis]
+url = "redis://redis:6379"
+
+[storage]
+endpoint = "http://minio:9000"
+access_key = "openre"
+secret_key = "openre_dev_password"
+bucket = "openre"
+
+[jwt]
+secret = "dev_secret_change_in_production"
+
+[ai]
+enabled = false

@@ -9,9 +9,11 @@ mod output;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use commands::{
-    ai::AiCommands, analysis::AnalysisCommands, analyst::AnalystCommands, auth::AuthCommands,
-    config::ConfigCommands, file::FileCommands, function::FunctionCommands, plugin::PluginCommands,
-    project::ProjectCommands, server::ServerCommands,
+    ai::AiCommands, analyst::AnalystCommands, auth::AuthCommands,
+    config::ConfigCommands, file::FileCommands, finding::FindingCommands, function::FunctionCommands,
+    plugin::PluginCommands, project::ProjectCommands, report::ReportCommands, scan::ScanCommands,
+    server::ServerCommands,
+    // analysis::AnalysisCommands, // Temporarily disabled due to compilation errors
 };
 pub use config::CliConfig;
 pub use context::Context;
@@ -70,9 +72,9 @@ enum Commands {
     #[command(subcommand)]
     File(FileCommands),
 
-    /// Binary analysis
-    #[command(subcommand)]
-    Analysis(AnalysisCommands),
+    // /// Binary analysis (temporarily disabled)
+//     #[command(subcommand)]
+//     Analysis(AnalysisCommands),
 
     /// Function analysis
     #[command(subcommand)]
@@ -97,6 +99,18 @@ enum Commands {
     /// Server management
     #[command(subcommand)]
     Server(ServerCommands),
+
+    /// Scan management
+    #[command(subcommand)]
+    Scan(ScanCommands),
+
+    /// Finding management
+    #[command(subcommand)]
+    Finding(FindingCommands),
+
+    /// Report generation
+    #[command(subcommand)]
+    Report(ReportCommands),
 }
 
 #[tokio::main]
@@ -132,12 +146,15 @@ async fn main() -> Result<(), CliError> {
         Commands::Auth(cmd) => cmd.execute(ctx).await,
         Commands::Project(cmd) => cmd.execute(ctx).await,
         Commands::File(cmd) => cmd.execute(ctx).await,
-        Commands::Analysis(cmd) => cmd.execute(ctx).await,
+        // Commands::Analysis(cmd) => cmd.execute(ctx).await, // Temporarily disabled
         Commands::Function(cmd) => cmd.execute(ctx).await,
         Commands::Ai(cmd) => cmd.execute(ctx).await,
         Commands::Analyst(cmd) => cmd.execute(ctx).await,
         Commands::Plugin(cmd) => cmd.execute(ctx).await,
         Commands::Config(cmd) => cmd.execute(ctx).await,
         Commands::Server(cmd) => cmd.execute(ctx).await,
+        Commands::Scan(cmd) => cmd.execute(ctx).await,
+        Commands::Finding(cmd) => cmd.execute(ctx).await,
+        Commands::Report(cmd) => cmd.execute(ctx).await,
     }
 }

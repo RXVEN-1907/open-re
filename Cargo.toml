@@ -137,7 +137,7 @@ toml = "0.8"
 # TUI
 ratatui = "0.26"
 crossterm = "0.27"
-tabled = "0.16"
+tabled = { version = "0.16", features = ["derive"] }
 num_cpus = "1.16"
 
 # Testing

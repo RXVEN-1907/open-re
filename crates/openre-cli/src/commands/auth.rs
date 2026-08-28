@@ -2,6 +2,7 @@
 
 use crate::{print_output, CliError, Context};
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 use openre_core::ids::UserId;
 use serde::{Deserialize, Serialize};
 use tabled::{settings::Style, Table};
@@ -43,6 +44,12 @@ pub enum AuthCommands {
 
     /// Show current user info
     Me,
+
+    /// Show authentication status
+    Status,
+
+    /// Show current access token
+    Token,
 
     /// Change password
     ChangePassword {
@@ -161,6 +168,39 @@ impl AuthCommands {
                 let response = ctx.get("/api/auth/me").await?;
                 let user: UserResponse = response.json().await?;
                 print_output(&user, &ctx.output_format)?;
+            }
+
+            AuthCommands::Status => {
+                let has_token = ctx.config.get_access_token().is_ok();
+                let has_refresh = ctx.config.get_refresh_token().is_ok();
+
+                if has_token && has_refresh {
+                    let response = ctx.get("/api/auth/me").await?;
+                    if response.status().is_success() {
+                        let user: UserResponse = response.json().await?;
+                        println!("{} Authenticated as {}", "✓".green(), user.email);
+                        println!("  User ID: {}", user.id);
+                        println!("  Username: {}", user.username);
+                        if let Some(name) = user.full_name {
+                            println!("  Name: {}", name);
+                        }
+                        println!("  Roles: {}", user.roles.join(", "));
+                    } else {
+                        println!("{} Token invalid or expired", "✗".red());
+                    }
+                } else {
+                    println!("{} Not authenticated", "✗".yellow());
+                    println!("  Run 'openre auth login' to authenticate");
+                }
+            }
+
+            AuthCommands::Token => {
+                if let Ok(token) = ctx.config.get_access_token() {
+                    println!("{}", token);
+                } else {
+                    println!("{} No access token found", "✗".red());
+                    println!("  Run 'openre auth login' to authenticate");
+                }
             }
 
             AuthCommands::ChangePassword { current, new } => {

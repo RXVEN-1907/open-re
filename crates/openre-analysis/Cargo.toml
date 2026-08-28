@@ -36,3 +36,4 @@ object = { workspace = true }
 scroll = { workspace = true }
 # pe = { workspace = true }  # Has alignment issues, using goblin for PE parsing instead
 xmas-elf = { workspace = true }
+wasmparser = { workspace = true }

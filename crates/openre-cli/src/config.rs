@@ -1,7 +1,9 @@
 //! CLI configuration
 
 use crate::{CliError, OutputFormat};
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -15,8 +17,32 @@ pub struct CliConfig {
     pub output_format: OutputFormat,
     pub verbose: bool,
 
+    // Profile support
+    pub profiles: HashMap<String, ProfileConfig>,
+    pub current_profile: Option<String>,
+
     #[serde(skip)]
     path: Option<PathBuf>,
+}
+
+/// Profile-specific configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileConfig {
+    pub server_url: Option<String>,
+    pub api_key: Option<String>,
+    pub output_format: Option<OutputFormat>,
+    pub verbose: Option<bool>,
+}
+
+impl Default for ProfileConfig {
+    fn default() -> Self {
+        Self {
+            server_url: None,
+            api_key: None,
+            output_format: None,
+            verbose: None,
+        }
+    }
 }
 
 impl Default for CliConfig {
@@ -28,6 +54,8 @@ impl Default for CliConfig {
             refresh_token: None,
             output_format: OutputFormat::Table,
             verbose: false,
+            profiles: HashMap::new(),
+            current_profile: None,
             path: None,
         }
     }
@@ -146,5 +174,97 @@ impl CliConfig {
     /// Get config file path
     pub fn path(&self) -> Option<&Path> {
         self.path.as_deref()
+    }
+
+    // Profile methods
+
+    /// List all profiles
+    pub fn list_profiles(&self) -> Result<Vec<String>, CliError> {
+        Ok(self.profiles.keys().cloned().collect())
+    }
+
+    /// Get current profile name
+    pub fn current_profile(&self) -> Result<Option<String>, CliError> {
+        Ok(self.current_profile.clone())
+    }
+
+    /// Switch to a profile
+    pub fn use_profile(&mut self, name: &str) -> Result<(), CliError> {
+        if !self.profiles.contains_key(name) {
+            return Err(CliError::InvalidInput(format!("Profile '{}' does not exist", name)));
+        }
+        self.current_profile = Some(name.to_string());
+        self.apply_profile(name);
+        Ok(())
+    }
+
+    /// Create a new profile
+    pub fn create_profile(&mut self, name: &str, base: Option<&str>) -> Result<(), CliError> {
+        if self.profiles.contains_key(name) {
+            return Err(CliError::InvalidInput(format!("Profile '{}' already exists", name)));
+        }
+
+        let mut profile = ProfileConfig::default();
+        if let Some(base_name) = base {
+            if let Some(base_profile) = self.profiles.get(base_name) {
+                profile = base_profile.clone();
+            }
+        }
+
+        self.profiles.insert(name.to_string(), profile);
+        Ok(())
+    }
+
+    /// Delete a profile
+    pub fn delete_profile(&mut self, name: &str) -> Result<(), CliError> {
+        if name == "default" {
+            return Err(CliError::InvalidInput("Cannot delete default profile".into()));
+        }
+        if self.current_profile.as_deref() == Some(name) {
+            return Err(CliError::InvalidInput("Cannot delete active profile. Switch first.".into()));
+        }
+        self.profiles.remove(name);
+        Ok(())
+    }
+
+    /// Reload configuration from file
+    pub fn reload(&mut self) -> Result<(), CliError> {
+        if let Some(path) = self.path.clone() {
+            let reloaded = Self::load(Some(&path))?;
+            *self = reloaded;
+        }
+        Ok(())
+    }
+
+    /// Apply profile settings to current config
+    fn apply_profile(&mut self, name: &str) {
+        if let Some(profile) = self.profiles.get(name) {
+            if let Some(url) = &profile.server_url {
+                self.server_url = url.clone();
+            }
+            if let Some(key) = &profile.api_key {
+                self.api_key = Some(key.clone());
+            }
+            if let Some(fmt) = profile.output_format {
+                self.output_format = fmt;
+            }
+            if let Some(verbose) = profile.verbose {
+                self.verbose = verbose;
+            }
+        }
+    }
+
+    /// Get access token
+    pub fn get_access_token(&self) -> Result<String, CliError> {
+        self.access_token
+            .clone()
+            .ok_or(CliError::NotAuthenticated)
+    }
+
+    /// Get refresh token
+    pub fn get_refresh_token(&self) -> Result<String, CliError> {
+        self.refresh_token
+            .clone()
+            .ok_or(CliError::NotAuthenticated)
     }
 }

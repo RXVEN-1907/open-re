@@ -446,6 +446,7 @@ define_id!(LoopId);
 define_id!(VariableId);
 define_id!(TypeId);
 define_id!(ObjectId);
+define_id!(ReportId);
 
 /// Alias for BasicBlockId for backwards compatibility
 pub type BlockId = BasicBlockId;

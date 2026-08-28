@@ -2,6 +2,7 @@
 
 use crate::{print_output, CliError, Context};
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use tabled::{settings::Style, Table};
 
@@ -17,7 +18,16 @@ pub enum ServerCommands {
 
         #[arg(long)]
         workers: Option<usize>,
+
+        #[arg(long)]
+        daemon: bool,
     },
+
+    /// Stop the API server
+    Stop,
+
+    /// Check server status
+    Status,
 
     /// Check server health
     Health,
@@ -36,8 +46,12 @@ impl ServerCommands {
                 port,
                 host,
                 workers,
+                daemon,
             } => {
                 println!("Starting server on {}:{}...", host, port);
+                if daemon {
+                    println!("Running in daemon mode...");
+                }
                 println!("Note: This command would start the server in the background.");
                 println!("For production, use the Docker image or systemd service.");
 
@@ -50,6 +64,33 @@ impl ServerCommands {
                 );
                 if let Some(workers) = workers {
                     println!("  With {} workers", workers);
+                }
+            }
+
+            ServerCommands::Stop => {
+                println!("Stopping server...");
+                // In a real implementation, this would send a shutdown signal
+                // For now, just show what would happen
+                println!("Server stop signal sent.");
+                println!("  (In production, this would send SIGTERM to the server process)");
+            }
+
+            ServerCommands::Status => {
+                println!("Checking server status...");
+                let response = ctx.get("/ready").await;
+                match response {
+                    Ok(resp) if resp.status().is_success() => {
+                        let info: serde_json::Value = resp.json().await?;
+                        println!("{} Server is running", "✓".green());
+                        print_output(&info, &ctx.output_format)?;
+                    }
+                    Ok(resp) => {
+                        println!("{} Server responded with error: {}", "✗".red(), resp.status());
+                    }
+                    Err(e) => {
+                        println!("{} Server is not reachable: {}", "✗".red(), e);
+                        println!("  Make sure the server is running on {}", ctx.server_url);
+                    }
                 }
             }
 

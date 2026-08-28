@@ -2,6 +2,7 @@
 
 use crate::{print_output, CliError, Context};
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use tabled::{settings::Style, Table};
 
@@ -25,16 +26,56 @@ pub enum AiCommands {
         stream: bool,
     },
 
-    /// Analyze function with AI
+    /// Analyze a finding with AI
     Analyze {
         #[arg(short, long)]
-        function_id: String,
+        finding_id: String,
 
-        #[arg(short, long)]
-        project_id: String,
+        #[arg(long)]
+        provider: Option<String>,
+
+        #[arg(long)]
+        model: Option<String>,
 
         #[arg(long)]
         stream: bool,
+    },
+
+    /// Explain a finding in detail
+    Explain {
+        #[arg(short, long)]
+        finding_id: String,
+
+        #[arg(long)]
+        provider: Option<String>,
+
+        #[arg(long)]
+        model: Option<String>,
+    },
+
+    /// Generate remediation for a finding
+    Remediate {
+        #[arg(short, long)]
+        finding_id: String,
+
+        #[arg(long)]
+        provider: Option<String>,
+
+        #[arg(long)]
+        model: Option<String>,
+    },
+
+    /// Correlate findings across a project
+    Correlate {
+        /// Project name or ID
+        #[arg(short, long)]
+        project: String,
+
+        #[arg(long)]
+        provider: Option<String>,
+
+        #[arg(long)]
+        model: Option<String>,
     },
 
     /// List prompt templates
@@ -45,6 +86,9 @@ pub enum AiCommands {
         #[arg(short, long)]
         name: String,
     },
+
+    /// List available AI providers
+    Providers,
 }
 
 impl AiCommands {
@@ -130,19 +174,27 @@ impl AiCommands {
             }
 
             AiCommands::Analyze {
-                function_id,
-                project_id,
+                finding_id,
+                provider,
+                model,
                 stream,
             } => {
-                let payload = serde_json::json!({
-                    "function_id": function_id,
-                    "project_id": project_id,
+                let mut payload = serde_json::json!({
+                    "finding_id": finding_id,
+                    "action": "analyze",
                 });
 
+                if let Some(provider) = provider {
+                    payload["provider"] = serde_json::json!(provider);
+                }
+                if let Some(model) = model {
+                    payload["model"] = serde_json::json!(model);
+                }
+
                 let url = if stream {
-                    "/api/ai/analyze/stream"
+                    "/api/ai/finding/analyze/stream"
                 } else {
-                    "/api/ai/analyze"
+                    "/api/ai/finding/analyze"
                 };
 
                 if stream {
@@ -180,8 +232,8 @@ impl AiCommands {
                     println!();
                 } else {
                     let response = ctx.post(url, &payload).await?;
-                    let result: AnalyzeFunctionResponse = response.json().await?;
-                    println!("{}", result.analysis);
+                    let result: AiFindingResponse = response.json().await?;
+                    println!("{}", result.result);
                     println!("\n---");
                     println!("Model: {}", result.model);
                     println!(
@@ -191,6 +243,105 @@ impl AiCommands {
                         result.usage.total_tokens
                     );
                 }
+            }
+
+            AiCommands::Explain {
+                finding_id,
+                provider,
+                model,
+            } => {
+                let mut payload = serde_json::json!({
+                    "finding_id": finding_id,
+                    "action": "explain",
+                });
+
+                if let Some(provider) = provider {
+                    payload["provider"] = serde_json::json!(provider);
+                }
+                if let Some(model) = model {
+                    payload["model"] = serde_json::json!(model);
+                }
+
+                let response = ctx.post("/api/ai/finding/explain", &payload).await?;
+                let result: AiFindingResponse = response.json().await?;
+                println!("{}", result.result);
+                println!("\n---");
+                println!("Model: {}", result.model);
+                println!(
+                    "Tokens: {} prompt + {} completion = {} total",
+                    result.usage.prompt_tokens,
+                    result.usage.completion_tokens,
+                    result.usage.total_tokens
+                );
+            }
+
+            AiCommands::Remediate {
+                finding_id,
+                provider,
+                model,
+            } => {
+                let mut payload = serde_json::json!({
+                    "finding_id": finding_id,
+                    "action": "remediate",
+                });
+
+                if let Some(provider) = provider {
+                    payload["provider"] = serde_json::json!(provider);
+                }
+                if let Some(model) = model {
+                    payload["model"] = serde_json::json!(model);
+                }
+
+                let response = ctx.post("/api/ai/finding/remediate", &payload).await?;
+                let result: AiFindingResponse = response.json().await?;
+                println!("{}", result.result);
+                println!("\n---");
+                println!("Model: {}", result.model);
+                println!(
+                    "Tokens: {} prompt + {} completion = {} total",
+                    result.usage.prompt_tokens,
+                    result.usage.completion_tokens,
+                    result.usage.total_tokens
+                );
+            }
+
+            AiCommands::Correlate {
+                project,
+                provider,
+                model,
+            } => {
+                // Resolve project ID
+                let project_id = resolve_project_id(&mut ctx, &project).await?;
+
+                let mut payload = serde_json::json!({
+                    "project_id": project_id,
+                    "action": "correlate",
+                });
+
+                if let Some(provider) = provider {
+                    payload["provider"] = serde_json::json!(provider);
+                }
+                if let Some(model) = model {
+                    payload["model"] = serde_json::json!(model);
+                }
+
+                println!("Correlating findings across project...");
+                let response = ctx.post("/api/ai/correlate", &payload).await?;
+                let result: AiCorrelateResponse = response.json().await?;
+
+                println!("{}", result.correlations);
+                if let Some(risk_summary) = result.risk_summary {
+                    println!("\n{}", "Risk Summary:".bold());
+                    println!("{}", risk_summary);
+                }
+                println!("\n---");
+                println!("Model: {}", result.model);
+                println!(
+                    "Tokens: {} prompt + {} completion = {} total",
+                    result.usage.prompt_tokens,
+                    result.usage.completion_tokens,
+                    result.usage.total_tokens
+                );
             }
 
             AiCommands::Templates => {
@@ -204,9 +355,31 @@ impl AiCommands {
                 let template: TemplateInfo = response.json().await?;
                 print_output(&template, &ctx.output_format)?;
             }
+
+            AiCommands::Providers => {
+                let response = ctx.get("/api/ai/providers").await?;
+                let providers: ProviderListResponse = response.json().await?;
+                print_output(&providers.providers, &ctx.output_format)?;
+            }
         }
 
         Ok(())
+    }
+}
+
+// Helper to resolve project name to ID
+async fn resolve_project_id(ctx: &mut Context, project: &str) -> Result<String, CliError> {
+    if uuid::Uuid::parse_str(project).is_ok() {
+        return Ok(project.to_string());
+    }
+
+    let response = ctx.get(&format!("/api/projects?search={}", urlencoding::encode(project))).await?;
+    let list: ProjectListResponse = response.json().await?;
+
+    if let Some(project) = list.projects.first() {
+        Ok(project.id.to_string())
+    } else {
+        Err(CliError::InvalidInput(format!("Project not found: {}", project)))
     }
 }
 
@@ -266,4 +439,51 @@ pub struct TemplateInfo {
     pub name: String,
     pub description: String,
     pub variables: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AiFindingResponse {
+    pub result: String,
+    pub model: String,
+    pub usage: Usage,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AiCorrelateResponse {
+    pub correlations: String,
+    pub risk_summary: Option<String>,
+    pub model: String,
+    pub usage: Usage,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ProviderListResponse {
+    pub providers: Vec<ProviderInfo>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ProviderInfo {
+    pub name: String,
+    pub models: Vec<String>,
+    pub description: String,
+    pub capabilities: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ProjectListResponse {
+    pub projects: Vec<ProjectResponse>,
+    pub total: u64,
+    pub page: u32,
+    pub per_page: u32,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ProjectResponse {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub owner_id: String,
+    pub is_public: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }

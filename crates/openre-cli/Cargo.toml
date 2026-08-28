@@ -19,6 +19,7 @@ openre-telemetry = { path = "../openre-telemetry" }
 openre-storage = { path = "../openre-storage" }
 openre-queue = { path = "../openre-queue" }
 openre-ai = { path = "../openre-ai" }
+openre-analysis = { path = "../openre-analysis" }
 # openre-plugins = { path = "../openre-plugins" }  # Temporarily disabled
 openre-api = { path = "../openre-api" }
 clap = { workspace = true }
@@ -33,9 +34,13 @@ chrono = { workspace = true }
 reqwest = { workspace = true }
 indicatif = "0.17"
 colored = "2.0"
-tabled = { workspace = true }
+tabled = { version = "0.16", features = ["derive"] }
 serde_yaml = { workspace = true }
 toml = "0.8"
 urlencoding = { workspace = true }
 dirs = "5.0"
 futures = { workspace = true }
+goblin = { workspace = true }
+wasmparser = { workspace = true }
+object = { workspace = true }
+scroll = { workspace = true }

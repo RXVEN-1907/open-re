@@ -16,6 +16,7 @@ pub enum BinaryFormat {
     Elf,
     Pe,
     MachO,
+    Wasm,
 }
 
 impl BinaryFormat {
@@ -28,6 +29,8 @@ impl BinaryFormat {
             && (&bytes[0..4] == b"\xfe\xed\xfa\xce" || &bytes[0..4] == b"\xce\xfa\xed\xfe")
         {
             BinaryFormat::MachO
+        } else if bytes.len() >= 4 && &bytes[0..4] == b"\x00asm" {
+            BinaryFormat::Wasm
         } else {
             BinaryFormat::Unknown
         }
