@@ -58,8 +58,8 @@ ratatui = { workspace = true, optional = true }
 crossterm = { workspace = true, optional = true }
 
 [features]
-default = []  # No TUI by default - CLI only
-tui = ["dep:ratatui", "dep:crossterm"]  # Experimental TUI (not yet fully implemented)
+default = ["tui"]  # TUI enabled by default
+tui = ["dep:ratatui", "dep:crossterm"]  # Interactive TUI
 minimal = []  # No TUI - just CLI
 
 [profile.release]

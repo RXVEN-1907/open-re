@@ -4,8 +4,11 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use colored::Colorize;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 use openre_core::ids::ScanId;
+use std::io::{self, Write};
+use std::time::{Duration, Instant};
+use tokio::time::sleep;
 
 // Re-export core types for public API
 pub use openre_core::result::{
@@ -18,20 +21,98 @@ use select::document::Document;
 use select::predicate::Name;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
 use tabled::{Table, Tabled};
 use tracing::Level;
 use tracing_subscriber::{fmt, EnvFilter};
 use url::Url;
 
+// ASCII Art Banner from README
+const ASCII_BANNER: &str = r#"
+ ██████╗ ██████╗ ███████╗███╗   ██╗         ██████╗ ███████╗
+██╔═══██╗██╔══██╗██╔════╝████╗  ██║         ██╔══██╗██╔════╝
+██║   ██║██████╔╝█████╗  ██╔██╗ ██║ ██████╗ ██████╔╝█████╗
+██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║ ╚═════╝ ██╔══██╗██╔══╝
+╚██████╔╝██║     ███████╗██║ ╚████║         ██║  ██║███████╗
+ ╚═════╝ ╚══╝     ╚══════╝╚═╝  ╚═══╝         ╚═╝  ╚═╝╚══════╝
+"#;
+
+const ASCII_BANNER_SMALL: &str = r#"
+███████╗██████╗ ██████╗  ██████╗ ███████╗███████╗
+██╔════╝██╔══██╗██╔══██╗██╔═══██╗██╔════╝██╔════╝
+█████╗  ██████╔╝██████╔╝██║   ██║███████╗█████╗
+██╔══╝  ██╔══██╗██╔═══╝ ██║   ██║╚════██║██╔══╝
+███████╗██║  ██║██║     ╚██████╔╝███████║███████╗
+╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚══════╝╚══════╝
+"#;
+
 // TUI module (experimental)
 #[cfg(feature = "tui")]
 pub mod tui;
 
+/// Print the ASCII art banner
+fn print_banner() {
+    println!("{}", ASCII_BANNER.bright_cyan().bold());
+    println!("{}", "Open-source Reverse Engineering & Offensive Security Platform".bright_white());
+    println!("{}", "Modern security tools + LLMs for automated binary, web, API & app analysis".dimmed());
+    println!("{}", "Discover vulnerabilities • Generate PoC exploits • Actionable remediation".dimmed());
+    println!();
+}
+
+/// Print a compact banner for smaller terminals
+fn print_compact_banner() {
+    println!("{}", ASCII_BANNER_SMALL.bright_cyan().bold());
+    println!("{}", "open-re: Security Scanner & Reverse Engineering Platform".bright_white());
+    println!();
+}
+
+/// Detect terminal width and print appropriate banner
+fn print_smart_banner() {
+    let width = terminal_width().unwrap_or(80);
+    if width >= 100 {
+        print_banner();
+    } else {
+        print_compact_banner();
+    }
+}
+
+/// Get terminal width
+fn terminal_width() -> Option<usize> {
+    // Try crossterm first
+    #[cfg(feature = "tui")]
+    {
+        use crossterm::terminal::size;
+        if let Ok((w, _)) = size() {
+            return Some(w as usize);
+        }
+    }
+    // Fallback to env var
+    std::env::var("COLUMNS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+}
+
+/// Animated spinner for startup
+async fn show_startup_animation() {
+    let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    let message = "Initializing openre-scan...";
+
+    for _ in 0..2 {
+        for frame in frames {
+            print!("\r{} {} ", frame.bright_cyan(), message.bright_white());
+            io::stdout().flush().ok();
+            sleep(Duration::from_millis(80)).await;
+        }
+    }
+    println!("\r{} {}", "✓".green(), "Ready!".green().bold());
+    println!();
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "openre-scan")]
-#[command(about = "Lightweight Security Scanner", long_about = None)]
+#[command(about = "Lightweight Security Scanner")]
+#[command(long_about = "openre-scan: Lightweight standalone security scanner for web applications and APIs\n\nA minimal, fast security assessment tool with 18+ security checks across three scan profiles.\nPart of the open-re platform: https://github.com/RXVEN-1907/open-re")]
 #[command(version)]
+#[command(after_help = "Examples:\n  openre-scan scan https://example.com --profile quick\n  openre-scan scan https://example.com --profile standard --format json\n  openre-scan scan https://example.com --profile full --output results.sarif\n  openre-scan tui\n\nFor more information, visit: https://github.com/RXVEN-1907/open-re")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -59,6 +140,14 @@ struct Cli {
     /// User agent
     #[arg(long, global = true, default_value = "openre-scan/0.1.0")]
     user_agent: String,
+
+    /// Show ASCII banner on startup
+    #[arg(long, global = true, default_value = "true")]
+    banner: bool,
+
+    /// Disable colored output
+    #[arg(long, global = true)]
+    no_color: bool,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -140,6 +229,11 @@ fn parse_header(s: &str) -> Result<(String, String), String> {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    // Disable colors if requested
+    if cli.no_color {
+        colored::control::set_override(false);
+    }
+
     let level = if cli.verbose {
         Level::DEBUG
     } else {
@@ -147,6 +241,14 @@ async fn main() -> anyhow::Result<()> {
     };
     let filter = EnvFilter::new(level.to_string());
     fmt().with_env_filter(filter).compact().init();
+
+    // Show banner unless explicitly disabled or running version command
+    let show_banner = cli.banner && !matches!(cli.command, Commands::Version);
+    if show_banner {
+        print_smart_banner();
+        // Small delay for visual effect
+        sleep(Duration::from_millis(100)).await;
+    }
 
     match cli.command {
         Commands::Scan {
@@ -183,6 +285,9 @@ async fn main() -> anyhow::Result<()> {
         }
         #[cfg(feature = "tui")]
         Commands::Tui => {
+            if show_banner {
+                println!("{}", "Launching TUI...".bright_cyan());
+            }
             tui::run_tui().await?;
         }
     }
@@ -246,15 +351,8 @@ struct ScanConfig {
 
 #[allow(dead_code)]
 async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
-    println!(
-        "{}",
-        "🔍 openre-scan - Lightweight Security Scanner"
-            .bold()
-            .cyan()
-    );
-    println!("{}", format!("Target: {}", config.target_str).dimmed());
-    println!("{}", format!("Profile: {:?}", config.profile).dimmed());
-    println!();
+    // Use MultiProgress for better progress display
+    let multi_progress = MultiProgress::new();
 
     let target_url =
         if config.target_str.starts_with("http://") || config.target_str.starts_with("https://") {
@@ -289,21 +387,43 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
         })
         .collect();
 
-    println!("{} Running {} checks", "▶".green(), checks_to_run.len());
     let checks_count = checks_to_run.len();
-    for check in &checks_to_run {
-        println!("  {} {}", "→".blue(), check.name());
+
+    // Print scan header with better formatting
+    let line_top = format!("{}", "┌".dimmed()) + &"─".repeat(78) + &format!("{}", "┐".dimmed());
+    let line_mid = format!("{}", "├".dimmed()) + &"─".repeat(78) + &format!("{}", "┤".dimmed());
+    let line_bot = format!("{}", "└".dimmed()) + &"─".repeat(78) + &format!("{}", "┘".dimmed());
+
+    println!("{}", line_top);
+    println!("{} {:<76} {}", "│".dimmed(), "🔍 openre-scan — Security Scan".bold().bright_cyan(), "│".dimmed());
+    println!("{}", line_mid);
+    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Target:".bold(), config.target_str.bright_white(), "│".dimmed());
+    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Profile:".bold(), format!("{:?} ({} checks)", config.profile, checks_count).bright_white(), "│".dimmed());
+    println!("{}", line_bot);
+    println!();
+
+    // Show checks being run
+    println!("{}", "📋 Checks to run:".bold().bright_blue());
+    for (i, check) in checks_to_run.iter().enumerate() {
+        let check_info = get_check_description(check);
+        println!("  {}. {} {}",
+            format!("{:2}", i + 1).dimmed(),
+            check.name().bright_cyan(),
+            check_info.dimmed()
+        );
     }
     println!();
 
+    // Progress bar with better styling
     let progress_bar = if !config.no_progress {
-        let pb = ProgressBar::new(checks_count as u64);
+        let pb = multi_progress.add(ProgressBar::new(checks_count as u64));
         pb.set_style(
             ProgressStyle::default_bar()
-                .template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+                .template("{spinner:.green} {msg:<40} [{bar:40.cyan/blue}] {pos}/{len} ({percent}%)")
                 .unwrap()
-                .progress_chars("##-"),
+                .progress_chars("█▉▊▋▌▍▎▏ "),
         );
+        pb.enable_steady_tick(Duration::from_millis(100));
         Some(pb)
     } else {
         None
@@ -313,17 +433,40 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
     let mut all_findings = Vec::new();
     let scan_id = ScanId::new();
 
-    for check in checks_to_run {
+    for (_i, check) in checks_to_run.iter().enumerate() {
         if let Some(pb) = &progress_bar {
             pb.set_message(format!("Running {}", check.name()));
         }
 
         match check.run(&client, &target_url).await {
             Ok(findings) => {
+                if !findings.is_empty() {
+                    for finding in &findings {
+                        let _severity_icon = match finding.severity {
+                            Severity::Critical => "🔴".to_string(),
+                            Severity::High => "🟠".to_string(),
+                            Severity::Medium => "🟡".to_string(),
+                            Severity::Low => "🟢".to_string(),
+                            Severity::Info => "🔵".to_string(),
+                        };
+                        println!("  {} {} {} [{}]",
+                            "✓".green(),
+                            finding.title.bright_white(),
+                            format!("({})", finding.severity).color(severity_color(&finding.severity)),
+                            check.name().dimmed()
+                        );
+                    }
+                }
                 all_findings.extend(findings);
             }
             Err(e) => {
-                eprintln!("{} Check {} failed: {}", "✗".red(), check.name(), e);
+                if let Some(pb) = &progress_bar {
+                    pb.suspend(|| {
+                        eprintln!("{} {} failed: {}", "✗".red().bold(), check.name().bright_yellow(), e);
+                    });
+                } else {
+                    eprintln!("{} {} failed: {}", "✗".red().bold(), check.name().bright_yellow(), e);
+                }
             }
         }
 
@@ -335,19 +478,29 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
     let duration = start_time.elapsed();
 
     if let Some(pb) = progress_bar {
-        pb.finish_with_message("Scan complete!");
+        pb.finish_with_message("✓ Scan complete!");
     }
 
-    println!("\n{}", "📋 Scan Results".bold().underline());
-    println!("{}", "═".repeat(80).dimmed());
-    println!(
-        "Scan ID: {} | Duration: {:.2}s | Checks: {} | Findings: {}",
-        scan_id,
-        duration.as_secs_f32(),
-        checks_count,
-        all_findings.len()
-    );
-    println!("{}", "═".repeat(80).dimmed());
+    println!();
+    let line_top = format!("{}", "┌".dimmed()) + &"─".repeat(78) + &format!("{}", "┐".dimmed());
+    let line_mid = format!("{}", "├".dimmed()) + &"─".repeat(78) + &format!("{}", "┤".dimmed());
+    let line_bot = format!("{}", "└".dimmed()) + &"─".repeat(78) + &format!("{}", "┘".dimmed());
+
+    println!("{}", line_top);
+    println!("{} {:<76} {}", "│".dimmed(), "📋 Scan Results".bold().bright_green(), "│".dimmed());
+    println!("{}", line_mid);
+    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Scan ID:".bold(), scan_id.to_string().bright_white(), "│".dimmed());
+    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Duration:".bold(), format!("{:.2}s", duration.as_secs_f32()).bright_white(), "│".dimmed());
+    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Checks Run:".bold(), checks_count.to_string().bright_white(), "│".dimmed());
+    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Findings:".bold(), all_findings.len().to_string().bright_white(), "│".dimmed());
+    println!("{}", line_bot);
+    println!();
+
+    // Print severity summary
+    if !all_findings.is_empty() {
+        print_severity_summary(&all_findings);
+        println!();
+    }
 
     display_results(
         &all_findings,
@@ -360,6 +513,69 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
     .await?;
 
     Ok(())
+}
+
+/// Get color for severity
+fn severity_color(sev: &Severity) -> &'static str {
+    match sev {
+        Severity::Critical => "red",
+        Severity::High => "red",
+        Severity::Medium => "yellow",
+        Severity::Low => "green",
+        Severity::Info => "blue",
+    }
+}
+
+/// Get description for a check
+fn get_check_description(check: &Check) -> &'static str {
+    match check {
+        Check::HttpHeaders => "HTTP header analysis",
+        Check::TlsCertificate => "TLS certificate validation",
+        Check::CookieSecurity => "Cookie security flags",
+        Check::SecurityHeaders => "Security headers (HSTS, CSP, etc.)",
+        Check::ContentSecurityPolicy => "CSP directive analysis",
+        Check::CorsConfiguration => "CORS misconfiguration",
+        Check::InformationDisclosure => "Debug info & version disclosure",
+        Check::TechnologyFingerprint => "Tech stack detection",
+        Check::RobotsTxt => "robots.txt enumeration",
+        Check::SitemapXml => "sitemap.xml discovery",
+        Check::DirectoryListing => "Directory listing detection",
+        Check::SensitiveFiles => "Sensitive file exposure (20+ paths)",
+        Check::FormAnalysis => "Form security (GET passwords, CSRF)",
+        Check::LinkAnalysis => "Mixed content & external links",
+        Check::ScriptAnalysis => "Inline/external script analysis",
+        Check::MetaTags => "Security-relevant meta tags",
+        Check::HttpMethods => "Dangerous HTTP methods (TRACE, PUT, etc.)",
+        Check::SslTlsConfiguration => "SSL/TLS deep configuration",
+    }
+}
+
+/// Print severity summary
+fn print_severity_summary(findings: &[Finding]) {
+    let mut counts = std::collections::HashMap::new();
+    for f in findings {
+        *counts.entry(f.severity).or_insert(0) += 1;
+    }
+
+    println!("{}", "📊 Findings by Severity:".bold().bright_blue());
+    for sev in [
+        Severity::Critical,
+        Severity::High,
+        Severity::Medium,
+        Severity::Low,
+        Severity::Info,
+    ] {
+        if let Some(count) = counts.get(&sev) {
+            let (icon, color) = match sev {
+                Severity::Critical => ("🔴", "red"),
+                Severity::High => ("🟠", "red"),
+                Severity::Medium => ("🟡", "yellow"),
+                Severity::Low => ("🟢", "green"),
+                Severity::Info => ("🔵", "blue"),
+            };
+            println!("  {} {:<10} {}", icon, format!("{:?}:", sev).color(color), count);
+        }
+    }
 }
 
 pub fn build_client(
@@ -1961,9 +2177,19 @@ async fn print_sarif_results(
 
 #[allow(dead_code)]
 fn show_version() {
-    println!("openre-scan {}", env!("CARGO_PKG_VERSION"));
-    println!("Lightweight Security Scanner");
-    println!("Repository: https://github.com/RXVEN-1907/open-re");
+    print_banner();
+    println!("{} {}", "Version:".bold(), env!("CARGO_PKG_VERSION").bright_white());
+    println!("{} {}", "Component:".bold(), "openre-scan (standalone scanner)".bright_white());
+    println!("{} {}", "Repository:".bold(), "https://github.com/RXVEN-1907/open-re".bright_blue().underline());
+    println!("{} {}", "Platform:".bold(), "open-re v0.2.0-dev".bright_white());
+    println!();
+    println!("{}", "Part of the open-re platform:".dimmed());
+    println!("  • openre-scan — Standalone security scanner (this tool)");
+    println!("  • openre-cli — Unified CLI for all platform operations");
+    println!("  • openre-api — REST/gRPC API server");
+    println!("  • openre-analysis — Binary analysis pipeline");
+    println!("  • openre-plugins — WASM plugin system");
+    println!("  • openre-security-ai — AI-powered vulnerability analysis");
 }
 
 fn scan_id() -> ScanId {
