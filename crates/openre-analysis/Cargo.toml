@@ -37,3 +37,8 @@ scroll = { workspace = true }
 # pe = { workspace = true }  # Has alignment issues, using goblin for PE parsing instead
 xmas-elf = { workspace = true }
 wasmparser = { workspace = true }
+
+[dev-dependencies]
+wat = "1.0"
+tempfile = { workspace = true }
+tokio-test = "0.4"

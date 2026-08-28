@@ -1,14 +1,17 @@
 //! WebAssembly Binary Parser
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use wasmparser::{Parser, Payload, TypeRef, FuncType, Export as WasmExport, ExternalKind, Import as WasmImport};
-use openre_core::ids::FileId;
+use openre_core::ids::{FileId, VariableId};
 use std::path::Path;
+use wasmparser::{
+    Export as WasmExport, ExternalKind, FuncType, Import as WasmImport, Parser, Payload, TypeRef,
+};
 
 use crate::binary::common::*;
 use crate::binary::traits::*;
-use openre_core::error::OpenreResult as ResultCore;
+use openre_core::error::OpenreResult as Result;
+use openre_core::Error;
 
 pub struct WasmParser;
 
@@ -43,9 +46,7 @@ impl WasmParser {
                         data: None,
                     });
                 }
-                Ok(Payload::TypeSection(types)) => {
-                    for _ in types {}
-                }
+                Ok(Payload::TypeSection(types)) => for _ in types {},
                 Ok(Payload::FunctionSection(functions)) => {
                     for func in functions {
                         if let Ok(ty_idx) = func {
@@ -59,10 +60,8 @@ impl WasmParser {
                             if kind == ExternalKind::Func {
                                 export_names.push((name.to_string(), index));
                             }
-                            info.exports.push(Export {
-                                name: name.to_string(),
-                                address: index as u64,
-                            });
+                            info.exports
+                                .push(Export { name: name.to_string(), address: index as u64 });
                         }
                     }
                 }
@@ -94,25 +93,31 @@ impl WasmParser {
                                 name: format!("data_{}", data.range.start),
                                 address: data.range.start as u64,
                                 size: data.data.len() as u64,
-                                flags: SectionFlags { readable: true, writable: true, executable: false },
+                                flags: SectionFlags {
+                                    readable: true,
+                                    writable: true,
+                                    executable: false,
+                                },
                                 data: Some(data.data.to_vec()),
                             });
                         }
                     }
                 }
                 Ok(Payload::CustomSection(custom)) => {
-                        info.sections.push(Section {
-                            name: custom.name().to_string(),
-                            address: 0,
-                            size: custom.data().len() as u64,
-                            flags: SectionFlags { readable: true, writable: false, executable: false },
-                            data: Some(custom.data().to_vec()),
-                        });
+                    info.sections.push(Section {
+                        name: custom.name().to_string(),
+                        address: 0,
+                        size: custom.data().len() as u64,
+                        flags: SectionFlags { readable: true, writable: false, executable: false },
+                        data: Some(custom.data().to_vec()),
+                    });
                 }
-                Ok(Payload::ElementSection(_)) | Ok(Payload::GlobalSection(_)) |
-                Ok(Payload::MemorySection(_)) | Ok(Payload::TableSection(_)) => {}
+                Ok(Payload::ElementSection(_))
+                | Ok(Payload::GlobalSection(_))
+                | Ok(Payload::MemorySection(_))
+                | Ok(Payload::TableSection(_)) => {}
                 Ok(Payload::End(_)) => break,
-                Err(e) => return Err(anyhow::anyhow!("WASM parse error: {}", e)),
+                Err(e) => return Err(Error::Internal(anyhow!("WASM parse error: {}", e))),
                 _ => {}
             }
         }
@@ -169,7 +174,7 @@ impl BinaryIdentifier for WasmIdentifier {
         BinaryFormat::Wasm
     }
 
-    async fn identify(&self, data: &[u8]) -> ResultCore<BinaryIdentification> {
+    async fn identify(&self, data: &[u8]) -> Result<BinaryIdentification> {
         if data.len() >= 8 && &data[0..4] == b"\x00asm" {
             let parser = Parser::new(0);
             let mut version = 0;
@@ -211,7 +216,7 @@ impl BinaryMetadataExtractor for WasmMetadataExtractor {
         BinaryFormat::Wasm
     }
 
-    async fn extract_metadata(&self, data: &[u8]) -> ResultCore<BinaryMetadata> {
+    async fn extract_metadata(&self, data: &[u8]) -> Result<BinaryMetadata> {
         let bytes = data.to_vec();
         let parser = Parser::new(0);
 
@@ -307,24 +312,24 @@ impl BinaryMetadataExtractor for WasmMetadataExtractor {
                     }
                 }
                 Ok(Payload::CustomSection(custom)) => {
-                        let entropy = calculate_entropy(custom.data());
-                        sections.push(SectionInfo {
-                            name: custom.name().to_string(),
-                            virtual_address: 0,
-                            virtual_size: custom.data().len() as u64,
-                            raw_offset: 0,
-                            raw_size: custom.data().len() as u64,
-                            characteristics: SectionCharacteristics {
-                                readable: true,
-                                writable: false,
-                                executable: false,
-                                shared: false,
-                                discardable: false,
-                                not_cached: false,
-                                not_paged: false,
-                            },
-                            entropy,
-                        });
+                    let entropy = calculate_entropy(custom.data());
+                    sections.push(SectionInfo {
+                        name: custom.name().to_string(),
+                        virtual_address: 0,
+                        virtual_size: custom.data().len() as u64,
+                        raw_offset: 0,
+                        raw_size: custom.data().len() as u64,
+                        characteristics: SectionCharacteristics {
+                            readable: true,
+                            writable: false,
+                            executable: false,
+                            shared: false,
+                            discardable: false,
+                            not_cached: false,
+                            not_paged: false,
+                        },
+                        entropy,
+                    });
                 }
                 _ => {}
             }
@@ -338,7 +343,11 @@ impl BinaryMetadataExtractor for WasmMetadataExtractor {
                 size: 0,
                 symbol_type: SymbolType::Function,
                 binding: if is_export { SymbolBinding::Global } else { SymbolBinding::Local },
-                visibility: if is_export { SymbolVisibility::Default } else { SymbolVisibility::Hidden },
+                visibility: if is_export {
+                    SymbolVisibility::Default
+                } else {
+                    SymbolVisibility::Hidden
+                },
                 section_index: Some(0),
             });
         }
@@ -371,39 +380,39 @@ impl BinaryMetadataExtractor for WasmMetadataExtractor {
         })
     }
 
-    async fn extract_sections(&self, data: &[u8]) -> ResultCore<Vec<SectionInfo>> {
+    async fn extract_sections(&self, data: &[u8]) -> Result<Vec<SectionInfo>> {
         let metadata = self.extract_metadata(data).await?;
         Ok(metadata.sections)
     }
 
-    async fn extract_segments(&self, _data: &[u8]) -> ResultCore<Vec<SegmentInfo>> {
+    async fn extract_segments(&self, _data: &[u8]) -> Result<Vec<SegmentInfo>> {
         Ok(Vec::new())
     }
 
-    async fn extract_symbols(&self, data: &[u8]) -> ResultCore<Vec<SymbolInfo>> {
+    async fn extract_symbols(&self, data: &[u8]) -> Result<Vec<SymbolInfo>> {
         let metadata = self.extract_metadata(data).await?;
         Ok(metadata.symbols)
     }
 
-    async fn extract_imports(&self, data: &[u8]) -> ResultCore<Vec<ImportInfo>> {
+    async fn extract_imports(&self, data: &[u8]) -> Result<Vec<ImportInfo>> {
         let metadata = self.extract_metadata(data).await?;
         Ok(metadata.imports)
     }
 
-    async fn extract_exports(&self, data: &[u8]) -> ResultCore<Vec<ExportInfo>> {
+    async fn extract_exports(&self, data: &[u8]) -> Result<Vec<ExportInfo>> {
         let metadata = self.extract_metadata(data).await?;
         Ok(metadata.exports)
     }
 
-    async fn extract_strings(&self, _data: &[u8]) -> ResultCore<Vec<ExtractedString>> {
+    async fn extract_strings(&self, _data: &[u8]) -> Result<Vec<ExtractedString>> {
         Ok(Vec::new())
     }
 
-    async fn extract_resources(&self, _data: &[u8]) -> ResultCore<Vec<ResourceInfo>> {
+    async fn extract_resources(&self, _data: &[u8]) -> Result<Vec<ResourceInfo>> {
         Ok(Vec::new())
     }
 
-    async fn extract_version_info(&self, _data: &[u8]) -> ResultCore<Option<VersionInfo>> {
+    async fn extract_version_info(&self, _data: &[u8]) -> Result<Option<VersionInfo>> {
         Ok(None)
     }
 }
@@ -438,9 +447,175 @@ fn calculate_hashes(data: &[u8]) -> FileHashes {
     let sha1_hash = format!("{:x}", Sha1::digest(data));
     let sha256_hash = format!("{:x}", Sha256::digest(data));
 
-    FileHashes {
-        md5: md5_hash,
-        sha1: sha1_hash,
-        sha256: sha256_hash,
+    FileHashes { md5: md5_hash, sha1: sha1_hash, sha256: sha256_hash }
+}
+
+/// WASM Static Analyzer Implementation
+#[async_trait]
+impl StaticAnalyzer for WasmParser {
+    async fn calculate_entropy(&self, data: &[u8]) -> Result<f64> {
+        Ok(calculate_entropy(data))
+    }
+
+    async fn find_functions(
+        &self,
+        data: &[u8],
+        metadata: &BinaryMetadata,
+    ) -> Result<Vec<FunctionInfo>> {
+        let mut functions = Vec::new();
+
+        // Extract functions from symbols
+        for symbol in &metadata.symbols {
+            if symbol.symbol_type == SymbolType::Function {
+                functions.push(FunctionInfo {
+                    address: symbol.address,
+                    size: symbol.size,
+                    name: Some(symbol.name.clone()),
+                    is_thunk: false,
+                    is_import: symbol.binding != SymbolBinding::Global,
+                    basic_blocks: Vec::new(),
+                    calls: Vec::new(),
+                    called_by: Vec::new(),
+                    complexity: 1,
+                });
+            }
+        }
+
+        // Also find functions from exports
+        for export in &metadata.exports {
+            if !functions.iter().any(|f| f.address == export.address) {
+                functions.push(FunctionInfo {
+                    address: export.address,
+                    size: 0,
+                    name: Some(export.name.clone()),
+                    is_thunk: false,
+                    is_import: false,
+                    basic_blocks: Vec::new(),
+                    calls: Vec::new(),
+                    called_by: Vec::new(),
+                    complexity: 1,
+                });
+            }
+        }
+
+        Ok(functions)
+    }
+
+    async fn analyze_control_flow(
+        &self,
+        _data: &[u8],
+        metadata: &BinaryMetadata,
+    ) -> Result<ControlFlowInfo> {
+        let mut functions = Vec::new();
+        let mut call_graph_nodes = Vec::new();
+        let mut call_graph_edges = Vec::new();
+        let mut cfg_nodes = Vec::new();
+        let mut cfg_edges = Vec::new();
+
+        // Add functions from symbols
+        for symbol in &metadata.symbols {
+            if symbol.symbol_type == SymbolType::Function {
+                let func = FunctionInfo {
+                    address: symbol.address,
+                    size: symbol.size,
+                    name: Some(symbol.name.clone()),
+                    is_thunk: false,
+                    is_import: symbol.binding != SymbolBinding::Global,
+                    basic_blocks: Vec::new(),
+                    calls: Vec::new(),
+                    called_by: Vec::new(),
+                    complexity: 1,
+                };
+                functions.push(func.clone());
+
+                call_graph_nodes.push(CallGraphNode {
+                    address: symbol.address,
+                    name: Some(symbol.name.clone()),
+                    is_external: symbol.binding != SymbolBinding::Global,
+                });
+            }
+        }
+
+        // Add imports as external call targets
+        for import in &metadata.imports {
+            for func in &import.functions {
+                call_graph_nodes.push(CallGraphNode {
+                    address: func.address.unwrap_or(0),
+                    name: Some(func.name.clone()),
+                    is_external: true,
+                });
+
+                // Add edges from potential callers (simplified)
+                for node in &call_graph_nodes {
+                    if !node.is_external {
+                        call_graph_edges.push(CallGraphEdge {
+                            from: node.address,
+                            to: func.address.unwrap_or(0),
+                            edge_type: CallEdgeType::Direct,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Add exports as entry points
+        for export in &metadata.exports {
+            call_graph_nodes.push(CallGraphNode {
+                address: export.address,
+                name: Some(export.name.clone()),
+                is_external: false,
+            });
+        }
+
+        Ok(ControlFlowInfo {
+            functions,
+            call_graph: CallGraph { nodes: call_graph_nodes, edges: call_graph_edges },
+            cfg: ControlFlowGraph { nodes: cfg_nodes, edges: cfg_edges },
+        })
+    }
+
+    async fn analyze_data_flow(
+        &self,
+        _data: &[u8],
+        metadata: &BinaryMetadata,
+    ) -> Result<DataFlowInfo> {
+        let mut variables = Vec::new();
+        let mut data_dependencies = Vec::new();
+        let mut var_counter = 0u64;
+
+        // Extract variables from data sections
+        for section in &metadata.sections {
+            if section.characteristics.writable && !section.characteristics.executable {
+                // Potential data section
+                var_counter += 1;
+                variables.push(crate::binary::traits::VariableInfo {
+                    address: section.virtual_address,
+                    name: Some(section.name.clone()),
+                    var_type: crate::binary::traits::VariableType::Unknown,
+                    size: section.virtual_size,
+                    scope: crate::binary::traits::VariableScope::Global,
+                });
+                // Add self-dependency for the variable
+                data_dependencies.push(crate::binary::traits::DataDependency {
+                    from: var_counter,
+                    to: var_counter,
+                    dependency_type: crate::binary::traits::DataDependencyType::ReadWrite,
+                });
+            }
+        }
+
+        // Add imports as data dependencies (simplified)
+        for import in &metadata.imports {
+            for func in &import.functions {
+                var_counter += 1;
+                data_dependencies.push(crate::binary::traits::DataDependency {
+                    from: var_counter,
+                    to: var_counter,
+                    dependency_type: crate::binary::traits::DataDependencyType::Read,
+                });
+            }
+        }
+
+        Ok(DataFlowInfo { variables, data_dependencies })
     }
 }
