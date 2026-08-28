@@ -184,13 +184,9 @@ impl Orchestrator {
             ctx.cancellation.check()?;
 
             // Get stage
-            let stage = self
-                .stages
-                .iter()
-                .find(|s| s.id() == stage_id)
-                .ok_or_else(|| {
-                    openre_core::Error::Internal(anyhow::anyhow!("Stage not found: {}", stage_id))
-                })?;
+            let stage = self.stages.iter().find(|s| s.id() == stage_id).ok_or_else(|| {
+                openre_core::Error::Internal(anyhow::anyhow!("Stage not found: {}", stage_id))
+            })?;
 
             // Check if stage can be skipped (incremental)
             if self.can_skip_stage(&ctx, &stage_id, &stage_results).await? {
@@ -199,9 +195,7 @@ impl Orchestrator {
             }
 
             // Execute stage
-            let result = self
-                .execute_stage(&ctx, stage.as_ref(), &stage_results)
-                .await?;
+            let result = self.execute_stage(&ctx, stage.as_ref(), &stage_results).await?;
 
             // Emit progress
             self.emit_progress(&ctx, &stage_id, &stage_results).await?;
@@ -296,13 +290,7 @@ impl Orchestrator {
 
         let current_stage_result = results.get(&stage_id);
         let stage_progress = current_stage_result
-            .map(|r| {
-                if r.status == StageStatus::Success {
-                    1.0
-                } else {
-                    0.5
-                }
-            })
+            .map(|r| if r.status == StageStatus::Success { 1.0 } else { 0.5 })
             .unwrap_or(0.0);
 
         let progress = JobProgress {
@@ -330,13 +318,7 @@ impl Orchestrator {
                         .unwrap_or(crate::progress::StageStatus::Pending),
                     progress: results
                         .get(&s.id())
-                        .map(|r| {
-                            if r.status == StageStatus::Success {
-                                1.0
-                            } else {
-                                0.0
-                            }
-                        })
+                        .map(|r| if r.status == StageStatus::Success { 1.0 } else { 0.0 })
                         .unwrap_or(0.0),
                     started_at: results.get(&s.id()).map(|r| r.started_at),
                     completed_at: results.get(&s.id()).map(|r| r.completed_at),
@@ -357,10 +339,8 @@ impl Orchestrator {
     }
 
     async fn estimate_remaining(&self, results: &HashMap<StageId, StageResult>) -> Option<u64> {
-        let completed_stages: Vec<_> = results
-            .values()
-            .filter(|r| r.status == StageStatus::Success)
-            .collect();
+        let completed_stages: Vec<_> =
+            results.values().filter(|r| r.status == StageStatus::Success).collect();
         if completed_stages.is_empty() {
             return None;
         }
@@ -410,9 +390,7 @@ pub struct StageDag {
 
 impl StageDag {
     pub fn new() -> Self {
-        Self {
-            stages: HashMap::new(),
-        }
+        Self { stages: HashMap::new() }
     }
 
     pub fn add_stage(&mut self, stage_id: StageId, dependencies: Vec<StageId>) {
@@ -452,14 +430,8 @@ impl StageDag {
 
         for stage_id in self.stages.keys() {
             if !visited.contains(stage_id) {
-                visit(
-                    stage_id.clone(),
-                    &self.stages,
-                    &mut visited,
-                    &mut temp,
-                    &mut order,
-                )
-                .expect("Cycle detected in pipeline DAG");
+                visit(stage_id.clone(), &self.stages, &mut visited, &mut temp, &mut order)
+                    .expect("Cycle detected in pipeline DAG");
             }
         }
 
@@ -511,7 +483,7 @@ pub struct StageExecutor {
     telemetry: TelemetryHandle,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ExecutorConfig {
     pub default_timeout_secs: u64,
     pub max_retries: u32,
@@ -662,14 +634,11 @@ pub struct CancellationToken {
 
 impl CancellationToken {
     pub fn new() -> Self {
-        Self {
-            cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-        }
+        Self { cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)) }
     }
 
     pub fn cancel(&self) {
-        self.cancelled
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        self.cancelled.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn is_cancelled(&self) -> bool {
@@ -721,4 +690,40 @@ impl Priority {
     pub const LOW: Priority = Priority(0);
     pub const DEFAULT: Priority = Priority(5);
     pub const HIGH: Priority = Priority(10);
+}
+
+/// Create default 9-stage pipeline stages
+pub fn default_pipeline_stages() -> Vec<Box<dyn PipelineStage>> {
+    let telemetry = openre_telemetry::TelemetryHandle::default();
+    let executor = Arc::new(StageExecutor::new(ExecutorConfig::default(), telemetry.clone()));
+
+    vec![
+        Box::new(crate::stages::IdentificationStage::new(vec![])),
+        Box::new(crate::stages::LoadingStage::new(vec![])),
+        Box::new(crate::stages::DisassemblyStage::new(
+            Arc::new(crate::stages::NoopDisassembler),
+            executor.clone(),
+        )),
+        Box::new(crate::stages::ControlFlowStage::new(
+            Arc::new(crate::stages::NoopAnalyzer),
+            executor.clone(),
+        )),
+        Box::new(crate::stages::DataFlowStage::new(
+            Arc::new(crate::stages::NoopAnalyzer),
+            executor.clone(),
+        )),
+        Box::new(crate::stages::TypeRecoveryStage::new(
+            Arc::new(crate::stages::NoopAnalyzer),
+            executor.clone(),
+        )),
+        Box::new(crate::stages::DecompilationStage::new(
+            Arc::new(crate::stages::NoopDecompiler),
+            executor.clone(),
+        )),
+        Box::new(crate::stages::AiEnrichmentStage::new(
+            Arc::new(crate::stages::NoopAiService),
+            crate::stages::AiEnrichmentConfig::default(),
+        )),
+        Box::new(crate::stages::FinalizationStage::new(vec![])),
+    ]
 }

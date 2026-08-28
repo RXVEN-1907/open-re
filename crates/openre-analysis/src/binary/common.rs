@@ -495,7 +495,7 @@ pub enum OperandType {
 }
 
 /// Control flow output
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ControlFlowOutput {
     pub cfg_edges: Vec<CfgEdge>,
     pub call_edges: Vec<CallEdge>,
@@ -564,7 +564,7 @@ pub enum LoopType {
 }
 
 /// Data flow output
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DataFlowOutput {
     pub variables: Vec<Variable>,
     pub data_dependencies: Vec<DataDependency>,
@@ -613,7 +613,7 @@ pub enum DependencyType {
 }
 
 /// Type recovery output
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TypeRecoveryOutput {
     pub types: HashMap<TypeId, TypeInfo>,
     pub variables: Vec<Variable>,

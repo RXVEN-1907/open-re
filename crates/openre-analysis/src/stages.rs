@@ -72,9 +72,7 @@ impl InferenceResponse {
     /// Extract a suggested function name from the model output
     pub fn extract_function_name(&self) -> Option<String> {
         let line = self.content.lines().find(|l| !l.trim().is_empty())?;
-        let name = line
-            .trim()
-            .trim_matches(|c| c == '`' || c == '"' || c == '\'');
+        let name = line.trim().trim_matches(|c| c == '`' || c == '"' || c == '\'');
         let name = name.strip_prefix("Name: ").unwrap_or(name);
         if name.is_empty() {
             None
@@ -96,10 +94,73 @@ pub struct NoopAiService;
 #[async_trait::async_trait]
 impl AiService for NoopAiService {
     async fn batch_infer(&self, requests: Vec<InferenceRequest>) -> Result<Vec<InferenceResponse>> {
-        Ok(requests
-            .into_iter()
-            .map(|_| InferenceResponse::default())
-            .collect())
+        Ok(requests.into_iter().map(|_| InferenceResponse::default()).collect())
+    }
+}
+
+/// No-op disassembler used for testing
+pub struct NoopDisassembler;
+
+#[async_trait::async_trait]
+impl DisassemblerPlugin for NoopDisassembler {
+    async fn disassemble_function(
+        &self,
+        _binary: &IsolatedBinary,
+        _func: FunctionBoundary,
+    ) -> Result<DisassemblyFunctionResult> {
+        Ok(DisassemblyFunctionResult {
+            instructions: vec![],
+            blocks: vec![],
+        })
+    }
+}
+
+/// No-op analyzer used for testing
+pub struct NoopAnalyzer;
+
+#[async_trait::async_trait]
+impl AnalyzerPlugin for NoopAnalyzer {
+    async fn analyze_control_flow(
+        &self,
+        _binary: &IsolatedBinary,
+        _functions: &[FunctionBoundary],
+    ) -> Result<ControlFlowOutput> {
+        Ok(ControlFlowOutput::default())
+    }
+
+    async fn analyze_data_flow(
+        &self,
+        _binary: &IsolatedBinary,
+        _cfg: &CFG,
+    ) -> Result<DataFlowOutput> {
+        Ok(DataFlowOutput::default())
+    }
+
+    async fn recover_types(
+        &self,
+        _binary: &IsolatedBinary,
+        _data_flow: &DataFlowOutput,
+    ) -> Result<TypeRecoveryOutput> {
+        Ok(TypeRecoveryOutput::default())
+    }
+}
+
+/// No-op decompiler used for testing
+pub struct NoopDecompiler;
+
+#[async_trait::async_trait]
+impl DecompilerPlugin for NoopDecompiler {
+    async fn decompile_function(
+        &self,
+        _func_id: FunctionId,
+        _cfg: &CFG,
+        _types: &TypeInfo,
+    ) -> Result<DecompilationFunctionResult> {
+        Ok(DecompilationFunctionResult {
+            function_id: FunctionId::new(),
+            pseudocode: String::new(),
+            variables: vec![],
+        })
     }
 }
 
@@ -154,11 +215,7 @@ impl PipelineStage for IdentificationStage {
         // Run all identifier plugins and keep the most confident result
         for plugin in &self.plugins {
             let result = plugin.identify(&ctx.binary).await?;
-            if best
-                .as_ref()
-                .map(|b| result.confidence > b.confidence)
-                .unwrap_or(true)
-            {
+            if best.as_ref().map(|b| result.confidence > b.confidence).unwrap_or(true) {
                 best = Some(result);
             }
         }
@@ -267,10 +324,7 @@ pub struct DisassemblyStage {
 
 impl DisassemblyStage {
     pub fn new(disassembler: Arc<dyn DisassemblerPlugin>, executor: Arc<StageExecutor>) -> Self {
-        Self {
-            disassembler,
-            executor,
-        }
+        Self { disassembler, executor }
     }
 }
 
@@ -298,10 +352,8 @@ impl PipelineStage for DisassemblyStage {
     }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
-        let loading_result = ctx
-            .previous_results
-            .get(&StageId::new("loading"))
-            .ok_or_else(|| {
+        let loading_result =
+            ctx.previous_results.get(&StageId::new("loading")).ok_or_else(|| {
                 openre_core::Error::Internal(anyhow::anyhow!("loading result missing"))
             })?;
         let loading: LoadingOutput = serde_json::from_value(loading_result.output.clone())?;
@@ -389,18 +441,14 @@ impl PipelineStage for ControlFlowStage {
     }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
-        let loading_result = ctx
-            .previous_results
-            .get(&StageId::new("loading"))
-            .ok_or_else(|| {
+        let loading_result =
+            ctx.previous_results.get(&StageId::new("loading")).ok_or_else(|| {
                 openre_core::Error::Internal(anyhow::anyhow!("loading result missing"))
             })?;
         let loading: LoadingOutput = serde_json::from_value(loading_result.output.clone())?;
 
-        let output = self
-            .analyzer
-            .analyze_control_flow(&ctx.binary, &loading.function_boundaries)
-            .await?;
+        let output =
+            self.analyzer.analyze_control_flow(&ctx.binary, &loading.function_boundaries).await?;
 
         Ok(StageResult {
             stage_id: self.id(),
@@ -448,10 +496,7 @@ impl PipelineStage for DataFlowStage {
     }
 
     async fn execute(&self, _ctx: StageContext) -> Result<StageResult> {
-        let output = DataFlowOutput {
-            variables: vec![],
-            data_dependencies: vec![],
-        };
+        let output = DataFlowOutput { variables: vec![], data_dependencies: vec![] };
 
         Ok(StageResult {
             stage_id: self.id(),
@@ -499,10 +544,7 @@ impl PipelineStage for TypeRecoveryStage {
     }
 
     async fn execute(&self, _ctx: StageContext) -> Result<StageResult> {
-        let output = TypeRecoveryOutput {
-            types: HashMap::new(),
-            variables: vec![],
-        };
+        let output = TypeRecoveryOutput { types: HashMap::new(), variables: vec![] };
 
         Ok(StageResult {
             stage_id: self.id(),
@@ -524,10 +566,7 @@ pub struct DecompilationStage {
 
 impl DecompilationStage {
     pub fn new(decompiler: Arc<dyn DecompilerPlugin>, executor: Arc<StageExecutor>) -> Self {
-        Self {
-            decompiler,
-            executor,
-        }
+        Self { decompiler, executor }
     }
 }
 
@@ -553,30 +592,24 @@ impl PipelineStage for DecompilationStage {
     }
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
-        let type_result = ctx
-            .previous_results
-            .get(&StageId::new("type_recovery"))
-            .ok_or_else(|| {
+        let type_result =
+            ctx.previous_results.get(&StageId::new("type_recovery")).ok_or_else(|| {
                 openre_core::Error::Internal(anyhow::anyhow!("type_recovery result missing"))
             })?;
 
         // Recovered types feed the decompiler; CFG construction is not yet wired up,
         // so there are no functions to decompile yet. The plugin hook remains for
         // when CFG data becomes available.
-        let _types: TypeRecoveryOutput = serde_json::from_value(type_result.output.clone())
-            .unwrap_or_else(|_| TypeRecoveryOutput {
-                types: HashMap::new(),
-                variables: Vec::new(),
+        let _types: TypeRecoveryOutput =
+            serde_json::from_value(type_result.output.clone()).unwrap_or_else(|_| {
+                TypeRecoveryOutput { types: HashMap::new(), variables: Vec::new() }
             });
 
         let pseudocode_map: HashMap<FunctionId, String> = HashMap::new();
         let variables_map: HashMap<FunctionId, Vec<Variable>> = HashMap::new();
         let mut metrics = StageMetrics::default();
 
-        let output = DecompilationOutput {
-            pseudocode: pseudocode_map,
-            variables: variables_map,
-        };
+        let output = DecompilationOutput { pseudocode: pseudocode_map, variables: variables_map };
 
         Ok(StageResult {
             stage_id: self.id(),
@@ -657,10 +690,8 @@ impl PipelineStage for AiEnrichmentStage {
             return Ok(StageResult::skipped(self.id()));
         }
 
-        let decomp_result = ctx
-            .previous_results
-            .get(&StageId::new("decompilation"))
-            .ok_or_else(|| {
+        let decomp_result =
+            ctx.previous_results.get(&StageId::new("decompilation")).ok_or_else(|| {
                 openre_core::Error::Internal(anyhow::anyhow!("decompilation result missing"))
             })?;
         let decomp: DecompilationOutput =
@@ -748,10 +779,7 @@ impl PipelineStage for FinalizationStage {
 
     async fn execute(&self, ctx: StageContext) -> Result<StageResult> {
         for exporter in &self.exporters {
-            match exporter
-                .export(ctx.job.project_id, ExportFormat::Json)
-                .await
-            {
+            match exporter.export(ctx.job.project_id, ExportFormat::Json).await {
                 Ok(result) => info!(path = %result.path, "Export completed"),
                 Err(e) => warn!("Exporter failed: {}", e),
             }
