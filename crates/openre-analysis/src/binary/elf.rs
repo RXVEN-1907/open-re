@@ -24,7 +24,9 @@ impl ElfParser {
             base_address: elf
                 .program_headers
                 .iter()
-                .find(|ph| ph.p_type == goblin::elf::program_header::PT_LOAD && ph.p_flags & 0x1 != 0) // PF_X
+                .find(|ph| {
+                    ph.p_type == goblin::elf::program_header::PT_LOAD && ph.p_flags & 0x1 != 0
+                }) // PF_X
                 .map(|ph| ph.p_vaddr)
                 .unwrap_or(0),
             sections: Vec::new(),
@@ -172,12 +174,19 @@ impl BinaryIdentifier for ElfIdentifier {
     }
 
     async fn identify(&self, data: &[u8]) -> ResultCore<BinaryIdentification> {
-        let elf = Elf::parse(data).map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("ELF parse error: {}", e)))?;
+        let elf = Elf::parse(data)
+            .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("ELF parse error: {}", e)))?;
         Ok(BinaryIdentification {
             format: BinaryFormat::Elf,
             architecture: ElfParser::arch_from_elf(&elf),
-            bitness: if elf.is_64 { Bitness::Bit64 } else { Bitness::Bit32 },
-            endianness: if elf.header.e_ident[goblin::elf::header::EI_DATA] == goblin::elf::header::ELFDATA2LSB {
+            bitness: if elf.is_64 {
+                Bitness::Bit64
+            } else {
+                Bitness::Bit32
+            },
+            endianness: if elf.header.e_ident[goblin::elf::header::EI_DATA]
+                == goblin::elf::header::ELFDATA2LSB
+            {
                 Endianness::Little
             } else {
                 Endianness::Big
@@ -203,12 +212,15 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
 
     async fn extract_metadata(&self, data: &[u8]) -> ResultCore<BinaryMetadata> {
         let bytes = data.to_vec();
-        let elf = Elf::parse(&bytes).map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("ELF parse error: {}", e)))?;
+        let elf = Elf::parse(&bytes)
+            .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("ELF parse error: {}", e)))?;
 
         let mut sections = Vec::new();
         for section in &elf.section_headers {
             if let Some(name) = elf.shdr_strtab.get_at(section.sh_name) {
-                let entropy = if section.sh_type == goblin::elf::section_header::SHT_PROGBITS && section.sh_size > 0 {
+                let entropy = if section.sh_type == goblin::elf::section_header::SHT_PROGBITS
+                    && section.sh_size > 0
+                {
                     let start = section.sh_offset as usize;
                     let end = start + section.sh_size as usize;
                     if end <= bytes.len() {
@@ -317,8 +329,14 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
             identification: BinaryIdentification {
                 format: BinaryFormat::Elf,
                 architecture: ElfParser::arch_from_elf(&elf),
-                bitness: if elf.is_64 { Bitness::Bit64 } else { Bitness::Bit32 },
-                endianness: if elf.header.e_ident[goblin::elf::header::EI_DATA] == goblin::elf::header::ELFDATA2LSB {
+                bitness: if elf.is_64 {
+                    Bitness::Bit64
+                } else {
+                    Bitness::Bit32
+                },
+                endianness: if elf.header.e_ident[goblin::elf::header::EI_DATA]
+                    == goblin::elf::header::ELFDATA2LSB
+                {
                     Endianness::Little
                 } else {
                     Endianness::Big

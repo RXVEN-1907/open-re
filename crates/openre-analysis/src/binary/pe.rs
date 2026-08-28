@@ -149,11 +149,16 @@ impl BinaryIdentifier for PeIdentifier {
     }
 
     async fn identify(&self, data: &[u8]) -> ResultCore<BinaryIdentification> {
-        let pe = PE::parse(data).map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("PE parse error: {}", e)))?;
+        let pe = PE::parse(data)
+            .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("PE parse error: {}", e)))?;
         Ok(BinaryIdentification {
             format: BinaryFormat::Pe,
             architecture: PeParser::arch_from_pe(&pe),
-            bitness: if pe.is_64 { Bitness::Bit64 } else { Bitness::Bit32 },
+            bitness: if pe.is_64 {
+                Bitness::Bit64
+            } else {
+                Bitness::Bit32
+            },
             endianness: Endianness::Little, // PE is always little-endian
             os: OperatingSystem::Windows,
             entry_point: Some(pe.entry as u64),
@@ -176,7 +181,8 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
 
     async fn extract_metadata(&self, data: &[u8]) -> ResultCore<BinaryMetadata> {
         let bytes = data.to_vec();
-        let pe = PE::parse(&bytes).map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("PE parse error: {}", e)))?;
+        let pe = PE::parse(&bytes)
+            .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("PE parse error: {}", e)))?;
 
         let mut sections = Vec::new();
         for section in &pe.sections {
@@ -296,7 +302,11 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
             identification: BinaryIdentification {
                 format: BinaryFormat::Pe,
                 architecture: PeParser::arch_from_pe(&pe),
-                bitness: if pe.is_64 { Bitness::Bit64 } else { Bitness::Bit32 },
+                bitness: if pe.is_64 {
+                    Bitness::Bit64
+                } else {
+                    Bitness::Bit32
+                },
                 endianness: Endianness::Little,
                 os: OperatingSystem::Windows,
                 entry_point: Some(pe.entry as u64),

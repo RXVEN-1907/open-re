@@ -51,7 +51,6 @@ async fn get_test_server() -> &'static TestServer {
         .await
 }
 
-
 #[tokio::test]
 async fn test_scan_pipeline_quick_profile() {
     let server = get_test_server().await;
