@@ -67,6 +67,21 @@ pub enum AnalysisCommands {
     /// Show data flow analysis for a function
     Dataflow(DataflowArgs),
 
+    /// Analyze ELF binary with full pipeline
+    Elf(AnalyzeFormatArgs),
+
+    /// Analyze PE binary with full pipeline
+    Pe(AnalyzeFormatArgs),
+
+    /// Analyze Mach-O binary with full pipeline
+    Macho(AnalyzeFormatArgs),
+
+    /// Analyze WASM binary with full pipeline
+    Wasm(AnalyzeFormatArgs),
+
+    /// Auto-detect format and analyze with full pipeline
+    Auto(AnalyzeFormatArgs),
+
     /// Run analysis pipeline
     #[command(subcommand)]
     Pipeline(PipelineCommands),
@@ -266,6 +281,29 @@ pub struct DataflowArgs {
     /// Output format
     #[arg(short, long, value_enum, default_value = "table")]
     pub output: OutputFormatArg,
+}
+
+#[derive(Parser)]
+pub struct AnalyzeFormatArgs {
+    /// Path to binary file
+    #[arg(value_name = "FILE")]
+    pub file: PathBuf,
+
+    /// Analysis profile (quick/standard/full)
+    #[arg(short, long, value_enum, default_value = "standard")]
+    pub profile: AnalysisProfileArg,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "table")]
+    pub output: OutputFormatArg,
+
+    /// Enable AI enrichment
+    #[arg(long)]
+    pub ai_enabled: bool,
+
+    /// Project ID (optional)
+    #[arg(long)]
+    pub project_id: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -604,6 +642,11 @@ impl AnalysisCommands {
             AnalysisCommands::Decompile(args) => Self::cmd_decompile(args, ctx).await,
             AnalysisCommands::Cfg(args) => Self::cmd_cfg(args, ctx).await,
             AnalysisCommands::Dataflow(args) => Self::cmd_dataflow(args, ctx).await,
+            AnalysisCommands::Elf(args) => Self::cmd_analyze_format(BinaryFormat::Elf, args, ctx).await,
+            AnalysisCommands::Pe(args) => Self::cmd_analyze_format(BinaryFormat::Pe, args, ctx).await,
+            AnalysisCommands::Macho(args) => Self::cmd_analyze_format(BinaryFormat::MachO, args, ctx).await,
+            AnalysisCommands::Wasm(args) => Self::cmd_analyze_format(BinaryFormat::Wasm, args, ctx).await,
+            AnalysisCommands::Auto(args) => Self::cmd_analyze_auto(args, ctx).await,
             AnalysisCommands::Pipeline(cmd) => Self::cmd_pipeline(cmd, ctx).await,
         }
     }
