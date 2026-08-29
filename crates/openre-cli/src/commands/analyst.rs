@@ -134,9 +134,12 @@ impl AnalystCommands {
                 stream,
             } => {
                 if stream {
-                    let response = ctx
-                        .client
-                        .get(&format!("{}/api/analyst/explain/stream", ctx.server_url))
+                    if ctx.is_offline() {
+                        return Err(CliError::InvalidInput("Streaming not supported in offline mode. Use --no-stream flag.".to_string()));
+                    }
+                    let client = ctx.client()?;
+                    let response = client
+                        .get(&format!("{}/api/analyst/explain/stream", ctx.server_url()))
                         .query(&[("scan_id", &scan_id), ("finding_id", &finding_id)])
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
                         .send()
@@ -180,9 +183,9 @@ impl AnalystCommands {
 
                 if stream {
                     // For remediation, streaming might not be as useful, but we'll implement it
-                    let response = ctx
-                        .client
-                        .post(&format!("{}/api/analyst/remediate/stream", ctx.server_url))
+                    let client = ctx.client()?;
+                    let response = client
+                        .post(&format!("{}/api/analyst/remediate/stream", ctx.server_url()))
                         .json(&payload)
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
                         .send()
@@ -239,9 +242,12 @@ impl AnalystCommands {
                 });
 
                 if stream {
-                    let response = ctx
-                        .client
-                        .get(&format!("{}/api/analyst/correlate/stream", ctx.server_url))
+                    if ctx.is_offline() {
+                        return Err(CliError::InvalidInput("Streaming not supported in offline mode. Use --no-stream flag.".to_string()));
+                    }
+                    let client = ctx.client()?;
+                    let response = client
+                        .get(&format!("{}/api/analyst/correlate/stream", ctx.server_url()))
                         .query(&[("scan_id", &scan_id)])
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
                         .send()
@@ -270,9 +276,12 @@ impl AnalystCommands {
                 });
 
                 if stream {
-                    let response = ctx
-                        .client
-                        .get(&format!("{}/api/analyst/prioritize/stream", ctx.server_url))
+                    if ctx.is_offline() {
+                        return Err(CliError::InvalidInput("Streaming not supported in offline mode. Use --no-stream flag.".to_string()));
+                    }
+                    let client = ctx.client()?;
+                    let response = client
+                        .get(&format!("{}/api/analyst/prioritize/stream", ctx.server_url()))
                         .query(&[("scan_id", &scan_id)])
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
                         .send()
@@ -306,9 +315,12 @@ impl AnalystCommands {
                 });
 
                 if stream {
-                    let response = ctx
-                        .client
-                        .get(&format!("{}/api/analyst/summarize/stream", ctx.server_url))
+                    if ctx.is_offline() {
+                        return Err(CliError::InvalidInput("Streaming not supported in offline mode. Use --no-stream flag.".to_string()));
+                    }
+                    let client = ctx.client()?;
+                    let response = client
+                        .get(&format!("{}/api/analyst/summarize/stream", ctx.server_url()))
                         .query(&[
                             ("scan_id", &scan_id),
                             ("audience", &format!("{:?}", audience).to_lowercase()),
@@ -345,9 +357,12 @@ impl AnalystCommands {
                 });
 
                 if stream {
-                    let response = ctx
-                        .client
-                        .get(&format!("{}/api/analyst/query/stream", ctx.server_url))
+                    if ctx.is_offline() {
+                        return Err(CliError::InvalidInput("Streaming not supported in offline mode. Use --no-stream flag.".to_string()));
+                    }
+                    let client = ctx.client()?;
+                    let response = client
+                        .get(&format!("{}/api/analyst/query/stream", ctx.server_url()))
                         .query(&[("scan_id", &scan_id), ("question", &question)])
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
                         .send()
@@ -381,9 +396,12 @@ impl AnalystCommands {
                 });
 
                 if stream {
-                    let response = ctx
-                        .client
-                        .get(&format!("{}/api/analyst/compare/stream", ctx.server_url))
+                    if ctx.is_offline() {
+                        return Err(CliError::InvalidInput("Streaming not supported in offline mode. Use --no-stream flag.".to_string()));
+                    }
+                    let client = ctx.client()?;
+                    let response = client
+                        .get(&format!("{}/api/analyst/compare/stream", ctx.server_url()))
                         .query(&[
                             ("base_scan_id", &base_scan_id),
                             ("target_scan_id", &target_scan_id),

@@ -40,6 +40,12 @@ pub enum CliError {
 
     #[error("URL encoding error: {0}")]
     UrlEncodingError(String),
+
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] rusqlite::Error),
+
+    #[error("Internal error: {0}")]
+    Internal(String),
 }
 
 pub type CliResult<T> = Result<T, CliError>;

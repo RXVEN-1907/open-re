@@ -120,9 +120,12 @@ impl AiCommands {
 
                 if stream {
                     // Streaming response
-                    let response = ctx
-                        .client
-                        .post(&format!("{}/api/ai/chat/stream", ctx.server_url))
+                    if ctx.is_offline() {
+                        return Err(CliError::InvalidInput("Streaming not supported in offline mode. Use --no-stream flag.".to_string()));
+                    }
+                    let client = ctx.client()?;
+                    let response = client
+                        .post(&format!("{}/api/ai/chat/stream", ctx.server_url()))
                         .json(&payload)
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
                         .send()
@@ -198,9 +201,12 @@ impl AiCommands {
                 };
 
                 if stream {
-                    let response = ctx
-                        .client
-                        .post(&format!("{}{}", ctx.server_url, url))
+                    if ctx.is_offline() {
+                        return Err(CliError::InvalidInput("Streaming not supported in offline mode. Use --no-stream flag.".to_string()));
+                    }
+                    let client = ctx.client()?;
+                    let response = client
+                        .post(&format!("{}{}", ctx.server_url(), url))
                         .json(&payload)
                         .header("Authorization", format!("Bearer {}", ctx.get_token()?))
                         .send()

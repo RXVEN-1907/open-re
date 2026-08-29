@@ -22,6 +22,8 @@ pub use output::{print_output, OutputFormat};
 
 use std::path::PathBuf;
 
+use shellexpand;
+
 #[derive(Parser)]
 #[command(
     name = "openre",
@@ -48,6 +50,14 @@ struct Cli {
     /// API key for authentication
     #[arg(long, global = true, env = "OPENRE_API_KEY")]
     api_key: Option<String>,
+
+    /// Enable offline/local mode (no API server required)
+    #[arg(long, global = true, alias = "local")]
+    offline: bool,
+
+    /// Local data directory for offline mode
+    #[arg(long, global = true, default_value = "~/.openre")]
+    data_dir: String,
 
     /// Enable verbose output
     #[arg(short, long, global = true)]
@@ -126,20 +136,26 @@ async fn main() -> Result<(), CliError> {
     // Load configuration
     let config = CliConfig::load(cli.config.as_deref())?;
 
-    // Create HTTP client
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()?;
+    // Expand data directory path
+    let data_dir = shellexpand::tilde(&cli.data_dir).to_string();
 
-    // Create context
-    let ctx = Context {
+    // Create context (HTTP client only needed for online mode)
+    let client = if cli.offline {
+        None
+    } else {
+        Some(reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build()?)
+    };
+
+    let ctx = Context::new(
         config,
         client,
-        server_url: cli.server,
-        api_key: cli.api_key,
-        output_format: cli.format,
-        verbose: cli.verbose,
-    };
+        cli.server,
+        cli.api_key,
+        cli.format,
+        cli.verbose,
+        cli.offline,
+        data_dir,
+    )?;
 
     // Execute command
     match cli.command {

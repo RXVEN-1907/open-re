@@ -129,8 +129,8 @@ impl FileCommands {
                     );
 
                 let response = ctx
-                    .client
-                    .post(&format!("{}/api/files", ctx.server_url))
+                    .client()?
+                    .post(&format!("{}/api/files", ctx.server_url()))
                     .multipart(form)
                     .header("Authorization", format!("Bearer {}", ctx.get_token()?))
                     .send()

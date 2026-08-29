@@ -5,15 +5,16 @@ use clap::{Parser, Subcommand};
 use openre_core::ids::ProjectId;
 use serde::{Deserialize, Serialize};
 use tabled::{settings::Style, Table};
+use uuid::Uuid;
 
 #[derive(Subcommand)]
 pub enum ProjectCommands {
     /// List projects
     List {
-        #[arg(short, long, default_value = "1")]
+        #[arg(short = 'g', long, default_value = "1")]
         page: u32,
 
-        #[arg(short, long, default_value = "50")]
+        #[arg(short = 'n', long, default_value = "50")]
         per_page: u32,
 
         #[arg(long)]
@@ -62,15 +63,15 @@ pub enum ProjectCommands {
         force: bool,
     },
 
-    /// Collaborator management
+    /// Collaborator management (online only)
     #[command(subcommand)]
     Collaborator(CollaboratorCommands),
 
-    /// Invite management
+    /// Invite management (online only)
     #[command(subcommand)]
     Invite(InviteCommands),
 
-    /// Share link management
+    /// Share link management (online only)
     #[command(subcommand)]
     Share(ShareCommands),
 
@@ -173,6 +174,10 @@ pub enum ShareCommands {
 
 impl ProjectCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
+        if ctx.is_offline() {
+            return self.execute_offline(ctx).await;
+        }
+
         match self {
             ProjectCommands::List {
                 page,
@@ -291,6 +296,182 @@ impl ProjectCommands {
 
         Ok(())
     }
+
+    async fn execute_offline(self, ctx: Context) -> Result<(), CliError> {
+        let store = ctx.local_store().await?;
+        let mut store_guard = store.lock().await;
+        let store = store_guard.as_mut().expect("Local store not initialized");
+
+        match self {
+            ProjectCommands::List { page, per_page, search } => {
+                let mut sql = "SELECT id, name, description, created_at, updated_at FROM projects".to_string();
+                let mut params = Vec::new();
+
+                if let Some(search) = search {
+                    sql.push_str(" WHERE name LIKE ?");
+                    params.push(serde_json::json!(format!("%{}%", search)));
+                }
+
+                sql.push_str(" ORDER BY created_at DESC LIMIT ? OFFSET ?");
+                params.push(serde_json::json!(per_page));
+                params.push(serde_json::json!((page - 1) * per_page));
+
+                let results = store.query(&sql, params).await?;
+                let projects: Vec<LocalProject> = results
+                    .into_iter()
+                    .map(|v| LocalProject {
+                        id: v["id"].as_str().unwrap_or("").to_string(),
+                        name: v["name"].as_str().unwrap_or("").to_string(),
+                        description: v["description"].as_str().map(|s| s.to_string()),
+                        created_at: v["created_at"].as_str().unwrap_or("").to_string(),
+                        updated_at: v["updated_at"].as_str().unwrap_or("").to_string(),
+                    })
+                    .collect();
+
+                print_output(&projects, &ctx.output_format)?;
+                println!("Showing page {} (offline mode)", page);
+            }
+
+            ProjectCommands::Create { name, description, public: _ } => {
+                let id = Uuid::new_v4().to_string();
+                let now = chrono::Utc::now().to_rfc3339();
+
+                store
+                    .execute(
+                        "INSERT INTO projects (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                        vec![
+                            serde_json::json!(id.clone()),
+                            serde_json::json!(name.clone()),
+                            serde_json::json!(description),
+                            serde_json::json!(now.clone()),
+                            serde_json::json!(now),
+                        ],
+                    )
+                    .await?;
+
+                let project = LocalProject {
+                    id: id.clone(),
+                    name: name.clone(),
+                    description,
+                    created_at: now.clone(),
+                    updated_at: now,
+                };
+                print_output(&project, &ctx.output_format)?;
+                println!("Project created successfully (offline mode)!");
+            }
+
+            ProjectCommands::Get { id } => {
+                let results = store
+                    .query(
+                        "SELECT id, name, description, created_at, updated_at FROM projects WHERE id = ?",
+                        vec![serde_json::json!(id)],
+                    )
+                    .await?;
+
+                if let Some(v) = results.first() {
+                    let project = LocalProject {
+                        id: v["id"].as_str().unwrap_or("").to_string(),
+                        name: v["name"].as_str().unwrap_or("").to_string(),
+                        description: v["description"].as_str().map(|s| s.to_string()),
+                        created_at: v["created_at"].as_str().unwrap_or("").to_string(),
+                        updated_at: v["updated_at"].as_str().unwrap_or("").to_string(),
+                    };
+                    print_output(&project, &ctx.output_format)?;
+                } else {
+                    return Err(CliError::InvalidInput(format!("Project not found: {}", id)));
+                }
+            }
+
+            ProjectCommands::Update { id, name, description, public: _ } => {
+                let mut updates = Vec::new();
+                let mut params = Vec::new();
+
+                if let Some(name) = name {
+                    updates.push("name = ?");
+                    params.push(serde_json::json!(name));
+                }
+                if let Some(description) = description {
+                    updates.push("description = ?");
+                    params.push(serde_json::json!(description));
+                }
+
+                if updates.is_empty() {
+                    println!("No updates provided.");
+                    return Ok(());
+                }
+
+                let now = chrono::Utc::now().to_rfc3339();
+                updates.push("updated_at = ?");
+                params.push(serde_json::json!(now));
+                params.push(serde_json::json!(id));
+
+                let sql = format!("UPDATE projects SET {} WHERE id = ?", updates.join(", "));
+                let rows = store.execute(&sql, params).await?;
+
+                if rows == 0 {
+                    return Err(CliError::InvalidInput(format!("Project not found: {}", id)));
+                }
+
+                println!("Project updated successfully (offline mode)!");
+            }
+
+            ProjectCommands::Delete { id, force } => {
+                if !force {
+                    print!("Are you sure you want to delete project {}? (y/N): ", id);
+                    use std::io::{self, Write};
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    if !input.trim().eq_ignore_ascii_case("y") {
+                        println!("Cancelled.");
+                        return Ok(());
+                    }
+                }
+
+                let rows = store
+                    .execute("DELETE FROM projects WHERE id = ?", vec![serde_json::json!(id)])
+                    .await?;
+
+                if rows == 0 {
+                    return Err(CliError::InvalidInput(format!("Project not found: {}", id)));
+                }
+
+                println!("Project deleted successfully (offline mode)!");
+            }
+
+            ProjectCommands::Collaborator(_) => {
+                return Err(CliError::InvalidInput(
+                    "Collaborator management not available in offline mode".to_string(),
+                ));
+            }
+            ProjectCommands::Invite(_) => {
+                return Err(CliError::InvalidInput(
+                    "Invite management not available in offline mode".to_string(),
+                ));
+            }
+            ProjectCommands::Share(_) => {
+                return Err(CliError::InvalidInput(
+                    "Share link management not available in offline mode".to_string(),
+                ));
+            }
+            ProjectCommands::Export { .. } => {
+                return Err(CliError::InvalidInput(
+                    "Export not available in offline mode".to_string(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct LocalProject {
+    id: String,
+    name: String,
+    description: Option<String>,
+    created_at: String,
+    updated_at: String,
 }
 
 impl CollaboratorCommands {

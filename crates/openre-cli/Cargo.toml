@@ -22,6 +22,7 @@ openre-ai = { path = "../openre-ai" }
 openre-analysis = { path = "../openre-analysis" }
 # openre-plugins = { path = "../openre-plugins" }  # Temporarily disabled
 openre-api = { path = "../openre-api" }
+openre-scan = { path = "../openre-scan" }
 clap = { workspace = true }
 clap_complete = { workspace = true }
 tokio = { workspace = true }
@@ -44,3 +45,6 @@ goblin = { workspace = true }
 wasmparser = { workspace = true }
 object = { workspace = true }
 scroll = { workspace = true }
+base64 = { workspace = true }
+shellexpand = "3.0"
+rusqlite = { version = "0.31", features = ["bundled"] }
