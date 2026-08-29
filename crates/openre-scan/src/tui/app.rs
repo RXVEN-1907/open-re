@@ -320,8 +320,8 @@ impl App {
     fn get_current_list_len(&self) -> usize {
         match self.selected_tab {
             Tab::Target => 1,
-            Tab::Scans => self.scan_history.len().max(1),
-            Tab::Findings => self.get_filtered_findings().len().max(1),
+            Tab::Scans => self.scan_history.len(),
+            Tab::Findings => self.get_filtered_findings().len(),
             Tab::Settings => 8,
             Tab::Help => 1,
         }
@@ -363,7 +363,7 @@ impl App {
     pub async fn run_scan(&mut self) -> anyhow::Result<()> {
         if self.target_input.trim().is_empty() {
             self.status = ScanStatus::Error("Target cannot be empty".to_string());
-            return Ok(());
+            return Err(anyhow::anyhow!("Target cannot be empty"));
         }
 
         let target = self.target_input.trim().to_string();
@@ -454,7 +454,7 @@ async fn run_scan_with_progress(
 
     for (i, check) in checks_to_run.iter().enumerate() {
         let _ = tx
-            .send(ScanMsg::Progress(check.name().to_string(), i, checks_count))
+            .send(ScanMsg::Progress(check.name().to_string(), i + 1, checks_count))
             .await;
 
         match check.run(&client, &target_url).await {
@@ -486,13 +486,10 @@ pub async fn run_tui() -> anyhow::Result<()> {
     let mut app = App::new();
     let result = run_app(&mut terminal, &mut app).await;
 
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
+    // Ensure terminal cleanup runs even on error
+    let _ = disable_raw_mode();
+    let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture);
+    let _ = terminal.show_cursor();
 
     result
 }
