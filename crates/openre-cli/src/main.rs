@@ -58,10 +58,9 @@ fn is_banner_disabled(args: &[String]) -> bool {
     args.iter().any(|a| a == "--no-banner")
 }
 
-/// Disable colors for this process (using local control)
+/// Disable colors for this process (uses global override as colored crate doesn't support per-output control)
 fn disable_colors() {
-    // Use a local override instead of global
-    let _ = colored::control::set_override(false);
+    colored::control::set_override(false);
 }
 
 #[derive(Parser)]
@@ -264,7 +263,9 @@ async fn main() -> Result<(), CliError> {
                 for (i, part) in command.iter().enumerate() {
                     if let Some(subcmd) = current_cmd.find_subcommand_mut(part) {
                         if i == command.len() - 1 {
-                            subcmd.print_help().unwrap();
+                            if let Err(e) = subcmd.print_help() {
+                                eprintln!("Error printing help: {}", e);
+                            }
                             println!();
                         } else {
                             current_cmd = subcmd.clone();
@@ -276,7 +277,9 @@ async fn main() -> Result<(), CliError> {
                 }
             } else {
                 // Print general help
-                Cli::command().print_help().unwrap();
+                if let Err(e) = Cli::command().print_help() {
+                    eprintln!("Error printing help: {}", e);
+                }
                 println!();
             }
         }

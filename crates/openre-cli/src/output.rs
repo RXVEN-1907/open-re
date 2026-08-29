@@ -4,7 +4,6 @@ use crate::CliError;
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
-use std::sync::OnceLock;
 use tabled::builder::Builder;
 use tabled::settings::Style;
 
@@ -12,7 +11,7 @@ use tabled::settings::Style;
 use crossterm::terminal::size as crossterm_size;
 
 // Check if stdout is a TTY (for animation)
-fn is_stdout_tty() -> bool {
+pub fn is_stdout_tty() -> bool {
     atty::is(atty::Stream::Stdout)
 }
 
@@ -78,7 +77,13 @@ fn terminal_width() -> usize {
 }
 
 /// Animated spinner for startup (matching openre-scan: ~1.6s)
+/// Only runs when stdout is a TTY
 pub async fn show_startup_animation() {
+    // Don't show animation if stdout is not a TTY (piped/redirected)
+    if !is_stdout_tty() {
+        return;
+    }
+
     let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
     let message = "Initializing openre...";
 
