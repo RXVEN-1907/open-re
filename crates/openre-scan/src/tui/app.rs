@@ -19,11 +19,9 @@ use ratatui::{
 use std::{io, sync::Arc, time::Duration};
 #[cfg(feature = "tui")]
 use tokio::sync::{mpsc, Mutex};
-#[cfg(feature = "tui")]
-use tokio::time::sleep;
 
 #[cfg(feature = "tui")]
-use crate::{Check, ScanProfile, OutputFormat, Finding, Severity};
+use crate::{Check, ScanProfile, OutputFormat, Severity};
 #[cfg(feature = "tui")]
 use url::Url;
 
@@ -589,6 +587,7 @@ async fn handle_key_event(key: crossterm::event::KeyEvent, app: &mut App) -> any
         KeyCode::Char('q') | KeyCode::Esc => {
             if matches!(app.status, ScanStatus::Running { .. }) {
                 // Don't quit during scan
+                return Ok(false);
             } else {
                 return Ok(true);
             }
@@ -922,7 +921,7 @@ fn render_target_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors)
 }
 
 #[cfg(feature = "tui")]
-fn render_scans_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors) {
+fn render_scans_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeColors) {
     if app.scan_history.is_empty() {
         let empty = Paragraph::new("No scans yet. Go to Target tab and run a scan.")
             .style(Style::default().fg(colors.muted))
@@ -971,7 +970,7 @@ fn render_scans_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors) 
             .title_style(Style::default().fg(colors.accent)))
         .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
-    f.render_stateful_widget(list, area, &mut app.list_state.clone());
+    f.render_stateful_widget(list, area, &mut app.list_state);
 }
 
 #[cfg(feature = "tui")]
@@ -1046,19 +1045,26 @@ fn render_findings_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeC
         .highlight_style(Style::default().add_modifier(Modifier::BOLD))
         .highlight_symbol("▶ ");
 
-    f.render_stateful_widget(table, area, &mut app.findings_table_state);
+    // Split area for table and filter status
+    let (table_area, filter_area) = if app.severity_filter.is_some() || !app.search_query.is_empty() {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(0), Constraint::Length(1)])
+            .split(area);
+        (chunks[0], Some(chunks[1]))
+    } else {
+        (area, None)
+    };
+
+    f.render_stateful_widget(table, table_area, &mut app.findings_table_state);
 
     // Show filter status
-    if app.severity_filter.is_some() || !app.search_query.is_empty() {
+    if let Some(filter_area) = filter_area {
         let filter_info = format!(
             "Filters: Severity={} Search='{}'",
             app.severity_filter.map(|s| format!("{:?}", s)).unwrap_or("All".to_string()),
             app.search_query
         );
-        let filter_area = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(0), Constraint::Length(1)])
-            .split(area)[1];
         let filter_widget = Paragraph::new(filter_info)
             .style(Style::default().fg(colors.warning))
             .alignment(Alignment::Left);
@@ -1067,7 +1073,7 @@ fn render_findings_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeC
 }
 
 #[cfg(feature = "tui")]
-fn render_settings_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors) {
+fn render_settings_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeColors) {
     let settings = vec![
         ("1", "Scan Profile", format!("{:?}", app.profile)),
         ("2", "", "Quick (6 checks)".to_string()),
@@ -1101,7 +1107,7 @@ fn render_settings_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColor
             .title_style(Style::default().fg(colors.accent)))
         .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
-    f.render_stateful_widget(list, area, &mut app.list_state.clone());
+    f.render_stateful_widget(list, area, &mut app.list_state);
 }
 
 #[cfg(feature = "tui")]
@@ -1270,7 +1276,8 @@ fn render_search_overlay(f: &mut Frame, app: &App, colors: &ThemeColors) {
     let area = centered_rect(60, 20, f.size());
     f.render_widget(Clear, area);
 
-    let search_text = format!("Search: {}{}", app.search_query, if app.search_query.len() % 2 == 0 { "█" } else { "" });
+    // Show a static cursor block for better visibility
+    let search_text = format!("Search: {}█", app.search_query);
 
     let search = Paragraph::new(search_text)
         .style(Style::default().fg(colors.fg))
