@@ -1,7 +1,7 @@
 //! CLI commands
 
 pub mod ai;
-// pub mod analysis; // Temporarily disabled due to compilation errors
+pub mod analysis;
 pub mod analyst;
 pub mod auth;
 pub mod config;

@@ -10,21 +10,26 @@ use openre_analysis::{
     binary::{
         common::{
             Architecture, BinaryFormat, BinaryIdentification, BinaryMetadata, ExportInfo,
-            ImportInfo, InstructionInfo, SectionInfo, SegmentInfo, SymbolInfo,
+            ImportInfo, SectionInfo, SegmentInfo, SymbolInfo,
         },
         elf::{ElfIdentifier, ElfMetadataExtractor},
         macho::{MachoIdentifier, MachoMetadataExtractor},
         pe::{PeIdentifier, PeMetadataExtractor},
         static_analysis::{SectionEntropy, StaticAnalysisResult, StaticAnalysisService},
-        traits::{BinaryIdentifier, BinaryMetadataExtractor, ControlFlowInfo, DataFlowInfo, FunctionInfo},
+        traits::{
+            BinaryIdentifier, BinaryMetadataExtractor, ControlFlowInfo, DataFlowInfo, FunctionInfo,
+            StaticAnalyzer,
+        },
         wasm::{WasmIdentifier, WasmMetadataExtractor},
     },
-    orchestrator::{AnalysisConfig, AnalysisJob, Orchestrator, StageId},
+    orchestrator::{AnalysisConfig, AnalysisJob, Orchestrator},
     progress::{JobProgress, JobStatus, StageProgress, StageStatus as ProgressStageStatus},
 };
-use openre_core::ids::{FileId, JobId, ProjectId, UserId};
+use openre_core::ids::{FileId, JobId, ProjectId, StageId, UserId};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tabled::{settings::Style, Table, Tabled};
@@ -380,6 +385,18 @@ impl From<BinaryFormatArg> for BinaryFormat {
     }
 }
 
+impl From<BinaryFormat> for BinaryFormatArg {
+    fn from(f: BinaryFormat) -> Self {
+        match f {
+            BinaryFormat::Elf => BinaryFormatArg::Elf,
+            BinaryFormat::Pe => BinaryFormatArg::Pe,
+            BinaryFormat::MachO => BinaryFormatArg::Macho,
+            BinaryFormat::Wasm => BinaryFormatArg::Wasm,
+            BinaryFormat::Unknown => panic!("Cannot convert Unknown format"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SymbolTypeFilter {
@@ -418,20 +435,20 @@ impl From<PipelineStagesArg> for Vec<StageId> {
     fn from(s: PipelineStagesArg) -> Self {
         match s {
             PipelineStagesArg::All => StageId::all_ordered(),
-            PipelineStagesArg::Identification => vec![StageId::Identification],
-            PipelineStagesArg::Loading => vec![StageId::Loading],
-            PipelineStagesArg::Disassembly => vec![StageId::Disassembly],
-            PipelineStagesArg::ControlFlow => vec![StageId::ControlFlow],
-            PipelineStagesArg::DataFlow => vec![StageId::DataFlow],
-            PipelineStagesArg::TypeRecovery => vec![StageId::TypeRecovery],
-            PipelineStagesArg::Decompilation => vec![StageId::Decompilation],
-            PipelineStagesArg::AiEnrichment => vec![StageId::AiEnrichment],
-            PipelineStagesArg::Finalization => vec![StageId::Finalization],
+            PipelineStagesArg::Identification => vec![StageId::new("identification")],
+            PipelineStagesArg::Loading => vec![StageId::new("loading")],
+            PipelineStagesArg::Disassembly => vec![StageId::new("disassembly")],
+            PipelineStagesArg::ControlFlow => vec![StageId::new("control_flow")],
+            PipelineStagesArg::DataFlow => vec![StageId::new("data_flow")],
+            PipelineStagesArg::TypeRecovery => vec![StageId::new("type_recovery")],
+            PipelineStagesArg::Decompilation => vec![StageId::new("decompilation")],
+            PipelineStagesArg::AiEnrichment => vec![StageId::new("ai_enrichment")],
+            PipelineStagesArg::Finalization => vec![StageId::new("finalization")],
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum OutputFormatArg {
     Table,
@@ -581,6 +598,23 @@ struct StringDisplay {
     string: String,
 }
 
+/// Finding display struct for table output
+#[derive(Tabled, Serialize, Deserialize)]
+struct FindingDisplay {
+    #[tabled(rename = "Severity")]
+    severity: String,
+    #[tabled(rename = "Confidence")]
+    confidence: String,
+    #[tabled(rename = "Category")]
+    category: String,
+    #[tabled(rename = "Title")]
+    title: String,
+    #[tabled(rename = "Function")]
+    function: String,
+    #[tabled(rename = "Address")]
+    address: String,
+}
+
 /// Basic block display struct
 #[derive(Tabled, Serialize, Deserialize)]
 struct BasicBlockDisplay {
@@ -643,10 +677,18 @@ impl AnalysisCommands {
             AnalysisCommands::Decompile(args) => Self::cmd_decompile(args, ctx).await,
             AnalysisCommands::Cfg(args) => Self::cmd_cfg(args, ctx).await,
             AnalysisCommands::Dataflow(args) => Self::cmd_dataflow(args, ctx).await,
-            AnalysisCommands::Elf(args) => Self::cmd_analyze_format(BinaryFormat::Elf, args, ctx).await,
-            AnalysisCommands::Pe(args) => Self::cmd_analyze_format(BinaryFormat::Pe, args, ctx).await,
-            AnalysisCommands::Macho(args) => Self::cmd_analyze_format(BinaryFormat::MachO, args, ctx).await,
-            AnalysisCommands::Wasm(args) => Self::cmd_analyze_format(BinaryFormat::Wasm, args, ctx).await,
+            AnalysisCommands::Elf(args) => {
+                Self::cmd_analyze_format(BinaryFormat::Elf, args, ctx).await
+            }
+            AnalysisCommands::Pe(args) => {
+                Self::cmd_analyze_format(BinaryFormat::Pe, args, ctx).await
+            }
+            AnalysisCommands::Macho(args) => {
+                Self::cmd_analyze_format(BinaryFormat::MachO, args, ctx).await
+            }
+            AnalysisCommands::Wasm(args) => {
+                Self::cmd_analyze_format(BinaryFormat::Wasm, args, ctx).await
+            }
             AnalysisCommands::Auto(args) => Self::cmd_analyze_auto(args, ctx).await,
             AnalysisCommands::Pipeline(cmd) => Self::cmd_pipeline(cmd, ctx).await,
         }
@@ -659,6 +701,7 @@ impl AnalysisCommands {
             BinaryFormat::Pe => Box::new(PeMetadataExtractor::default()),
             BinaryFormat::MachO => Box::new(MachoMetadataExtractor::default()),
             BinaryFormat::Wasm => Box::new(WasmMetadataExtractor::default()),
+            BinaryFormat::Unknown => panic!("Cannot extract metadata for unknown binary format"),
         }
     }
 
@@ -669,18 +712,15 @@ impl AnalysisCommands {
             BinaryFormat::Pe => Box::new(PeIdentifier::default()),
             BinaryFormat::MachO => Box::new(MachoIdentifier::default()),
             BinaryFormat::Wasm => Box::new(WasmIdentifier::default()),
+            BinaryFormat::Unknown => panic!("Cannot identify unknown binary format"),
         }
     }
 
     /// Detect binary format from file
     async fn detect_format(file: &PathBuf) -> Result<BinaryFormat, CliError> {
         let data = std::fs::read(file)?;
-        let formats = [
-            BinaryFormat::Elf,
-            BinaryFormat::Pe,
-            BinaryFormat::MachO,
-            BinaryFormat::Wasm,
-        ];
+        let formats =
+            [BinaryFormat::Elf, BinaryFormat::Pe, BinaryFormat::MachO, BinaryFormat::Wasm];
 
         for format in formats {
             let identifier = Self::get_identifier(format);
@@ -697,11 +737,14 @@ impl AnalysisCommands {
     /// Load and extract metadata from binary
     async fn load_metadata(
         file: &PathBuf,
-        format: Option<BinaryFormatArg>,
+        format_arg: Option<BinaryFormatArg>,
     ) -> Result<BinaryMetadata, CliError> {
-        let format = match format {
+        let format = match format_arg {
             Some(f) => f.into(),
-            None => Self::detect_format(file).await?,
+            None => {
+                let detected = Self::detect_format(file).await?;
+                detected.into()
+            }
         };
 
         let data = std::fs::read(file)?;
@@ -709,7 +752,7 @@ impl AnalysisCommands {
         let mut metadata = extractor.extract_metadata(&data).await?;
 
         // Set file_id from hash
-        metadata.file_id = FileId::from_string(&metadata.hashes.sha256).unwrap_or_default();
+        metadata.file_id = FileId::from_str(&metadata.hashes.sha256).unwrap_or_default();
 
         Ok(metadata)
     }
@@ -725,7 +768,7 @@ impl AnalysisCommands {
         let identifier = Self::get_identifier(format);
         let identification = identifier.identify(&data).await?;
 
-        let info = vec![
+        let mut info = vec![
             BinaryInfoDisplay {
                 property: "Format".to_string(),
                 value: format!("{:?}", identification.format),
@@ -759,14 +802,10 @@ impl AnalysisCommands {
             },
         ];
 
-        if let Some(compiler) = identification.compiler_info {
+        if let Some(compiler) = identification.compiler_info.clone() {
             info.push(BinaryInfoDisplay {
                 property: "Compiler".to_string(),
-                value: format!(
-                    "{} {}",
-                    compiler.name,
-                    compiler.version.unwrap_or_default()
-                ),
+                value: format!("{} {}", compiler.name, compiler.version.unwrap_or_default()),
             });
         }
 
@@ -786,15 +825,12 @@ impl AnalysisCommands {
         let metadata = Self::load_metadata(&args.file, None).await?;
         let id = &metadata.identification;
 
-        let info = vec![
+        let mut info = vec![
             BinaryInfoDisplay {
                 property: "File".to_string(),
                 value: args.file.display().to_string(),
             },
-            BinaryInfoDisplay {
-                property: "Format".to_string(),
-                value: format!("{:?}", id.format),
-            },
+            BinaryInfoDisplay { property: "Format".to_string(), value: format!("{:?}", id.format) },
             BinaryInfoDisplay {
                 property: "Architecture".to_string(),
                 value: format!("{:?}", id.architecture),
@@ -813,10 +849,7 @@ impl AnalysisCommands {
             },
             BinaryInfoDisplay {
                 property: "Entry Point".to_string(),
-                value: id
-                    .entry_point
-                    .map(|e| format!("0x{:x}", e))
-                    .unwrap_or("N/A".to_string()),
+                value: id.entry_point.map(|e| format!("0x{:x}", e)).unwrap_or("N/A".to_string()),
             },
             BinaryInfoDisplay {
                 property: "Sections".to_string(),
@@ -832,20 +865,19 @@ impl AnalysisCommands {
             },
             BinaryInfoDisplay {
                 property: "Imports".to_string(),
-                value: metadata.imports.iter().map(|i| i.functions.len()).sum::<usize>().to_string(),
+                value: metadata
+                    .imports
+                    .iter()
+                    .map(|i| i.functions.len())
+                    .sum::<usize>()
+                    .to_string(),
             },
             BinaryInfoDisplay {
                 property: "Exports".to_string(),
                 value: metadata.exports.len().to_string(),
             },
-            BinaryInfoDisplay {
-                property: "MD5".to_string(),
-                value: metadata.hashes.md5.clone(),
-            },
-            BinaryInfoDisplay {
-                property: "SHA1".to_string(),
-                value: metadata.hashes.sha1.clone(),
-            },
+            BinaryInfoDisplay { property: "MD5".to_string(), value: metadata.hashes.md5.clone() },
+            BinaryInfoDisplay { property: "SHA1".to_string(), value: metadata.hashes.sha1.clone() },
             BinaryInfoDisplay {
                 property: "SHA256".to_string(),
                 value: metadata.hashes.sha256.clone(),
@@ -855,11 +887,7 @@ impl AnalysisCommands {
         if let Some(compiler) = &id.compiler_info {
             info.push(BinaryInfoDisplay {
                 property: "Compiler".to_string(),
-                value: format!(
-                    "{} {}",
-                    compiler.name,
-                    compiler.version.as_deref().unwrap_or("")
-                ),
+                value: format!("{} {}", compiler.name, compiler.version.as_deref().unwrap_or("")),
             });
         }
 
@@ -881,7 +909,9 @@ impl AnalysisCommands {
             .symbols
             .into_iter()
             .filter(|s| {
-                if args.globals_only && s.binding != openre_analysis::binary::common::SymbolBinding::Global {
+                if args.globals_only
+                    && s.binding != openre_analysis::binary::common::SymbolBinding::Global
+                {
                     return false;
                 }
                 if let Some(filter) = args.filter_type {
@@ -971,10 +1001,7 @@ impl AnalysisCommands {
                         .address
                         .map(|a| format!("0x{:x}", a))
                         .unwrap_or("N/A".to_string()),
-                    ordinal: func
-                        .ordinal
-                        .map(|o| o.to_string())
-                        .unwrap_or("N/A".to_string()),
+                    ordinal: func.ordinal.map(|o| o.to_string()).unwrap_or("N/A".to_string()),
                 })
             })
             .collect();
@@ -1033,21 +1060,21 @@ impl AnalysisCommands {
 
         let mut filtered: Vec<StringDisplay> = strings
             .into_iter()
-            .filter(|s| s.value.len() >= args.min_length)
+            .filter(|s| s.content.len() >= args.min_length)
             .filter(|s| {
                 if let Some(pattern) = &args.pattern {
                     regex::Regex::new(pattern)
                         .ok()
-                        .map(|re| re.is_match(&s.value))
+                        .map(|re| re.is_match(&s.content))
                         .unwrap_or(false)
                 } else {
                     true
                 }
             })
             .map(|s| StringDisplay {
-                offset: format!("0x{:x}", s.offset),
-                length: s.value.len().to_string(),
-                string: s.value,
+                offset: format!("0x{:x}", s.address),
+                length: s.content.len().to_string(),
+                string: s.content,
             })
             .collect();
 
@@ -1136,7 +1163,10 @@ impl AnalysisCommands {
             .filter(|f| f.size >= args.min_size as u64)
             .filter(|f| {
                 if let Some(pattern) = &args.pattern {
-                    f.name.as_ref().map(|n| n.to_lowercase().contains(&pattern.to_lowercase())).unwrap_or(false)
+                    f.name
+                        .as_ref()
+                        .map(|n| n.to_lowercase().contains(&pattern.to_lowercase()))
+                        .unwrap_or(false)
                 } else {
                     true
                 }
@@ -1175,9 +1205,8 @@ impl AnalysisCommands {
 
         // Parse function address/name
         let func_addr = if args.function.starts_with("0x") {
-            u64::from_str_radix(&args.function[2..], 16).map_err(|_| {
-                CliError::InvalidInput("Invalid function address format".into())
-            })?
+            u64::from_str_radix(&args.function[2..], 16)
+                .map_err(|_| CliError::InvalidInput("Invalid function address format".into()))?
         } else {
             // Find by name
             metadata
@@ -1223,9 +1252,8 @@ impl AnalysisCommands {
         let data = std::fs::read(&args.file)?;
 
         let func_addr = if args.function.starts_with("0x") {
-            u64::from_str_radix(&args.function[2..], 16).map_err(|_| {
-                CliError::InvalidInput("Invalid function address format".into())
-            })?
+            u64::from_str_radix(&args.function[2..], 16)
+                .map_err(|_| CliError::InvalidInput("Invalid function address format".into()))?
         } else {
             metadata
                 .symbols
@@ -1240,10 +1268,7 @@ impl AnalysisCommands {
         let cfg = analyzer.analyze_control_flow(&data, &metadata).await?;
 
         // Filter to requested function
-        let func_cfg = cfg
-            .functions
-            .into_iter()
-            .find(|f| f.address == func_addr);
+        let func_cfg = cfg.functions.into_iter().find(|f| f.address == func_addr);
 
         if let Some(func) = func_cfg {
             if args.dot {
@@ -1253,7 +1278,9 @@ impl AnalysisCommands {
                 for bb in &func.basic_blocks {
                     dot.push_str(&format!(
                         "  BB_{:x} [label=\"BB @ 0x{:x} ({} ins)\"];\n",
-                        bb.address, bb.address, bb.instructions.len()
+                        bb.address,
+                        bb.address,
+                        bb.instructions.len()
                     ));
                     for succ in &bb.successors {
                         dot.push_str(&format!("  BB_{:x} -> BB_{:x};\n", bb.address, succ));
@@ -1317,9 +1344,8 @@ impl AnalysisCommands {
         let data = std::fs::read(&args.file)?;
 
         let func_addr = if args.function.starts_with("0x") {
-            u64::from_str_radix(&args.function[2..], 16).map_err(|_| {
-                CliError::InvalidInput("Invalid function address format".into())
-            })?
+            u64::from_str_radix(&args.function[2..], 16)
+                .map_err(|_| CliError::InvalidInput("Invalid function address format".into()))?
         } else {
             metadata
                 .symbols
@@ -1433,7 +1459,7 @@ impl AnalysisCommands {
         // Create pipeline context
         let project_id = args
             .project_id
-            .and_then(|s| ProjectId::from_string(&s).ok())
+            .and_then(|s| ProjectId::from_str(&s).ok())
             .unwrap_or_else(ProjectId::new);
 
         let job = AnalysisJob::new(
@@ -1503,9 +1529,8 @@ impl AnalysisCommands {
     /// Pipeline status command
     async fn cmd_pipeline_status(args: PipelineStatusArgs, ctx: Context) -> Result<(), CliError> {
         // In a real implementation, this would query the queue/job system
-        let job_id = JobId::from_string(&args.id).map_err(|_| {
-            CliError::InvalidInput("Invalid job ID format".into())
-        })?;
+        let job_id = JobId::from_str(&args.id)
+            .map_err(|_| CliError::InvalidInput("Invalid job ID format".into()))?;
 
         // Placeholder - would fetch from queue
         #[derive(Serialize, Deserialize, Tabled)]
@@ -1540,9 +1565,8 @@ impl AnalysisCommands {
 
     /// Pipeline cancel command
     async fn cmd_pipeline_cancel(args: PipelineCancelArgs, ctx: Context) -> Result<(), CliError> {
-        let _job_id = JobId::from_string(&args.id).map_err(|_| {
-            CliError::InvalidInput("Invalid job ID format".into())
-        })?;
+        let _job_id = JobId::from_str(&args.id)
+            .map_err(|_| CliError::InvalidInput("Invalid job ID format".into()))?;
 
         // In a real implementation, this would send cancellation to the queue
         println!("Cancellation requested for job: {}", args.id);
@@ -1563,9 +1587,10 @@ impl AnalysisCommands {
         // 2. Verify format matches
         let identifier = Self::get_identifier(format);
         if !identifier.can_handle(&data) {
-            return Err(CliError::InvalidInput(
-                format!("File does not appear to be a valid {:?} binary", format),
-            ));
+            return Err(CliError::InvalidInput(format!(
+                "File does not appear to be a valid {:?} binary",
+                format
+            )));
         }
 
         // 3. Create progress bar
@@ -1578,7 +1603,9 @@ impl AnalysisCommands {
         let pb = ProgressBar::new(stage_count);
         pb.set_style(
             ProgressStyle::default_bar()
-                .template("{spinner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
+                .template(
+                    "{spinner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}",
+                )
                 .unwrap()
                 .progress_chars("█▉▊▋▌▍▎▏ "),
         );
@@ -1587,8 +1614,9 @@ impl AnalysisCommands {
         pb.set_message("Loading binary metadata...");
         pb.inc(1);
 
-        // 4. Load metadata
-        let metadata = Self::load_metadata(&args.file, Some(format.into())).await?;
+        // 4. Load metadata - convert BinaryFormat to BinaryFormatArg
+        let format_arg: BinaryFormatArg = format.into();
+        let metadata = Self::load_metadata(&args.file, Some(format_arg)).await?;
 
         pb.set_message("Running static analysis...");
         pb.inc(1);
@@ -1661,7 +1689,10 @@ impl AnalysisCommands {
                     severity: "Medium".to_string(),
                     confidence: "High".to_string(),
                     category: "Complexity".to_string(),
-                    title: format!("High complexity function: {}", func.name.as_deref().unwrap_or("unknown")),
+                    title: format!(
+                        "High complexity function: {}",
+                        func.name.as_deref().unwrap_or("unknown")
+                    ),
                     function: func.name.as_deref().unwrap_or("unknown").to_string(),
                     address: format!("0x{:x}", func.address),
                 });
@@ -1687,7 +1718,10 @@ impl AnalysisCommands {
                     severity: "Low".to_string(),
                     confidence: "Medium".to_string(),
                     category: "Entropy".to_string(),
-                    title: format!("High entropy section: {} ({:.2})", entropy.section_name, entropy.entropy),
+                    title: format!(
+                        "High entropy section: {} ({:.2})",
+                        entropy.section_name, entropy.entropy
+                    ),
                     function: "N/A".to_string(),
                     address: "N/A".to_string(),
                 });
@@ -1709,11 +1743,26 @@ impl AnalysisCommands {
             }
 
             let summary = vec![
-                AnalysisSummary { property: "File".to_string(), value: metadata.identification.format.to_string() },
-                AnalysisSummary { property: "Architecture".to_string(), value: format!("{:?}", metadata.identification.architecture) },
-                AnalysisSummary { property: "Profile".to_string(), value: format!("{:?}", args.profile) },
-                AnalysisSummary { property: "Functions Found".to_string(), value: analysis.control_flow.functions.len().to_string() },
-                AnalysisSummary { property: "Findings".to_string(), value: findings.len().to_string() },
+                AnalysisSummary {
+                    property: "File".to_string(),
+                    value: format!("{:?}", metadata.identification.format),
+                },
+                AnalysisSummary {
+                    property: "Architecture".to_string(),
+                    value: format!("{:?}", metadata.identification.architecture),
+                },
+                AnalysisSummary {
+                    property: "Profile".to_string(),
+                    value: format!("{:?}", args.profile),
+                },
+                AnalysisSummary {
+                    property: "Functions Found".to_string(),
+                    value: analysis.control_flow.functions.len().to_string(),
+                },
+                AnalysisSummary {
+                    property: "Findings".to_string(),
+                    value: findings.len().to_string(),
+                },
             ];
 
             print_output(&summary, &args.output.into())?;
@@ -1725,23 +1774,6 @@ impl AnalysisCommands {
         }
 
         Ok(())
-    }
-
-    /// Finding display struct for table output
-    #[derive(Tabled, Serialize, Deserialize)]
-    struct FindingDisplay {
-        #[tabled(rename = "Severity")]
-        severity: String,
-        #[tabled(rename = "Confidence")]
-        confidence: String,
-        #[tabled(rename = "Category")]
-        category: String,
-        #[tabled(rename = "Title")]
-        title: String,
-        #[tabled(rename = "Function")]
-        function: String,
-        #[tabled(rename = "Address")]
-        address: String,
     }
 
     // SARIF conversion helpers
@@ -2016,7 +2048,10 @@ impl AnalysisCommands {
         })
     }
 
-    fn findings_to_sarif(findings: &[FindingDisplay], metadata: &BinaryMetadata) -> serde_json::Value {
+    fn findings_to_sarif(
+        findings: &[FindingDisplay],
+        metadata: &BinaryMetadata,
+    ) -> serde_json::Value {
         serde_json::json!({
             "$schema": "https://schemastore.org/schemas/json/sarif-2.1.0.json",
             "version": "2.1.0",
@@ -2041,7 +2076,7 @@ impl AnalysisCommands {
                     "message": { "text": f.title.clone() },
                     "locations": [{
                         "physicalLocation": {
-                            "artifactLocation": { "uri": metadata.identification.format.to_string() },
+                            "artifactLocation": { "uri": format!("{:?}", metadata.identification.format) },
                             "region": { "startLine": 1 }
                         }
                     }],

@@ -26,3 +26,5 @@ pub use binary::common::{
     SegmentPermissions, StringEncoding, SymbolBinding, SymbolInfo, SymbolType, SymbolVisibility,
     TypeInfo, TypeKind, TypeRecoveryOutput, TypeSource, Variable, VariableStorage, VersionInfo,
 };
+
+pub use openre_core::ids::StageId;

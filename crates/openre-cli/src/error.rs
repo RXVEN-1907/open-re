@@ -1,5 +1,6 @@
 //! CLI error types
 
+use openre_core::Error as CoreError;
 use thiserror::Error;
 
 /// CLI error
@@ -40,6 +41,9 @@ pub enum CliError {
 
     #[error("URL encoding error: {0}")]
     UrlEncodingError(String),
+
+    #[error("Analysis error: {0}")]
+    AnalysisError(#[from] CoreError),
 }
 
 pub type CliResult<T> = Result<T, CliError>;

@@ -9,11 +9,10 @@ mod output;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use commands::{
-    ai::AiCommands, analyst::AnalystCommands, auth::AuthCommands,
-    config::ConfigCommands, file::FileCommands, finding::FindingCommands, function::FunctionCommands,
-    plugin::PluginCommands, project::ProjectCommands, report::ReportCommands, scan::ScanCommands,
-    server::ServerCommands,
-    // analysis::AnalysisCommands, // Temporarily disabled due to compilation errors
+    ai::AiCommands, analysis::AnalysisCommands, analyst::AnalystCommands, auth::AuthCommands,
+    config::ConfigCommands, file::FileCommands, finding::FindingCommands,
+    function::FunctionCommands, plugin::PluginCommands, project::ProjectCommands,
+    report::ReportCommands, scan::ScanCommands, server::ServerCommands,
 };
 pub use config::CliConfig;
 pub use context::Context;
@@ -72,9 +71,9 @@ enum Commands {
     #[command(subcommand)]
     File(FileCommands),
 
-    // /// Binary analysis (temporarily disabled)
-//     #[command(subcommand)]
-//     Analysis(AnalysisCommands),
+    /// Binary analysis
+    #[command(subcommand)]
+    Analysis(AnalysisCommands),
 
     /// Function analysis
     #[command(subcommand)]
@@ -127,9 +126,7 @@ async fn main() -> Result<(), CliError> {
     let config = CliConfig::load(cli.config.as_deref())?;
 
     // Create HTTP client
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()?;
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build()?;
 
     // Create context
     let ctx = Context {
@@ -146,7 +143,7 @@ async fn main() -> Result<(), CliError> {
         Commands::Auth(cmd) => cmd.execute(ctx).await,
         Commands::Project(cmd) => cmd.execute(ctx).await,
         Commands::File(cmd) => cmd.execute(ctx).await,
-        // Commands::Analysis(cmd) => cmd.execute(ctx).await, // Temporarily disabled
+        Commands::Analysis(cmd) => cmd.execute(ctx).await,
         Commands::Function(cmd) => cmd.execute(ctx).await,
         Commands::Ai(cmd) => cmd.execute(ctx).await,
         Commands::Analyst(cmd) => cmd.execute(ctx).await,
