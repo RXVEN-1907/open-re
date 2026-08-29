@@ -34,26 +34,31 @@ jobs:
             target: x86_64-unknown-linux-gnu
             artifact_prefix: openre-linux-x86_64
             cross_compile: false
-          # Linux ARM64 (cross-compile)
+            zigbuild: false
+          # Linux ARM64 (cross-compile via cargo-zigbuild)
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             artifact_prefix: openre-linux-arm64
             cross_compile: true
-          # macOS x86_64
-          - os: macos-latest
+            zigbuild: true
+          # macOS x86_64 (run on macos-13 for true x86_64)
+          - os: macos-13
             target: x86_64-apple-darwin
             artifact_prefix: openre-macos-x86_64
             cross_compile: false
+            zigbuild: false
           # macOS ARM64 (native on arm64 runner)
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact_prefix: openre-macos-arm64
             cross_compile: false
+            zigbuild: false
           # Windows x86_64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_prefix: openre-windows-x86_64
             cross_compile: false
+            zigbuild: false
 
     steps:
       - name: Checkout repository
@@ -87,18 +92,26 @@ jobs:
           brew install pkg-config openssl
 
       - name: Setup cross-compilation (Linux ARM64)
-        if: matrix.cross_compile && runner.os == 'Linux'
+        if: matrix.zigbuild && runner.os == 'Linux'
         run: |
+          sudo apt-get update && sudo apt-get install -y zig
           cargo install cargo-zigbuild --locked
           rustup target add aarch64-unknown-linux-gnu
 
       - name: Build release binaries
         run: |
-          if [[ "${{ matrix.cross_compile }}" == "true" ]]; then
+          if [[ "${{ matrix.zigbuild }}" == "true" ]]; then
             cargo zigbuild --release -p openre-cli -p openre-scan --target ${{ matrix.target }}
           else
             cargo build --release -p openre-cli -p openre-scan --target ${{ matrix.target }}
           fi
+
+      - name: Quality checks (format, clippy, tests)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy -p openre-cli -p openre-scan --all-targets --all-features -- -D warnings
+          cargo test -p openre-cli -p openre-scan --locked
 
       - name: Prepare artifacts
         run: |
@@ -124,8 +137,8 @@ jobs:
               sha256sum "$f" > "$f.sha256"
             fi
           done
-          # Create combined checksums file (fail if no files)
-          sha256sum * > checksums.txt
+          # Create combined checksums file (exclude .sha256 files)
+          sha256sum -- * | grep -v '\.sha256$' > checksums.txt
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -148,15 +161,17 @@ jobs:
       - name: Install cargo-cyclonedx
         run: cargo install cargo-cyclonedx --locked
 
-      - name: Generate SBOM (CycloneDX)
+      - name: Generate SBOM (CycloneDX) for openre-scan
         run: |
-          cargo cyclonedx --workspace --all-features --output-format json --output-file sbom-cyclonedx.json
-          cargo cyclonedx --workspace --all-features --output-format xml --output-file sbom-cyclonedx.xml
+          cargo cyclonedx -p openre-scan --all-features --output-format json --output-file sbom-cyclonedx.json
+          cargo cyclonedx -p openre-scan --all-features --output-format xml --output-file sbom-cyclonedx.xml
 
-      - name: Generate SBOM (SPDX)
+      - name: Install cargo-spdx
+        run: cargo install cargo-spdx --locked
+
+      - name: Generate SBOM (SPDX) for openre-scan
         run: |
-          cargo install cargo-spdx --locked
-          cargo spdx --workspace --all-features --output-file sbom-spdx.json
+          cargo spdx -p openre-scan --all-features --output-file sbom-spdx.json
 
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v4
@@ -171,6 +186,7 @@ jobs:
   docker:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     strategy:
       fail-fast: false
       matrix:
@@ -210,7 +226,7 @@ jobs:
           tags: |
             type=ref,event=tag
             type=sha,prefix=
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Build and push ${{ matrix.name }}
         uses: docker/build-push-action@v5
@@ -240,16 +256,24 @@ jobs:
         run: |
           cd artifacts
           mkdir -p release
-          # Move all binaries and checksums to release/
-          find . -maxdepth 1 -name "openre-*" -type f -print0 | xargs -0 -I {} mv {} release/
-          # Move SBOMs
-          find . -maxdepth 1 -name "sbom-*" -type f -print0 | xargs -0 -I {} mv {} release/
+          # Find all openre-* files recursively (merge-multiple creates subdirs)
+          find . -type f -name "openre-*" ! -path "./release/*" -print0 | xargs -0 -I {} mv {} release/
+          # Find all sbom-* files recursively
+          find . -type f -name "sbom-*" ! -path "./release/*" -print0 | xargs -0 -I {} mv {} release/
           cd release
           # Verify all expected files exist
           ls -la
-          # Create final combined checksums
-          sha256sum * > CHECKSUMS.txt
+          # Create final combined checksums (exclude .sha256 files)
+          sha256sum -- * | grep -v '\.sha256$' > CHECKSUMS.txt
           cat CHECKSUMS.txt
+
+      - name: Verify CHANGELOG.md has version entry
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          if ! grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            echo "ERROR: CHANGELOG.md does not contain entry for version $VERSION"
+            exit 1
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -258,7 +282,7 @@ jobs:
             artifacts/release/*
           generate_release_notes: true
           draft: false
-          prerelease: ${{ github.ref != 'refs/tags/v' && contains(github.ref, '-') }}
+          prerelease: ${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -274,11 +298,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Publish openre-scan to crates.io
-        run: cargo publish -p openre-scan
+        run: cargo publish --locked -p openre-scan
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Publish openre-cli to crates.io
-        run: cargo publish -p openre-cli
+        run: cargo publish --locked -p openre-cli
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
