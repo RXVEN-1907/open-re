@@ -181,6 +181,22 @@ pub struct IsolatedBinary;
 
 pub struct CreateProjectRequest;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
+    pub id: UserId,
+    pub email: String,
+    pub username: String,
+    pub password_hash: Option<String>,
+    pub full_name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub role: String,
+    pub status: String,
+    pub email_verified: bool,
+    pub last_login_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Project {
     pub id: ProjectId,

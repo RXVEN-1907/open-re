@@ -88,6 +88,11 @@ impl AuthService {
         }
     }
 
+    /// Get JWT configuration (read-only access to non-sensitive config)
+    pub fn jwt_config(&self) -> &AuthConfig {
+        &self.config
+    }
+
     /// Create access token
     pub fn create_access_token(
         &self,
@@ -99,7 +104,7 @@ impl AuthService {
     ) -> ApiResult<String> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .map_err(|e| ApiError::Internal(format!("System time error: {}", e)))?
             .as_secs() as usize;
         let exp = now + self.config.access_token_ttl_seconds as usize;
 
@@ -123,7 +128,7 @@ impl AuthService {
     pub fn create_refresh_token(&self, user_id: &str) -> ApiResult<String> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .map_err(|e| ApiError::Internal(format!("System time error: {}", e)))?
             .as_secs() as usize;
         let exp = now + self.config.refresh_token_ttl_seconds as usize;
 
@@ -156,7 +161,7 @@ impl AuthService {
 
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .map_err(|e| ApiError::Internal(format!("System time error: {}", e)))?
             .as_secs() as usize;
         let exp = now + 365 * 24 * 60 * 60; // 1 year
 

@@ -14,7 +14,7 @@ use openre_core::traits::{
 #[cfg(feature = "postgres")]
 use openre_telemetry::metrics;
 #[cfg(feature = "postgres")]
-use sqlx::{postgres::PgConnectOptions, PgPool};
+use sqlx::{postgres::PgConnectOptions, PgPool, Row};
 #[cfg(feature = "postgres")]
 use std::str::FromStr;
 #[cfg(feature = "postgres")]
@@ -369,5 +369,136 @@ impl GlobalStore {
         .await.map_err(map_sqlx_error)?;
         metrics::record_db_query(start.elapsed());
         Ok(())
+    }
+}
+
+// User operations
+#[cfg(feature = "postgres")]
+impl GlobalStore {
+    /// Map database row to User struct
+    fn row_to_user(r: &sqlx::postgres::PgRow) -> openre_core::traits::User {
+        openre_core::traits::User {
+            id: UserId::from_uuid(r.get("id")),
+            email: r.get("email"),
+            username: r.get("username"),
+            password_hash: r.get("password_hash"),
+            full_name: r.get("full_name"),
+            avatar_url: r.get("avatar_url"),
+            role: r.get("role"),
+            status: r.get("status"),
+            email_verified: r.get("email_verified"),
+            last_login_at: r.get("last_login_at"),
+            created_at: r.get("created_at"),
+            updated_at: r.get("updated_at"),
+        }
+    }
+
+    /// Create a new user
+    pub async fn create_user(&self, user: &openre_core::traits::User) -> Result<()> {
+        let start = std::time::Instant::now();
+        sqlx::query(
+            r#"
+            INSERT INTO users (id, email, username, password_hash, full_name, avatar_url, role, status, email_verified, last_login_at, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            "#
+        )
+        .bind(user.id.as_uuid())
+        .bind(user.email.clone())
+        .bind(user.username.clone())
+        .bind(user.password_hash.clone())
+        .bind(user.full_name.clone())
+        .bind(user.avatar_url.clone())
+        .bind(user.role.clone())
+        .bind(user.status.clone())
+        .bind(user.email_verified)
+        .bind(user.last_login_at)
+        .bind(user.created_at)
+        .bind(user.updated_at)
+        .execute(&*self.pool)
+        .await.map_err(map_sqlx_error)?;
+        metrics::record_db_query(start.elapsed());
+        Ok(())
+    }
+
+    /// Get user by email
+    pub async fn get_user_by_email(&self, email: &str) -> Result<Option<openre_core::traits::User>> {
+        let start = std::time::Instant::now();
+        let row = sqlx::query(
+            r#"
+            SELECT id, email, username, password_hash, full_name, avatar_url, role, status, email_verified, last_login_at, created_at, updated_at
+            FROM users WHERE email = $1
+            "#
+        )
+        .bind(email)
+        .fetch_optional(&*self.pool)
+        .await.map_err(map_sqlx_error)?;
+        metrics::record_db_query(start.elapsed());
+
+        Ok(row.map(|r| Self::row_to_user(&r)))
+    }
+
+    /// Get user by ID
+    pub async fn get_user_by_id(&self, user_id: UserId) -> Result<Option<openre_core::traits::User>> {
+        let start = std::time::Instant::now();
+        let row = sqlx::query(
+            r#"
+            SELECT id, email, username, password_hash, full_name, avatar_url, role, status, email_verified, last_login_at, created_at, updated_at
+            FROM users WHERE id = $1
+            "#
+        )
+        .bind(user_id.as_uuid())
+        .fetch_optional(&*self.pool)
+        .await.map_err(map_sqlx_error)?;
+        metrics::record_db_query(start.elapsed());
+
+        Ok(row.map(|r| Self::row_to_user(&r)))
+    }
+
+    /// Update user last login
+    pub async fn update_user_last_login(&self, user_id: UserId) -> Result<()> {
+        let start = std::time::Instant::now();
+        sqlx::query(
+            r#"
+            UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1
+            "#
+        )
+        .bind(user_id.as_uuid())
+        .execute(&*self.pool)
+        .await.map_err(map_sqlx_error)?;
+        metrics::record_db_query(start.elapsed());
+        Ok(())
+    }
+
+    /// Update user password
+    pub async fn update_user_password(&self, user_id: UserId, password_hash: &str) -> Result<()> {
+        let start = std::time::Instant::now();
+        sqlx::query(
+            r#"
+            UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2
+            "#
+        )
+        .bind(password_hash)
+        .bind(user_id.as_uuid())
+        .execute(&*self.pool)
+        .await.map_err(map_sqlx_error)?;
+        metrics::record_db_query(start.elapsed());
+        Ok(())
+    }
+
+    /// Get user by username
+    pub async fn get_user_by_username(&self, username: &str) -> Result<Option<openre_core::traits::User>> {
+        let start = std::time::Instant::now();
+        let row = sqlx::query(
+            r#"
+            SELECT id, email, username, password_hash, full_name, avatar_url, role, status, email_verified, last_login_at, created_at, updated_at
+            FROM users WHERE username = $1
+            "#
+        )
+        .bind(username)
+        .fetch_optional(&*self.pool)
+        .await.map_err(map_sqlx_error)?;
+        metrics::record_db_query(start.elapsed());
+
+        Ok(row.map(|r| Self::row_to_user(&r)))
     }
 }

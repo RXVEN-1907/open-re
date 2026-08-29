@@ -2,6 +2,7 @@
 
 use crate::middleware as api_middleware;
 use crate::routes;
+use crate::websocket::ws_handler;
 use crate::{ApiError, ApiResult, AppState};
 use axum::{
     extract::{Extension, State},
@@ -40,9 +41,14 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/ready", get(readiness_check))
         .with_state(state.clone());
 
+    let ws_routes = Router::new()
+        .route("/ws", get(ws_handler))
+        .with_state(state.clone());
+
     let router: Router = Router::new()
         .merge(api_routes)
         .merge(health_routes)
+        .merge(ws_routes)
         .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(middleware::from_fn_with_state(
             state.clone(),

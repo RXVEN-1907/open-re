@@ -781,9 +781,9 @@ pub struct SessionConfig {
 
 impl AuthConfig {
     fn validate(&self) -> Result<()> {
-        if self.jwt.algorithm != "RS256" {
+        if self.jwt.algorithm != "RS256" && self.jwt.algorithm != "HS256" {
             return Err(openre_core::Error::Config(
-                "JWT algorithm must be RS256".into(),
+                "JWT algorithm must be RS256 or HS256".into(),
             ));
         }
         Ok(())
@@ -794,7 +794,7 @@ impl Default for AuthConfig {
     fn default() -> Self {
         Self {
             jwt: JwtConfig {
-                algorithm: "RS256".into(),
+                algorithm: "HS256".into(),
                 private_key_path: PathBuf::from("./keys/private.pem"),
                 public_key_path: PathBuf::from("./keys/public.pem"),
                 access_token_ttl_secs: 86400,   // 24 hours

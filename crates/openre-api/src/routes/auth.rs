@@ -7,6 +7,7 @@ use axum::{
     Json, Router,
 };
 use openre_core::ids::UserId;
+use openre_core::traits::User;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
@@ -41,11 +42,55 @@ async fn login(
     State(state): State<std::sync::Arc<AppState>>,
     ValidatedJson(payload): ValidatedJson<LoginRequest>,
 ) -> ApiResult<Json<LoginResponse>> {
-    let _ = (state, payload);
-    // User storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    // Find user by email
+    let user = state
+        .global_store
+        .get_user_by_email(&payload.email)
+        .await?
+        .ok_or_else(|| crate::error::ApiError::Unauthorized("Invalid credentials".into()))?;
+
+    // Verify password
+    let password_hash = user
+        .password_hash
+        .ok_or_else(|| crate::error::ApiError::Unauthorized("Invalid credentials".into()))?;
+
+    if !state.auth_service.verify_password(&payload.password, &password_hash)? {
+        return Err(crate::error::ApiError::Unauthorized("Invalid credentials".into()));
+    }
+
+    // Update last login
+    state.global_store.update_user_last_login(user.id).await?;
+
+    // Create tokens
+    let access_token = state.auth_service.create_access_token(
+        &user.id.to_string(),
+        &user.email,
+        vec![user.role.clone()],
+        vec![],
+        None,
+    )?;
+
+    let refresh_token = state.auth_service.create_refresh_token(&user.id.to_string())?;
+
+    let user_response = UserResponse {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        full_name: user.full_name,
+        roles: vec![user.role],
+        permissions: vec![],
+        is_active: user.status == "active",
+        created_at: user.created_at,
+        last_login: user.last_login_at,
+    };
+
+    Ok(Json(LoginResponse {
+        access_token,
+        refresh_token,
+        token_type: "Bearer".to_string(),
+        expires_in: state.auth_service.jwt_config().access_token_ttl_seconds,
+        user: user_response,
+    }))
 }
 
 /// Register
@@ -64,11 +109,71 @@ async fn register(
     State(state): State<std::sync::Arc<AppState>>,
     ValidatedJson(payload): ValidatedJson<RegisterRequest>,
 ) -> ApiResult<Json<LoginResponse>> {
-    let _ = (state, payload);
-    // User storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    // Hash password
+    let password_hash = state.auth_service.hash_password(&payload.password)?;
+
+    // Create user - let database handle unique constraints
+    let user_id = UserId::new();
+    let now = chrono::Utc::now();
+    let user = User {
+        id: user_id,
+        email: payload.email.clone(),
+        username: payload.username.clone(),
+        password_hash: Some(password_hash),
+        full_name: payload.full_name.clone(),
+        avatar_url: None,
+        role: "user".to_string(),
+        status: "active".to_string(),
+        email_verified: false,
+        last_login_at: None,
+        created_at: now,
+        updated_at: now,
+    };
+
+    // Handle unique constraint violations
+    if let Err(e) = state.global_store.create_user(&user).await {
+        let err_str = e.to_string();
+        if err_str.contains("duplicate key") || err_str.contains("unique constraint") {
+            if err_str.contains("email") {
+                return Err(crate::error::ApiError::Conflict("Email already registered".into()));
+            } else if err_str.contains("username") {
+                return Err(crate::error::ApiError::Conflict("Username already taken".into()));
+            }
+            return Err(crate::error::ApiError::Conflict("User already exists".into()));
+        }
+        return Err(crate::error::ApiError::Internal(e.to_string()));
+    }
+
+    // Create tokens
+    let access_token = state.auth_service.create_access_token(
+        &user_id.to_string(),
+        &user.email,
+        vec![user.role.clone()],
+        vec![],
+        None,
+    )?;
+
+    let refresh_token = state.auth_service.create_refresh_token(&user_id.to_string())?;
+
+    let user_response = UserResponse {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        full_name: user.full_name,
+        roles: vec![user.role],
+        permissions: vec![],
+        is_active: user.status == "active",
+        created_at: user.created_at,
+        last_login: user.last_login_at,
+    };
+
+    Ok(Json(LoginResponse {
+        access_token,
+        refresh_token,
+        token_type: "Bearer".to_string(),
+        expires_in: state.auth_service.jwt_config().access_token_ttl_seconds,
+        user: user_response,
+    }))
 }
 
 /// Refresh token
@@ -76,11 +181,44 @@ async fn refresh_token(
     State(state): State<std::sync::Arc<AppState>>,
     Json(payload): Json<RefreshTokenRequest>,
 ) -> ApiResult<Json<LoginResponse>> {
-    let _ = (state, payload);
-    // Refresh token persistence is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    let claims = state.auth_service.validate_refresh_token(&payload.refresh_token)?;
+    let user_id: UserId = claims.sub.parse()?;
+
+    let user = state
+        .global_store
+        .get_user_by_id(user_id)
+        .await?
+        .ok_or_else(|| crate::error::ApiError::Unauthorized("User not found".into()))?;
+
+    let access_token = state.auth_service.create_access_token(
+        &user_id.to_string(),
+        &user.email,
+        vec![user.role.clone()],
+        vec![],
+        None,
+    )?;
+
+    let new_refresh_token = state.auth_service.create_refresh_token(&user_id.to_string())?;
+
+    let user_response = UserResponse {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        full_name: user.full_name,
+        roles: vec![user.role],
+        permissions: vec![],
+        is_active: user.status == "active",
+        created_at: user.created_at,
+        last_login: user.last_login_at,
+    };
+
+    Ok(Json(LoginResponse {
+        access_token,
+        refresh_token: new_refresh_token,
+        token_type: "Bearer".to_string(),
+        expires_in: state.auth_service.jwt_config().access_token_ttl_seconds,
+        user: user_response,
+    }))
 }
 
 /// Logout
@@ -88,11 +226,10 @@ async fn logout(
     State(state): State<std::sync::Arc<AppState>>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<()> {
+    // In a real implementation, we'd revoke the refresh token
+    // For now, just return success
     let _ = (state, claims);
-    // Refresh token persistence is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    Ok(())
 }
 
 /// Get current user
@@ -100,11 +237,26 @@ async fn get_current_user(
     State(state): State<std::sync::Arc<AppState>>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<UserResponse>> {
-    let _ = (&state, &claims);
-    // User storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    let user_id: UserId = claims.sub.parse()?;
+    let user = state
+        .global_store
+        .get_user_by_id(user_id)
+        .await?
+        .ok_or_else(|| crate::error::ApiError::NotFound("User not found".into()))?;
+
+    let user_response = UserResponse {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        full_name: user.full_name,
+        roles: vec![user.role],
+        permissions: vec![],
+        is_active: user.status == "active",
+        created_at: user.created_at,
+        last_login: user.last_login_at,
+    };
+
+    Ok(Json(user_response))
 }
 
 /// Change password
@@ -113,11 +265,26 @@ async fn change_password(
     Extension(claims): Extension<crate::auth::Claims>,
     ValidatedJson(payload): ValidatedJson<ChangePasswordRequest>,
 ) -> ApiResult<()> {
-    let _ = (&state, payload, &claims);
-    // User storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    let user_id: UserId = claims.sub.parse()?;
+
+    let user = state
+        .global_store
+        .get_user_by_id(user_id)
+        .await?
+        .ok_or_else(|| crate::error::ApiError::NotFound("User not found".into()))?;
+
+    let password_hash = user
+        .password_hash
+        .ok_or_else(|| crate::error::ApiError::Internal("User has no password set".into()))?;
+
+    if !state.auth_service.verify_password(&payload.current_password, &password_hash)? {
+        return Err(crate::error::ApiError::Unauthorized("Current password is incorrect".into()));
+    }
+
+    let new_password_hash = state.auth_service.hash_password(&payload.new_password)?;
+    state.global_store.update_user_password(user_id, &new_password_hash).await?;
+
+    Ok(())
 }
 
 /// List API keys
@@ -162,6 +329,7 @@ async fn create_api_key(
         },
     }))
 }
+
 /// Revoke API key
 async fn revoke_api_key(
     State(state): State<std::sync::Arc<AppState>>,

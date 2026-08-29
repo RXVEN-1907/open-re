@@ -9,13 +9,126 @@ url = "postgresql://openre:openre_dev_password@postgres:5432/openre"
 url = "redis://redis:6379"
 
 [storage]
-endpoint = "http://minio:9000"
-access_key = "openre"
-secret_key = "openre_dev_password"
-bucket = "openre"
-
-[jwt]
-secret = "dev_secret_change_in_production"
+backend = "local"
+local_path = "./data/storage"
+max_file_size_mb = 10240
+temp_dir = "./data/tmp"
 
 [ai]
 enabled = false
+
+[queue]
+poll_interval_ms = 5000
+max_retries = 3
+base_retry_delay_ms = 1000
+max_retry_delay_ms = 60000
+result_ttl_seconds = 86400
+stale_job_timeout_minutes = 30
+
+[queue.streams]
+high = "queue:analysis:high"
+default = "queue:analysis:default"
+low = "queue:analysis:low"
+scheduled = "queue:analysis:scheduled"
+dlq = "queue:analysis:dlq"
+events = "queue:analysis:events"
+
+[queue.worker]
+min_workers = 3
+max_workers = 20
+max_concurrent_jobs = 4
+max_memory_mb = 4096
+heartbeat_interval_secs = 10
+graceful_shutdown_timeout_secs = 60
+target_queue_depth_per_worker = 10
+
+[queue.autoscaler]
+enabled = true
+scale_up_threshold = 1.5
+scale_down_threshold = 0.5
+scale_up_cooldown_secs = 60
+scale_down_cooldown_secs = 300
+max_scale_up_step = 2
+max_scale_down_step = 1
+evaluation_interval_seconds = 30
+
+[queue.retry]
+max_attempts = 3
+base_delay_secs = 5
+max_delay_secs = 300
+exponential_base = 2.0
+jitter = true
+
+[queue.scheduler]
+enabled = true
+check_interval_secs = 10
+
+[telemetry.logging]
+level = "info"
+format = "json"
+output = "stdout"
+max_file_size_mb = 100
+max_files = 10
+
+[telemetry.metrics]
+enabled = true
+port = 9090
+path = "/metrics"
+
+[telemetry.tracing]
+enabled = true
+service_name = "openre"
+sample_rate = 1.0
+
+[telemetry.audit]
+enabled = true
+file_path = "./data/audit.log"
+max_file_size_mb = 100
+max_files = 100
+
+[security.rate_limiting]
+enabled = true
+global_rps = 1000
+per_ip_rps = 100
+per_user_rps = 200
+per_api_key_rps = 500
+burst_multiplier = 1.5
+
+[security.headers]
+hsts_max_age_secs = 31536000
+csp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+frame_options = "DENY"
+content_type_options = "nosniff"
+referrer_policy = "strict-origin-when-cross-origin"
+permissions_policy = "geolocation=(), microphone=(), camera=()"
+
+[security.encryption]
+algorithm = "AES-256-GCM"
+key_rotation_days = 90
+
+[auth.jwt]
+algorithm = "HS256"
+access_token_ttl_secs = 86400
+refresh_token_ttl_secs = 604800
+issuer = "openre"
+audience = "openre-api"
+secret = "dev_secret_change_in_production"
+
+[auth.api_keys]
+prefix = "ore_"
+default_scopes = ["read", "write"]
+max_keys_per_user = 10
+
+[auth.session]
+cookie_name = "openre_session"
+cookie_secure = true
+cookie_http_only = true
+cookie_same_site = "lax"
+ttl_secs = 86400
+
+[plugins]
+local_plugin_dir = "./plugins"
+allow_native = false
+max_memory_mb = 256
+max_fuel = 10000000
+max_execution_time_secs = 300
