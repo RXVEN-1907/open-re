@@ -1,10 +1,100 @@
 //! Output formatting for CLI
 
 use crate::CliError;
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
+use std::sync::OnceLock;
 use tabled::builder::Builder;
 use tabled::settings::Style;
+
+// crossterm for terminal width detection
+use crossterm::terminal::size as crossterm_size;
+
+// Check if stdout is a TTY (for animation)
+fn is_stdout_tty() -> bool {
+    atty::is(atty::Stream::Stdout)
+}
+
+// ASCII Art Banner from README (same as openre-scan)
+const ASCII_BANNER: &str = r#"
+ ██████╗ ██████╗ ███████╗███╗   ██╗         ██████╗ ███████╗
+██╔═══██╗██╔══██╗██╔════╝████╗  ██║         ██╔══██╗██╔════╝
+██║   ██║██████╔╝█████╗  ██╔██╗ ██║ ██████╗ ██████╔╝█████╗
+██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║ ╚═════╝ ██╔══██╗██╔══╝
+╚██████╔╝██║     ███████╗██║ ╚████║         ██║  ██║███████╗
+ ╚═════╝ ╚══╝     ╚══════╝╚═╝  ╚═══╝         ╚═╝  ╚═╝╚══════╝
+"#;
+
+const ASCII_BANNER_SMALL: &str = r#"
+███████╗██████╗ ██████╗  ██████╗ ███████╗███████╗
+██╔════╝██╔══██╗██╔══██╗██╔═══██╗██╔════╝██╔════╝
+█████╗  ██████╔╝██████╔╝██║   ██║███████╗█████╗
+██╔══╝  ██╔══██╗██╔═══╝ ██║   ██║╚════██║██╔══╝
+███████╗██║  ██║██║     ╚██████╔╝███████╗███████╗
+╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚══════╝╚══════╝
+"#;
+
+/// Print the full ASCII art banner
+pub fn print_banner() {
+    println!("{}", ASCII_BANNER.bright_cyan().bold());
+    println!("{}", "Open-source Reverse Engineering & Offensive Security Platform".bright_white());
+    println!(
+        "{}",
+        "Modern security tools + LLMs for automated binary, web, API & app analysis".dimmed()
+    );
+    println!(
+        "{}",
+        "Discover vulnerabilities • Generate PoC exploits • Actionable remediation".dimmed()
+    );
+    println!();
+}
+
+/// Print a compact banner for smaller terminals
+pub fn print_compact_banner() {
+    println!("{}", ASCII_BANNER_SMALL.bright_cyan().bold());
+    println!("{}", "open-re: Security Scanner & Reverse Engineering Platform".bright_white());
+    println!();
+}
+
+/// Detect terminal width and print appropriate banner
+pub fn print_smart_banner() {
+    let width = terminal_width();
+    if width >= 100 {
+        print_banner();
+    } else {
+        print_compact_banner();
+    }
+}
+
+/// Get terminal width (not cached - detect each time for accuracy)
+fn terminal_width() -> usize {
+    // Try crossterm first
+    if let Ok((w, _)) = crossterm_size() {
+        return w as usize;
+    }
+    // Fallback to env var
+    std::env::var("COLUMNS").ok().and_then(|s| s.parse().ok()).unwrap_or(80)
+}
+
+/// Animated spinner for startup (matching openre-scan: ~1.6s)
+pub async fn show_startup_animation() {
+    let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    let message = "Initializing openre...";
+
+    for _ in 0..2 {
+        for frame in frames {
+            print!("\r{} {} ", frame.bright_cyan(), message.bright_white());
+            if io::stdout().flush().is_err() {
+                // If flush fails (e.g., broken pipe), stop animation cleanly
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        }
+    }
+    println!("\r{} {}", "✓".green(), "Ready!".green().bold());
+    println!();
+}
 
 /// Print output in the specified format
 pub fn print_output<T: Serialize>(value: &T, format: &OutputFormat) -> Result<(), CliError> {

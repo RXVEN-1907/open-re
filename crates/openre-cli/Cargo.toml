@@ -43,4 +43,5 @@ futures = { workspace = true }
 goblin = { workspace = true }
 wasmparser = { workspace = true }
 object = { workspace = true }
-scroll = { workspace = true }
+crossterm = "0.28"
+atty = "0.2"
