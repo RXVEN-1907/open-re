@@ -410,6 +410,14 @@ impl From<OutputFormatArg> for crate::output::OutputFormat {
     }
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum AnalysisProfileArg {
+    Quick,
+    Standard,
+    Full,
+}
+
 /// Binary info display struct
 #[derive(Tabled, Serialize, Deserialize)]
 struct BinaryInfoDisplay {
