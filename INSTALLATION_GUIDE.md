@@ -4,83 +4,68 @@
 
 Single binary (~7 MB), zero dependencies, runs anywhere.
 
+> **Note**: Pre-built binaries, Cargo package, Homebrew tap, and Docker images are **not yet published**. Build from source for now (see [Build from Source](#build-from-source)).
+
 ---
 
-## Quick Install (Recommended)
+## Quick Install (Not Yet Available)
 
-### Linux (x86_64)
+The following installation methods are **planned for v0.2.0**:
 
-```bash
-curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64
-chmod +x openre-scan
-./openre-scan --help
-```
-
-### macOS (x86_64 / Apple Silicon)
+### Linux (x86_64) — *Coming Soon*
 
 ```bash
-# Intel Mac
-curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-macos-x86_64
-chmod +x openre-scan
-
-# Apple Silicon (coming soon)
-# curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-macos-aarch64
-chmod +x openre-scan
+# Not yet available
+# curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64
+# chmod +x openre-scan
+# ./openre-scan --help
 ```
 
-### Windows (x86_64)
+### macOS (x86_64 / Apple Silicon) — *Coming Soon*
+
+```bash
+# Not yet available
+# curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-macos-x86_64
+# chmod +x openre-scan
+```
+
+### Windows (x86_64) — *Coming Soon*
 
 ```powershell
-# PowerShell
-Invoke-WebRequest -Uri "https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-windows-x86_64.exe" -OutFile "openre-scan.exe"
-.\openre-scan.exe --help
-```
-
-### Verify Download
-
-```bash
-# Download checksum
-curl -L -o openre-scan.sha256 https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64.sha256
-
-# Verify
-sha256sum -C openre-scan.sha256
+# Not yet available
+# Invoke-WebRequest -Uri "https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-windows-x86_64.exe" -OutFile "openre-scan.exe"
+# .\openre-scan.exe --help
 ```
 
 ---
 
-## Package Managers
+## Package Managers — *Coming Soon*
 
 ### Cargo (Rust)
 
 ```bash
-Cargo install openre-scan
-openre-scan --help
+# Not yet published to crates.io
+# cargo install openre-scan
 ```
 
 ### Homebrew (macOS / Linux)
 
 ```bash
-brew tap rxven-1907/tap
-brew install openre-scan
+# Not yet available
+# brew tap rxven-1907/tap
+# brew install openre-scan
 ```
 
 ### Docker
 
 ```bash
-# Pull image
-Docker pull ghcr.io/rxven-1907/openre-scan:latest
-
-# Run scan
-Docker run --rm ghcr.io/rxven-1907/openre-scan:latest scan https://example.com --profile standard
-
-# With output file
-Docker run --rm -v $(pwd):/data ghcr.io/rxven-1907/openre-scan:latest \
-  scan https://example.com --format sarif --output /data/results.sarif
+# Not yet published to GHCR
+# docker pull ghcr.io/rxven-1907/openre-scan:latest
 ```
 
 ---
 
-## Build from Source
+## Build from Source (Current Method)
 
 ### Prerequisites
 
@@ -94,24 +79,31 @@ Docker run --rm -v $(pwd):/data ghcr.io/rxven-1907/openre-scan:latest \
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
 
-# Build release binary (CLI only)
-Cargo build --release -p openre-scan
+# Build release binary (standalone scanner, works offline)
+cargo build --release -p openre-scan
 
 # Binary at ./target/release/openre-scan
 ./target/release/openre-scan --help
+
+# Build unified CLI (requires API server for most commands)
+cargo build --release -p openre-cli
+
+# Binary at ./target/release/openre
+./target/release/openre --help
 ```
 
-### With TUI (Experimental)
+### With TUI (Experimental, enabled by default)
 
 ```bash
-Cargo build --release -p openre-scan --features tui
+# TUI is enabled by default in openre-scan
+cargo build --release -p openre-scan
 ./target/release/openre-scan tui
 ```
 
-### Minimal Build (No Default Features)
+### Minimal Build (No TUI)
 
 ```bash
-Cargo build --release -p openre-scan --no-default-features
+cargo build --release -p openre-scan --no-default-features
 ```
 
 ---
@@ -123,28 +115,31 @@ Cargo build --release -p openre-scan --no-default-features
 ```bash
 # Install Rust
 curl --proto '=HTTPS' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source ~/.Cargo/env
+source ~/.cargo/env
+
+# Install build dependencies
+sudo apt update && sudo apt install -y build-essential pkg-config libssl-dev
 
 # Build
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
-Cargo build --release -p openre-scan
+cargo build --release -p openre-scan
 ```
 
 ### macOS
 
 ```bash
 # Install Rust
-brew install Rust
-
-# Or via rustup
 curl --proto '=HTTPS' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source ~/.Cargo/env
+source ~/.cargo/env
+
+# Or via Homebrew
+# brew install rust
 
 # Build
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
-Cargo build --release -p openre-scan
+cargo build --release -p openre-scan
 ```
 
 ### Windows
@@ -160,28 +155,34 @@ Cargo build --release -p openre-scan
 2.  Install Rust via [rustup-init.exe](https://rustup.rs)
 3.  Build in Developer Command Prompt
 
+```cmd
+git clone https://github.com/RXVEN-1907/open-re.git
+cd open-re
+cargo build --release -p openre-scan
+```
+
 ---
 
 ## First Scan
 
 ```bash
 # Quick scan (6 checks, ~2-3s)
-openre-scan scan https://example.com --profile quick
+./target/release/openre-scan scan https://example.com --profile quick
 
 # Standard scan (15 checks, ~10-15s) — Recommended
-openre-scan scan https://example.com --profile standard
+./target/release/openre-scan scan https://example.com --profile standard
 
 # Full scan (18 checks, ~30-60s)
-openre-scan scan https://example.com --profile full
+./target/release/openre-scan scan https://example.com --profile full
 
 # JSON output for automation
-openre-scan scan https://example.com --format json
+./target/release/openre-scan scan https://example.com --format json
 
 # SARIF for GitHub Code Scanning / CI/CD
-openre-scan scan https://example.com --format sarif --output results.sarif
+./target/release/openre-scan scan https://example.com --format sarif --output results.sarif
 
 # Save to file
-openre-scan scan https://example.com --output results.json
+./target/release/openre-scan scan https://example.com --output results.json
 ```
 
 ---
@@ -200,11 +201,11 @@ openre-scan scan https://example.com --follow-redirects
 # Custom headers (e.g., auth)
 openre-scan scan https://example.com --header "Authorization=Bearer token"
 
-# Select specific checks
-openre-scan scan https://example.com --checks http-headers,security-headers
+# Select specific checks (comma-separated)
+openre-scan scan https://example.com --checks security-headers,csp,cors
 
-# Exclude slow checks
-openre-scan scan https://example.com --exclude sensitive-files
+# Exclude checks (comma-separated)
+openre-scan scan https://example.com --exclude tech-fingerprint,robots-txt
 
 # Disable progress bar
 openre-scan scan https://example.com --no-progress
@@ -215,24 +216,17 @@ openre-scan -v scan https://example.com
 
 ---
 
-## AI Features (Optional)
+## AI Features
 
-Requires API key for OpenAI, Anthropic, or vLLM:
+**Not available in openre-scan standalone binary.**
 
-```bash
-export OPENAI_API_KEY=sk-...
+AI-powered analysis (explain, remediate, correlate) requires:
+1. Running the full platform (`openre-api` server with AI provider configured)
+2. Using the `openre` CLI or `openre analyst` commands
 
-# Explain findings
-openre-scan scan https://example.com --profile standard --ai explain
+See [README.md](../README.md#unified-cli-openre--requires-api-server) for platform AI usage.
 
-# Generate remediation
-openre-scan scan https://example.com --profile standard --ai remediate
-
-# Correlate findings
-openre-scan scan https://example.com --profile standard --ai correlate
-```
-
-> **AI is optional**. The scanner works fully without any API keys.
+> **The scanner works fully without any API keys.** AI is an optional platform feature.
 
 ---
 
@@ -240,46 +234,35 @@ openre-scan scan https://example.com --profile standard --ai correlate
 
 ```bash
 # Check version
-openre-scan --version
+./target/release/openre-scan --version
 # openre-scan 0.1.0
 
 # Show help
-openre-scan --help
+./target/release/openre-scan --help
 
 # Test scan (safe public target)
-openre-scan scan https://httpbin.org --profile quick
+./target/release/openre-scan scan https://httpbin.org --profile quick
 ```
 
 ---
 
 ## Updating
 
-### Binary Download
-
-```bash
-# Re-download latest release
-curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64
-chmod +x openre-scan
-```
-
-### Cargo
-
-```bash
-Cargo install --force openre-scan
-```
-
-### Homebrew
-
-```bash
-brew upgrade openre-scan
-```
-
-### Source
+### Source Build
 
 ```bash
 cd open-re
 git pull origin main
-Cargo build --release -p openre-scan
+cargo build --release -p openre-scan
+cargo build --release -p openre-cli
+```
+
+### Binary Download — *Coming Soon*
+
+```bash
+# Not yet available
+# curl -L -o openre-scan https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-linux-x86_64
+# chmod +x openre-scan
 ```
 
 ---
@@ -292,16 +275,10 @@ Cargo build --release -p openre-scan
 rm openre-scan  # or openre-scan.exe
 ```
 
-### Cargo
+### Cargo (when published)
 
 ```bash
-Cargo uninstall openre-scan
-```
-
-### Homebrew
-
-```bash
-brew uninstall openre-scan
+# cargo uninstall openre-scan
 ```
 
 ### Source
@@ -320,7 +297,7 @@ rm -rf open-re/
 | Error | Fix |
 | ------- | ----- |
 | `linker 'cc' not found` | Install build tools: `sudo apt install build-essential` (Debian/Ubuntu), `xcode-select --install` (macOS) |
-| `openssl` missing | `sudo apt install libssl-dev pkg-config` |
+| `openssl` missing | `sudo apt install libssl-dev pkg-config` (Debian/Ubuntu) |
 | Rust version too old | `rustup update` |
 
 ### Runtime Issues
@@ -351,6 +328,6 @@ openre-scan scan --help
 | ----------- | --------- | ------------- |
 | Rust | 1.78 | Latest stable |
 | OS | Linux/macOS/Windows | Any |
-| Arch | x86_64 | x86_64 (ARM64 coming) |
+| Arch | x86_64 | x86_64 (ARM64 coming in v0.2.0) |
 | Memory | 10 MB | 20 MB |
 | Disk | 7 MB | 10 MB |

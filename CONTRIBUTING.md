@@ -1,14 +1,16 @@
-# Contributing to openre-scan
+# Contributing to open-re
 
-Thank you for contributing to **openre-scan** — a lightweight, standalone web security scanner.
+Thank you for contributing to **open-re** — an open-source reverse engineering and offensive security platform.
 
 We welcome:
 
--   **Security checks** (new vulnerability detections)
--   **Bug fixes** and **improvements**
+-   **Security checks** (new vulnerability detections for openre-scan)
+-   **Bug fixes** and **improvements** across all crates
 -   **Documentation** updates
 -   **Tests** and **CI** improvements
 -   **AI integration** enhancements
+-   **Plugin system** development
+-   **Binary analysis** pipeline improvements
 
 ---
 
@@ -19,94 +21,150 @@ We welcome:
 git clone https://github.com/YOUR_USERNAME/open-re.git
 cd open-re
 
-# 2. Build the scanner
-Cargo build --release -p openre-scan
+# 2. Build the scanner (standalone, works offline)
+cargo build --release -p openre-scan
 
-# 3. Run tests
-Cargo test -p openre-scan
+# 3. Build the CLI (requires API server for most commands)
+cargo build --release -p openre-cli
 
-# 4. Try it
+# 4. Run tests
+cargo test --workspace
+
+# 5. Try the scanner
 ./target/release/openre-scan scan https://example.com --profile standard
 ```
 
 ---
 
-## Adding a Security Check
+## Adding a Security Check (openre-scan)
 
-This is the most common contribution. A check is a self-contained module that detects a specific vulnerability or misconfiguration.
+This is the most common contribution. A check is a self-contained async function that detects a specific vulnerability or misconfiguration.
 
-### 1. Create the Check File
+### Current Structure
 
-```bash
-# Create new check module
-touch crates/openre-scan/src/checks/my_new_check.rs
-```
+All checks are implemented directly in `crates/openre-scan/src/main.rs` (not separate files yet). The `Check` enum defines all available checks.
 
-### 2. Implement the Check
+### 1. Add the Check Function
+
+Add a new async function in `main.rs` following the existing pattern:
 
 ```rust
-// crates/openre-scan/src/checks/my_new_check.rs
-use crate::{Check, Finding, Severity, Confidence, Category};
-use reqwest::Client;
-use url::Url;
-use anyhow::Result;
+// In crates/openre-scan/src/main.rs
+async fn check_my_new_check(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
+    let mut findings = Vec::new();
+    let response = client.get(target.as_str()).send().await?;
 
-pub struct MyNewCheck;
-
-impl Check for MyNewCheck {
-    fn name(&self) -> &'static str {
-        "my-new-check"
+    // Your detection logic here
+    if some_vulnerable_condition {
+        let finding = Finding::new(FindingConfig {
+            title: "Descriptive Title".to_string(),
+            description: "Human-readable explanation with context".to_string(),
+            severity: Severity::Medium,        // Critical/High/Medium/Low/Info
+            confidence: Confidence::High,       // VeryHigh/High/Medium/Low
+            category: Category::SecurityMisconfiguration,
+            target: target.to_string(),
+            target_type: "web".to_string(),
+            plugin_source: "my-new-check".to_string(),
+            plugin_version: "1.0".to_string(),
+            scan_id: scan_id(),
+        });
+        let evidence = Evidence::new(
+            EvidenceType::HttpResponse,
+            "Description of evidence".to_string(),
+        )
+        .with_data(serde_json::json!({"key": "value"}))
+        .with_location(target.to_string());
+        let remediation = RemediationGuidance::new(
+            "Fix summary".to_string(),
+            vec!["Step 1".to_string(), "Step 2".to_string()],
+            RemediationEffort::Low,
+            RemediationPriority::High,
+        );
+        findings.push(finding.with_evidence(evidence).with_remediation(remediation));
     }
 
-    async fn run(&self, client: &Client, target: &Url) -> Result<Vec<Finding>> {
-        let mut findings = Vec::new();
+    Ok(findings)
+}
+```
 
-        // Your detection logic here
-        let response = client.get(target.as_str()).send().await?;
+### 2. Register the Check
 
-        if some_vulnerable_condition {
-            findings.push(Finding::new(
-                "Descriptive Title".to_string(),
-                "Human-readable explanation with context".to_string(),
-                Severity::Medium,        // Critical/High/Medium/Low/Info
-                Confidence::High,        // VeryHigh/High/Medium/Low
-                Category::SecurityMisconfiguration,
-                target.to_string(),
-                "web".to_string(),
-                self.name().to_string(),
-                "1.0".to_string(),
-                crate::scan_id(),
-            ).with_evidence(evidence).with_remediation(remediation));
+Add to the `Check` enum and implement the `run` match arm:
+
+```rust
+// In the Check enum
+#[derive(Debug, Clone)]
+pub enum Check {
+    // ... existing checks
+    MyNewCheck,
+}
+
+impl Check {
+    pub async fn run(&self, client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>> {
+        match self {
+            // ... existing arms
+            Check::MyNewCheck => check_my_new_check(client, target).await,
         }
-
-        Ok(findings)
     }
 }
 ```
 
-### 3. Register the Check
+### 3. Add to Scan Profiles
 
-Add to `crates/openre-scan/src/checks/mod.rs`:
+Add to `get_all_checks()` for the desired profiles:
 
 ```rust
-pub mod my_new_check;
+pub fn get_all_checks(profile: &ScanProfile) -> Vec<Check> {
+    match profile {
+        ScanProfile::Quick => vec![
+            // ... existing
+        ],
+        ScanProfile::Standard => vec![
+            // ... existing
+            Check::MyNewCheck,  // Add here for Standard profile
+        ],
+        ScanProfile::Full => vec![
+            // ... existing
+            Check::MyNewCheck,  // Add to Full profile
+        ],
+    }
+}
 ```
 
-Add to `get_all_checks()` in `main.rs`:
+### 4. Add Check Description
+
+Add to `get_check_description()` for the help output (must handle all Check variants):
 
 ```rust
-ScanProfile::Standard => vec![
-    // ... existing checks
-    Check::MyNewCheck,  // Add here for Standard profile
-    // or
-    Check::MyNewCheck,  // Add to Full profile only
-],
+fn get_check_description(check: &Check) -> &'static str {
+    match check {
+        Check::HttpHeaders => "HTTP header analysis",
+        Check::TlsCertificate => "TLS certificate validation",
+        Check::CookieSecurity => "Cookie security flags",
+        Check::SecurityHeaders => "Security headers (HSTS, CSP, etc.)",
+        Check::ContentSecurityPolicy => "CSP directive analysis",
+        Check::CorsConfiguration => "CORS misconfiguration",
+        Check::InformationDisclosure => "Debug info & version disclosure",
+        Check::TechnologyFingerprint => "Tech stack detection",
+        Check::RobotsTxt => "robots.txt enumeration",
+        Check::SitemapXml => "sitemap.xml discovery",
+        Check::DirectoryListing => "Directory listing detection",
+        Check::SensitiveFiles => "Sensitive file exposure (20+ paths)",
+        Check::FormAnalysis => "Form security (GET passwords, CSRF)",
+        Check::LinkAnalysis => "Mixed content & external links",
+        Check::ScriptAnalysis => "Inline/external script analysis",
+        Check::MetaTags => "Security-relevant meta tags",
+        Check::HttpMethods => "Dangerous HTTP methods (TRACE, PUT, etc.)",
+        Check::SslTlsConfiguration => "SSL/TLS deep configuration",
+        Check::MyNewCheck => "Brief description of what this check does",
+    }
+}
 ```
 
-### 4. Add a Test
+### 5. Add a Test
 
 ```rust
-// crates/openre-scan/tests/integration.rs
+// In crates/openre-scan/tests/integration.rs
 #[tokio::test]
 async fn test_my_new_check() {
     let (base_url, server) = start_test_server().await;
@@ -114,19 +172,19 @@ async fn test_my_new_check() {
     let client = build_client(10, 10, false, "test".to_string(), None).unwrap();
     let target_url = target.parse::<Url>().unwrap();
 
-    let findings = Check::MyNewCheck.run(&client, &target_url).await.unwrap();
+    let findings = check_my_new_check(&client, &target_url).await.unwrap();
     assert!(findings.iter().any(|f| f.title.contains("Expected Title")));
     stop_test_server(server).await;
 }
 ```
 
-### 5. Run Tests
+### 6. Run Tests
 
 ```bash
-Cargo test -p openre-scan --test integration test_my_new_check
+cargo test -p openre-scan --test integration test_my_new_check
 ```
 
-### 6. Submit PR
+### 7. Submit PR
 
 ```bash
 git checkout -b feat/my-new-check
@@ -155,17 +213,20 @@ git push origin feat/my-new-check
 ## Running Tests
 
 ```bash
-# All openre-scan tests (unit + integration)
-Cargo test -p openre-scan
+# All workspace tests
+cargo test --workspace
+
+# Just openre-scan tests (unit + integration)
+cargo test -p openre-scan
 
 # Just integration tests
-Cargo test -p openre-scan --test integration
+cargo test -p openre-scan --test integration
 
 # With output
-Cargo test -p openre-scan --test integration -- --nocapture
+cargo test -p openre-scan --test integration -- --nocapture
 
 # Core crate tests
-Cargo test -p openre-core -p openre-config -p openre-telemetry -p openre-storage
+cargo test -p openre-core -p openre-config -p openre-telemetry -p openre-storage
 ```
 
 ---
@@ -173,14 +234,14 @@ Cargo test -p openre-core -p openre-config -p openre-telemetry -p openre-storage
 ## Code Quality
 
 ```bash
-# Format
-Cargo fmt --all -- --check
+# Format (must pass)
+cargo fmt --all -- --check
 
 # Lint (must pass with zero warnings)
-Cargo clippy -p openre-scan -- -D warnings
+cargo clippy --workspace -- -D warnings
 
-# Build release
-Cargo build --release -p openre-scan
+# Build release (all crates)
+cargo build --release --workspace
 ```
 
 ---
@@ -202,10 +263,10 @@ chore: update dependencies
 
 ### PR Requirements
 
--   [ ] All tests pass (`Cargo test -p openre-scan`)
--   [ ] Code formatted (`Cargo fmt --all -- --check`)
--   [ ] Zero clippy warnings (`Cargo clippy -p openre-scan -- -D warnings`)
--   [ ] Release build succeeds (`Cargo build --release -p openre-scan`)
+-   [ ] All tests pass (`cargo test --workspace`)
+-   [ ] Code formatted (`cargo fmt --all -- --check`)
+-   [ ] Zero clippy warnings (`cargo clippy --workspace -- -D warnings`)
+-   [ ] Release build succeeds (`cargo build --release --workspace`)
 -   [ ] Documentation updated if CLI changes
 -   [ ] CHANGELOG.md updated for user-facing changes
 -   [ ] Linked to relevant issue
@@ -222,17 +283,27 @@ chore: update dependencies
 ## Architecture Overview (for contributors)
 
 ```
-openre-scan/
-├── src/
-│   ├── main.rs           # CLI entry point, check orchestration, output formats
-│   ├── checks/           # Security check implementations (one file per check)
-│   │   ├── mod.rs        # Check registration
-│   │   ├── http_headers.rs
-│   │   ├── security_headers.rs
-│   │   └── ...           # Add new checks here
-│   └── tui/              # Experimental terminal UI
-├── tests/
-│   └── integration.rs    # End-to-end tests against test_server.py
+open-re/
+├── crates/
+│   ├── openre-core/           # Shared types: Finding, RiskScore, IDs, Capabilities
+│   ├── openre-config/         # Configuration management
+│   ├── openre-telemetry/      # Metrics, tracing, logging, audit
+│   ├── openre-storage/        # SQLite persistence, object storage
+│   ├── openre-queue/          # Redis job queue, worker pool
+│   ├── openre-plugins/        # WASM plugin runtime, registry, capabilities
+│   ├── openre-intelligence/   # CVE matching, correlation, dependency analysis
+│   ├── openre-security-ai/    # AI providers, prompt compiler, safety
+│   ├── openre-analysis/       # Binary analysis: ELF/PE/MachO/WASM parsers
+│   ├── openre-api/            # REST/gRPC/WebSocket API server
+│   ├── openre-cli/            # Unified CLI (requires API server)
+│   ├── openre-scan/           # Standalone scanner (18 checks, 3 profiles)
+│   ├── openre-recon/          # Reconnaissance (subdomain, port, tech)
+│   ├── openre-scanner/        # Scanner orchestration
+│   └── sentinel/              # Continuous monitoring
+├── frontend/                  # React 18 + TypeScript + Tailwind
+├── docker/                    # Dockerfiles
+├── docs/                      # Architecture docs
+└── plugins/                   # Plugin examples
 ```
 
 ### Key Types (from `openre-core`)
@@ -243,6 +314,8 @@ openre-scan/
 -   `Confidence` — VeryHigh, High, Medium, Low
 -   `Category` — SecurityMisconfiguration, InformationDisclosure, etc.
 -   `RemediationGuidance` — Summary, steps, effort (Low/Medium/High), priority (Immediate/High/Medium/Low)
+-   `Capability` — Plugin permissions (ReadBinary, WriteAnnotations, CallAI, etc.)
+-   `PluginId`, `ScanId`, `ProjectId`, `FindingId` — Typed ID wrappers
 
 ---
 

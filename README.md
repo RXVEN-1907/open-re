@@ -19,7 +19,7 @@ Discover vulnerabilities • Generate PoC exploits • Actionable remediation
 [![Security Audit](https://github.com/RXVEN-1907/open-re/workflows/Security%20Audit/badge.svg)](https://github.com/RXVEN-1907/open-re/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.78+-orange.svg)](https://www.rust-lang.org)
-[![Version](https://img.shields.io/badge/version-v0.2.0--dev-blue.svg)](https://github.com/RXVEN-1907/open-re/releases)
+[![Version](https://img.shields.io/badge/version-v0.1.0-blue.svg)](https://github.com/RXVEN-1907/open-re/releases)
 [![Docs](https://img.shields.io/badge/docs-latest-green.svg)](https://rxven-1907.github.io/open-re)
 
 **open-re** is a comprehensive reverse engineering and offensive security platform combining modern security tools and LLMs for automated analysis of binaries, websites, APIs, and applications — discovering vulnerabilities, generating reproducible PoC exploits, and providing actionable remediation guidance.
@@ -30,16 +30,18 @@ Discover vulnerabilities • Generate PoC exploits • Actionable remediation
 |-----------|--------|-------------|
 | **openre-scan** | ✅ Stable | Lightweight standalone security scanner for web apps & APIs |
 | **openre-core** | ✅ Stable | Core types, finding model, risk engine, ID system |
-| **openre-intelligence** | ✅ Stable | CVE matching, dependency analysis, finding correlation |
+| **openre-intelligence** | 🚧 Beta | CVE matching, dependency analysis, finding correlation |
 | **openre-security-ai** | 🚧 Beta | AI-enhanced analysis (LLM-powered vulnerability analysis) |
 | **openre-plugins** | 🚧 Beta | WASM plugin system for extensibility |
 | **openre-api** | 🚧 Alpha | REST/gRPC API server for platform integration |
 | **openre-queue** | ✅ Stable | Distributed job queue with Redis backend |
-| **openre-storage** | ✅ Stable | Object storage & persistence layer |
+| **openre-storage** | ✅ Stable | Object storage & persistence layer (SQLite) |
 | **openre-telemetry** | ✅ Stable | Metrics, tracing, logging, audit logging |
-| **openre-cli** | ✅ Stable | Unified CLI for all platform operations |
-| **openre-analysis** | 🚧 Alpha | Binary analysis pipeline (ELF/PE/MachO/WASM) |
+| **openre-cli** | 🚧 Beta | Unified CLI for platform operations (requires API server) |
+| **openre-analysis** | 🚧 Beta | Binary analysis pipeline (9-stage, incremental, ELF/PE/MachO/WASM) |
 | **Frontend** | 🚧 Alpha | React 18 + TypeScript + Tailwind web UI |
+
+> **Note**: Components marked 🚧 are under active development and may have incomplete features. ✅ Stable components are production-ready.
 
 ---
 
@@ -230,36 +232,46 @@ Discover vulnerabilities • Generate PoC exploits • Actionable remediation
 
 #### Tooling
 
-- **Pre-commit Hooks** — fmt, clippy, markdownlint, cspell
-- **VS Code Config** — rust-analyzer, tasks, launch configs
-- **Dev Container** — Full development environment with all tools
-- **Makefile/Justfile** — Common development commands
-- **Release Script** — Automated version bump, changelog, tag, push
+- **VS Code Config** — rust-analyzer, tasks, launch configs (planned)
+- **Dev Container** — Full development environment with all tools (planned)
+- **Pre-commit Hooks** — fmt, clippy, markdownlint, cspell (planned)
+- **Makefile/Justfile** — Common development commands (planned)
+- **Release Script** — Automated version bump, changelog, tag, push (planned)
+
+> **Note**: Most tooling is planned for v0.2.0. Currently run checks manually: `cargo fmt --check && cargo clippy --workspace`.
 
 ---
 
 ## 📦 Quick Start
 
-### Install Binary (Recommended)
+### Build from Source (Current Method)
 
 ```bash
-# Download latest release from GitHub Releases
-# Or build from source:
+# Clone repository
 git clone https://github.com/RXVEN-1907/open-re.git
 cd open-re
-cargo build --release --package openre-scan
+
+# Build standalone scanner (works offline, no API server needed)
+cargo build --release -p openre-scan
 ./target/release/openre-scan --help
+
+# Build unified CLI (requires API server for most commands)
+cargo build --release -p openre-cli
+./target/release/openre --help
 ```
 
 ### Docker
 
 ```bash
-# Standalone scanner
-docker run --rm ghcr.io/rxven-1907/openre-scan:latest scan https://example.com --profile standard
+# Build and run standalone scanner
+docker build -t openre-scan -f docker/Dockerfile.scan .
+docker run --rm openre-scan scan https://example.com --profile standard
 
-# Full platform (API + Worker + Frontend)
+# Full platform (API + Worker + Frontend) - requires docker-compose.yml
 docker compose -f docker-compose.yml up -d
 ```
+
+> **Note**: Pre-built binaries and Docker images are not yet published to GitHub Releases or GHCR. Build from source for now.
 
 ### Development Environment
 
@@ -279,22 +291,24 @@ cargo run --package openre-scan -- scan https://example.com --profile quick
 
 ## 📖 Usage
 
-### Standalone Scanner (openre-scan)
+### Standalone Scanner (openre-scan) — Works Offline
+
+The `openre-scan` binary is a **standalone tool** that works completely offline — no API server, database, or network dependencies required (except the target being scanned).
 
 ```bash
-# Quick scan (essential checks only, ~2-3s)
+# Quick scan (6 essential checks, ~2-3s)
 openre-scan scan https://example.com --profile quick
 
-# Standard scan (recommended, ~10-15s)
+# Standard scan (15 checks, ~10-15s) — Recommended for most use cases
 openre-scan scan https://example.com --profile standard
 
-# Full scan (all checks, ~30-60s)
+# Full scan (18 checks, ~30-60s) — Comprehensive audit
 openre-scan scan https://example.com --profile full
 
 # JSON output for automation
 openre-scan scan https://example.com --format json
 
-# SARIF output for CI/CD
+# SARIF output for CI/CD (GitHub Code Scanning, Azure DevOps, etc.)
 openre-scan scan https://example.com --format sarif --output results.sarif
 
 # Save results to file
@@ -303,53 +317,84 @@ openre-scan scan https://example.com --output results.json
 # Custom timeout and headers
 openre-scan scan https://example.com --timeout 30 --header "Authorization=Bearer token"
 
-# Filter specific checks
+# Filter specific checks (comma-separated)
 openre-scan scan https://example.com --checks security-headers,csp,cors
 
-# Exclude checks
+# Exclude checks (comma-separated)
 openre-scan scan https://example.com --exclude tech-fingerprint,robots-txt
+
+# Follow redirects
+openre-scan scan https://example.com --follow-redirects
+
+# Disable progress bar (useful for CI/CD)
+openre-scan scan https://example.com --no-progress
 
 # Show version
 openre-scan version
 
-# Interactive TUI (experimental)
+# Interactive TUI (experimental, requires --features tui)
 openre-scan tui
 ```
 
-### Unified CLI (openre)
+### Unified CLI (openre) — Requires API Server
+
+The `openre` CLI communicates with the **openre-api** server. Most commands require a running API server (start with `openre server start` or `docker compose up`).
 
 ```bash
+# Start API server (in background)
+openre server start &
+
 # Project management
-openre project create my-project --description "Security assessment"
+openre project create --name my-project --description "Security assessment"
 openre project list
-openre project show my-project
+openre project get --id <project-id>
 
 # Scan management
-openre scan create my-project --target https://example.com --profile standard
-openre scan run <scan-id>
-openre scan list my-project
-openre scan show <scan-id> --format table
+openre scan create --project my-project --target https://example.com --profile standard --run
+openre scan run --id <scan-id>
+openre scan list --project my-project
+openre scan show --id <scan-id>
+openre scan status --id <scan-id>  # Monitor progress
+openre scan export --id <scan-id> --format sarif --output results.sarif
 
 # Findings
-openre finding list my-project --severity high,critical
-openre finding show <finding-id>
+openre finding list --project my-project --severity high,critical
+openre finding show --id <finding-id> --evidence --remediation
+openre finding stats --project my-project
+openre finding verify --id <finding-id> --status true
 
-# AI Analysis
-openre ai analyze <finding-id>
-openre ai explain <finding-id>
-openre ai remediate <finding-id>
+# AI Analysis (requires AI provider configured in server)
+openre ai analyze --finding-id <finding-id>
+openre ai explain --finding-id <finding-id>
+openre ai remediate --finding-id <finding-id>
 openre ai correlate --project my-project
+
+# AI Security Analyst (enhanced AI features)
+openre analyst explain --scan-id <scan-id> --finding-id <finding-id>
+openre analyst remediate --scan-id <scan-id> --finding-id <finding-id>
+openre analyst correlate --scan-id <scan-id>
+openre analyst prioritize --scan-id <scan-id>
+openre analyst summarize --scan-id <scan-id> --audience developer
 
 # Plugin management
 openre plugin list
-openre plugin install <plugin-name>
-openre plugin enable <plugin-name>
-openre plugin configure <plugin-name> --setting key=value
+openre plugin install --source registry:plugin-name
+openre plugin enable --id <plugin-id>
+openre plugin configure --id <plugin-id> --config '{"key": "value"}'
 
 # Reports
-openre report generate <scan-id> --format html --output report.html
-openre report generate <scan-id> --format sarif --output results.sarif
+openre report generate --scan <scan-id> --format html --output report.html
+openre report generate --scan <scan-id> --format sarif --output results.sarif
+openre report list --project my-project
+openre report download --id <report-id> --output report.html
+
+# Configuration
+openre config set server_url http://localhost:8080
+openre config set api_key your-api-key
+openre config get server_url
 ```
+
+> **Key Difference**: `openre-scan` runs standalone and immediately scans targets. `openre` is a client for the platform API server — it manages projects, stores scans/findings, and enables AI analysis, but requires the server to be running.
 
 ### Scan Profiles
 
@@ -361,32 +406,32 @@ openre report generate <scan-id> --format sarif --output results.sarif
 
 ### Checks Included
 
-**Quick Profile:**
+**Quick Profile (6 checks):**
 
-- HTTP Headers analysis
-- Security Headers (8 headers checked)
-- Cookie Security (Secure, HttpOnly, SameSite)
-- TLS Certificate validation
-- Information Disclosure (debug headers, server version)
-- Technology Fingerprinting
+- `http-headers` — Server/X-Powered-By disclosure
+- `security-headers` — HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, COOP, CORP (8 headers)
+- `cookie-security` — Secure, HttpOnly, SameSite flags
+- `tls-certificate` — HTTPS enforcement, certificate validation
+- `info-disclosure` — Debug headers, server version disclosure
+- `tech-fingerprint` — Framework/CMS/server/library detection
 
-**Standard Profile (includes Quick):**
+**Standard Profile (15 checks — includes Quick):**
 
-- Content Security Policy analysis
-- CORS Configuration
-- Robots.txt enumeration
-- Sitemap.XML discovery
-- Directory Listing detection
-- Sensitive File exposure (20+ common paths)
-- Form Analysis (GET passwords, autocomplete, CSRF)
-- Link Analysis (mixed content, mailto)
-- Script Analysis (inline scripts, external resources)
-- Meta Tags analysis
+- `csp` — Content Security Policy directive analysis (unsafe-inline, unsafe-eval, wildcards)
+- `cors` — CORS misconfiguration (wildcard origin, credentials with wildcard)
+- `robots-txt` — robots.txt enumeration and disallowed paths
+- `sitemap` — sitemap.xml discovery
+- `dir-listing` — Directory listing detection
+- `sensitive-files` — 20+ common sensitive paths (.git, .env, config files, etc.)
+- `forms` — GET password fields, autocomplete, missing CSRF tokens
+- `links` — Mixed content (HTTP on HTTPS), mailto: links
+- `scripts` — Inline scripts, external HTTP scripts on HTTPS page
 
-**Full Profile (includes Standard):**
+**Full Profile (18 checks — includes Standard):**
 
-- HTTP Methods (TRACE, PUT, DELETE, etc.)
-- SSL/TLS Configuration deep dive
+- `http-methods` — TRACE, TRACK, PUT, DELETE, PATCH, OPTIONS
+- `ssl-config` — SSL/TLS configuration placeholder (use testssl.sh/sslyze for deep analysis)
+- `meta-tags` — Generator meta tag, meta refresh redirects
 
 ---
 
@@ -422,27 +467,39 @@ Rich interactive reports with charts, finding details, and remediation guidance.
 
 ## 🔌 Plugin System
 
-### Built-in Security Plugins
+The WASM-based plugin system is **under active development** (🚧 Beta). The plugin runtime, capability system, and registry infrastructure are implemented, but built-in security plugins are not yet fully available.
 
-| Plugin | Category | Description |
-|--------|----------|-------------|
-| access-control | AuthZ | RBAC, ABAC, policy enforcement |
-| api-rate-limiting | DoS | Rate limit detection and bypass testing |
-| auth-discovery | AuthN | Login forms, SSO, MFA detection |
-| cookie-security | Session | Secure/HttpOnly/SameSite analysis |
-| cors-analysis | Config | CORS misconfiguration detection |
-| csp-analysis | Config | Content Security Policy analysis |
-| file-upload | Input | Malicious file upload testing |
-| graphql-analysis | API | GraphQL introspection, depth limits |
-| information-disclosure | Info | Debug endpoints, stack traces |
-| path-traversal | Input | Directory traversal testing |
-| rate-limiting | DoS | Rate limit enumeration |
-| rest-api-analysis | API | OpenAPI/Swagger analysis |
-| security-headers | Config | Security header analysis |
-| sensitive-info | Info | PII, secrets, credentials detection |
-| session-management | AuthN | Session fixation, hijacking |
-| sql-injection | Input | SQLi detection and exploitation |
-| xss-analysis | Input | XSS detection (reflected, stored, DOM) |
+### Plugin Infrastructure (Implemented)
+
+- **WASM Runtime** — Sandboxed execution with fuel metering and memory limits
+- **Capability System** — Fine-grained permissions (ReadBinary, WriteAnnotations, QueryDatabase, CallAI, NetworkAccess, etc.)
+- **Plugin Registry** — Local registry with versioning support
+- **Plugin SDK** — Rust SDK with macros for rapid plugin development
+- **Lifecycle Management** — Install, enable/disable, configure, update, uninstall via CLI
+
+### Built-in Security Plugins (Planned)
+
+| Plugin | Category | Status |
+|--------|----------|--------|
+| access-control | AuthZ | 🚧 Planned |
+| api-rate-limiting | DoS | 🚧 Planned |
+| auth-discovery | AuthN | 🚧 Planned |
+| cookie-security | Session | 🚧 Planned |
+| cors-analysis | Config | 🚧 Planned |
+| csp-analysis | Config | 🚧 Planned |
+| file-upload | Input | 🚧 Planned |
+| graphql-analysis | API | 🚧 Planned |
+| information-disclosure | Info | 🚧 Planned |
+| path-traversal | Input | 🚧 Planned |
+| rate-limiting | DoS | 🚧 Planned |
+| rest-api-analysis | API | 🚧 Planned |
+| security-headers | Config | 🚧 Planned |
+| sensitive-info | Info | 🚧 Planned |
+| session-management | AuthN | 🚧 Planned |
+| sql-injection | Input | 🚧 Planned |
+| xss-analysis | Input | 🚧 Planned |
+
+> **Note**: Security checks are currently implemented directly in `openre-scan` (see [Checks Included](#checks-included)). The plugin system will enable external developers to extend functionality.
 
 ### Developing Plugins
 
@@ -451,14 +508,14 @@ Rich interactive reports with charts, finding details, and remediation guidance.
 cargo new --lib my-plugin
 cd my-plugin
 
-# Add dependencies
-# See docs/injection/plugin_development_guide.md
+# Add dependencies (see openre-plugins crate for SDK)
+# See docs/architecture/05-plugin-architecture.md
 
 # Build WASM
 cargo build --target wasm32-wasip1 --release
 
-# Install
-openre plugin install ./target/wasm32-wasip1/release/my_plugin.wasm
+# Install (requires running API server)
+openre plugin install --source local:./target/wasm32-wasip1/release/my_plugin.wasm
 ```
 
 ---
@@ -506,20 +563,23 @@ openre plugin install ./target/wasm32-wasip1/release/my_plugin.wasm
 
 ### Core Crates
 
-| Crate | Purpose | Key Types |
-|-------|---------|-----------|
-| `openre-core` | Shared foundation | `Finding`, `RiskScore`, `StageId`, `PluginId`, `Capability` |
-| `openre-config` | Configuration management | Layered config (file, env, CLI) |
-| `openre-telemetry` | Observability | Metrics, Tracing, Logging, Audit |
-| `openre-storage` | Persistence | `ScanStorage`, `ObjectStore`, Migrations |
-| `openre-queue` | Job processing | `QueueManager`, `WorkerPool`, `Scheduler` |
-| `openre-plugins` | Extensibility | `PluginRegistry`, `Runtime`, `CapabilityEnforcer` |
-| `openre-intelligence` | Analysis enrichment | CVE matching, Correlation, Dependency analysis |
-| `openre-security-ai` | AI integration | `SecurityAnalyst`, `PromptCompiler`, Providers |
-| `openre-analysis` | Binary analysis | Pipeline, Stages, ELF/PE/WASM parsers |
-| `openre-api` | Platform API | REST, gRPC, WebSocket, Auth |
-| `openre-cli` | Unified CLI | All user-facing commands |
-| `openre-scan` | Standalone scanner | 18 security checks, 3 profiles |
+| Crate | Status | Purpose | Key Types |
+|-------|--------|---------|-----------|
+| `openre-core` | ✅ Stable | Shared foundation | `Finding`, `RiskScore`, `StageId`, `PluginId`, `Capability` |
+| `openre-config` | ✅ Stable | Configuration management | Layered config (file, env, CLI) |
+| `openre-telemetry` | ✅ Stable | Observability | Metrics, Tracing, Logging, Audit |
+| `openre-storage` | ✅ Stable | Persistence (SQLite) | `ScanStorage`, `ObjectStore`, Migrations |
+| `openre-queue` | ✅ Stable | Job processing | `QueueManager`, `WorkerPool`, `Scheduler` |
+| `openre-plugins` | 🚧 Beta | Extensibility | `PluginRegistry`, `Runtime`, `CapabilityEnforcer` |
+| `openre-intelligence` | 🚧 Beta | Analysis enrichment | CVE matching, Correlation, Dependency analysis |
+| `openre-security-ai` | 🚧 Beta | AI integration | `SecurityAnalyst`, `PromptCompiler`, Providers |
+| `openre-analysis` | 🚧 Beta | Binary analysis | 9-stage pipeline, incremental analysis, ELF/PE/MachO/WASM parsers |
+| `openre-api` | 🚧 Alpha | Platform API | REST, gRPC, WebSocket, Auth |
+| `openre-cli` | 🚧 Beta | Unified CLI | All user-facing commands (requires API) |
+| `openre-scan` | ✅ Stable | Standalone scanner | 18 security checks, 3 profiles |
+| `openre-recon` | 🚧 Alpha | Reconnaissance | Subdomain enum, port scan, tech detect |
+| `openre-scanner` | 🚧 Alpha | Scanner orchestration | Multi-target scanning coordination |
+| `sentinel` | 🚧 Prototype | Security monitoring | Demo binary (hardcoded output) |
 
 ---
 
@@ -527,42 +587,48 @@ openre plugin install ./target/wasm32-wasip1/release/my_plugin.wasm
 
 ### Scanner Config (openre-scan)
 
-Works without configuration. Optional via:
+Works without configuration. All options via command-line flags (see `openre-scan --help` or `openre-scan scan --help`).
 
-- Command-line flags (see `--help`)
-- TOML config file (planned)
+No configuration file support yet (planned).
 
 ### Platform Config (openre-api, openre-cli)
 
+The `openre` CLI stores its configuration in `~/.config/openre/config.toml`:
+
 ```toml
 # ~/.config/openre/config.toml
-[server]
-host = "0.0.0.0"
-port = 8080
+server_url = "http://localhost:8080"
+api_key = "your-api-key"  # or use OPENRE_API_KEY env var
+output_format = "table"
+verbose = false
 
-[database]
-url = "sqlite://data/openre.db"
+# Profiles for different environments
+[profiles.production]
+server_url = "https://api.openre.example.com"
+api_key = "prod-key"
 
-[redis]
-url = "redis://localhost:6379"
+[profiles.staging]
+server_url = "https://staging-api.openre.example.com"
+api_key = "staging-key"
+```
 
-[queue]
-worker_count = 4
-max_retries = 3
+The API server (`openre-api`) uses environment variables:
 
-[plugins]
-enabled = true
-registry_url = "https://plugins.openre.dev"
-auto_update = false
+```bash
+# Required (server will not start without these)
+DATABASE_URL=sqlite://data/openre.db
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=your-secret-key-min-32-chars
 
-[ai]
-provider = "ollama"
-model = "codellama:13b"
-base_url = "http://localhost:11434"
-
-[telemetry]
-metrics_port = 9090
-log_level = "info"
+# Optional (defaults shown)
+HOST=0.0.0.0
+PORT=8080
+WORKER_COUNT=4
+AI_PROVIDER=ollama
+AI_MODEL=codellama:13b
+AI_BASE_URL=http://localhost:11434
+METRICS_PORT=9090
+LOG_LEVEL=info
 ```
 
 ---
@@ -604,22 +670,26 @@ log_level = "info"
 
 ## 🗺️ Roadmap
 
-### v0.2.0 (Current Development)
+### v0.2.0 (Next Release)
 
-- [ ] Configuration file support (TOML)
-- [ ] Authentication handling (OAuth, JWT, API keys)
+- [ ] Configuration file support (TOML) for openre-scan
+- [ ] Authentication handling (OAuth, JWT, API keys) in scanner
 - [ ] Recursive crawling/spidering
 - [ ] JavaScript rendering/analysis (headless)
 - [ ] Plugin marketplace integration
 - [ ] Multi-tenant API support
+- [ ] ARM64 binary releases
+- [ ] Homebrew tap and Cargo publish
 
 ### v0.3.0
 
 - [ ] Distributed scanning (multi-worker)
-- [ ] Custom check SDK
+- [ ] Custom check SDK for openre-scan
 - [ ] Advanced correlation engine
 - [ ] Compliance reporting (OWASP, PCI-DSS, HIPAA)
 - [ ] IDE integrations (VS Code, IntelliJ)
+- [ ] Pre-built binaries on GitHub Releases
+- [ ] Docker images on GHCR
 
 ### v1.0.0
 
@@ -645,12 +715,19 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 ### Development Setup
 
 ```bash
-# Install pre-commit hooks
-cargo install pre-commit
-pre-commit install
+# Build all crates
+cargo build --workspace
 
-# Run all checks locally
-make check  # or: just check
+# Run all tests
+cargo test --workspace
+
+# Run linters
+cargo fmt --all -- --check
+cargo clippy --workspace -- -D warnings
+
+# Build release binaries
+cargo build --release -p openre-scan
+cargo build --release -p openre-cli
 ```
 
 ---

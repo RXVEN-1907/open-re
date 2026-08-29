@@ -2181,7 +2181,7 @@ fn show_version() {
     println!("{} {}", "Version:".bold(), env!("CARGO_PKG_VERSION").bright_white());
     println!("{} {}", "Component:".bold(), "openre-scan (standalone scanner)".bright_white());
     println!("{} {}", "Repository:".bold(), "https://github.com/RXVEN-1907/open-re".bright_blue().underline());
-    println!("{} {}", "Platform:".bold(), "open-re v0.2.0-dev".bright_white());
+    println!("{} {}", "Platform:".bold(), format!("open-re v{}", env!("CARGO_PKG_VERSION")).bright_white());
     println!();
     println!("{}", "Part of the open-re platform:".dimmed());
     println!("  • openre-scan — Standalone security scanner (this tool)");
