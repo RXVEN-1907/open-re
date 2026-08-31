@@ -36,7 +36,7 @@ pub enum Error {
     Notify(#[from] notify::Error),
 
     #[error("Tracing error: {0}")]
-    Tracing(#[from] opentelemetry::trace::TraceError),
+    Tracing(String),
 
     #[error("Redis error: {0}")]
     Redis(#[from] redis::RedisError),

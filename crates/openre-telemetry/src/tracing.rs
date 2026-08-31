@@ -24,7 +24,10 @@ pub fn init_tracing(config: &TracingConfig) -> Result<TracingGuard> {
         let exporter = opentelemetry_otlp::SpanExporter::builder()
             .with_tonic()
             .with_endpoint(endpoint)
-            .build()?;
+            .build()
+            .map_err(|e| {
+                openre_core::Error::Internal(anyhow::anyhow!("OTLP exporter build failed: {}", e))
+            })?;
 
         TracerProvider::builder()
             .with_sampler(Sampler::TraceIdRatioBased(config.sample_rate))

@@ -145,7 +145,8 @@ impl ObjectStore {
         }
         file.flush().await?;
 
-        let hash = format!("{:x}", hasher.finalize());
+        let result = hasher.finalize();
+        let hash = hex::encode(result.as_slice());
         Ok((hash, total_bytes))
     }
 }

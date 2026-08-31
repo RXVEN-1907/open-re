@@ -980,7 +980,9 @@ impl Finding {
                 hasher.update(loc.as_bytes());
             }
         }
-        format!("{:x}", hasher.finalize())[..16].to_string()
+        let result = hasher.finalize();
+        let hash_bytes: &[u8] = result.as_ref();
+        hex::encode(hash_bytes)[..16].to_string()
     }
 }
 

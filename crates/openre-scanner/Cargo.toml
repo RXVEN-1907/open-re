@@ -58,7 +58,6 @@ webpki-roots = "0.25"
 # API layer
 axum = { workspace = true }
 utoipa = { workspace = true, features = ["chrono"] }
-sqlx = { workspace = true }
 toml = "0.8"
 tracing-subscriber = { workspace = true }
 
@@ -67,10 +66,10 @@ wasmtime = { workspace = true }
 wasmparser = { workspace = true }
 
 # For TUI
-ratatui = "0.26"
-crossterm = "0.27"
+ratatui = { workspace = true }
+crossterm = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
-mockall = "0.12"
-tempfile = "3.8"
+mockall = { workspace = true }
+tempfile = { workspace = true }

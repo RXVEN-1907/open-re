@@ -11,7 +11,7 @@ keywords = { workspace = true }
 [features]
 default = ["wasm", "database", "native-plugins"]
 wasm = ["dep:wasmtime", "dep:wasmtime-wasi", "dep:wasmparser"]
-database = ["dep:sqlx", "openre-storage/postgres", "openre-storage/redis", "openre-storage/sqlite"]
+database = ["openre-storage/postgres", "openre-storage/redis", "openre-storage/sqlite"]
 native-plugins = ["dep:libloading"]
 
 [dependencies]
@@ -29,22 +29,21 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
-dashmap = "5.5"
-notify = "6.1"
+dashmap = { workspace = true }
+notify = { workspace = true }
 ring = { workspace = true }
-base64 = "0.21"
+base64 = { workspace = true }
 chrono = { workspace = true }
-sqlx = { workspace = true, default-features = false, optional = true }
 async-trait = { workspace = true }
 uuid = { workspace = true }
 semver = "1.0"
 tracing = { workspace = true }
-regex = "1.10"
-url = "2.5"
-reqwest = { version = "0.12", features = ["json", "cookies", "gzip", "brotli", "deflate", "rustls-tls", "multipart"] }
-http = "1.0"
-urlencoding = "2.1"
-dirs = "5.0"
+regex = { workspace = true }
+url = { workspace = true }
+reqwest = { workspace = true }
+http = { workspace = true }
+urlencoding = { workspace = true }
+dirs = { workspace = true }
 openre-plugins-macros = { path = "../openre-plugins-macros" }
 
 [dev-dependencies]

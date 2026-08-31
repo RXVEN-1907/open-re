@@ -36,14 +36,14 @@ keywords = ["security", "scanner", "vulnerability", "web", "sarif", "cli"]
 
 [workspace.dependencies]
 # Core
-tokio = { version = "1.38", features = ["full", "tracing"] }
+tokio = { version = "1.53", features = ["full", "tracing"] }
 anyhow = "1.0"
 thiserror = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-uuid = { version = "1.7", features = ["v4", "serde", "fast-rng"] }
-chrono = { version = "0.4", features = ["serde"] }
-tracing = { version = "0.1", features = ["std"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.150"
+uuid = { version = "1.23", features = ["v4", "serde", "fast-rng"] }
+chrono = { version = "0.4.45", features = ["serde"] }
+tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 tracing-opentelemetry = "0.27"
 opentelemetry = { version = "0.27", features = ["trace"] }
@@ -51,26 +51,26 @@ opentelemetry-otlp = { version = "0.27", features = ["tonic"] }
 opentelemetry-prometheus = "0.27"
 metrics = "0.22"
 metrics-exporter-prometheus = "0.14"
-dashmap = "5.5"
+dashmap = "6.2"
 futures = "0.3"
 tokio-stream = { version = "0.1", features = ["sync"] }
 async-trait = "0.1"
-once_cell = "1.19"
+once_cell = "1.21"
 parking_lot = "0.12"
-bytes = "1.5"
-base64 = "0.21"
+bytes = "1.12"
+base64 = "0.23"
 hex = "0.4"
 urlencoding = "2.1"
-rand = "0.8"
-fastrand = "2.0"
-regex = "1.10"
-sha2 = "0.10"
-blake3 = "1.5"
+rand = "0.9"
+fastrand = "2.4"
+regex = "1.13"
+sha2 = "0.11"
+blake3 = "1.8"
 argon2 = "0.5"
-bcrypt = "0.15"
-jsonwebtoken = { version = "9.2" }
-validator = { version = "0.16", features = ["derive"] }
-utoipa = { version = "4.0" }
+bcrypt = "0.19"
+jsonwebtoken = { version = "9.3" }
+validator = { version = "0.20", features = ["derive"] }
+utoipa = { version = "4.2" }
 utoipa-swagger-ui = "5.0"
 notify = "6.1"
 http = "0.2"
@@ -96,12 +96,12 @@ rusqlite = { version = "0.31", features = ["bundled", "serde_json", "chrono", "u
 # Binary parsing
 goblin = { version = "0.7", features = ["std"] }
 object = { version = "0.35", features = ["std"] }
-scroll = "0.11"
+scroll = "0.13"
 # pe = "0.1"  # Has alignment issues, using goblin for PE parsing instead
 xmas-elf = "0.10"
 
 # TLS
-rustls = { version = "0.21" }
+rustls = { version = "0.23" }
 rustls-pemfile = "1.0"
 webpki-roots = "0.25"
 
@@ -124,13 +124,13 @@ ring = { version = "0.17", features = ["std"] }
 
 # Config
 figment = { version = "0.10", features = ["toml", "env", "json", "yaml"] }
-config = { version = "0.13", features = ["toml", "yaml", "ini"] }
+config = { version = "0.15", features = ["toml", "yaml", "ini"] }
 serde_yaml = "0.9"
 
 # CLI
 clap = { version = "4.5", features = ["derive", "env", "wrap_help", "help", "usage", "suggestions", "cargo"] }
 clap_complete = "4.5"
-indicatif = "0.17"
+indicatif = "0.18"
 colored = "2.0"
 dirs = "5.0"
 toml = "0.8"

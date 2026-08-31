@@ -42,7 +42,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 sha2 = { workspace = true }
 base64 = { workspace = true }
-regex = "1.10"
+regex = { workspace = true }
 html5ever = "0.26"
 select = "0.6"
 markup5ever_rcdom = "0.1"
