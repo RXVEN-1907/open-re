@@ -1,0 +1,50 @@
+[
+  {
+    "file": "crates/openre-cli/src/main.rs",
+    "line": 144,
+    "summary": "Context::new() now returns Result<Self, CliError> - caller handles with ? operator",
+    "failure_scenario": "If Context::new() fails (e.g., OfflineStore::new() fails due to DB permission issues), main() will propagate the error and exit with non-zero. No explicit error handling for offline store init failure."
+  },
+  {
+    "file": "crates/openre-cli/src/commands/project.rs",
+    "line": 179,
+    "summary": "Uses ctx.offline to branch to execute_offline() before any HTTP calls",
+    "failure_scenario": "If ctx.offline is true but ctx.local_store() returns None (e.g., Context created without offline=true), execute_offline() will fail with 'Offline store not available'. The early check on ctx.offline assumes local_store exists."
+  },
+  {
+    "file": "crates/openre-cli/src/commands/scan.rs",
+    "line": 122,
+    "summary": "Uses ctx.offline to branch to execute_offline() before any HTTP calls",
+    "failure_scenario": "Same as project.rs - if offline=true but local_store is None, execute_offline fails. Also, resolve_project_id() at line 540 uses ctx.get() which would fail in offline mode if called outside execute_offline path."
+  },
+  {
+    "file": "crates/openre-cli/src/commands/analysis.rs",
+    "line": 591,
+    "summary": "Checks ctx.offline only for Pipeline commands, other analysis commands run locally",
+    "failure_scenario": "Non-pipeline commands (Parse, Info, Symbols, etc.) don't check ctx.offline and don't use HTTP, so they work in both modes. But Pipeline commands check offline at line 591 and call local_store() at line 1512 - if local_store is None, fails with 'Offline store not available'."
+  },
+  {
+    "file": "crates/openre-cli/src/commands/project.rs",
+    "line": 303,
+    "summary": "Calls ctx.local_store().ok_or(CliError::OfflineMode(...)) in execute_offline()",
+    "failure_scenario": "If Context was created with offline=true but OfflineStore::new() failed (returned error), local_store would be None. This check catches that case, but the error message 'Offline store not available' is generic and doesn't indicate root cause (e.g., DB init failure)."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 957,
+    "summary": "Context::get() returns OfflineMode error when ctx.offline is true",
+    "failure_scenario": "Any command that calls ctx.get() without checking ctx.offline first will get OfflineMode error. Currently all commands check ctx.offline at start of execute(), but if a new command forgets this check, it will fail confusingly. The error message 'GET not supported in offline mode' doesn't suggest alternative (use local_store)."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 84,
+    "summary": "OfflineStore::new() called from Context::new() with PRAGMA changes for rusqlite 0.31+",
+    "failure_scenario": "PRAGMA journal_mode=WAL etc. now use prepare+query pattern. If SQLite is older or WAL mode unsupported (e.g., network filesystem), OfflineStore::new() fails, causing Context::new() to fail. Caller in main.rs gets generic CliError::DatabaseError."
+  },
+  {
+    "file": "crates/openre-storage/src/project.rs",
+    "line": 34,
+    "summary": "ProjectStore::new() has same PRAGMA changes - called from API state.rs and CLI context.rs",
+    "failure_scenario": "Same PRAGMA compatibility issue as OfflineStore. If API server starts with incompatible SQLite/storage, ProjectStore::new() fails at startup. Both API and CLI share this code path."
+  }
+]

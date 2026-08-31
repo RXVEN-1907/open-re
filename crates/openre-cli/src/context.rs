@@ -80,6 +80,42 @@ pub struct OfflineStore {
     meta_conn: Arc<tokio::sync::Mutex<Option<Connection>>>,
 }
 
+/// RAII guard for metadata connection to prevent leaks
+struct MetaConnGuard {
+    conn: Option<Connection>,
+    meta_conn: Arc<tokio::sync::Mutex<Option<Connection>>>,
+    closed: bool,
+}
+
+impl MetaConnGuard {
+    async fn new(store: &OfflineStore) -> Result<Self, CliError> {
+        let mut guard = store.meta_conn.lock().await;
+        let conn = guard.take().ok_or_else(|| {
+            CliError::Internal("Metadata connection already in use".to_string())
+        })?;
+        Ok(Self {
+            conn: Some(conn),
+            meta_conn: store.meta_conn.clone(),
+            closed: false,
+        })
+    }
+
+    fn conn(&mut self) -> &mut Connection {
+        self.conn.as_mut().expect("Connection already taken")
+    }
+
+    /// Explicitly close the guard and return the connection to the pool
+    async fn close(mut self) {
+        if !self.closed {
+            if let Some(conn) = self.conn.take() {
+                let mut guard = self.meta_conn.lock().await;
+                *guard = Some(conn);
+            }
+            self.closed = true;
+        }
+    }
+}
+
 impl OfflineStore {
     pub fn new(db_path: Option<PathBuf>) -> Result<Self, crate::error::CliError> {
         let base_path = db_path.unwrap_or_else(|| {
@@ -177,7 +213,8 @@ impl OfflineStore {
             [],
         )?;
 
-        let project_id = ProjectId::new();
+        // Use a fixed project ID for the analysis store so data persists across runs
+        let project_id = "00000000-0000-0000-0000-000000000001".parse::<ProjectId>().unwrap();
         let project_store = ProjectStore::new(project_id, &base_path)?;
 
         Ok(Self {
@@ -191,23 +228,15 @@ impl OfflineStore {
         &self.project_store
     }
 
-    /// Take the metadata connection
-    async fn take_meta_conn(&self) -> Result<Connection, CliError> {
-        let mut guard = self.meta_conn.lock().await;
-        guard.take().ok_or_else(|| {
-            CliError::Internal("Metadata connection already in use".to_string())
-        })
-    }
-
-    /// Put the metadata connection back
-    async fn put_meta_conn(&self, conn: Connection) {
-        let mut guard = self.meta_conn.lock().await;
-        *guard = Some(conn);
+    /// Get a metadata connection guard (RAII - automatically returns connection on drop)
+    async fn meta_conn(&self) -> Result<MetaConnGuard, CliError> {
+        MetaConnGuard::new(self).await
     }
 
     /// Create a new project
     pub async fn create_project(&self, project: OfflineProject) -> Result<(), CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         conn.execute(
             r#"
             INSERT INTO projects (id, name, description, owner_id, is_public, settings, created_at, updated_at)
@@ -224,7 +253,7 @@ impl OfflineStore {
                 project.updated_at.to_rfc3339(),
             ],
         )?;
-        self.put_meta_conn(conn).await;
+        guard.close().await;
         Ok(())
     }
 
@@ -235,7 +264,13 @@ impl OfflineStore {
         per_page: u32,
         search: Option<String>,
     ) -> Result<Vec<OfflineProject>, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        // Validate page parameter
+        if page == 0 {
+            return Err(CliError::InvalidInput("Page must be >= 1".to_string()));
+        }
+
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let offset = (page - 1) * per_page;
 
         let projects = if let Some(search) = search {
@@ -294,13 +329,14 @@ impl OfflineStore {
             projects
         };
 
-        self.put_meta_conn(conn).await;
+        guard.close().await;
         Ok(projects)
     }
 
     /// Get project by ID
     pub async fn get_project(&self, id: &ProjectId) -> Result<Option<OfflineProject>, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let id_str = id.to_string();
         let result = {
             let mut stmt = conn.prepare(
@@ -311,20 +347,34 @@ impl OfflineStore {
                 "#,
             )?;
             stmt.query_row(params![id_str], |row| {
+                let id_str: String = row.get(0)?;
+                let id = id_str.parse::<ProjectId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid project ID format".into()))?;
+
+                let created_at_str: String = row.get(6)?;
+                let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid created_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
+                let updated_at_str: String = row.get(7)?;
+                let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid updated_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
                 Ok(OfflineProject {
-                    id: row.get::<_, String>(0)?.parse::<ProjectId>().unwrap(),
+                    id,
                     name: row.get(1)?,
                     description: row.get(2)?,
                     owner_id: row.get(3)?,
                     is_public: row.get::<_, i32>(4)? != 0,
                     settings: row.get::<_, Option<String>>(5)?.and_then(|s| serde_json::from_str(&s).ok()),
-                    created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(6)?).unwrap().with_timezone(&chrono::Utc),
-                    updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(7)?).unwrap().with_timezone(&chrono::Utc),
+                    created_at,
+                    updated_at,
                 })
             })
         };
 
-        self.put_meta_conn(conn).await;
+        guard.close().await;
         match result {
             Ok(project) => Ok(Some(project)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -340,7 +390,8 @@ impl OfflineStore {
         description: Option<String>,
         is_public: Option<bool>,
     ) -> Result<Option<OfflineProject>, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let id_str = id.to_string();
 
         // Check if project exists
@@ -351,7 +402,6 @@ impl OfflineStore {
         ).unwrap_or(false);
 
         if !exists {
-            self.put_meta_conn(conn).await;
             return Ok(None);
         }
 
@@ -373,7 +423,6 @@ impl OfflineStore {
         }
 
         if updates.is_empty() {
-            self.put_meta_conn(conn).await;
             return self.get_project(id).await;
         }
 
@@ -389,22 +438,24 @@ impl OfflineStore {
         param_refs.push(&id_str);
 
         conn.execute(&sql, param_refs.as_slice())?;
-        self.put_meta_conn(conn).await;
 
+        guard.close().await;
         self.get_project(id).await
     }
 
     /// Delete project
     pub async fn delete_project(&self, id: &ProjectId) -> Result<bool, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let deleted = conn.execute("DELETE FROM projects WHERE id = ?1", params![id.to_string()])?;
-        self.put_meta_conn(conn).await;
+        guard.close().await;
         Ok(deleted > 0)
     }
 
     /// Count projects
     pub async fn count_projects(&self, search: Option<String>) -> Result<u64, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
 
         let count: u64 = if let Some(search) = search {
             let pattern = format!("%{}%", search);
@@ -417,7 +468,7 @@ impl OfflineStore {
             conn.query_row("SELECT COUNT(*) FROM projects", [], |row| row.get(0))?
         };
 
-        self.put_meta_conn(conn).await;
+        guard.close().await;
         Ok(count)
     }
 
@@ -425,7 +476,8 @@ impl OfflineStore {
 
     /// Create a new scan
     pub async fn create_scan(&self, scan: OfflineScan) -> Result<(), CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         conn.execute(
             r#"
             INSERT INTO scans (id, project_id, name, target, profile, status, progress, findings_count, checks_total, checks_completed, started_at, completed_at, created_at, updated_at)
@@ -448,7 +500,7 @@ impl OfflineStore {
                 scan.updated_at.to_rfc3339(),
             ],
         )?;
-        self.put_meta_conn(conn).await;
+        guard.close().await;
         Ok(())
     }
 
@@ -460,7 +512,13 @@ impl OfflineStore {
         per_page: u32,
         status_filter: Option<String>,
     ) -> Result<Vec<OfflineScan>, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        // Validate page parameter
+        if page == 0 {
+            return Err(CliError::InvalidInput("Page must be >= 1".to_string()));
+        }
+
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let offset = (page - 1) * per_page;
         let project_id_str = project_id.to_string();
 
@@ -475,9 +533,27 @@ impl OfflineStore {
                 "#,
             )?;
             let rows = stmt.query_map(params![&project_id_str, &status, &per_page, &offset], |row| {
+                let id_str: String = row.get(0)?;
+                let id = id_str.parse::<ScanId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid scan ID format".into()))?;
+
+                let project_id_str: String = row.get(1)?;
+                let project_id = project_id_str.parse::<ProjectId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid project ID format".into()))?;
+
+                let created_at_str: String = row.get(12)?;
+                let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid created_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
+                let updated_at_str: String = row.get(13)?;
+                let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid updated_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
                 Ok(OfflineScan {
-                    id: row.get::<_, String>(0)?.parse::<ScanId>().unwrap(),
-                    project_id: row.get::<_, String>(1)?.parse::<ProjectId>().unwrap(),
+                    id,
+                    project_id,
                     name: row.get(2)?,
                     target: row.get(3)?,
                     profile: row.get(4)?,
@@ -488,8 +564,8 @@ impl OfflineStore {
                     checks_completed: row.get(9)?,
                     started_at: row.get::<_, Option<String>>(10)?.and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|dt| dt.with_timezone(&chrono::Utc)),
                     completed_at: row.get::<_, Option<String>>(11)?.and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|dt| dt.with_timezone(&chrono::Utc)),
-                    created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(12)?).unwrap().with_timezone(&chrono::Utc),
-                    updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(13)?).unwrap().with_timezone(&chrono::Utc),
+                    created_at,
+                    updated_at,
                 })
             })?;
             let mut scans = Vec::new();
@@ -508,9 +584,27 @@ impl OfflineStore {
                 "#,
             )?;
             let rows = stmt.query_map(params![&project_id_str, &per_page, &offset], |row| {
+                let id_str: String = row.get(0)?;
+                let id = id_str.parse::<ScanId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid scan ID format".into()))?;
+
+                let project_id_str: String = row.get(1)?;
+                let project_id = project_id_str.parse::<ProjectId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid project ID format".into()))?;
+
+                let created_at_str: String = row.get(12)?;
+                let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid created_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
+                let updated_at_str: String = row.get(13)?;
+                let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid updated_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
                 Ok(OfflineScan {
-                    id: row.get::<_, String>(0)?.parse::<ScanId>().unwrap(),
-                    project_id: row.get::<_, String>(1)?.parse::<ProjectId>().unwrap(),
+                    id,
+                    project_id,
                     name: row.get(2)?,
                     target: row.get(3)?,
                     profile: row.get(4)?,
@@ -532,13 +626,14 @@ impl OfflineStore {
             scans
         };
 
-        self.put_meta_conn(conn).await;
+        guard.close().await;
         Ok(scans)
     }
 
     /// Get scan by ID
     pub async fn get_scan(&self, id: &ScanId) -> Result<Option<OfflineScan>, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let id_str = id.to_string();
         let result = {
             let mut stmt = conn.prepare(
@@ -549,9 +644,27 @@ impl OfflineStore {
                 "#,
             )?;
             stmt.query_row(params![id_str], |row| {
+                let id_str: String = row.get(0)?;
+                let id = id_str.parse::<ScanId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid scan ID format".into()))?;
+
+                let project_id_str: String = row.get(1)?;
+                let project_id = project_id_str.parse::<ProjectId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid project ID format".into()))?;
+
+                let created_at_str: String = row.get(12)?;
+                let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid created_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
+                let updated_at_str: String = row.get(13)?;
+                let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid updated_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
                 Ok(OfflineScan {
-                    id: row.get::<_, String>(0)?.parse::<ScanId>().unwrap(),
-                    project_id: row.get::<_, String>(1)?.parse::<ProjectId>().unwrap(),
+                    id,
+                    project_id,
                     name: row.get(2)?,
                     target: row.get(3)?,
                     profile: row.get(4)?,
@@ -562,13 +675,12 @@ impl OfflineStore {
                     checks_completed: row.get(9)?,
                     started_at: row.get::<_, Option<String>>(10)?.and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|dt| dt.with_timezone(&chrono::Utc)),
                     completed_at: row.get::<_, Option<String>>(11)?.and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|dt| dt.with_timezone(&chrono::Utc)),
-                    created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(12)?).unwrap().with_timezone(&chrono::Utc),
-                    updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(13)?).unwrap().with_timezone(&chrono::Utc),
+                    created_at,
+                    updated_at,
                 })
             })
         };
 
-        self.put_meta_conn(conn).await;
         match result {
             Ok(scan) => Ok(Some(scan)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -587,7 +699,8 @@ impl OfflineStore {
         started_at: Option<chrono::DateTime<chrono::Utc>>,
         completed_at: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<Option<OfflineScan>, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let id_str = id.to_string();
 
         // Check if scan exists
@@ -598,7 +711,6 @@ impl OfflineStore {
         ).unwrap_or(false);
 
         if !exists {
-            self.put_meta_conn(conn).await;
             return Ok(None);
         }
 
@@ -632,7 +744,6 @@ impl OfflineStore {
         }
 
         if updates.is_empty() {
-            self.put_meta_conn(conn).await;
             return self.get_scan(id).await;
         }
 
@@ -648,38 +759,39 @@ impl OfflineStore {
         param_refs.push(&id_str);
 
         conn.execute(&sql, param_refs.as_slice())?;
-        self.put_meta_conn(conn).await;
 
+        guard.close().await;
         self.get_scan(id).await
     }
 
     /// Delete scan
     pub async fn delete_scan(&self, id: &ScanId) -> Result<bool, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let deleted = conn.execute("DELETE FROM scans WHERE id = ?1", params![id.to_string()])?;
-        self.put_meta_conn(conn).await;
         Ok(deleted > 0)
     }
 
     /// Count scans for a project
     pub async fn count_scans(&self, project_id: &ProjectId, status_filter: Option<String>) -> Result<u64, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
+        let project_id_str = project_id.to_string();
 
         let count: u64 = if let Some(status) = status_filter {
             conn.query_row(
                 "SELECT COUNT(*) FROM scans WHERE project_id = ?1 AND status = ?2",
-                params![project_id.to_string(), status],
+                params![&project_id_str, status],
                 |row| row.get(0),
             )?
         } else {
             conn.query_row(
                 "SELECT COUNT(*) FROM scans WHERE project_id = ?1",
-                params![project_id.to_string()],
+                params![&project_id_str],
                 |row| row.get(0),
             )?
         };
 
-        self.put_meta_conn(conn).await;
         Ok(count)
     }
 
@@ -691,21 +803,32 @@ impl OfflineStore {
         }
 
         // Otherwise, search by name
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let result = {
             let mut stmt = conn.prepare(
                 "SELECT id FROM projects WHERE name = ?1 LIMIT 1"
             )?;
             stmt.query_row(params![project], |row| {
-                Ok(row.get::<_, String>(0)?.parse::<ProjectId>().unwrap())
+                let id_str: String = row.get(0)?;
+                id_str.parse::<ProjectId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid project ID format".into()))
             })
         };
 
-        self.put_meta_conn(conn).await;
         match result {
-            Ok(pid) => Ok(pid),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Err(CliError::InvalidInput(format!("Project not found: {}", project))),
-            Err(e) => Err(e.into()),
+            Ok(pid) => {
+                guard.close().await;
+                Ok(pid)
+            }
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                guard.close().await;
+                Err(CliError::InvalidInput(format!("Project not found: {}", project)))
+            }
+            Err(e) => {
+                guard.close().await;
+                Err(e.into())
+            }
         }
     }
 
@@ -713,7 +836,8 @@ impl OfflineStore {
 
     /// Create a new analysis job
     pub async fn create_analysis_job(&self, job: OfflineAnalysisJob) -> Result<(), CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         conn.execute(
             r#"
             INSERT INTO analysis_jobs (id, project_id, file_id, name, status, progress, current_stage, stages_completed, total_stages, ai_enabled, stages, created_at, updated_at, started_at, completed_at)
@@ -737,13 +861,13 @@ impl OfflineStore {
                 job.completed_at.map(|dt| dt.to_rfc3339()),
             ],
         )?;
-        self.put_meta_conn(conn).await;
         Ok(())
     }
 
     /// Get analysis job by ID
     pub async fn get_analysis_job(&self, id: &openre_core::ids::JobId) -> Result<Option<OfflineAnalysisJob>, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let id_str = id.to_string();
         let result = {
             let mut stmt = conn.prepare(
@@ -754,10 +878,32 @@ impl OfflineStore {
                 "#,
             )?;
             stmt.query_row(params![id_str], |row| {
+                let id_str: String = row.get(0)?;
+                let id = id_str.parse::<openre_core::ids::JobId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid job ID format".into()))?;
+
+                let project_id_str: String = row.get(1)?;
+                let project_id = project_id_str.parse::<ProjectId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid project ID format".into()))?;
+
+                let file_id_str: String = row.get(2)?;
+                let file_id = file_id_str.parse::<openre_core::ids::FileId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid file ID format".into()))?;
+
+                let created_at_str: String = row.get(11)?;
+                let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid created_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
+                let updated_at_str: String = row.get(12)?;
+                let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid updated_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
                 Ok(OfflineAnalysisJob {
-                    id: row.get::<_, String>(0)?.parse::<openre_core::ids::JobId>().unwrap(),
-                    project_id: row.get::<_, String>(1)?.parse::<ProjectId>().unwrap(),
-                    file_id: row.get::<_, String>(2)?.parse::<openre_core::ids::FileId>().unwrap(),
+                    id,
+                    project_id,
+                    file_id,
                     name: row.get(3)?,
                     status: row.get(4)?,
                     progress: row.get(5)?,
@@ -766,15 +912,14 @@ impl OfflineStore {
                     total_stages: row.get(8)?,
                     ai_enabled: row.get::<_, i32>(9)? != 0,
                     stages: serde_json::from_str(&row.get::<_, String>(10)?).unwrap_or_default(),
-                    created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(11)?).unwrap().with_timezone(&chrono::Utc),
-                    updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(12)?).unwrap().with_timezone(&chrono::Utc),
+                    created_at,
+                    updated_at,
                     started_at: row.get::<_, Option<String>>(13)?.and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|dt| dt.with_timezone(&chrono::Utc)),
                     completed_at: row.get::<_, Option<String>>(14)?.and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|dt| dt.with_timezone(&chrono::Utc)),
                 })
             })
         };
 
-        self.put_meta_conn(conn).await;
         match result {
             Ok(job) => Ok(Some(job)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -793,7 +938,8 @@ impl OfflineStore {
         started_at: Option<chrono::DateTime<chrono::Utc>>,
         completed_at: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<Option<OfflineAnalysisJob>, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let id_str = id.to_string();
 
         // Check if job exists
@@ -804,7 +950,6 @@ impl OfflineStore {
         ).unwrap_or(false);
 
         if !exists {
-            self.put_meta_conn(conn).await;
             return Ok(None);
         }
 
@@ -838,7 +983,6 @@ impl OfflineStore {
         }
 
         if updates.is_empty() {
-            self.put_meta_conn(conn).await;
             return self.get_analysis_job(id).await;
         }
 
@@ -854,7 +998,6 @@ impl OfflineStore {
         param_refs.push(&id_str);
 
         conn.execute(&sql, param_refs.as_slice())?;
-        self.put_meta_conn(conn).await;
 
         self.get_analysis_job(id).await
     }
@@ -866,7 +1009,13 @@ impl OfflineStore {
         page: u32,
         per_page: u32,
     ) -> Result<Vec<OfflineAnalysisJob>, CliError> {
-        let mut conn = self.take_meta_conn().await?;
+        // Validate page parameter
+        if page == 0 {
+            return Err(CliError::InvalidInput("Page must be >= 1".to_string()));
+        }
+
+        let mut guard = self.meta_conn().await?;
+        let conn = guard.conn();
         let offset = (page - 1) * per_page;
         let project_id_str = project_id.to_string();
 
@@ -881,10 +1030,32 @@ impl OfflineStore {
                 "#,
             )?;
             let rows = stmt.query_map(params![&project_id_str, &per_page, &offset], |row| {
+                let id_str: String = row.get(0)?;
+                let id = id_str.parse::<openre_core::ids::JobId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid job ID format".into()))?;
+
+                let project_id_str: String = row.get(1)?;
+                let project_id = project_id_str.parse::<ProjectId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid project ID format".into()))?;
+
+                let file_id_str: String = row.get(2)?;
+                let file_id = file_id_str.parse::<openre_core::ids::FileId>()
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid file ID format".into()))?;
+
+                let created_at_str: String = row.get(11)?;
+                let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid created_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
+                let updated_at_str: String = row.get(12)?;
+                let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at_str)
+                    .map_err(|_| rusqlite::Error::InvalidParameterName("Invalid updated_at format".into()))?
+                    .with_timezone(&chrono::Utc);
+
                 Ok(OfflineAnalysisJob {
-                    id: row.get::<_, String>(0)?.parse::<openre_core::ids::JobId>().unwrap(),
-                    project_id: row.get::<_, String>(1)?.parse::<ProjectId>().unwrap(),
-                    file_id: row.get::<_, String>(2)?.parse::<openre_core::ids::FileId>().unwrap(),
+                    id,
+                    project_id,
+                    file_id,
                     name: row.get(3)?,
                     status: row.get(4)?,
                     progress: row.get(5)?,
@@ -893,8 +1064,8 @@ impl OfflineStore {
                     total_stages: row.get(8)?,
                     ai_enabled: row.get::<_, i32>(9)? != 0,
                     stages: serde_json::from_str(&row.get::<_, String>(10)?).unwrap_or_default(),
-                    created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(11)?).unwrap().with_timezone(&chrono::Utc),
-                    updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(12)?).unwrap().with_timezone(&chrono::Utc),
+                    created_at,
+                    updated_at,
                     started_at: row.get::<_, Option<String>>(13)?.and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|dt| dt.with_timezone(&chrono::Utc)),
                     completed_at: row.get::<_, Option<String>>(14)?.and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()).map(|dt| dt.with_timezone(&chrono::Utc)),
                 })
@@ -906,7 +1077,6 @@ impl OfflineStore {
             jobs
         };
 
-        self.put_meta_conn(conn).await;
         Ok(jobs)
     }
 }

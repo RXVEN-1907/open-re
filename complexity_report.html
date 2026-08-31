@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Unnecessary Complexity Report</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .issue { border: 1px solid #ddd; border-radius: 8px; margin: 16px 0; padding: 16px; }
+    .issue h3 { margin-top: 0; color: #c00; }
+    .issue .meta { color: #666; font-size: 0.9em; margin-bottom: 8px; }
+    .issue code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; }
+    .issue pre { background: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto; }
+    .severity-high { border-left: 4px solid #c00; }
+    .severity-medium { border-left: 4px solid #e80; }
+    .json-output { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <h1>Unnecessary Complexity in Offline Storage</h1>
+  <p>Analyzed <code>crates/openre-cli/src/context.rs</code> (OfflineStore implementation) and related CLI commands.</p>
+
+  <div class="issue severity-high">
+    <h3>1. Redundant Project Store</h3>
+    <div class="meta">File: crates/openre-cli/src/context.rs · Lines 78-81, 102-116</div>
+    <p><strong>Summary:</strong> <code>OfflineStore</code> embeds a <code>ProjectStore</code> (line 79) AND creates a separate <code>projects</code> table in <code>meta_conn</code> (lines 102-116). Both store project metadata with overlapping fields.</p>
+    <p><strong>Simpler form:</strong> Use only the meta_conn projects table, or only ProjectStore — not both.</p>
+    <p><strong>Failure scenario:</strong> Data divergence: <code>create_project</code> writes to meta_conn but <code>ProjectStore</code> has its own project_id (line 180) that never gets used. Two sources of truth for "what projects exist" → sync bugs, double storage.</p>
+  </div>
+
+  <div class="issue severity-high">
+    <h3>2. Copy-Paste CRUD Methods</h3>
+    <div class="meta">File: crates/openre-cli/src/context.rs · Lines 209-422 (projects), 427-684 (scans), 715-911 (analysis_jobs)</div>
+    <p><strong>Summary:</strong> Three near-identical CRUD blocks (~700 lines total): <code>create/list/get/update/delete/count</code> for projects, scans, and analysis_jobs. Only table names and column lists differ.</p>
+    <p><strong>Simpler form:</strong> A single generic <code>Repository&lt;T&gt;</code> trait with <code>table_name</code>, <code>columns</code>, <code>from_row</code>, <code>to_params</code> associated items. Or a macro generating the boilerplate.</p>
+    <p><strong>Failure scenario:</strong> Bug fix in one (e.g., date parsing) must be manually copied to three places. Currently <code>list_projects</code> has search but <code>list_scans</code> has status_filter — inconsistent capabilities drift over time.</p>
+  </div>
+
+  <div class="issue severity-high">
+    <h3>3. Deep Nesting in Dynamic UPDATE</h3>
+    <div class="meta">File: crates/openre-cli/src/context.rs · Lines 336-395, 580-654, 786-860</div>
+    <p><strong>Summary:</strong> <code>update_project</code>/<code>update_scan</code>/<code>update_analysis_job</code> each build dynamic SQL with <code>Vec&lt;Box&lt;dyn ToSql&gt;&gt;</code>, manual param ref conversion, existence check, early returns — 60+ lines each.</p>
+    <p><strong>Simpler form:</strong> Use <code>rusqlite::named_params!</code> or a small helper: <code>update_row(table, id, fields: &[(&str, &dyn ToSql)])</code>. Or accept a closure: <code>conn.execute_update("UPDATE ... SET ? WHERE id = ?", params)</code>.</p>
+    <p><strong>Failure scenario:</strong> Param order mismatch between <code>updates</code> vec and <code>params_vec</code> → silent wrong-column update. The <code>Box&lt;dyn ToSql&gt;</code> erases type info so compiler can't catch it.</p>
+  </div>
+
+  <div class="issue severity-medium">
+    <h3>4. Redundant Fields in OfflineAnalysisJob</h3>
+    <div class="meta">File: crates/openre-cli/src/context.rs · Lines 59-75</div>
+    <p><strong>Summary:</strong> <code>OfflineAnalysisJob</code> has both <code>stages: Vec&lt;String&gt;</code> (line 70) AND <code>total_stages: u32</code> (line 68). <code>total_stages == stages.len()</code> always.</p>
+    <p><strong>Simpler form:</strong> Drop <code>total_stages</code>; derive via <code>.len()</code>. Or drop <code>stages</code> if only count matters (but stages carries names for display).</p>
+    <p><strong>Failure scenario:</strong> Code creates job with <code>stages: vec!["a", "b"]</code> but <code>total_stages: 5</code> → UI shows "2/5 stages" incorrectly. No validation enforces consistency.</p>
+  </div>
+
+  <div class="issue severity-medium">
+    <h3>5. String Status Fields Instead of Enums</h3>
+    <div class="meta">File: crates/openre-cli/src/context.rs · Lines 26-75</div>
+    <p><strong>Summary:</strong> <code>OfflineProject.is_public: bool</code> (ok), but <code>OfflineScan.status: String</code> (line 46) and <code>OfflineAnalysisJob.status: String</code> (line 64) are free-form strings. Values like "pending"/"running"/"completed"/"failed"/"cancelled" scattered across CLI commands.</p>
+    <p><strong>Simpler form:</strong> <code>enum ScanStatus { Pending, Running, Completed, Failed, Cancelled }</code> with <code>serde(rename_all = "lowercase")</code>. Same for JobStatus.</p>
+    <p><strong>Failure scenario:</strong> Typo in CLI: <code>status: "runing".to_string()</code> → stored, displayed, but filter <code>WHERE status = 'running'</code> misses it. No compile-time check.</p>
+  </div>
+
+  <div class="issue severity-high">
+    <h3>6. Manual Connection Take/Put Pattern</h3>
+    <div class="meta">File: crates/openre-cli/src/context.rs · Lines 195-206</div>
+    <p><strong>Summary:</strong> Every DB method calls <code>take_meta_conn().await?</code>, does work, then <code>put_meta_conn(conn).await</code>. If any early return / ? / panic skips put, connection leaks (mutex stays empty → next caller gets "already in use" error).</p>
+    <p><strong>Simpler form:</strong> Scoped guard: <code>let _guard = MetaConnGuard::new(&self.meta_conn).await;</code> with <code>Drop</code> impl that puts back. Or <code>with_conn(|conn| async { ... }).await</code> pattern.</p>
+    <p><strong>Failure scenario:</strong> <code>update_scan</code> at line 637 does <code>self.put_meta_conn(conn).await;</code> then <code>self.get_scan(id).await</code> which calls <code>take_meta_conn</code> again — but if <code>get_scan</code> errors before its put, the conn is leaked. Two sequential take/put pairs instead of one scope.</p>
+  </div>
+
+  <div class="issue severity-medium">
+    <h3>7. Repeated DateTime Parse Boilerplate</h3>
+    <div class="meta">File: crates/openre-cli/src/context.rs · Lines 260, 286, 321, 490, 523, 564, 769, 798, 896, 899</div>
+    <p><strong>Summary:</strong> <code>chrono::DateTime::parse_from_rfc3339(&row.get::&lt;_, String&gt;(?)?)?.unwrap().with_timezone(&amp;chrono::Utc)</code> repeated 10+ times across all <code>from_row</code> closures.</p>
+    <p><strong>Simpler form:</strong> Helper: <code>fn parse_utc(s: &str) -> DateTime&lt;Utc&gt; { DateTime::parse_from_rfc3339(s).unwrap().with_timezone(&amp;Utc) }</code> or implement <code>FromSql</code> for a wrapper type.</p>
+    <p><strong>Failure scenario:</strong> Schema changes to store timestamps as INTEGER (unix epoch) → 10+ sites to update. Also <code>.unwrap()</code> panics on malformed data instead of returning error.</p>
+  </div>
+
+  <div class="issue severity-high">
+    <h3>8. Box<dyn ToSql> for Dynamic UPDATE Params</h3>
+    <div class="meta">File: crates/openre-cli/src/context.rs · Lines 360, 607, 813</div>
+    <p><strong>Summary:</strong> Dynamic UPDATE uses <code>Vec&lt;Box&lt;dyn rusqlite::ToSql&gt;&gt;</code> then converts to <code>Vec&lt;&amp;dyn ToSql&gt;</code> for <code>execute</code>. Heap allocation + dynamic dispatch for 3-7 simple params.</p>
+    <p><strong>Simpler form:</strong> <code>rusqlite::params![&amp;val1, &amp;val2, ...]</code> with optional fields as <code>Option&lt;&amp;dyn ToSql&gt;</code> handled by <code>params_from_iter</code> or a small macro. Or build SQL with named params: <code>UPDATE ... SET name = :name WHERE id = :id</code> + <code>named_params! { :name:&amp;name, :id:&amp;id }</code>.</p>
+    <p><strong>Failure scenario:</strong> Param order mismatch (see #3). Also allocation overhead on every update call — measurable in tight loops (e.g., scan progress updates every second).</p>
+  </div>
+
+  <hr>
+  <h2>JSON Summary</h2>
+  <div class="json-output">
+[
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 78,
+    "summary": "OfflineStore embeds ProjectStore AND creates separate projects table in meta_conn — two sources of truth for projects",
+    "failure_scenario": "create_project writes to meta_conn but ProjectStore has its own project_id (line 180) never used; data divergence, double storage, sync bugs"
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 209,
+    "summary": "Three near-identical CRUD blocks (~700 lines) for projects/scans/analysis_jobs — only table/column names differ",
+    "failure_scenario": "Bug fix in date parsing must be manually copied to 3 places; list_projects has search but list_scans has status_filter — inconsistent capabilities drift"
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 336,
+    "summary": "update_project/update_scan/update_analysis_job each 60+ lines building dynamic SQL with Vec<Box<dyn ToSql>>, manual param ref conversion, existence checks",
+    "failure_scenario": "Param order mismatch between updates vec and params_vec → silent wrong-column update; Box<dyn ToSql> erases type info so compiler can't catch it"
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 59,
+    "summary": "OfflineAnalysisJob has both stages: Vec<String> and total_stages: u32 — redundant (total_stages == stages.len() always)",
+    "failure_scenario": "Job created with stages: ['a','b'] but total_stages: 5 → UI shows '2/5 stages' incorrectly; no validation enforces consistency"
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 26,
+    "summary": "OfflineScan.status and OfflineAnalysisJob.status are free-form Strings instead of enums; values scattered across CLI commands",
+    "failure_scenario": "Typo in CLI: status: 'runing' → stored/displayed but WHERE status = 'running' misses it; no compile-time check"
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 195,
+    "summary": "Manual take_meta_conn/put_meta_conn pattern — if early return/?/panic skips put, connection leaks (mutex stays empty)",
+    "failure_scenario": "update_scan does put then get_scan which calls take again; if get_scan errors before its put, conn leaked — two sequential take/put pairs instead of one scope"
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 260,
+    "summary": "chrono::DateTime::parse_from_rfc3339(...).unwrap().with_timezone(&Utc) repeated 10+ times across from_row closures",
+    "failure_scenario": "Schema change to INTEGER timestamps → 10+ sites to update; .unwrap() panics on malformed data instead of returning error"
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 360,
+    "summary": "Dynamic UPDATE uses Vec<Box<dyn ToSql>> + conversion to Vec<&dyn ToSql> — heap allocation + dynamic dispatch for 3-7 simple params",
+    "failure_scenario": "Param order mismatch (see #3); allocation overhead on every update call — measurable in tight loops (scan progress updates every second)"
+  }
+]
+  </div>
+</body>
+</html>

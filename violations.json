@@ -1,0 +1,50 @@
+[
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 254,
+    "summary": "Multiple unwrap() calls in production code for row mapping",
+    "failure_scenario": "Coding standards - Error handling: Using unwrap() in production code (multiple places in context.rs row mapping). If database schema changes or data is corrupted, these will panic instead of returning proper errors."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 210,
+    "summary": "take_meta_conn/put_meta_conn pattern not using RAII guard",
+    "failure_scenario": "Coding standards - Async patterns: Manual connection take/put without RAII guard. If an error occurs between take_meta_conn() and put_meta_conn(), the connection is permanently lost from the pool, causing future operations to fail with 'Metadata connection already in use'."
+  },
+  {
+    "file": "crates/openre-cli/src/main.rs",
+    "line": 20,
+    "summary": "OfflineProject and OfflineScan exported as public API",
+    "failure_scenario": "Coding standards - Public API: Internal offline types (OfflineProject, OfflineScan) are now part of the public API via 'pub use context::{OfflineProject, OfflineScan}'. These should be private implementation details, not exposed to consumers of the crate."
+  },
+  {
+    "file": "crates/openre-cli/src/main.rs",
+    "line": 6,
+    "summary": "Module visibility changed from 'mod context' to 'pub mod context'",
+    "failure_scenario": "Coding standards - Module visibility: Changing 'mod context' to 'pub mod context' exposes all internal types and functions in the context module publicly. This breaks encapsulation and makes internal refactoring a breaking change."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 17,
+    "summary": "New public types lack documentation comments",
+    "failure_scenario": "Coding standards - Documentation: OfflineProject, OfflineScan, OfflineAnalysisJob, and OfflineStore are public types but have no doc comments (///). Users of the crate cannot understand their purpose or usage from generated docs."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 107,
+    "summary": "Inconsistent naming: OfflineStore vs ProjectStore",
+    "failure_scenario": "Coding standards - Naming: ProjectStore exists in openre-storage crate, but OfflineStore is in openre-cli crate with similar responsibilities. Inconsistent naming makes it unclear which store to use when."
+  },
+  {
+    "file": "crates/openre-analysis/tests/static_analysis_test.rs",
+    "line": 1,
+    "summary": "No tests for OfflineStore despite new test file for static analysis",
+    "failure_scenario": "Coding standards - Test coverage: New test file static_analysis_test.rs exists (139 lines) but there are zero tests for the new OfflineStore functionality (900+ lines of new code in context.rs). Core offline functionality is untested."
+  },
+  {
+    "file": "multiple",
+    "line": 0,
+    "summary": "Large diff with 20 files changed (2454 insertions) should be split",
+    "failure_scenario": "Git workflow: Single commit/PR contains changes to 20 files across 4 crates (cli, analysis, storage, queue). Per 'Preferred commit style' and 'Git workflow' rules, this should be split into smaller, focused commits for each logical feature (offline mode, static analysis, pipeline, CLI commands)."
+  }
+]
