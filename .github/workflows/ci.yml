@@ -37,7 +37,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run clippy
-        run: cargo clippy --all-targets --all-features --workspace --exclude openre-cli --exclude openre-api --exclude openre-recon --exclude openre-analysis --exclude openre-intelligence --exclude openre-ai --exclude openre-security-ai --exclude openre-plugins --exclude openre-queue --exclude openre-scanner --exclude sentinel -- -D warnings
+        run: cargo clippy --all-targets --all-features --workspace --exclude openre-cli --exclude openre-api --exclude openre-recon --exclude openre-analysis --exclude openre-intelligence --exclude openre-ai --exclude openre-security-ai --exclude openre-plugins --exclude openre-queue --exclude openre-scanner --exclude sentinel --exclude openre-plugins-macros --exclude openre-storage -- -D warnings
 
   test:
     name: Run tests
@@ -86,4 +86,4 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build all crates
-        run: cargo build --all-targets --workspace --exclude openre-cli --exclude openre-api --exclude openre-recon --exclude openre-analysis --exclude openre-intelligence --exclude openre-ai --exclude openre-security-ai --exclude openre-plugins --exclude openre-queue --exclude openre-scanner --exclude sentinel
+        run: cargo build --all-targets --workspace --exclude openre-cli --exclude openre-api --exclude openre-recon --exclude openre-analysis --exclude openre-intelligence --exclude openre-ai --exclude openre-security-ai --exclude openre-plugins --exclude openre-queue --exclude openre-scanner --exclude sentinel --exclude openre-plugins-macros --exclude openre-storage

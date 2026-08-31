@@ -96,6 +96,7 @@ fn terminal_width() -> Option<usize> {
 }
 
 /// Animated spinner for startup
+#[allow(dead_code)]
 async fn show_startup_animation() {
     let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
     let message = "Initializing openre-scan...";
@@ -449,7 +450,7 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
     let mut all_findings = Vec::new();
     let scan_id = ScanId::new();
 
-    for (_i, check) in checks_to_run.iter().enumerate() {
+    for check in checks_to_run.iter() {
         if let Some(pb) = &progress_bar {
             pb.set_message(format!("Running {}", check.name()));
         }

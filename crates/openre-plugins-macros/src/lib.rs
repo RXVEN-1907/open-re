@@ -2,8 +2,8 @@
 
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
-use quote::{format_ident, quote};
-use syn::{parse_macro_input, DeriveInput, ItemFn, Lit, LitStr, Meta};
+use quote::quote;
+use syn::{parse_macro_input, DeriveInput, ItemFn};
 
 /// Derive macro for PluginManifest
 #[proc_macro_derive(PluginManifest)]

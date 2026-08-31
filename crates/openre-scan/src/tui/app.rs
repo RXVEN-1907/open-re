@@ -500,10 +500,8 @@ async fn run_app<B: ratatui::backend::Backend>(
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    if handle_key_event(key, app).await? {
-                        break;
-                    }
+                if key.kind == KeyEventKind::Press && handle_key_event(key, app).await? {
+                    break;
                 }
             }
         }
@@ -987,7 +985,7 @@ fn render_scans_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeColo
                 Span::styled(format!("{:3}. ", i + 1), style),
                 Span::styled(&scan.target, style),
                 Span::styled(
-                    format!("  [{}] ", format!("{:?}", scan.profile)),
+                    format!("  [{:?}] ", scan.profile),
                     Style::default().fg(colors.accent),
                 ),
                 Span::styled(format!("{:.1}s ", time_str), Style::default().fg(colors.muted)),
@@ -1130,7 +1128,7 @@ fn render_findings_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeC
 
 #[cfg(feature = "tui")]
 fn render_settings_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeColors) {
-    let settings = vec![
+    let settings = [
         ("1", "Scan Profile", format!("{:?}", app.profile)),
         ("2", "", "Quick (6 checks)".to_string()),
         ("3", "", "Standard (15 checks)".to_string()),
@@ -1301,8 +1299,8 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors)
     };
 
     let theme_indicator = format!("Theme: {:?}", app.theme);
-    let filter_indicator = if app.severity_filter.is_some() {
-        format!(" | Filter: {:?}", app.severity_filter.unwrap())
+    let filter_indicator = if let Some(filter) = app.severity_filter {
+        format!(" | Filter: {:?}", filter)
     } else {
         String::new()
     };

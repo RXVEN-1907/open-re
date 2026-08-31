@@ -402,9 +402,7 @@ pub fn validate_capabilities(
 
 impl FromIterator<Capability> for CapabilitySet {
     fn from_iter<T: IntoIterator<Item = Capability>>(iter: T) -> Self {
-        Self {
-            capabilities: iter.into_iter().collect(),
-        }
+        Self { capabilities: iter.into_iter().collect() }
     }
 }
 
