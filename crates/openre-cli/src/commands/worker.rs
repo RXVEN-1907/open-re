@@ -41,10 +41,10 @@ impl WorkerCommands {
                 println!("  AI enabled: {}", ai_enabled);
 
                 // Load configuration (uses Figment: config.toml, env vars, etc.)
-                let config = Config::load().map_err(CliError::CoreError)?;
+                let config = Config::load()?;
 
-                // Create application state (reusing API state creation)
-                let state = Arc::new(AppState::new(config.clone()).await.map_err(|e| CliError::ApiError(e.to_string()))?);
+                // Create application state (reusing API state creation, which initializes telemetry)
+                let state = Arc::new(AppState::new(config.clone()).await?);
 
                 // Get job handlers
                 let handlers = get_job_handlers(state.clone());
@@ -60,9 +60,8 @@ impl WorkerCommands {
                     target_queue_depth_per_worker: 10,
                 };
 
-                // Create worker metrics
-                let metrics_registry = MetricsRegistry::new();
-                let worker_metrics = Arc::new(TelemetryWorkerMetrics::new(&metrics_registry));
+                // Create worker metrics (using the telemetry from AppState which has Prometheus exporter running)
+                let worker_metrics = Arc::new(TelemetryWorkerMetrics::new(&state.telemetry.metrics));
 
                 // Create worker pool
                 let mut worker_pool = WorkerPool::new(

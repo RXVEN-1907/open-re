@@ -114,6 +114,14 @@ impl ObjectStore {
         Ok(buffer)
     }
 
+    /// Get file size in bytes
+    pub async fn get_size(&self, file_id: FileId) -> Result<u64> {
+        let path = self.object_path(file_id);
+        let file_path = self.local_base.join(&path);
+        let metadata = tokio::fs::metadata(&file_path).await?;
+        Ok(metadata.len())
+    }
+
     /// Generate object path for a file ID
     fn object_path(&self, file_id: FileId) -> String {
         let uuid_str = file_id.to_string();

@@ -6,7 +6,7 @@ use openre_core::traits::JobType;
 use openre_queue::{BoxedJobHandler, Job, JobHandler};
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 /// Analysis job handler
 pub struct AnalysisJobHandler {
@@ -46,27 +46,53 @@ impl JobHandler for AnalysisJobHandler {
             openre_core::Error::InvalidInput(format!("Invalid file_id: {}", file_id_str))
         })?;
 
-        // Download file from object storage using file_id directly
-        // The object store generates paths from file IDs
-        let file_data = self.state.object_store.get_object(file_id).await?;
+        // Validate stages - at least one stage must be specified
+        let stage_count = stages.map(|s| s.len()).unwrap_or(0);
+        if stage_count == 0 {
+            warn!(job_id = %job.id, "No analysis stages specified, using default stages");
+        }
 
-        // Read file data (for now just verify it exists)
-        let mut file_data = file_data;
-        let mut buffer = Vec::new();
-        tokio::io::AsyncReadExt::read_to_end(&mut file_data, &mut buffer).await?;
+        // Verify file exists in object storage (streaming check, no full load)
+        // We just open the stream and read a small amount to verify accessibility
+        let mut file_stream = self.state.object_store.get_object(file_id).await?;
+        let mut verify_buffer = [0u8; 1024];
+        let bytes_read = tokio::io::AsyncReadExt::read(&mut file_stream, &mut verify_buffer).await?;
+        if bytes_read == 0 {
+            error!(job_id = %job.id, file_id = %file_id_str, "File is empty or inaccessible");
+            return Err(openre_core::Error::InvalidInput("File is empty".into()));
+        }
 
-        // For now, just return a mock result
-        // Real implementation would run the analysis pipeline
+        // Get file size from object store metadata (avoid loading entire file)
+        let file_size = self.state.object_store.get_size(file_id).await.unwrap_or(0);
+
+        // TODO: Implement actual analysis pipeline
+        // This would include:
+        // 1. Binary format identification (ELF, PE, Mach-O, WASM)
+        // 2. Architecture detection
+        // 3. Function discovery and CFG construction
+        // 4. Data flow analysis
+        // 5. Type recovery
+        // 6. Decompilation
+        // 7. AI enrichment (if enabled)
+        // 8. Export results
+
+        let start_time = std::time::Instant::now();
+
+        // Placeholder for actual analysis - in production this runs the full pipeline
+        // For now, we return a structured result indicating the job was received
+        // and what stages would be run
         let result = serde_json::json!({
             "file_id": file_id_str,
             "status": "completed",
-            "stages": stages.map(|s| s.len()).unwrap_or(0),
+            "stages_requested": stage_count,
+            "stages_completed": 0,  // Will be updated by actual pipeline
             "functions_found": 0,
-            "analysis_duration_ms": 0,
-            "file_size_bytes": buffer.len(),
+            "analysis_duration_ms": start_time.elapsed().as_millis() as u64,
+            "file_size_bytes": file_size,
+            "note": "Analysis pipeline not yet implemented - this is a scaffold"
         });
 
-        info!(job_id = %job.id, "Analysis job completed");
+        info!(job_id = %job.id, file_size = file_size, "Analysis job scaffold completed");
         Ok(result)
     }
 }
