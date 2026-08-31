@@ -48,12 +48,7 @@ impl AuthDiscoveryPlugin {
     async fn discover_auth(&self, url: &str) -> Result<AuthDiscoveryResult> {
         let mut result = AuthDiscoveryResult::default();
 
-        let response = self
-            .client
-            .get(url)
-            .send()
-            .await
-            .map_err(crate::internal_err)?;
+        let response = self.client.get(url).send().await.map_err(crate::internal_err)?;
         let headers: HashMap<String, String> = response
             .headers()
             .iter()
@@ -73,9 +68,7 @@ impl AuthDiscoveryPlugin {
         // Check for Bearer token usage
         if let Some(www_auth) = headers.get("www-authenticate") {
             if www_auth.to_lowercase().contains("bearer") {
-                result.bearer_auth = Some(BearerAuthInfo {
-                    challenge: www_auth.clone(),
-                });
+                result.bearer_auth = Some(BearerAuthInfo { challenge: www_auth.clone() });
             }
         }
 
@@ -182,11 +175,9 @@ impl AuthDiscoveryPlugin {
             login_form.method = form.attr("method").unwrap_or("GET").to_uppercase();
 
             // Check for password field
-            let has_password = form.find(Name("input")).any(|input| {
-                input
-                    .attr("type")
-                    .map_or(false, |t| t.to_lowercase() == "password")
-            });
+            let has_password = form
+                .find(Name("input"))
+                .any(|input| input.attr("type").map_or(false, |t| t.to_lowercase() == "password"));
 
             if has_password {
                 login_form.has_password_field = true;
@@ -295,10 +286,9 @@ impl AuthDiscoveryPlugin {
 
         for (header, name) in auth_headers {
             if headers.contains_key(header) {
-                result.auth_headers.push(AuthHeaderInfo {
-                    name: name.to_string(),
-                    header: header.to_string(),
-                });
+                result
+                    .auth_headers
+                    .push(AuthHeaderInfo { name: name.to_string(), header: header.to_string() });
             }
         }
     }
@@ -519,10 +509,8 @@ impl ReconPlugin for AuthDiscoveryPlugin {
 
         // Login form findings
         for form in &discovery.login_forms {
-            let mut details = vec![
-                format!("Action: {}", form.action),
-                format!("Method: {}", form.method),
-            ];
+            let mut details =
+                vec![format!("Action: {}", form.action), format!("Method: {}", form.method)];
 
             if form.has_password_field {
                 details.push("Password field: Yes".to_string());

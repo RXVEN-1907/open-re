@@ -9,13 +9,13 @@ mod output;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use commands::{
-    ai::AiCommands, analyst::AnalystCommands, auth::AuthCommands,
-    config::ConfigCommands, file::FileCommands, finding::FindingCommands, function::FunctionCommands,
-    plugin::PluginCommands, project::ProjectCommands, report::ReportCommands, scan::ScanCommands,
-    server::ServerCommands,
-    // analysis::AnalysisCommands, // Temporarily disabled due to compilation errors
+    ai::AiCommands, analysis::AnalysisCommands, analyst::AnalystCommands, auth::AuthCommands,
+    config::ConfigCommands, file::FileCommands, finding::FindingCommands,
+    function::FunctionCommands, plugin::PluginCommands, project::ProjectCommands,
+    report::ReportCommands, scan::ScanCommands, server::ServerCommands,
 };
 pub use config::CliConfig;
+pub use context::offline::OfflineStore;
 pub use context::Context;
 pub use error::CliError;
 pub use output::{print_output, OutputFormat};
@@ -53,6 +53,14 @@ struct Cli {
     #[arg(short, long, global = true)]
     verbose: bool,
 
+    /// Run in offline mode (local operations without API server)
+    #[arg(long, global = true)]
+    offline: bool,
+
+    /// Local database path for offline mode
+    #[arg(long, global = true, value_name = "PATH")]
+    local_db: Option<PathBuf>,
+
     /// Generate shell completions
     #[arg(long, global = true, value_name = "SHELL")]
     completion: Option<Shell>,
@@ -72,9 +80,9 @@ enum Commands {
     #[command(subcommand)]
     File(FileCommands),
 
-    // /// Binary analysis (temporarily disabled)
-//     #[command(subcommand)]
-//     Analysis(AnalysisCommands),
+    /// Binary analysis
+    #[command(subcommand)]
+    Analysis(AnalysisCommands),
 
     /// Function analysis
     #[command(subcommand)]
@@ -127,26 +135,26 @@ async fn main() -> Result<(), CliError> {
     let config = CliConfig::load(cli.config.as_deref())?;
 
     // Create HTTP client
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()?;
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build()?;
 
-    // Create context
-    let ctx = Context {
+    // Create context with offline support
+    let ctx = Context::new(
         config,
         client,
-        server_url: cli.server,
-        api_key: cli.api_key,
-        output_format: cli.format,
-        verbose: cli.verbose,
-    };
+        cli.server,
+        cli.api_key,
+        cli.format,
+        cli.verbose,
+        cli.offline,
+        cli.local_db,
+    )?;
 
     // Execute command
     match cli.command {
         Commands::Auth(cmd) => cmd.execute(ctx).await,
         Commands::Project(cmd) => cmd.execute(ctx).await,
         Commands::File(cmd) => cmd.execute(ctx).await,
-        // Commands::Analysis(cmd) => cmd.execute(ctx).await, // Temporarily disabled
+        Commands::Analysis(cmd) => cmd.execute(ctx).await,
         Commands::Function(cmd) => cmd.execute(ctx).await,
         Commands::Ai(cmd) => cmd.execute(ctx).await,
         Commands::Analyst(cmd) => cmd.execute(ctx).await,

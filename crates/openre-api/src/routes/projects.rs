@@ -24,35 +24,23 @@ fn parse_collaborator_role(role: &str) -> crate::error::ApiResult<CollaboratorRo
         "admin" => Ok(CollaboratorRole::Admin),
         "member" => Ok(CollaboratorRole::Member),
         "viewer" => Ok(CollaboratorRole::Viewer),
-        _ => Err(crate::error::ApiError::BadRequest(format!(
-            "Invalid role: {}",
-            role
-        ))),
+        _ => Err(crate::error::ApiError::BadRequest(format!("Invalid role: {}", role))),
     }
 }
 
 /// Map a share permission string to permissions struct
 fn share_permissions_from_str(permission: &str) -> crate::error::ApiResult<SharePermissions> {
     match permission.to_lowercase().as_str() {
-        "view" | "read" => Ok(SharePermissions {
-            can_view: true,
-            can_comment: false,
-            can_download: false,
-        }),
-        "comment" => Ok(SharePermissions {
-            can_view: true,
-            can_comment: true,
-            can_download: false,
-        }),
-        "download" | "full" | "edit" => Ok(SharePermissions {
-            can_view: true,
-            can_comment: true,
-            can_download: true,
-        }),
-        _ => Err(crate::error::ApiError::BadRequest(format!(
-            "Invalid permission: {}",
-            permission
-        ))),
+        "view" | "read" => {
+            Ok(SharePermissions { can_view: true, can_comment: false, can_download: false })
+        }
+        "comment" => {
+            Ok(SharePermissions { can_view: true, can_comment: true, can_download: false })
+        }
+        "download" | "full" | "edit" => {
+            Ok(SharePermissions { can_view: true, can_comment: true, can_download: true })
+        }
+        _ => Err(crate::error::ApiError::BadRequest(format!("Invalid permission: {}", permission))),
     }
 }
 
@@ -60,14 +48,8 @@ fn share_permissions_from_str(permission: &str) -> crate::error::ApiResult<Share
 pub fn routes(state: std::sync::Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(list_projects).post(create_project))
-        .route(
-            "/:id",
-            get(get_project).put(update_project).delete(delete_project),
-        )
-        .route(
-            "/:id/collaborators",
-            get(list_collaborators).post(add_collaborator),
-        )
+        .route("/:id", get(get_project).put(update_project).delete(delete_project))
+        .route("/:id/collaborators", get(list_collaborators).post(add_collaborator))
         .route("/:id/collaborators/:user_id", delete(remove_collaborator))
         .route("/:id/invites", get(list_invites).post(create_invite))
         .route("/:id/invites/:invite_id", delete(revoke_invite))
@@ -95,9 +77,7 @@ async fn list_projects(
 ) -> ApiResult<Json<ProjectListResponse>> {
     let _ = (state, claims);
     // Project listing is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "project listing not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("project listing not implemented yet".into()))
 }
 
 /// Create project
@@ -141,11 +121,7 @@ async fn create_project(
     Ok(Json(ProjectResponse {
         id: project.id,
         name: project.name,
-        description: if project.description.is_empty() {
-            None
-        } else {
-            Some(project.description)
-        },
+        description: if project.description.is_empty() { None } else { Some(project.description) },
         owner_id: project.owner_id,
         is_public: project.visibility == "public",
         settings: Some(project.settings),
@@ -173,9 +149,7 @@ async fn get_project(
 ) -> ApiResult<Json<ProjectResponse>> {
     let _ = (state, id, claims);
     // Project retrieval is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "project retrieval not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("project retrieval not implemented yet".into()))
 }
 
 /// Update project
@@ -200,9 +174,7 @@ async fn update_project(
 ) -> ApiResult<Json<ProjectResponse>> {
     let _ = (state, id, payload, claims);
     // Project updates are not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "project updates not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("project updates not implemented yet".into()))
 }
 
 /// Delete project
@@ -225,9 +197,7 @@ async fn delete_project(
 ) -> ApiResult<()> {
     let _ = (state, id, claims);
     // Project deletion is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "project deletion not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("project deletion not implemented yet".into()))
 }
 
 /// List collaborators
@@ -238,9 +208,7 @@ async fn list_collaborators(
 ) -> ApiResult<Json<Vec<CollaboratorResponse>>> {
     let _ = (state, id, claims);
     // Collaborator listing is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "collaborator listing not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("collaborator listing not implemented yet".into()))
 }
 
 /// Add collaborator
@@ -254,10 +222,7 @@ async fn add_collaborator(
 
     let role = parse_collaborator_role(&payload.role)?;
 
-    state
-        .global_store
-        .add_collaborator(id, payload.user_id, role)
-        .await?;
+    state.global_store.add_collaborator(id, payload.user_id, role).await?;
 
     Ok(Json(CollaboratorResponse {
         user_id: payload.user_id,
@@ -276,9 +241,7 @@ async fn remove_collaborator(
 ) -> ApiResult<()> {
     let _ = (state, project_id, user_id, claims);
     // Collaborator removal is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "collaborator removal not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("collaborator removal not implemented yet".into()))
 }
 
 /// List invites
@@ -289,9 +252,7 @@ async fn list_invites(
 ) -> ApiResult<Json<Vec<InviteResponse>>> {
     let _ = (state, id, claims);
     // Invite listing is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "invite listing not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("invite listing not implemented yet".into()))
 }
 
 /// Create invite
@@ -339,9 +300,7 @@ async fn revoke_invite(
 ) -> ApiResult<()> {
     let _ = (state, project_id, invite_id, claims);
     // Invite revocation is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "invite revocation not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("invite revocation not implemented yet".into()))
 }
 
 /// Create share link

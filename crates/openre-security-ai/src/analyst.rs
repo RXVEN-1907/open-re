@@ -206,8 +206,7 @@ impl SecurityAnalystImpl {
                 // Validate response grounding
                 // In a real implementation, we'd pass available finding IDs for validation
                 let available_ids: Vec<String> = vec![]; // Empty for now
-                self.safety_guard
-                    .validate_response_grounding(content, &available_ids)?;
+                self.safety_guard.validate_response_grounding(content, &available_ids)?;
 
                 // Parse the response
                 let result: T = serde_json::from_str(content)?;
@@ -215,9 +214,7 @@ impl SecurityAnalystImpl {
             }
         }
 
-        Err(AiAnalystError::Internal(
-            "No valid response from model".to_string(),
-        ))
+        Err(AiAnalystError::Internal("No valid response from model".to_string()))
     }
 
     /// Helper to execute streaming completion and handle response
@@ -277,10 +274,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let context = self.context_builder.build_finding_context(&finding)?;
 
         // Get templates
-        let system_template = self
-            .prompt_compiler
-            .get_template("explain_finding_system")
-            .ok_or_else(|| {
+        let system_template =
+            self.prompt_compiler.get_template("explain_finding_system").ok_or_else(|| {
                 AiAnalystError::TemplateNotFound("explain_finding_system".to_string())
             })?;
 
@@ -292,31 +287,20 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         // Prepare variables for user template
         let mut variables = std::collections::HashMap::new();
         variables.insert("finding_title".to_string(), finding.title.clone());
-        variables.insert(
-            "finding_description".to_string(),
-            finding.description.clone(),
-        );
+        variables.insert("finding_description".to_string(), finding.description.clone());
         variables.insert("severity".to_string(), format!("{:?}", finding.severity));
-        variables.insert(
-            "confidence".to_string(),
-            format!("{:?}", finding.confidence),
-        );
+        variables.insert("confidence".to_string(), format!("{:?}", finding.confidence));
         variables.insert("category".to_string(), format!("{:?}", finding.category));
         variables.insert("target".to_string(), finding.target.clone());
-        variables.insert(
-            "evidence_count".to_string(),
-            context.evidence.len().to_string(),
-        );
+        variables.insert("evidence_count".to_string(), context.evidence.len().to_string());
 
         // Render user prompt
-        let user_prompt = self
-            .prompt_compiler
-            .render_template("explain_finding_user", &variables)?;
+        let user_prompt =
+            self.prompt_compiler.render_template("explain_finding_user", &variables)?;
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute completion
         let mut explanation: FindingExplanation = self.execute_completion(request).await?;
@@ -350,40 +334,31 @@ impl SecurityAnalyst for SecurityAnalystImpl {
             .join("\n");
 
         // Get templates
-        let system_template = self
-            .prompt_compiler
-            .get_template("generate_remediation_system")
-            .ok_or_else(|| {
+        let system_template =
+            self.prompt_compiler.get_template("generate_remediation_system").ok_or_else(|| {
                 AiAnalystError::TemplateNotFound("generate_remediation_system".to_string())
             })?;
 
-        let user_template = self
-            .prompt_compiler
-            .get_template("generate_remediation_user")
-            .ok_or_else(|| {
+        let user_template =
+            self.prompt_compiler.get_template("generate_remediation_user").ok_or_else(|| {
                 AiAnalystError::TemplateNotFound("generate_remediation_user".to_string())
             })?;
 
         // Prepare variables for user template
         let mut variables = std::collections::HashMap::new();
         variables.insert("finding_title".to_string(), finding.title.clone());
-        variables.insert(
-            "finding_description".to_string(),
-            finding.description.clone(),
-        );
+        variables.insert("finding_description".to_string(), finding.description.clone());
         variables.insert("category".to_string(), format!("{:?}", finding.category));
         variables.insert("target".to_string(), finding.target.clone());
         variables.insert("evidence_summary".to_string(), evidence_summary);
 
         // Render user prompt
-        let user_prompt = self
-            .prompt_compiler
-            .render_template("generate_remediation_user", &variables)?;
+        let user_prompt =
+            self.prompt_compiler.render_template("generate_remediation_user", &variables)?;
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute completion
         let mut plan: RemediationPlan = self.execute_completion(request).await?;
@@ -407,15 +382,11 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let finding_refs: Vec<&Finding> = findings.iter().collect();
 
         // Build correlation context
-        let context = self
-            .context_builder
-            .build_correlation_context(&finding_refs)?;
+        let context = self.context_builder.build_correlation_context(&finding_refs)?;
 
         // Get template
-        let system_template = self
-            .prompt_compiler
-            .get_template("correlate_findings_system")
-            .ok_or_else(|| {
+        let system_template =
+            self.prompt_compiler.get_template("correlate_findings_system").ok_or_else(|| {
                 AiAnalystError::TemplateNotFound("correlate_findings_system".to_string())
             })?;
 
@@ -434,9 +405,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute completion
         let mut report: CorrelationReport = self.execute_completion(request).await?;
@@ -477,9 +447,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute completion
         let mut prioritized: PrioritizedFindings = self.execute_completion(request).await?;
@@ -543,9 +512,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute completion
         let mut summary: ExecutiveSummary = self.execute_completion(request).await?;
@@ -568,12 +536,10 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let findings = self.finding_provider.list_findings(scan_id, None).await?;
 
         // Get template
-        let system_template = self
-            .prompt_compiler
-            .get_template("natural_language_query_system")
-            .ok_or_else(|| {
-                AiAnalystError::TemplateNotFound("natural_language_query_system".to_string())
-            })?;
+        let system_template =
+            self.prompt_compiler.get_template("natural_language_query_system").ok_or_else(
+                || AiAnalystError::TemplateNotFound("natural_language_query_system".to_string()),
+            )?;
 
         // Create a summary of findings for context
         let findings_summary: String = findings
@@ -588,15 +554,12 @@ impl SecurityAnalyst for SecurityAnalystImpl {
             .join("\n");
 
         // Create user prompt with question and findings context
-        let user_prompt = format!(
-            "Question: {}\n\nAvailable findings:\n{}",
-            question, findings_summary
-        );
+        let user_prompt =
+            format!("Question: {}\n\nAvailable findings:\n{}", question, findings_summary);
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute completion
         let mut response: QueryResponse = self.execute_completion(request).await?;
@@ -614,14 +577,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         target_scan_id: ScanId,
     ) -> AiResult<ScanComparison> {
         // Get findings from both scans
-        let base_findings = self
-            .finding_provider
-            .list_findings(base_scan_id, None)
-            .await?;
-        let target_findings = self
-            .finding_provider
-            .list_findings(target_scan_id, None)
-            .await?;
+        let base_findings = self.finding_provider.list_findings(base_scan_id, None).await?;
+        let target_findings = self.finding_provider.list_findings(target_scan_id, None).await?;
 
         // Get template
         let system_template = self
@@ -649,9 +606,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute completion
         let mut comparison: ScanComparison = self.execute_completion(request).await?;
@@ -680,10 +636,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let context = self.context_builder.build_finding_context(&finding)?;
 
         // Get templates
-        let system_template = self
-            .prompt_compiler
-            .get_template("explain_finding_system")
-            .ok_or_else(|| {
+        let system_template =
+            self.prompt_compiler.get_template("explain_finding_system").ok_or_else(|| {
                 AiAnalystError::TemplateNotFound("explain_finding_system".to_string())
             })?;
 
@@ -695,31 +649,20 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         // Prepare variables for user template
         let mut variables = std::collections::HashMap::new();
         variables.insert("finding_title".to_string(), finding.title.clone());
-        variables.insert(
-            "finding_description".to_string(),
-            finding.description.clone(),
-        );
+        variables.insert("finding_description".to_string(), finding.description.clone());
         variables.insert("severity".to_string(), format!("{:?}", finding.severity));
-        variables.insert(
-            "confidence".to_string(),
-            format!("{:?}", finding.confidence),
-        );
+        variables.insert("confidence".to_string(), format!("{:?}", finding.confidence));
         variables.insert("category".to_string(), format!("{:?}", finding.category));
         variables.insert("target".to_string(), finding.target.clone());
-        variables.insert(
-            "evidence_count".to_string(),
-            context.evidence.len().to_string(),
-        );
+        variables.insert("evidence_count".to_string(), context.evidence.len().to_string());
 
         // Render user prompt
-        let user_prompt = self
-            .prompt_compiler
-            .render_template("explain_finding_user", &variables)?;
+        let user_prompt =
+            self.prompt_compiler.render_template("explain_finding_user", &variables)?;
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
@@ -747,40 +690,31 @@ impl SecurityAnalyst for SecurityAnalystImpl {
             .join("\n");
 
         // Get templates
-        let system_template = self
-            .prompt_compiler
-            .get_template("generate_remediation_system")
-            .ok_or_else(|| {
+        let system_template =
+            self.prompt_compiler.get_template("generate_remediation_system").ok_or_else(|| {
                 AiAnalystError::TemplateNotFound("generate_remediation_system".to_string())
             })?;
 
-        let user_template = self
-            .prompt_compiler
-            .get_template("generate_remediation_user")
-            .ok_or_else(|| {
+        let user_template =
+            self.prompt_compiler.get_template("generate_remediation_user").ok_or_else(|| {
                 AiAnalystError::TemplateNotFound("generate_remediation_user".to_string())
             })?;
 
         // Prepare variables for user template
         let mut variables = std::collections::HashMap::new();
         variables.insert("finding_title".to_string(), finding.title.clone());
-        variables.insert(
-            "finding_description".to_string(),
-            finding.description.clone(),
-        );
+        variables.insert("finding_description".to_string(), finding.description.clone());
         variables.insert("category".to_string(), format!("{:?}", finding.category));
         variables.insert("target".to_string(), finding.target.clone());
         variables.insert("evidence_summary".to_string(), evidence_summary);
 
         // Render user prompt
-        let user_prompt = self
-            .prompt_compiler
-            .render_template("generate_remediation_user", &variables)?;
+        let user_prompt =
+            self.prompt_compiler.render_template("generate_remediation_user", &variables)?;
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
@@ -798,15 +732,11 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let finding_refs: Vec<&Finding> = findings.iter().collect();
 
         // Build correlation context
-        let context = self
-            .context_builder
-            .build_correlation_context(&finding_refs)?;
+        let context = self.context_builder.build_correlation_context(&finding_refs)?;
 
         // Get template
-        let system_template = self
-            .prompt_compiler
-            .get_template("correlate_findings_system")
-            .ok_or_else(|| {
+        let system_template =
+            self.prompt_compiler.get_template("correlate_findings_system").ok_or_else(|| {
                 AiAnalystError::TemplateNotFound("correlate_findings_system".to_string())
             })?;
 
@@ -825,9 +755,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
@@ -865,9 +794,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
@@ -925,9 +853,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
@@ -942,12 +869,10 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         let findings = self.finding_provider.list_findings(scan_id, None).await?;
 
         // Get template
-        let system_template = self
-            .prompt_compiler
-            .get_template("natural_language_query_system")
-            .ok_or_else(|| {
-                AiAnalystError::TemplateNotFound("natural_language_query_system".to_string())
-            })?;
+        let system_template =
+            self.prompt_compiler.get_template("natural_language_query_system").ok_or_else(
+                || AiAnalystError::TemplateNotFound("natural_language_query_system".to_string()),
+            )?;
 
         // Create a summary of findings for context
         let findings_summary: String = findings
@@ -962,15 +887,12 @@ impl SecurityAnalyst for SecurityAnalystImpl {
             .join("\n");
 
         // Create user prompt with question and findings context
-        let user_prompt = format!(
-            "Question: {}\n\nAvailable findings:\n{}",
-            question, findings_summary
-        );
+        let user_prompt =
+            format!("Question: {}\n\nAvailable findings:\n{}", question, findings_summary);
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await
@@ -982,14 +904,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         target_scan_id: ScanId,
     ) -> AiResult<Pin<Box<dyn Stream<Item = AiResult<String>> + Send>>> {
         // Get findings from both scans
-        let base_findings = self
-            .finding_provider
-            .list_findings(base_scan_id, None)
-            .await?;
-        let target_findings = self
-            .finding_provider
-            .list_findings(target_scan_id, None)
-            .await?;
+        let base_findings = self.finding_provider.list_findings(base_scan_id, None).await?;
+        let target_findings = self.finding_provider.list_findings(target_scan_id, None).await?;
 
         // Get template
         let system_template = self
@@ -1017,9 +933,8 @@ impl SecurityAnalyst for SecurityAnalystImpl {
         );
 
         // Create completion request
-        let request = self
-            .create_completion_request(&system_template.system_prompt, &user_prompt)
-            .await?;
+        let request =
+            self.create_completion_request(&system_template.system_prompt, &user_prompt).await?;
 
         // Execute streaming completion
         self.execute_streaming_completion(request).await

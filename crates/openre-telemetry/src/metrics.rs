@@ -16,12 +16,9 @@ pub fn init_metrics(config: &MetricsConfig) -> Result<MetricsGuard> {
         .parse()
         .map_err(|e: std::net::AddrParseError| openre_core::Error::Internal(e.into()))?;
 
-    PrometheusBuilder::new()
-        .with_http_listener(addr)
-        .install()
-        .map_err(|e: metrics_exporter_prometheus::BuildError| {
-            openre_core::Error::Internal(e.into())
-        })?;
+    PrometheusBuilder::new().with_http_listener(addr).install().map_err(
+        |e: metrics_exporter_prometheus::BuildError| openre_core::Error::Internal(e.into()),
+    )?;
 
     // Register common metrics
     register_common_metrics();

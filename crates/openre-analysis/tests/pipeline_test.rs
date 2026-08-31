@@ -1,7 +1,7 @@
 // crates/openre-analysis/tests/pipeline_test.rs
 use openre_analysis::orchestrator::{default_pipeline_stages, ExecutorConfig};
+use openre_core::ids::{AnalysisId, StageId, StageName};
 use openre_telemetry::TelemetryHandle;
-use openre_core::ids::{StageId, StageName, AnalysisId};
 use std::sync::Arc;
 
 #[tokio::test]
@@ -10,8 +10,15 @@ async fn test_default_pipeline_stages() {
     assert_eq!(stages.len(), 9);
 
     let expected = vec![
-        "identification", "loading", "disassembly", "control_flow",
-        "data_flow", "type_recovery", "decompilation", "ai_enrichment", "finalization"
+        "identification",
+        "loading",
+        "disassembly",
+        "control_flow",
+        "data_flow",
+        "type_recovery",
+        "decompilation",
+        "ai_enrichment",
+        "finalization",
     ];
 
     for (i, stage) in stages.iter().enumerate() {
@@ -27,8 +34,15 @@ async fn test_pipeline_creation() {
     // Verify all expected stages are present
     let stage_names: Vec<String> = stages.iter().map(|s| s.id().as_str().to_string()).collect();
     let expected = vec![
-        "identification", "loading", "disassembly", "control_flow",
-        "data_flow", "type_recovery", "decompilation", "ai_enrichment", "finalization"
+        "identification",
+        "loading",
+        "disassembly",
+        "control_flow",
+        "data_flow",
+        "type_recovery",
+        "decompilation",
+        "ai_enrichment",
+        "finalization",
     ];
 
     assert_eq!(stage_names, expected);

@@ -45,11 +45,7 @@ impl MetadataExtractionService {
         let mut metadata = match format {
             BinaryFormat::Elf => self.elf_extractor.extract_metadata(&data).await?,
             BinaryFormat::Pe => self.pe_extractor.extract_metadata(&data).await?,
-            _ => {
-                return Err(openre_core::Error::Validation(
-                    "Unsupported format".to_string(),
-                ))
-            }
+            _ => return Err(openre_core::Error::Validation("Unsupported format".to_string())),
         };
         metadata.file_id = file_id;
 
@@ -72,9 +68,7 @@ impl MetadataExtractionService {
         match format {
             BinaryFormat::Elf => self.elf_extractor.extract_sections(&data).await,
             BinaryFormat::Pe => self.pe_extractor.extract_sections(&data).await,
-            _ => Err(openre_core::Error::Validation(
-                "Unsupported format".to_string(),
-            )),
+            _ => Err(openre_core::Error::Validation("Unsupported format".to_string())),
         }
     }
 
@@ -85,9 +79,7 @@ impl MetadataExtractionService {
         match format {
             BinaryFormat::Elf => self.elf_extractor.extract_symbols(&data).await,
             BinaryFormat::Pe => self.pe_extractor.extract_symbols(&data).await,
-            _ => Err(openre_core::Error::Validation(
-                "Unsupported format".to_string(),
-            )),
+            _ => Err(openre_core::Error::Validation("Unsupported format".to_string())),
         }
     }
 
@@ -98,9 +90,7 @@ impl MetadataExtractionService {
         match format {
             BinaryFormat::Elf => self.elf_extractor.extract_imports(&data).await,
             BinaryFormat::Pe => self.pe_extractor.extract_imports(&data).await,
-            _ => Err(openre_core::Error::Validation(
-                "Unsupported format".to_string(),
-            )),
+            _ => Err(openre_core::Error::Validation("Unsupported format".to_string())),
         }
     }
 
@@ -111,9 +101,7 @@ impl MetadataExtractionService {
         match format {
             BinaryFormat::Elf => self.elf_extractor.extract_exports(&data).await,
             BinaryFormat::Pe => self.pe_extractor.extract_exports(&data).await,
-            _ => Err(openre_core::Error::Validation(
-                "Unsupported format".to_string(),
-            )),
+            _ => Err(openre_core::Error::Validation("Unsupported format".to_string())),
         }
     }
 
@@ -124,9 +112,7 @@ impl MetadataExtractionService {
         match format {
             BinaryFormat::Elf => self.elf_extractor.extract_strings(&data).await,
             BinaryFormat::Pe => self.pe_extractor.extract_strings(&data).await,
-            _ => Err(openre_core::Error::Validation(
-                "Unsupported format".to_string(),
-            )),
+            _ => Err(openre_core::Error::Validation("Unsupported format".to_string())),
         }
     }
 
@@ -137,9 +123,7 @@ impl MetadataExtractionService {
         match format {
             BinaryFormat::Elf => self.elf_extractor.extract_resources(&data).await,
             BinaryFormat::Pe => self.pe_extractor.extract_resources(&data).await,
-            _ => Err(openre_core::Error::Validation(
-                "Unsupported format".to_string(),
-            )),
+            _ => Err(openre_core::Error::Validation("Unsupported format".to_string())),
         }
     }
 
@@ -150,9 +134,7 @@ impl MetadataExtractionService {
         match format {
             BinaryFormat::Elf => self.elf_extractor.extract_version_info(&data).await,
             BinaryFormat::Pe => self.pe_extractor.extract_version_info(&data).await,
-            _ => Err(openre_core::Error::Validation(
-                "Unsupported format".to_string(),
-            )),
+            _ => Err(openre_core::Error::Validation("Unsupported format".to_string())),
         }
     }
 }

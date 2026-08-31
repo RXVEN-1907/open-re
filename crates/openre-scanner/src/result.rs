@@ -112,9 +112,7 @@ impl ResultAggregator {
         self.by_scan
             .get(scan_id)
             .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.findings.get(id).map(|f| f.clone()))
-                    .collect()
+                ids.iter().filter_map(|id| self.findings.get(id).map(|f| f.clone())).collect()
             })
             .unwrap_or_default()
     }
@@ -253,46 +251,22 @@ impl ResultAggregator {
             }
         }
         if let Some(min_exp) = filter.min_exploitability_score {
-            if finding
-                .exploitability
-                .as_ref()
-                .map(|e| e.score)
-                .unwrap_or(0.0)
-                < min_exp
-            {
+            if finding.exploitability.as_ref().map(|e| e.score).unwrap_or(0.0) < min_exp {
                 return false;
             }
         }
         if let Some(max_exp) = filter.max_exploitability_score {
-            if finding
-                .exploitability
-                .as_ref()
-                .map(|e| e.score)
-                .unwrap_or(10.0)
-                > max_exp
-            {
+            if finding.exploitability.as_ref().map(|e| e.score).unwrap_or(10.0) > max_exp {
                 return false;
             }
         }
         if let Some(min_impact) = filter.min_business_impact_score {
-            if finding
-                .business_impact
-                .as_ref()
-                .map(|b| b.score)
-                .unwrap_or(0.0)
-                < min_impact
-            {
+            if finding.business_impact.as_ref().map(|b| b.score).unwrap_or(0.0) < min_impact {
                 return false;
             }
         }
         if let Some(max_impact) = filter.max_business_impact_score {
-            if finding
-                .business_impact
-                .as_ref()
-                .map(|b| b.score)
-                .unwrap_or(10.0)
-                > max_impact
-            {
+            if finding.business_impact.as_ref().map(|b| b.score).unwrap_or(10.0) > max_impact {
                 return false;
             }
         }
@@ -354,9 +328,7 @@ impl ResultAggregator {
             }
 
             if let Some(remediation) = &finding.remediation {
-                *by_remediation_priority
-                    .entry(remediation.priority)
-                    .or_insert(0) += 1;
+                *by_remediation_priority.entry(remediation.priority).or_insert(0) += 1;
             }
 
             if finding.verified {
@@ -473,10 +445,8 @@ impl ResultAggregator {
 
         for entry in self.findings.iter() {
             let finding = entry.value();
-            let fingerprint = finding
-                .fingerprint
-                .clone()
-                .unwrap_or_else(|| finding.generate_fingerprint());
+            let fingerprint =
+                finding.fingerprint.clone().unwrap_or_else(|| finding.generate_fingerprint());
             if let Some(existing_id) = seen.get(&fingerprint) {
                 // Merge into existing
                 if let Some(mut existing) = self.findings.get_mut(existing_id) {
@@ -641,10 +611,7 @@ mod tests {
         aggregator.add_finding(finding1);
         aggregator.add_finding(finding2);
 
-        let filter = FindingFilter {
-            severity: Some(vec![Severity::High]),
-            ..Default::default()
-        };
+        let filter = FindingFilter { severity: Some(vec![Severity::High]), ..Default::default() };
 
         let results = aggregator.get_findings(filter, FindingSort::SeverityDesc, 10, 0);
         assert_eq!(results.len(), 1);

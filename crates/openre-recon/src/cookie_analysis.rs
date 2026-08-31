@@ -46,12 +46,7 @@ impl CookieAnalysisPlugin {
     async fn analyze_cookies(&self, url: &str) -> Result<CookieAnalysisResult> {
         let mut result = CookieAnalysisResult::default();
 
-        let response = self
-            .client
-            .get(url)
-            .send()
-            .await
-            .map_err(crate::internal_err)?;
+        let response = self.client.get(url).send().await.map_err(crate::internal_err)?;
 
         // Extract cookies from Set-Cookie headers
         for header in response.headers().get_all("set-cookie") {
@@ -87,36 +82,26 @@ impl CookieAnalysisPlugin {
 
         // Check for security issues
         if !analysis.secure {
-            analysis
-                .issues
-                .push("Missing Secure flag - cookie transmitted over HTTP".to_string());
+            analysis.issues.push("Missing Secure flag - cookie transmitted over HTTP".to_string());
         }
 
         if !analysis.http_only {
-            analysis
-                .issues
-                .push("Missing HttpOnly flag - accessible via JavaScript".to_string());
+            analysis.issues.push("Missing HttpOnly flag - accessible via JavaScript".to_string());
         }
 
         if analysis.same_site.is_none() || analysis.same_site.as_ref().map_or(true, |s| s == "None")
         {
-            analysis
-                .issues
-                .push("Missing or weak SameSite attribute".to_string());
+            analysis.issues.push("Missing or weak SameSite attribute".to_string());
         }
 
         if analysis.expires.is_none() && analysis.max_age.is_none() {
-            analysis
-                .issues
-                .push("Session cookie - no expiration set".to_string());
+            analysis.issues.push("Session cookie - no expiration set".to_string());
         }
 
         // Check for overly broad domain
         if let Some(domain) = &analysis.domain {
             if domain.starts_with('.') && domain.matches('.').count() <= 1 {
-                analysis
-                    .issues
-                    .push("Overly broad domain scope".to_string());
+                analysis.issues.push("Overly broad domain scope".to_string());
             }
         }
 
@@ -136,10 +121,8 @@ impl CookieAnalysisPlugin {
         let mut cookies = Vec::new();
 
         // Look for document.cookie assignments
-        let patterns = [
-            r#"document\.cookie\s*=\s*["']([^"']+)["']"#,
-            r#"cookie\s*=\s*["']([^"']+)["']"#,
-        ];
+        let patterns =
+            [r#"document\.cookie\s*=\s*["']([^"']+)["']"#, r#"cookie\s*=\s*["']([^"']+)["']"#];
 
         for pattern in patterns {
             if let Ok(re) = regex::Regex::new(pattern) {
@@ -368,11 +351,7 @@ impl ReconPlugin for CookieAnalysisPlugin {
             );
         }
 
-        info!(
-            "Cookie analysis completed for: {} - {} findings",
-            target_url,
-            findings.len()
-        );
+        info!("Cookie analysis completed for: {} - {} findings", target_url, findings.len());
         Ok(findings)
     }
 }

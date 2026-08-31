@@ -38,10 +38,7 @@ impl FindingProvider for ScanStorageFindingProvider {
                 }
             }
             Ok(None) => Ok(None),
-            Err(e) => Err(AiAnalystError::Internal(format!(
-                "Failed to get finding: {}",
-                e
-            ))),
+            Err(e) => Err(AiAnalystError::Internal(format!("Failed to get finding: {}", e))),
         }
     }
 
@@ -79,10 +76,7 @@ impl FindingProvider for ScanStorageFindingProvider {
                     Ok(findings)
                 }
             }
-            Err(e) => Err(AiAnalystError::Internal(format!(
-                "Failed to list findings: {}",
-                e
-            ))),
+            Err(e) => Err(AiAnalystError::Internal(format!("Failed to list findings: {}", e))),
         }
     }
 
@@ -111,10 +105,7 @@ impl FindingProvider for ScanStorageFindingProvider {
                 })
             }
             Ok(None) => Err(AiAnalystError::ScanNotFound(scan_id)),
-            Err(e) => Err(AiAnalystError::Internal(format!(
-                "Failed to get scan metadata: {}",
-                e
-            ))),
+            Err(e) => Err(AiAnalystError::Internal(format!("Failed to get scan metadata: {}", e))),
         }
     }
 }

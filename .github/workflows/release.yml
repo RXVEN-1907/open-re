@@ -14,27 +14,52 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 env:
   CARGO_TERM_COLOR: always
+  REGISTRY: ghcr.io
+  IMAGE_ORG: rxven-1907
 
 jobs:
   build:
-    name: Build binaries
+    name: Build binaries (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
+          # Linux x86_64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: openre-scan-linux
-          - os: macos-latest
+            artifact_prefix: openre-linux-x86_64
+            cross_compile: false
+            zigbuild: false
+          # Linux ARM64 (cross-compile via cargo-zigbuild)
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact_prefix: openre-linux-arm64
+            cross_compile: true
+            zigbuild: true
+          # macOS x86_64 (run on macos-13 for true x86_64)
+          - os: macos-13
             target: x86_64-apple-darwin
-            artifact_name: openre-scan-macos
+            artifact_prefix: openre-macos-x86_64
+            cross_compile: false
+            zigbuild: false
+          # macOS ARM64 (native on arm64 runner)
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_prefix: openre-macos-arm64
+            cross_compile: false
+            zigbuild: false
+          # Windows x86_64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: openre-scan-windows.exe
+            artifact_prefix: openre-windows-x86_64
+            cross_compile: false
+            zigbuild: false
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -53,72 +78,77 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
+          sudo apt-get install -y pkg-config libssl-dev clang lld
 
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install pkg-config openssl
 
-      - name: Build release binary
+      - name: Setup cross-compilation (Linux ARM64)
+        if: matrix.zigbuild && runner.os == 'Linux'
         run: |
-          cargo build --release -p openre-scan --target ${{ matrix.target }}
+          sudo apt-get update && sudo apt-get install -y zig
+          cargo install cargo-zigbuild --locked
+          rustup target add aarch64-unknown-linux-gnu
+
+      - name: Build release binaries
+        run: |
+          if [[ "${{ matrix.zigbuild }}" == "true" ]]; then
+            cargo zigbuild --release -p openre-cli -p openre-scan --target ${{ matrix.target }}
+          else
+            cargo build --release -p openre-cli -p openre-scan --target ${{ matrix.target }}
+          fi
+
+      - name: Quality checks (format, clippy, tests)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy -p openre-cli -p openre-scan --all-targets --all-features -- -D warnings
+          cargo test -p openre-cli -p openre-scan --locked
 
       - name: Prepare artifacts
         run: |
           mkdir -p artifacts
-          cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} artifacts/
+          BIN_NAME_OPENRE="openre"
+          BIN_NAME_SCAN="openre-scan"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            BIN_NAME_OPENRE="openre.exe"
+            BIN_NAME_SCAN="openre-scan.exe"
+          fi
+
+          # Copy openre binary
+          EXT_OPENRE="${BIN_NAME_OPENRE#openre}"
+          cp target/${{ matrix.target }}/release/${BIN_NAME_OPENRE} artifacts/${{ matrix.artifact_prefix }}-openre${EXT_OPENRE}
+          # Copy openre-scan binary
+          EXT_SCAN="${BIN_NAME_SCAN#openre-scan}"
+          cp target/${{ matrix.target }}/release/${BIN_NAME_SCAN} artifacts/${{ matrix.artifact_prefix }}-openre-scan${EXT_SCAN}
+
           cd artifacts
-          sha256sum ${{ matrix.artifact_name }} > ${{ matrix.artifact_name }}.sha256
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: artifacts/
-          retention-days: 7
-
-  release:
-    name: Create GitHub Release
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
-          merge-multiple: true
-
-      - name: Create checksums
-        run: |
-          cd artifacts
+          # Generate SHA256 checksums
           for f in *; do
             if [[ -f "$f" && "$f" != *.sha256 ]]; then
               sha256sum "$f" > "$f.sha256"
             fi
           done
+          # Create combined checksums file (exclude .sha256 files)
+          sha256sum -- * | grep -v '\.sha256$' > checksums.txt
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
-            artifacts/*
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ matrix.artifact_prefix }}
+          path: artifacts/
+          retention-days: 7
 
-  publish-crates:
-    name: Publish to crates.io
-    needs: build
+  sbom:
+    name: Generate SBOM
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -128,8 +158,151 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Publish to crates.io
+      - name: Install cargo-cyclonedx
+        run: cargo install cargo-cyclonedx --locked
+
+      - name: Generate SBOM (CycloneDX) for openre-scan
         run: |
-          cargo publish -p openre-scan
+          cargo cyclonedx -p openre-scan --all-features --output-format json --output-file sbom-cyclonedx.json
+          cargo cyclonedx -p openre-scan --all-features --output-format xml --output-file sbom-cyclonedx.xml
+
+      - name: Install cargo-spdx
+        run: cargo install cargo-spdx --locked
+
+      - name: Generate SBOM (SPDX) for openre-scan
+        run: |
+          cargo spdx -p openre-scan --all-features --output-file sbom-spdx.json
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            sbom-cyclonedx.json
+            sbom-cyclonedx.xml
+            sbom-spdx.json
+          retention-days: 30
+
+  docker:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: openre-api
+            dockerfile: docker/Dockerfile.api
+            context: .
+            platforms: linux/amd64,linux/arm64
+          - name: openre-worker
+            dockerfile: docker/Dockerfile.worker
+            context: .
+            platforms: linux/amd64,linux/arm64
+          - name: openre-frontend
+            dockerfile: docker/Dockerfile.frontend
+            context: .
+            platforms: linux/amd64,linux/arm64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for ${{ matrix.name }}
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_ORG }}/${{ matrix.name }}
+          tags: |
+            type=ref,event=tag
+            type=sha,prefix=
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platforms }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: Create GitHub Release
+    needs: [build, sbom]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Organize artifacts
+        run: |
+          cd artifacts
+          mkdir -p release
+          # Find all openre-* files recursively (merge-multiple creates subdirs)
+          find . -type f -name "openre-*" ! -path "./release/*" -print0 | xargs -0 -I {} mv {} release/
+          # Find all sbom-* files recursively
+          find . -type f -name "sbom-*" ! -path "./release/*" -print0 | xargs -0 -I {} mv {} release/
+          cd release
+          # Verify all expected files exist
+          ls -la
+          # Create final combined checksums (exclude .sha256 files)
+          sha256sum -- * | grep -v '\.sha256$' > CHECKSUMS.txt
+          cat CHECKSUMS.txt
+
+      - name: Verify CHANGELOG.md has version entry
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          if ! grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            echo "ERROR: CHANGELOG.md does not contain entry for version $VERSION"
+            exit 1
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/release/*
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-crates:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish openre-scan to crates.io
+        run: cargo publish --locked -p openre-scan
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish openre-cli to crates.io
+        run: cargo publish --locked -p openre-cli
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

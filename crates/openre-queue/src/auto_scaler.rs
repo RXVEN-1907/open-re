@@ -42,9 +42,8 @@ impl AutoScaler {
     pub async fn start(&self) {
         let scaler = self.clone();
         tokio::spawn(async move {
-            let mut interval = interval(Duration::from_secs(
-                scaler.config.evaluation_interval_seconds,
-            ));
+            let mut interval =
+                interval(Duration::from_secs(scaler.config.evaluation_interval_seconds));
             loop {
                 interval.tick().await;
                 if let Err(e) = scaler.evaluate_and_scale().await {
@@ -110,9 +109,7 @@ impl AutoScaler {
             running + (queued as f64 / (target_queue_per_worker * 2.0)).max(1.0) as usize;
 
         // Use the maximum of both calculations
-        let desired = queue_based
-            .max(running_based)
-            .clamp(min_workers, max_workers);
+        let desired = queue_based.max(running_based).clamp(min_workers, max_workers);
 
         // Apply hysteresis to prevent thrashing
         let scale_up_threshold = self.config.scale_up_threshold;

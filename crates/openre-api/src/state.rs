@@ -26,10 +26,7 @@ pub struct Telemetry {
 
 impl Telemetry {
     pub fn new(_config: &openre_config::TelemetryConfig) -> ApiResult<Self> {
-        Ok(Self {
-            metrics: MetricsRegistry::new(),
-            _handle: TelemetryHandle,
-        })
+        Ok(Self { metrics: MetricsRegistry::new(), _handle: TelemetryHandle })
     }
 }
 
@@ -72,9 +69,8 @@ impl AppState {
         use openre_telemetry::metrics::{CancellationMetrics, ProgressMetrics, SchedulerMetrics};
         let client = redis::Client::open(config.redis.url.as_str())
             .map_err(|e| ApiError::Internal(format!("Redis init failed: {}", e)))?;
-        let queue_metrics = Arc::new(openre_telemetry::metrics::QueueMetrics::new(
-            &telemetry.metrics,
-        ));
+        let queue_metrics =
+            Arc::new(openre_telemetry::metrics::QueueMetrics::new(&telemetry.metrics));
         let queue_manager =
             Arc::new(QueueManager::new(config.queue.clone(), &config.redis, queue_metrics).await?);
 
@@ -105,12 +101,7 @@ impl AppState {
 
         // Initialize AI service
         let ai_service = Arc::new(
-            AiService::new(
-                config.ai.clone(),
-                global_store.clone(),
-                object_store.clone(),
-            )
-            .await?,
+            AiService::new(config.ai.clone(), global_store.clone(), object_store.clone()).await?,
         );
 
         // Initialize plugin registry

@@ -71,11 +71,7 @@ struct VulnerabilityDatabase {
 
 impl VulnerabilityDatabase {
     fn new(ttl_seconds: u64) -> Self {
-        Self {
-            entries: HashMap::new(),
-            cached_at: std::time::SystemTime::now(),
-            ttl_seconds,
-        }
+        Self { entries: HashMap::new(), cached_at: std::time::SystemTime::now(), ttl_seconds }
     }
 
     fn is_valid(&self) -> bool {
@@ -214,18 +210,12 @@ impl DependencyAnalyzer {
     /// Create a new dependency analyzer
     pub fn new(config: DependencyAnalysisConfig) -> Self {
         let vulnerability_db = if config.check_vulnerabilities && config.enable_caching {
-            Some(std::sync::RwLock::new(VulnerabilityDatabase::new(
-                config.cache_ttl_seconds,
-            )))
+            Some(std::sync::RwLock::new(VulnerabilityDatabase::new(config.cache_ttl_seconds)))
         } else {
             None
         };
 
-        Self {
-            vulnerability_db,
-            registry_clients: HashMap::new(),
-            config,
-        }
+        Self { vulnerability_db, registry_clients: HashMap::new(), config }
     }
 
     /// Add a registry client for an ecosystem
@@ -257,10 +247,7 @@ impl DependencyAnalyzer {
         content: &str,
         source_path: &Path,
     ) -> IntelligenceResult<Vec<DependencyInfo>> {
-        let filename = source_path
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or("unknown");
+        let filename = source_path.file_name().and_then(|f| f.to_str()).unwrap_or("unknown");
 
         let file_type = DependencyFileType::from_filename(filename)
             .or_else(|| {
@@ -313,9 +300,7 @@ impl DependencyAnalyzer {
         let mut dependencies = Vec::new();
 
         for (name, info) in &lock_file.dependencies {
-            let dep_info = self
-                .analyze_single_dependency(name, &info.version, "npm")
-                .await?;
+            let dep_info = self.analyze_single_dependency(name, &info.version, "npm").await?;
             dependencies.push(dep_info);
         }
 
@@ -376,9 +361,7 @@ impl DependencyAnalyzer {
                 let name = &trimmed[..eq_pos];
                 let version = &trimmed[eq_pos + 2..];
 
-                let dep_info = self
-                    .analyze_single_dependency(name, version, "pypi")
-                    .await?;
+                let dep_info = self.analyze_single_dependency(name, version, "pypi").await?;
                 dependencies.push(dep_info);
             }
         }
@@ -416,10 +399,7 @@ impl DependencyAnalyzer {
             if trimmed.starts_with("version ") && trimmed.contains('"') {
                 if let Some(name) = &current_name {
                     let version = trimmed.split('"').nth(1).unwrap_or_default().to_string();
-                    dependencies.push(
-                        self.analyze_single_dependency(name, &version, "npm")
-                            .await?,
-                    );
+                    dependencies.push(self.analyze_single_dependency(name, &version, "npm").await?);
                     current_name = None;
                 }
             }
@@ -454,14 +434,8 @@ impl DependencyAnalyzer {
 
         for (name, info) in packages {
             // Version is stored as "==1.2.3"
-            let version = info
-                .version
-                .trim_start_matches(['=', '<', '>', '~'])
-                .to_string();
-            dependencies.push(
-                self.analyze_single_dependency(&name, &version, "pypi")
-                    .await?,
-            );
+            let version = info.version.trim_start_matches(['=', '<', '>', '~']).to_string();
+            dependencies.push(self.analyze_single_dependency(&name, &version, "pypi").await?);
         }
 
         Ok(dependencies)
@@ -513,13 +487,9 @@ impl DependencyAnalyzer {
 
         for (name, version_spec) in all_deps {
             // Version specs may be ranges like "^4.18.2" or "~2.0.1"
-            let version = version_spec
-                .trim_start_matches(['^', '~', '>', '=', '<', 'v', ' '])
-                .to_string();
-            dependencies.push(
-                self.analyze_single_dependency(&name, &version, "npm")
-                    .await?,
-            );
+            let version =
+                version_spec.trim_start_matches(['^', '~', '>', '=', '<', 'v', ' ']).to_string();
+            dependencies.push(self.analyze_single_dependency(&name, &version, "npm").await?);
         }
 
         Ok(dependencies)
@@ -549,10 +519,8 @@ impl DependencyAnalyzer {
                 if let (Some(group_id), Some(artifact_id)) = (group_id, artifact_id) {
                     let name = format!("{}:{}", group_id, artifact_id);
                     if let Some(version) = version {
-                        dependencies.push(
-                            self.analyze_single_dependency(&name, &version, "maven")
-                                .await?,
-                        );
+                        dependencies
+                            .push(self.analyze_single_dependency(&name, &version, "maven").await?);
                     }
                 }
             }
@@ -583,10 +551,7 @@ impl DependencyAnalyzer {
             for caps in single_line_re.captures_iter(trimmed) {
                 let name = format!("{}:{}", &caps[1], &caps[2]);
                 let version = caps[3].to_string();
-                dependencies.push(
-                    self.analyze_single_dependency(&name, &version, "maven")
-                        .await?,
-                );
+                dependencies.push(self.analyze_single_dependency(&name, &version, "maven").await?);
                 matched = true;
             }
 
@@ -594,10 +559,8 @@ impl DependencyAnalyzer {
                 for caps in map_line_re.captures_iter(trimmed) {
                     let name = format!("{}:{}", &caps[1], &caps[2]);
                     let version = caps[3].to_string();
-                    dependencies.push(
-                        self.analyze_single_dependency(&name, &version, "maven")
-                            .await?,
-                    );
+                    dependencies
+                        .push(self.analyze_single_dependency(&name, &version, "maven").await?);
                 }
             }
         }
@@ -639,11 +602,7 @@ impl DependencyAnalyzer {
                         }
                     }
                     Ok(None) => {
-                        warn!(
-                            "Package {} not found in {} registry",
-                            name,
-                            client.registry_name()
-                        );
+                        warn!("Package {} not found in {} registry", name, client.registry_name());
                     }
                     Err(e) => {
                         warn!("Error checking latest version for {}: {}", name, e);
@@ -673,19 +632,14 @@ impl DependencyAnalyzer {
                     match client.get_vulnerabilities(name, version).await {
                         Ok(v) => vulns = v,
                         Err(e) => {
-                            warn!(
-                                "Error checking vulnerabilities for {} {}: {}",
-                                name, version, e
-                            );
+                            warn!("Error checking vulnerabilities for {} {}: {}", name, version, e);
                         }
                     }
                 }
 
                 // Cache the results
                 if let Some(db) = &self.vulnerability_db {
-                    db.write()
-                        .unwrap()
-                        .add_vulnerabilities(vuln_key, vulns.clone());
+                    db.write().unwrap().add_vulnerabilities(vuln_key, vulns.clone());
                 }
 
                 vulns
@@ -695,12 +649,8 @@ impl DependencyAnalyzer {
 
             // Generate upgrade recommendation if there are critical vulnerabilities
             if !dep_info.vulnerabilities.is_empty() {
-                let highest_severity = dep_info
-                    .vulnerabilities
-                    .iter()
-                    .map(|v| v.severity.value())
-                    .max()
-                    .unwrap_or(0);
+                let highest_severity =
+                    dep_info.vulnerabilities.iter().map(|v| v.severity.value()).max().unwrap_or(0);
 
                 let risk_level = match highest_severity {
                     4 => DependencyUpgradeRisk::Critical, // Critical
@@ -734,39 +684,25 @@ impl DependencyAnalyzer {
 
         let total_deps = dependencies.len();
         let outdated_deps = dependencies.iter().filter(|d| d.is_outdated).count();
-        let vulnerable_deps = dependencies
-            .iter()
-            .filter(|d| !d.vulnerabilities.is_empty())
-            .count();
+        let vulnerable_deps = dependencies.iter().filter(|d| !d.vulnerabilities.is_empty()).count();
 
         report.push_str(&format!("## Summary\n"));
         report.push_str(&format!("- Total dependencies: {}\n", total_deps));
         report.push_str(&format!(
             "- Outdated dependencies: {} ({:.1}%)\n",
             outdated_deps,
-            if total_deps > 0 {
-                (outdated_deps as f64 / total_deps as f64) * 100.0
-            } else {
-                0.0
-            }
+            if total_deps > 0 { (outdated_deps as f64 / total_deps as f64) * 100.0 } else { 0.0 }
         ));
         report.push_str(&format!(
             "- Vulnerable dependencies: {} ({:.1}%)\n\n",
             vulnerable_deps,
-            if total_deps > 0 {
-                (vulnerable_deps as f64 / total_deps as f64) * 100.0
-            } else {
-                0.0
-            }
+            if total_deps > 0 { (vulnerable_deps as f64 / total_deps as f64) * 100.0 } else { 0.0 }
         ));
 
         if vulnerable_deps > 0 {
             report.push_str("## Vulnerabilities Found\n\n");
 
-            for dep in dependencies
-                .iter()
-                .filter(|d| !d.vulnerabilities.is_empty())
-            {
+            for dep in dependencies.iter().filter(|d| !d.vulnerabilities.is_empty()) {
                 report.push_str(&format!("### {} v{}\n", dep.name, dep.version));
 
                 for vuln in &dep.vulnerabilities {
@@ -803,9 +739,7 @@ impl DependencyAnalyzer {
                     "- {} v{} (latest: {})\n",
                     dep.name,
                     dep.version,
-                    dep.latest_version
-                        .as_ref()
-                        .unwrap_or(&"unknown".to_string())
+                    dep.latest_version.as_ref().unwrap_or(&"unknown".to_string())
                 ));
             }
         }
@@ -823,10 +757,8 @@ pub struct MockRegistryClient {
 
 impl MockRegistryClient {
     pub fn new(registry_name: &str) -> Self {
-        let mut client = Self {
-            registry_name: registry_name.to_string(),
-            package_data: HashMap::new(),
-        };
+        let mut client =
+            Self { registry_name: registry_name.to_string(), package_data: HashMap::new() };
 
         // Add some test data
         client.package_data.insert(
@@ -868,11 +800,7 @@ impl RegistryClient for MockRegistryClient {
 
     async fn get_versions(&self, _package_name: &str) -> IntelligenceResult<Vec<String>> {
         // Simplified implementation
-        Ok(vec![
-            "1.0.0".to_string(),
-            "1.1.0".to_string(),
-            "2.0.0".to_string(),
-        ])
+        Ok(vec!["1.0.0".to_string(), "1.1.0".to_string(), "2.0.0".to_string()])
     }
 
     async fn get_vulnerabilities(
@@ -887,11 +815,9 @@ impl RegistryClient for MockRegistryClient {
             for vuln in vulnerabilities {
                 for range in &vuln.affected_ranges {
                     if let (Some(start), Some(end)) = (&range.start_version, &range.end_version) {
-                        if let (Ok(ver), Ok(start_ver), Ok(end_ver)) = (
-                            Version::parse(version),
-                            Version::parse(start),
-                            Version::parse(end),
-                        ) {
+                        if let (Ok(ver), Ok(start_ver), Ok(end_ver)) =
+                            (Version::parse(version), Version::parse(start), Version::parse(end))
+                        {
                             if ver >= start_ver && ver < end_ver {
                                 applicable_vulns.push(vuln.clone());
                                 break;
@@ -931,10 +857,7 @@ numpy>=1.20.0
         let temp_file = NamedTempFile::new().unwrap();
         std::fs::write(temp_file.path(), content).unwrap();
 
-        let dependencies = analyzer
-            .analyze_dependencies_file(temp_file.path())
-            .await
-            .unwrap();
+        let dependencies = analyzer.analyze_dependencies_file(temp_file.path()).await.unwrap();
 
         // Should find flask, requests, and django (numpy doesn't match == pattern)
         assert!(dependencies.len() >= 3);
@@ -980,10 +903,8 @@ numpy>=1.20.0
         }"#;
 
         // Simplified parsing for test - would need full implementation in production
-        let dep_info = analyzer
-            .analyze_single_dependency("express", "4.18.0", "npm")
-            .await
-            .unwrap();
+        let dep_info =
+            analyzer.analyze_single_dependency("express", "4.18.0", "npm").await.unwrap();
 
         assert_eq!(dep_info.name, "express");
         assert_eq!(dep_info.version, "4.18.0");

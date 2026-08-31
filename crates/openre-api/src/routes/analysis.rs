@@ -56,10 +56,7 @@ async fn start_analysis(
 
     let job_id = state.queue_manager.enqueue(job).await?;
 
-    Ok(Json(AnalysisResponse {
-        job_id,
-        status: "queued".to_string(),
-    }))
+    Ok(Json(AnalysisResponse { job_id, status: "queued".to_string() }))
 }
 
 /// Get analysis status
@@ -91,12 +88,7 @@ async fn get_analysis_status(
     let progress = state.progress_tracker.get_job_progress(id).await?;
 
     let (progress, current_stage, stages_completed, total_stages) = match progress {
-        Some(p) => (
-            Some(p.overall_progress),
-            p.current_stage,
-            p.stages_completed,
-            p.total_stages,
-        ),
+        Some(p) => (Some(p.overall_progress), p.current_stage, p.stages_completed, p.total_stages),
         None => (None, None, 0, 0),
     };
 
@@ -139,9 +131,7 @@ async fn get_analysis_results(
         .ok_or_else(|| crate::error::ApiError::NotFound("Analysis not found".into()))?;
 
     if job.status != openre_queue::JobStatus::Completed {
-        return Err(crate::error::ApiError::BadRequest(
-            "Analysis not completed".into(),
-        ));
+        return Err(crate::error::ApiError::BadRequest("Analysis not completed".into()));
     }
 
     // File-based access checks are unavailable until file storage exists.
@@ -161,10 +151,7 @@ async fn cancel_analysis(
 ) -> ApiResult<Json<CancelResponse>> {
     let cancelled = state.queue_manager.cancel(id).await?;
 
-    Ok(Json(CancelResponse {
-        job_id: id,
-        cancelled,
-    }))
+    Ok(Json(CancelResponse { job_id: id, cancelled }))
 }
 
 /// Retry analysis
@@ -189,10 +176,7 @@ async fn retry_analysis(
 
     let job_id = state.queue_manager.enqueue(new_job).await?;
 
-    Ok(Json(AnalysisResponse {
-        job_id,
-        status: "queued".to_string(),
-    }))
+    Ok(Json(AnalysisResponse { job_id, status: "queued".to_string() }))
 }
 
 // Request/Response types

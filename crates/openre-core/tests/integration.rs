@@ -75,11 +75,7 @@ fn test_full_pipeline_dedup_then_correlate() {
     assert!(!corr_result.correlations.is_empty());
 
     // Should have temporal, spatial, and causal correlations
-    let types: Vec<_> = corr_result
-        .correlations
-        .iter()
-        .map(|c| c.correlation_type)
-        .collect();
+    let types: Vec<_> = corr_result.correlations.iter().map(|c| c.correlation_type).collect();
     assert!(types.contains(&CorrelationType::Spatial));
     assert!(types.contains(&CorrelationType::Causal) || types.contains(&CorrelationType::Temporal));
 }
@@ -306,20 +302,18 @@ fn test_finding_filter_and_sort() {
     ];
 
     // Test filtering by severity (only Critical)
-    let filter = FindingFilter {
-        severity: Some(vec![Severity::Critical]),
-        ..Default::default()
-    };
-    let filtered: Vec<_> = findings
-        .iter()
-        .filter(|f| {
-            if let Some(sevs) = &filter.severity {
-                sevs.contains(&f.severity)
-            } else {
-                true
-            }
-        })
-        .collect();
+    let filter = FindingFilter { severity: Some(vec![Severity::Critical]), ..Default::default() };
+    let filtered: Vec<_> =
+        findings
+            .iter()
+            .filter(|f| {
+                if let Some(sevs) = &filter.severity {
+                    sevs.contains(&f.severity)
+                } else {
+                    true
+                }
+            })
+            .collect();
     assert_eq!(filtered.len(), 1);
 
     // Test sorting by risk score (descending)

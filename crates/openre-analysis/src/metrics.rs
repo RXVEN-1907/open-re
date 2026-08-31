@@ -36,12 +36,7 @@ impl PipelineMetrics {
         // Record duration
         let duration_chrono = result.completed_at - result.started_at;
         let duration = Duration::from_millis(duration_chrono.num_milliseconds().max(0) as u64);
-        self.stage_durations
-            .write()
-            .await
-            .entry(stage_id.clone())
-            .or_default()
-            .push(duration);
+        self.stage_durations.write().await.entry(stage_id.clone()).or_default().push(duration);
 
         // Record memory
         self.stage_memory

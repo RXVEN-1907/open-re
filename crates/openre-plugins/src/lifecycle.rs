@@ -7,7 +7,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::{Capability, CapabilitySet, PluginId, PluginManifest, PluginMetadata, PluginRegistry};
+use crate::{
+    registry::PluginSource, Capability, CapabilitySet, PluginManifest, PluginMetadata,
+    PluginRegistry,
+};
+use openre_core::ids::PluginId;
 
 /// Plugin configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,6 +20,7 @@ pub struct PluginConfig {
     pub settings: HashMap<String, serde_json::Value>,
     pub granted_capabilities: CapabilitySet,
     pub auto_update: bool,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl Default for PluginConfig {
@@ -25,6 +30,7 @@ impl Default for PluginConfig {
             settings: HashMap::new(),
             granted_capabilities: CapabilitySet::new(),
             auto_update: false,
+            updated_at: None,
         }
     }
 }
@@ -59,11 +65,7 @@ pub struct PluginLifecycleManager {
 
 impl PluginLifecycleManager {
     pub fn new(registry: Arc<PluginRegistry>, config_dir: PathBuf) -> Result<Self> {
-        let manager = Self {
-            registry,
-            states: Arc::new(RwLock::new(HashMap::new())),
-            config_dir,
-        };
+        let manager = Self { registry, states: Arc::new(RwLock::new(HashMap::new())), config_dir };
 
         manager.load_states()?;
         Ok(manager)
@@ -89,7 +91,7 @@ impl PluginLifecycleManager {
 
     pub async fn install(&self, plugin_id: &PluginId, config: PluginConfig) -> Result<()> {
         // Install via registry
-        self.registry.install(plugin_id.clone()).await?;
+        self.registry.install(PluginSource::Builtin { name: plugin_id.to_string() }).await?;
 
         // Get manifest
         let entry = self
@@ -155,10 +157,9 @@ impl PluginLifecycleManager {
     ) -> Result<()> {
         let mut states = self.states.write().await;
         if let Some(state) = states.get_mut(plugin_id) {
-            if state.manifest.required_capabilities.has(capability)
-                || state.manifest.optional_capabilities.has(capability)
-            {
+            if state.manifest.plugin.capabilities.iter().any(|c| *c == capability) {
                 state.config.granted_capabilities.add(capability);
+                state.config.updated_at = Some(chrono::Utc::now());
                 self.save_states().await?;
             } else {
                 return Err(anyhow::anyhow!(
@@ -220,12 +221,6 @@ impl PluginLifecycleManager {
     }
 
     pub async fn get_enabled_plugins(&self) -> Vec<PluginState> {
-        self.states
-            .read()
-            .await
-            .values()
-            .filter(|s| s.config.enabled)
-            .cloned()
-            .collect()
+        self.states.read().await.values().filter(|s| s.config.enabled).cloned().collect()
     }
 }

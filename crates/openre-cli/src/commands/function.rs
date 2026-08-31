@@ -63,13 +63,7 @@ pub enum FunctionCommands {
 impl FunctionCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            FunctionCommands::List {
-                page,
-                per_page,
-                project_id,
-                file_id,
-                name,
-            } => {
+            FunctionCommands::List { page, per_page, project_id, file_id, name } => {
                 let mut url = format!("/api/functions?page={}&per_page={}", page, per_page);
                 if let Some(project_id) = project_id {
                     url.push_str(&format!("&project_id={}", project_id));
@@ -99,9 +93,7 @@ impl FunctionCommands {
             }
 
             FunctionCommands::Pseudocode { id } => {
-                let response = ctx
-                    .get(&format!("/api/functions/{}/pseudocode", id))
-                    .await?;
+                let response = ctx.get(&format!("/api/functions/{}/pseudocode", id)).await?;
                 let pseudocode: PseudocodeResponse = response.json().await?;
                 println!("{}", pseudocode.pseudocode);
             }
@@ -124,9 +116,7 @@ impl FunctionCommands {
             }
 
             FunctionCommands::Annotations { id } => {
-                let response = ctx
-                    .get(&format!("/api/functions/{}/annotations", id))
-                    .await?;
+                let response = ctx.get(&format!("/api/functions/{}/annotations", id)).await?;
                 let annotations: AnnotationsResponse = response.json().await?;
                 print_output(&annotations.annotations, &ctx.output_format)?;
             }

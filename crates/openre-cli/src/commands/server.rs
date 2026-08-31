@@ -42,12 +42,7 @@ pub enum ServerCommands {
 impl ServerCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            ServerCommands::Start {
-                port,
-                host,
-                workers,
-                daemon,
-            } => {
+            ServerCommands::Start { port, host, workers, daemon } => {
                 println!("Starting server on {}:{}...", host, port);
                 if daemon {
                     println!("Running in daemon mode...");
@@ -58,10 +53,7 @@ impl ServerCommands {
                 // In a real implementation, this would start the server
                 // For now, just show the command that would be run
                 println!("\nTo start the server, run:");
-                println!(
-                    "  cargo run --bin openre-api -- --port {} --host {}",
-                    port, host
-                );
+                println!("  cargo run --bin openre-api -- --port {} --host {}", port, host);
                 if let Some(workers) = workers {
                     println!("  With {} workers", workers);
                 }

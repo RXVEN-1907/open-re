@@ -141,12 +141,7 @@ pub struct PaginationParams {
 
 impl Default for PaginationParams {
     fn default() -> Self {
-        Self {
-            page: Some(1),
-            per_page: Some(50),
-            sort_by: None,
-            sort_order: None,
-        }
+        Self { page: Some(1), per_page: Some(50), sort_by: None, sort_order: None }
     }
 }
 

@@ -80,10 +80,7 @@ impl ImmutableAuditWriter {
             std::fs::create_dir_all(parent)?;
         }
 
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&config.file_path)?;
+        let file = OpenOptions::new().create(true).append(true).open(&config.file_path)?;
 
         let writer = Arc::new(Mutex::new(BufWriter::new(file)));
         let hash_chain = Arc::new(Mutex::new(Vec::new()));
@@ -92,11 +89,7 @@ impl ImmutableAuditWriter {
         let existing_chain = Self::read_hash_chain(&config.file_path).await?;
         *hash_chain.lock().await = existing_chain;
 
-        Ok(Self {
-            writer,
-            hash_chain,
-            config,
-        })
+        Ok(Self { writer, hash_chain, config })
     }
 
     /// Read the last hash from the audit log file
@@ -234,20 +227,12 @@ impl AuditLogger {
             }
         });
 
-        Self {
-            writer,
-            buffer,
-            flush_interval,
-            tx,
-            _handle: handle,
-        }
+        Self { writer, buffer, flush_interval, tx, _handle: handle }
     }
 
     /// Log an audit entry
     pub fn log(&self, entry: AuditEntry) -> Result<()> {
-        self.tx
-            .send(entry)
-            .map_err(|e| openre_core::Error::Internal(e.into()))
+        self.tx.send(entry).map_err(|e| openre_core::Error::Internal(e.into()))
     }
 
     /// Flush the buffer

@@ -75,12 +75,7 @@ pub enum FileCommands {
 impl FileCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            FileCommands::List {
-                page,
-                per_page,
-                project_id,
-                status,
-            } => {
+            FileCommands::List { page, per_page, project_id, status } => {
                 let mut url = format!("/api/files?page={}&per_page={}", page, per_page);
                 if let Some(project_id) = project_id {
                     url.push_str(&format!("&project_id={}", project_id));
@@ -109,11 +104,8 @@ impl FileCommands {
                 let mut buffer = Vec::new();
                 file.read_to_end(&mut buffer).await?;
 
-                let filename = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unknown")
-                    .to_string();
+                let filename =
+                    path.file_name().and_then(|n| n.to_str()).unwrap_or("unknown").to_string();
 
                 // Create multipart form
                 let form = reqwest::multipart::Form::new()
@@ -183,11 +175,7 @@ impl FileCommands {
                 println!("File downloaded to: {}", output_path.display());
             }
 
-            FileCommands::Analyze {
-                id,
-                stages,
-                priority,
-            } => {
+            FileCommands::Analyze { id, stages, priority } => {
                 let response = ctx
                     .post(
                         &format!("/api/files/{}/analysis", id),

@@ -47,10 +47,7 @@ impl SqliteHistoryStorage {
         let _ = conn.prepare("PRAGMA temp_store=MEMORY")?.query([])?;
         let _ = conn.prepare("PRAGMA busy_timeout=30000")?.query([])?;
 
-        let storage = Self {
-            db_path: db_path.clone(),
-            conn: Arc::new(Mutex::new(conn)),
-        };
+        let storage = Self { db_path: db_path.clone(), conn: Arc::new(Mutex::new(conn)) };
 
         Ok(storage)
     }
@@ -157,10 +154,7 @@ impl SqliteHistoryStorage {
             "CREATE INDEX IF NOT EXISTS idx_evidence_finding ON evidence(finding_id)",
             [],
         )?;
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_evidence_scan ON evidence(scan_id)",
-            [],
-        )?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_scan ON evidence(scan_id)", [])?;
 
         // Deduplicated findings table (stored as JSON per scan)
         conn.execute(
@@ -263,9 +257,7 @@ impl SqliteHistoryStorage {
             created_at: row.get("created_at")?,
             started_at: row.get("started_at")?,
             completed_at: row.get("completed_at")?,
-            duration_seconds: row
-                .get::<_, Option<i64>>("duration_seconds")?
-                .map(|v| v as u64),
+            duration_seconds: row.get::<_, Option<i64>>("duration_seconds")?.map(|v| v as u64),
             tags: serde_json::from_str(&tags_json).unwrap(),
         })
     }
@@ -279,10 +271,7 @@ impl SqliteHistoryStorage {
         Ok(conn
             .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(
-                params![limit as i64, offset as i64],
-                Self::deserialize_scan_summary,
-            )
+            .query_map(params![limit as i64, offset as i64], Self::deserialize_scan_summary)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -340,10 +329,7 @@ impl SqliteHistoryStorage {
         Ok(conn
             .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(
-                params![limit as i64, offset as i64],
-                Self::deserialize_report_artifact,
-            )
+            .query_map(params![limit as i64, offset as i64], Self::deserialize_report_artifact)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -505,10 +491,7 @@ impl SqliteHistoryStorage {
         Ok(conn
             .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(
-                params![project_id_str, date_from],
-                Self::deserialize_risk_metrics_row,
-            )
+            .query_map(params![project_id_str, date_from], Self::deserialize_risk_metrics_row)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -523,10 +506,7 @@ impl SqliteHistoryStorage {
         Ok(conn
             .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(
-                params![project_id_str, date_to],
-                Self::deserialize_risk_metrics_row,
-            )
+            .query_map(params![project_id_str, date_to], Self::deserialize_risk_metrics_row)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -671,10 +651,7 @@ impl HistoryStorage for SqliteHistoryStorage {
     async fn delete_report_artifact(&self, artifact_id: &str) -> Result<bool, HistoryError> {
         let conn = self.conn().await;
         let deleted = conn
-            .execute(
-                "DELETE FROM report_artifacts WHERE id = ?1",
-                params![artifact_id],
-            )
+            .execute("DELETE FROM report_artifacts WHERE id = ?1", params![artifact_id])
             .map_err(|e| HistoryError::Storage(e.to_string()))?;
         Ok(deleted > 0)
     }
@@ -775,11 +752,8 @@ impl HistoryStorage for SqliteHistoryStorage {
         let sid_str = scan_id.to_string();
         let data_json = serde_json::to_string(findings).map_err(HistoryError::Serialization)?;
 
-        conn.execute(
-            "DELETE FROM deduplicated_findings WHERE scan_id = ?1",
-            params![sid_str],
-        )
-        .map_err(|e| HistoryError::Storage(e.to_string()))?;
+        conn.execute("DELETE FROM deduplicated_findings WHERE scan_id = ?1", params![sid_str])
+            .map_err(|e| HistoryError::Storage(e.to_string()))?;
 
         conn.execute(
             "INSERT INTO deduplicated_findings (id, scan_id, data_json) VALUES (?1, ?2, ?3)",
@@ -847,17 +821,12 @@ impl HistoryStorage for SqliteHistoryStorage {
         ).map_err(|e| HistoryError::Storage(e.to_string()))?;
 
         let rows: Vec<String> = stmt
-            .query_map(params![limit as i64, offset as i64], |row| {
-                row.get::<_, String>(0)
-            })
+            .query_map(params![limit as i64, offset as i64], |row| row.get::<_, String>(0))
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect();
 
-        Ok(rows
-            .iter()
-            .filter_map(|json| serde_json::from_str(json).ok())
-            .collect())
+        Ok(rows.iter().filter_map(|json| serde_json::from_str(json).ok()).collect())
     }
 
     async fn save_risk_metrics(&self, metrics: &RiskMetrics) -> Result<(), HistoryError> {

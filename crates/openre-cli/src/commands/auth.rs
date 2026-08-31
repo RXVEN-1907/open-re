@@ -113,12 +113,7 @@ impl AuthCommands {
                 println!("Login successful! Token saved to config.");
             }
 
-            AuthCommands::Register {
-                email,
-                username,
-                password,
-                full_name,
-            } => {
+            AuthCommands::Register { email, username, password, full_name } => {
                 let response = ctx
                     .post(
                         "/api/auth/register",
@@ -233,11 +228,7 @@ impl ApiKeyCommands {
                 print_output(&keys, &ctx.output_format)?;
             }
 
-            ApiKeyCommands::Create {
-                name,
-                scopes,
-                expires_at,
-            } => {
+            ApiKeyCommands::Create { name, scopes, expires_at } => {
                 let response = ctx
                     .post(
                         "/api/auth/api-keys",

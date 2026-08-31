@@ -102,10 +102,8 @@ impl PrivacyController {
                 for (k, v) in map {
                     // Skip known sensitive keys
                     if self.is_sensitive_key(k) {
-                        new_map.insert(
-                            k.clone(),
-                            serde_json::Value::String("[REDACTED]".to_string()),
-                        );
+                        new_map
+                            .insert(k.clone(), serde_json::Value::String("[REDACTED]".to_string()));
                     } else {
                         new_map.insert(k.clone(), self.redact_json(v));
                     }
@@ -133,9 +131,7 @@ impl PrivacyController {
             "access_token",
             "refresh_token",
         ];
-        sensitive_keys
-            .iter()
-            .any(|k| key.to_lowercase().contains(k))
+        sensitive_keys.iter().any(|k| key.to_lowercase().contains(k))
     }
 
     /// Check if request should be allowed based on privacy settings
@@ -149,9 +145,7 @@ impl PrivacyController {
         // Check data classification
         let classification = self.classify_request(request);
         if classification == DataClassification::Restricted && !self.config.allow_restricted_data {
-            return Ok(PrivacyDecision::Denied(
-                "Restricted data detected".to_string(),
-            ));
+            return Ok(PrivacyDecision::Denied("Restricted data detected".to_string()));
         }
 
         Ok(PrivacyDecision::Allowed)
@@ -204,10 +198,7 @@ impl PrivacyController {
             return true;
         }
         // Phone
-        if Regex::new(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b")
-            .unwrap()
-            .is_match(text)
-        {
+        if Regex::new(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b").unwrap().is_match(text) {
             return true;
         }
         // SSN
@@ -255,9 +246,7 @@ impl PrivacyController {
             "::",
         ];
 
-        code_indicators
-            .iter()
-            .any(|indicator| text.contains(indicator))
+        code_indicators.iter().any(|indicator| text.contains(indicator))
     }
 
     /// Log privacy audit entry

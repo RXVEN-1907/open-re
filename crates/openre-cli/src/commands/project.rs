@@ -10,10 +10,10 @@ use tabled::{settings::Style, Table};
 pub enum ProjectCommands {
     /// List projects
     List {
-        #[arg(short, long, default_value = "1")]
+        #[arg(long, default_value = "1")]
         page: u32,
 
-        #[arg(short, long, default_value = "50")]
+        #[arg(long, default_value = "50")]
         per_page: u32,
 
         #[arg(long)]
@@ -174,75 +174,189 @@ pub enum ShareCommands {
 impl ProjectCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            ProjectCommands::List {
-                page,
-                per_page,
-                search,
-            } => {
-                let mut url = format!("/api/projects?page={}&per_page={}", page, per_page);
-                if let Some(search) = search {
-                    url.push_str(&format!("&search={}", urlencoding::encode(&search)));
-                }
+            ProjectCommands::List { page, per_page, search } => {
+                if ctx.offline {
+                    let store = ctx
+                        .local_store()
+                        .ok_or(CliError::OfflineMode("No local store available".to_string()))?;
+                    let list = store.list_projects(page, per_page, search).await?;
+                    // Convert LocalProjectList to ProjectListResponse format
+                    let projects: Vec<ProjectResponse> = list
+                        .projects
+                        .into_iter()
+                        .map(|p| ProjectResponse {
+                            id: p.id.parse().unwrap_or_else(|_| openre_core::ids::ProjectId::nil()),
+                            name: p.name,
+                            description: p.description,
+                            owner_id: String::new(),
+                            is_public: p.is_public,
+                            settings: None,
+                            created_at: chrono::DateTime::parse_from_rfc3339(&p.created_at)
+                                .ok()
+                                .map(|dt| dt.with_timezone(&chrono::Utc))
+                                .unwrap_or_else(|| chrono::Utc::now()),
+                            updated_at: chrono::DateTime::parse_from_rfc3339(&p.updated_at)
+                                .ok()
+                                .map(|dt| dt.with_timezone(&chrono::Utc))
+                                .unwrap_or_else(|| chrono::Utc::now()),
+                        })
+                        .collect();
+                    let list_response = ProjectListResponse {
+                        projects,
+                        total: list.total,
+                        page: list.page,
+                        per_page: list.per_page,
+                    };
+                    print_output(&list_response.projects, &ctx.output_format)?;
+                    println!(
+                        "Page {} of {} (total: {})",
+                        list.page,
+                        (list.total + list.per_page as u64 - 1) / list.per_page as u64,
+                        list.total
+                    );
+                } else {
+                    let mut url = format!("/api/projects?page={}&per_page={}", page, per_page);
+                    if let Some(search) = search {
+                        url.push_str(&format!("&search={}", urlencoding::encode(&search)));
+                    }
 
-                let response = ctx.get(&url).await?;
-                let list: ProjectListResponse = response.json().await?;
-                print_output(&list.projects, &ctx.output_format)?;
-                println!(
-                    "Page {} of {} (total: {})",
-                    list.page,
-                    (list.total + list.per_page as u64 - 1) / list.per_page as u64,
-                    list.total
-                );
+                    let response = ctx.get(&url).await?;
+                    let list: ProjectListResponse = response.json().await?;
+                    print_output(&list.projects, &ctx.output_format)?;
+                    println!(
+                        "Page {} of {} (total: {})",
+                        list.page,
+                        (list.total + list.per_page as u64 - 1) / list.per_page as u64,
+                        list.total
+                    );
+                }
             }
 
-            ProjectCommands::Create {
-                name,
-                description,
-                public,
-            } => {
-                let response = ctx
-                    .post(
-                        "/api/projects",
-                        &serde_json::json!({
-                            "name": name,
-                            "description": description,
-                            "is_public": public,
-                        }),
-                    )
-                    .await?;
+            ProjectCommands::Create { name, description, public } => {
+                if ctx.offline {
+                    let store = ctx
+                        .local_store()
+                        .ok_or(CliError::OfflineMode("No local store available".to_string()))?;
+                    let project = store.create_project(name, description, public).await?;
+                    let project_response = ProjectResponse {
+                        id: project
+                            .id
+                            .parse()
+                            .unwrap_or_else(|_| openre_core::ids::ProjectId::nil()),
+                        name: project.name,
+                        description: project.description,
+                        owner_id: String::new(),
+                        is_public: project.is_public,
+                        settings: None,
+                        created_at: chrono::DateTime::parse_from_rfc3339(&project.created_at)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                            .unwrap_or_else(|| chrono::Utc::now()),
+                        updated_at: chrono::DateTime::parse_from_rfc3339(&project.updated_at)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                            .unwrap_or_else(|| chrono::Utc::now()),
+                    };
+                    print_output(&project_response, &ctx.output_format)?;
+                    println!("Project created successfully!");
+                } else {
+                    let response = ctx
+                        .post(
+                            "/api/projects",
+                            &serde_json::json!({
+                                "name": name,
+                                "description": description,
+                                "is_public": public,
+                            }),
+                        )
+                        .await?;
 
-                let project: ProjectResponse = response.json().await?;
-                print_output(&project, &ctx.output_format)?;
-                println!("Project created successfully!");
+                    let project: ProjectResponse = response.json().await?;
+                    print_output(&project, &ctx.output_format)?;
+                    println!("Project created successfully!");
+                }
             }
 
             ProjectCommands::Get { id } => {
-                let response = ctx.get(&format!("/api/projects/{}", id)).await?;
-                let project: ProjectResponse = response.json().await?;
-                print_output(&project, &ctx.output_format)?;
+                if ctx.offline {
+                    let store = ctx
+                        .local_store()
+                        .ok_or(CliError::OfflineMode("No local store available".to_string()))?;
+                    let project = store
+                        .get_project(&id)
+                        .await?
+                        .ok_or(CliError::InvalidInput("Project not found".to_string()))?;
+                    let project_response = ProjectResponse {
+                        id: project
+                            .id
+                            .parse()
+                            .unwrap_or_else(|_| openre_core::ids::ProjectId::nil()),
+                        name: project.name.clone(),
+                        description: project.description.clone(),
+                        owner_id: String::new(),
+                        is_public: project.is_public,
+                        settings: None,
+                        created_at: chrono::DateTime::parse_from_rfc3339(&project.created_at)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                            .unwrap_or_else(|| chrono::Utc::now()),
+                        updated_at: chrono::DateTime::parse_from_rfc3339(&project.updated_at)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                            .unwrap_or_else(|| chrono::Utc::now()),
+                    };
+                    print_output(&project_response, &ctx.output_format)?;
+                } else {
+                    let response = ctx.get(&format!("/api/projects/{}", id)).await?;
+                    let project: ProjectResponse = response.json().await?;
+                    print_output(&project, &ctx.output_format)?;
+                }
             }
 
-            ProjectCommands::Update {
-                id,
-                name,
-                description,
-                public,
-            } => {
-                let mut payload = serde_json::json!({});
-                if let Some(name) = name {
-                    payload["name"] = serde_json::json!(name);
-                }
-                if let Some(description) = description {
-                    payload["description"] = serde_json::json!(description);
-                }
-                if let Some(public) = public {
-                    payload["is_public"] = serde_json::json!(public);
-                }
+            ProjectCommands::Update { id, name, description, public } => {
+                if ctx.offline {
+                    let store = ctx
+                        .local_store()
+                        .ok_or(CliError::OfflineMode("No local store available".to_string()))?;
+                    let project = store.update_project(&id, name, description, public).await?;
+                    let project_response = ProjectResponse {
+                        id: project
+                            .id
+                            .parse()
+                            .unwrap_or_else(|_| openre_core::ids::ProjectId::nil()),
+                        name: project.name,
+                        description: project.description,
+                        owner_id: String::new(),
+                        is_public: project.is_public,
+                        settings: None,
+                        created_at: chrono::DateTime::parse_from_rfc3339(&project.created_at)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                            .unwrap_or_else(|| chrono::Utc::now()),
+                        updated_at: chrono::DateTime::parse_from_rfc3339(&project.updated_at)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                            .unwrap_or_else(|| chrono::Utc::now()),
+                    };
+                    print_output(&project_response, &ctx.output_format)?;
+                    println!("Project updated successfully!");
+                } else {
+                    let mut payload = serde_json::json!({});
+                    if let Some(name) = name {
+                        payload["name"] = serde_json::json!(name);
+                    }
+                    if let Some(description) = description {
+                        payload["description"] = serde_json::json!(description);
+                    }
+                    if let Some(public) = public {
+                        payload["is_public"] = serde_json::json!(public);
+                    }
 
-                let response = ctx.put(&format!("/api/projects/{}", id), &payload).await?;
-                let project: ProjectResponse = response.json().await?;
-                print_output(&project, &ctx.output_format)?;
-                println!("Project updated successfully!");
+                    let response = ctx.put(&format!("/api/projects/{}", id), &payload).await?;
+                    let project: ProjectResponse = response.json().await?;
+                    print_output(&project, &ctx.output_format)?;
+                    println!("Project updated successfully!");
+                }
             }
 
             ProjectCommands::Delete { id, force } => {
@@ -258,20 +372,23 @@ impl ProjectCommands {
                     }
                 }
 
-                ctx.delete(&format!("/api/projects/{}", id)).await?;
-                println!("Project deleted successfully!");
+                if ctx.offline {
+                    let store = ctx
+                        .local_store()
+                        .ok_or(CliError::OfflineMode("No local store available".to_string()))?;
+                    store.delete_project(&id).await?;
+                    println!("Project deleted successfully!");
+                } else {
+                    ctx.delete(&format!("/api/projects/{}", id)).await?;
+                    println!("Project deleted successfully!");
+                }
             }
 
             ProjectCommands::Collaborator(cmd) => cmd.execute(ctx).await?,
             ProjectCommands::Invite(cmd) => cmd.execute(ctx).await?,
             ProjectCommands::Share(cmd) => cmd.execute(ctx).await?,
 
-            ProjectCommands::Export {
-                id,
-                format,
-                include_files,
-                include_analysis,
-            } => {
+            ProjectCommands::Export { id, format, include_files, include_analysis } => {
                 let response = ctx
                     .post(
                         &format!("/api/projects/{}/export", id),
@@ -297,18 +414,13 @@ impl CollaboratorCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
             CollaboratorCommands::List { project_id } => {
-                let response = ctx
-                    .get(&format!("/api/projects/{}/collaborators", project_id))
-                    .await?;
+                let response =
+                    ctx.get(&format!("/api/projects/{}/collaborators", project_id)).await?;
                 let collaborators: Vec<CollaboratorResponse> = response.json().await?;
                 print_output(&collaborators, &ctx.output_format)?;
             }
 
-            CollaboratorCommands::Add {
-                project_id,
-                user_id,
-                role,
-            } => {
+            CollaboratorCommands::Add { project_id, user_id, role } => {
                 let response = ctx
                     .post(
                         &format!("/api/projects/{}/collaborators", project_id),
@@ -324,15 +436,9 @@ impl CollaboratorCommands {
                 println!("Collaborator added successfully!");
             }
 
-            CollaboratorCommands::Remove {
-                project_id,
-                user_id,
-            } => {
-                ctx.delete(&format!(
-                    "/api/projects/{}/collaborators/{}",
-                    project_id, user_id
-                ))
-                .await?;
+            CollaboratorCommands::Remove { project_id, user_id } => {
+                ctx.delete(&format!("/api/projects/{}/collaborators/{}", project_id, user_id))
+                    .await?;
                 println!("Collaborator removed successfully!");
             }
         }
@@ -344,19 +450,12 @@ impl InviteCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
             InviteCommands::List { project_id } => {
-                let response = ctx
-                    .get(&format!("/api/projects/{}/invites", project_id))
-                    .await?;
+                let response = ctx.get(&format!("/api/projects/{}/invites", project_id)).await?;
                 let invites: Vec<InviteResponse> = response.json().await?;
                 print_output(&invites, &ctx.output_format)?;
             }
 
-            InviteCommands::Create {
-                project_id,
-                email,
-                role,
-                expires_at,
-            } => {
+            InviteCommands::Create { project_id, email, role, expires_at } => {
                 let response = ctx
                     .post(
                         &format!("/api/projects/{}/invites", project_id),
@@ -373,15 +472,8 @@ impl InviteCommands {
                 println!("Invite created successfully!");
             }
 
-            InviteCommands::Revoke {
-                project_id,
-                invite_id,
-            } => {
-                ctx.delete(&format!(
-                    "/api/projects/{}/invites/{}",
-                    project_id, invite_id
-                ))
-                .await?;
+            InviteCommands::Revoke { project_id, invite_id } => {
+                ctx.delete(&format!("/api/projects/{}/invites/{}", project_id, invite_id)).await?;
                 println!("Invite revoked successfully!");
             }
         }
@@ -392,12 +484,7 @@ impl InviteCommands {
 impl ShareCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            ShareCommands::Create {
-                project_id,
-                permission,
-                expires_at,
-                max_uses,
-            } => {
+            ShareCommands::Create { project_id, permission, expires_at, max_uses } => {
                 let response = ctx
                     .post(
                         &format!("/api/projects/{}/share", project_id),

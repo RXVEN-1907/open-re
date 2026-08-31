@@ -282,10 +282,7 @@ impl ReconPlugin for RobotsSitemapPlugin {
         let mut findings = Vec::new();
         let target_url = context.target.metadata.base_url.as_str().to_string();
 
-        info!(
-            "Starting robots.txt & sitemap discovery for: {}",
-            target_url
-        );
+        info!("Starting robots.txt & sitemap discovery for: {}", target_url);
 
         // Discover robots.txt
         let robots = self.discover_robots(&target_url).await?;
@@ -371,9 +368,7 @@ impl ReconPlugin for RobotsSitemapPlugin {
         }
 
         // Discover sitemap.xml
-        let sitemap = self
-            .discover_sitemap(&target_url, &robots.parsed.sitemaps)
-            .await?;
+        let sitemap = self.discover_sitemap(&target_url, &robots.parsed.sitemaps).await?;
 
         if sitemap.found {
             findings.push(

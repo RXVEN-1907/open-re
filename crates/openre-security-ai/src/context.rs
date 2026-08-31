@@ -17,10 +17,7 @@ pub struct TokenBudget {
 impl TokenBudget {
     /// Create a new token budget
     pub fn new(max_tokens: usize) -> Self {
-        Self {
-            max_tokens,
-            used_tokens: 0,
-        }
+        Self { max_tokens, used_tokens: 0 }
     }
 
     /// Check if we have enough tokens for additional content

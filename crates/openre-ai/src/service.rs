@@ -163,12 +163,7 @@ impl AiService {
 
         // Record usage
         self.router
-            .record_usage(
-                &provider_id,
-                latency,
-                sanitized_response.usage.total_tokens,
-                true,
-            )
+            .record_usage(&provider_id, latency, sanitized_response.usage.total_tokens, true)
             .await;
 
         // Audit
@@ -237,9 +232,7 @@ impl AiService {
             }
 
             let latency = start.elapsed().as_millis() as u64;
-            router
-                .record_usage(&provider_id_clone, latency, total_tokens, true)
-                .await;
+            router.record_usage(&provider_id_clone, latency, total_tokens, true).await;
 
             privacy
                 .audit(crate::privacy::PrivacyAuditEntry {
@@ -265,9 +258,7 @@ impl AiService {
         function_id: Option<openre_core::ids::FunctionId>,
     ) -> Result<CompletionResponse> {
         let compiled = if let (Some(store), Some(fid)) = (project_store, function_id) {
-            self.prompt_compiler
-                .compile_with_context(template_name, variables, &store, fid)
-                .await?
+            self.prompt_compiler.compile_with_context(template_name, variables, &store, fid).await?
         } else {
             self.prompt_compiler.compile(template_name, variables)?
         };
@@ -285,9 +276,7 @@ impl AiService {
         function_id: Option<openre_core::ids::FunctionId>,
     ) -> Result<StreamingResponse> {
         let compiled = if let (Some(store), Some(fid)) = (project_store, function_id) {
-            self.prompt_compiler
-                .compile_with_context(template_name, variables, &store, fid)
-                .await?
+            self.prompt_compiler.compile_with_context(template_name, variables, &store, fid).await?
         } else {
             self.prompt_compiler.compile(template_name, variables)?
         };
@@ -345,12 +334,10 @@ impl AiService {
 
                         // Add tool results to conversation
                         for (tool_call_id, result) in tool_results {
-                            current_request
-                                .messages
-                                .push(crate::providers::Message::tool_result(
-                                    tool_call_id,
-                                    serde_json::to_string(&result.output)?,
-                                ));
+                            current_request.messages.push(crate::providers::Message::tool_result(
+                                tool_call_id,
+                                serde_json::to_string(&result.output)?,
+                            ));
                         }
 
                         continue; // Continue loop for next iteration
@@ -364,11 +351,7 @@ impl AiService {
 
     /// Get available providers
     pub fn list_provider_ids(&self) -> Vec<ProviderId> {
-        self.provider_registry
-            .all()
-            .iter()
-            .map(|p| p.id())
-            .collect()
+        self.provider_registry.all().iter().map(|p| p.id()).collect()
     }
 
     pub fn get_provider_arc(&self, id: &ProviderId) -> Option<Arc<dyn ModelProvider>> {

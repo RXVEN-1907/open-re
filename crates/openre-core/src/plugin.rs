@@ -142,9 +142,7 @@ impl PluginManifest {
             return Err(Error::Validation("Plugin version cannot be empty".into()));
         }
         if self.plugin.capabilities.is_empty() {
-            return Err(Error::Validation(
-                "Plugin must declare at least one capability".into(),
-            ));
+            return Err(Error::Validation("Plugin must declare at least one capability".into()));
         }
 
         // Validate entry points exist
@@ -199,17 +197,9 @@ pub struct PluginMetadata {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum PluginSource {
-    Builtin {
-        name: String,
-    },
-    Local {
-        path: PathBuf,
-    },
-    Remote {
-        registry_url: String,
-        version: String,
-        checksum: String,
-    },
+    Builtin { name: String },
+    Local { path: PathBuf },
+    Remote { registry_url: String, version: String, checksum: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -243,9 +233,7 @@ pub struct RegistryConfig {
 
 impl Default for RegistryConfig {
     fn default() -> Self {
-        let data_dir = dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("openre");
+        let data_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("openre");
 
         Self {
             local_path: data_dir.join("plugins"),
@@ -266,10 +254,7 @@ impl PluginRegistry {
     pub fn new(config: RegistryConfig) -> Result<Self> {
         std::fs::create_dir_all(&config.local_path)?;
 
-        let registry = Self {
-            config,
-            entries: Arc::new(RwLock::new(HashMap::new())),
-        };
+        let registry = Self { config, entries: Arc::new(RwLock::new(HashMap::new())) };
 
         registry.load_local()?;
         Ok(registry)
@@ -297,13 +282,8 @@ impl PluginRegistry {
     pub async fn install(&self, source: PluginSource) -> Result<PluginId> {
         match source {
             PluginSource::Local { path } => self.install_local(path).await,
-            PluginSource::Remote {
-                registry_url,
-                version,
-                checksum,
-            } => {
-                self.install_remote(&registry_url, &version, &checksum)
-                    .await
+            PluginSource::Remote { registry_url, version, checksum } => {
+                self.install_remote(&registry_url, &version, &checksum).await
             }
             PluginSource::Builtin { name } => self.enable_builtin(&name).await,
         }
@@ -317,11 +297,7 @@ impl PluginRegistry {
         let plugin_id = manifest.plugin_id();
 
         // Copy to local registry
-        let install_path = self
-            .config
-            .local_path
-            .join("installed")
-            .join(plugin_id.to_string());
+        let install_path = self.config.local_path.join("installed").join(plugin_id.to_string());
         tokio::fs::create_dir_all(&install_path).await?;
 
         // Save entry
@@ -349,16 +325,12 @@ impl PluginRegistry {
         // Download from remote registry
         // Verify checksum
         // Install locally
-        Err(Error::NotImplemented(
-            "Remote plugin installation not yet implemented".into(),
-        ))
+        Err(Error::NotImplemented("Remote plugin installation not yet implemented".into()))
     }
 
     async fn enable_builtin(&self, _name: &str) -> Result<PluginId> {
         // Enable built-in plugin
-        Err(Error::NotImplemented(
-            "Builtin plugin enabling not yet implemented".into(),
-        ))
+        Err(Error::NotImplemented("Builtin plugin enabling not yet implemented".into()))
     }
 
     async fn save_entry(&self, entry: &RegistryEntry) -> Result<()> {
@@ -390,11 +362,7 @@ impl PluginRegistry {
             source: entry.source,
             path: entry.installed_path.unwrap_or_default(),
             installed_at: entry.installed_at,
-            status: if entry.enabled {
-                PluginStatus::Active
-            } else {
-                PluginStatus::Inactive
-            },
+            status: if entry.enabled { PluginStatus::Active } else { PluginStatus::Inactive },
         })
     }
 
@@ -419,11 +387,7 @@ impl PluginRegistry {
             if let Some(path) = entry.installed_path {
                 tokio::fs::remove_dir_all(path).await.ok();
             }
-            let entry_path = self
-                .config
-                .local_path
-                .join("entries")
-                .join(format!("{}.json", id));
+            let entry_path = self.config.local_path.join("entries").join(format!("{}.json", id));
             tokio::fs::remove_file(entry_path).await.ok();
         }
         Ok(())
@@ -470,19 +434,11 @@ pub struct CapabilityResponse {
 
 impl CapabilityResponse {
     pub fn success(output: serde_json::Value) -> Self {
-        Self {
-            success: true,
-            output: Some(output),
-            error: None,
-        }
+        Self { success: true, output: Some(output), error: None }
     }
 
     pub fn failure(error: String) -> Self {
-        Self {
-            success: false,
-            output: None,
-            error: Some(error),
-        }
+        Self { success: false, output: None, error: Some(error) }
     }
 }
 

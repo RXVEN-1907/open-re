@@ -103,11 +103,7 @@ impl EndpointDiscoveryPlugin {
             "/magento",
         ];
 
-        Ok(Self {
-            config,
-            client,
-            common_paths,
-        })
+        Ok(Self { config, client, common_paths })
     }
 
     /// Discover endpoints

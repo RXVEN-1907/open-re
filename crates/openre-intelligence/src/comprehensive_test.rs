@@ -125,17 +125,10 @@ mod tests {
             correlations.len()
         );
 
-        let csp_xss_correlation = correlations
-            .iter()
-            .find(|c| c.correlation_type == types::CorrelationType::CspXssChain);
-        assert!(
-            csp_xss_correlation.is_some(),
-            "Missing CSP + XSS correlation"
-        );
-        assert_eq!(
-            csp_xss_correlation.unwrap().combined_risk.combined_score,
-            85
-        );
+        let csp_xss_correlation =
+            correlations.iter().find(|c| c.correlation_type == types::CorrelationType::CspXssChain);
+        assert!(csp_xss_correlation.is_some(), "Missing CSP + XSS correlation");
+        assert_eq!(csp_xss_correlation.unwrap().combined_risk.combined_score, 85);
 
         let dir_git_correlation = correlations
             .iter()
@@ -144,23 +137,14 @@ mod tests {
             dir_git_correlation.is_some(),
             "Missing directory listing + Git metadata correlation"
         );
-        assert_eq!(
-            dir_git_correlation.unwrap().combined_risk.combined_score,
-            90
-        );
+        assert_eq!(dir_git_correlation.unwrap().combined_risk.combined_score, 90);
 
         let strengthening_correlation = correlations
             .iter()
             .find(|c| c.correlation_type == types::CorrelationType::Strengthening);
-        assert!(
-            strengthening_correlation.is_some(),
-            "Missing strengthening correlation"
-        );
+        assert!(strengthening_correlation.is_some(), "Missing strengthening correlation");
 
-        println!(
-            "   ✅ Found {} correlations with expected confidence scores",
-            correlations.len()
-        );
+        println!("   ✅ Found {} correlations with expected confidence scores", correlations.len());
 
         // 3. Test CVE Intelligence (using mock provider)
         println!("🛡️  Testing CVE intelligence...");
@@ -173,10 +157,7 @@ mod tests {
         cve_intel.add_provider(Arc::new(cve_intelligence::MockCveProvider::new()));
 
         // Add some evidence to findings that can be matched to CVEs
-        if let Some(finding) = findings
-            .iter_mut()
-            .find(|f| f.title.contains("Directory listing"))
-        {
+        if let Some(finding) = findings.iter_mut().find(|f| f.title.contains("Directory listing")) {
             finding.evidence.push(Evidence {
                 evidence_type: EvidenceType::HttpResponse,
                 description: "HTTP response with Server header indicating Apache 2.4.50"
@@ -203,18 +184,12 @@ mod tests {
             });
         }
 
-        let cve_matches = cve_intel
-            .match_findings_against_cves(&findings)
-            .await
-            .unwrap();
+        let cve_matches = cve_intel.match_findings_against_cves(&findings).await.unwrap();
         println!("   Found {} findings with CVE matches", cve_matches.len());
 
         // Test enriching findings with CVE data
         let original_references_count = findings.iter().map(|f| f.references.len()).sum::<usize>();
-        cve_intel
-            .enrich_findings_with_cve_data(&mut findings)
-            .await
-            .unwrap();
+        cve_intel.enrich_findings_with_cve_data(&mut findings).await.unwrap();
         let new_references_count = findings.iter().map(|f| f.references.len()).sum::<usize>();
 
         if new_references_count > original_references_count {
@@ -252,10 +227,8 @@ lodash==4.17.20
 
             // Check for outdated and vulnerable dependencies
             let outdated_count = dependencies.iter().filter(|d| d.is_outdated).count();
-            let vulnerable_count = dependencies
-                .iter()
-                .filter(|d| !d.vulnerabilities.is_empty())
-                .count();
+            let vulnerable_count =
+                dependencies.iter().filter(|d| !d.vulnerabilities.is_empty()).count();
 
             if outdated_count > 0 || vulnerable_count > 0 {
                 println!(
@@ -265,14 +238,8 @@ lodash==4.17.20
 
                 // Generate analysis report
                 let report = dep_analyzer.generate_analysis_report(&dependencies);
-                assert!(
-                    !report.is_empty(),
-                    "Dependency analysis report should not be empty"
-                );
-                println!(
-                    "   ✅ Generated dependency analysis report ({} chars)",
-                    report.len()
-                );
+                assert!(!report.is_empty(), "Dependency analysis report should not be empty");
+                println!("   ✅ Generated dependency analysis report ({} chars)", report.len());
             }
         }
 
@@ -281,10 +248,7 @@ lodash==4.17.20
         let knowledge_base = KnowledgeBase::new();
         let kb_entries = knowledge_base.enrich_findings(&mut findings).unwrap();
 
-        assert!(
-            !kb_entries.is_empty(),
-            "Should have created knowledge base entries"
-        );
+        assert!(!kb_entries.is_empty(), "Should have created knowledge base entries");
         println!("   Created {} knowledge base entries", kb_entries.len());
 
         // Verify that findings were enriched with references
@@ -295,14 +259,8 @@ lodash==4.17.20
             })
             .count();
 
-        assert!(
-            enriched_findings > 0,
-            "Should have enriched findings with knowledge base data"
-        );
-        println!(
-            "   Enriched {} findings with CWE/CAPEC/OWASP references",
-            enriched_findings
-        );
+        assert!(enriched_findings > 0, "Should have enriched findings with knowledge base data");
+        println!("   Enriched {} findings with CWE/CAPEC/OWASP references", enriched_findings);
 
         // 6. Test Root Cause Analysis
         println!("🌱 Testing root cause analysis...");
@@ -391,28 +349,18 @@ lodash==4.17.20
             findings.clone(),
         );
 
-        let diff_analysis = scan_diff_analyzer
-            .compare_scans(&previous_scan, &current_scan)
-            .unwrap();
+        let diff_analysis =
+            scan_diff_analyzer.compare_scans(&previous_scan, &current_scan).unwrap();
         println!("   Scan diff analysis completed:");
         println!("   - New findings: {}", diff_analysis.new_findings.len());
-        println!(
-            "   - Resolved findings: {}",
-            diff_analysis.resolved_findings.len()
-        );
-        println!(
-            "   - Significant changes: {}",
-            diff_analysis.is_significant_change
-        );
+        println!("   - Resolved findings: {}", diff_analysis.resolved_findings.len());
+        println!("   - Significant changes: {}", diff_analysis.is_significant_change);
 
         // Generate diff report
         let diff_report =
             scan_diff_analyzer.generate_diff_report(&diff_analysis, &previous_scan, &current_scan);
         assert!(!diff_report.is_empty(), "Diff report should not be empty");
-        println!(
-            "   ✅ Generated scan diff report ({} chars)",
-            diff_report.len()
-        );
+        println!("   ✅ Generated scan diff report ({} chars)", diff_report.len());
 
         // 8. Test Workflow Features
         println!("✅ Testing workflow features...");
@@ -464,23 +412,14 @@ lodash==4.17.20
         println!("   Workflow processing result:");
         println!("   - Total findings: {}", workflow_result.total_findings);
         println!("   - Acknowledged: {}", workflow_result.acknowledged_count);
-        println!(
-            "   - False positives: {}",
-            workflow_result.false_positive_count
-        );
+        println!("   - False positives: {}", workflow_result.false_positive_count);
         println!("   - Ignored: {}", workflow_result.ignored_count);
         println!("   - Remaining: {}", workflow_result.remaining_count);
 
         // Generate workflow report
         let workflow_report = workflow_manager.generate_workflow_report();
-        assert!(
-            !workflow_report.is_empty(),
-            "Workflow report should not be empty"
-        );
-        println!(
-            "   ✅ Generated workflow report ({} chars)",
-            workflow_report.len()
-        );
+        assert!(!workflow_report.is_empty(), "Workflow report should not be empty");
+        println!("   ✅ Generated workflow report ({} chars)", workflow_report.len());
 
         // 9. Test Performance Optimizations
         println!("⚡ Testing performance optimizations...");
@@ -497,9 +436,7 @@ lodash==4.17.20
         // Test caching
         let cache_key = "test_cache_key";
         let cache_value = "test_cache_value";
-        perf_optimizer
-            .put_in_cache(cache_key.to_string(), cache_value.to_string())
-            .unwrap();
+        perf_optimizer.put_in_cache(cache_key.to_string(), cache_value.to_string()).unwrap();
 
         let cached_result: Option<String> = perf_optimizer.get_from_cache(cache_key).unwrap();
         assert_eq!(cached_result, Some(cache_value.to_string()));
@@ -532,11 +469,7 @@ lodash==4.17.20
 
         let dedup_count = perf_optimizer.deduplicate_findings(&mut duplicate_findings);
         assert_eq!(dedup_count, 1, "Should have removed 1 duplicate finding");
-        assert_eq!(
-            duplicate_findings.len(),
-            1,
-            "Should have 1 unique finding remaining"
-        );
+        assert_eq!(duplicate_findings.len(), 1, "Should have 1 unique finding remaining");
 
         // Test incremental processing
         let previous_findings = vec![create_test_finding(
@@ -594,10 +527,7 @@ lodash==4.17.20
         // Test formatting individual findings
         if let Some(finding) = findings.first() {
             let formatted_finding = tui_enhancer.format_finding(finding, true);
-            assert!(
-                !formatted_finding.is_empty(),
-                "Formatted finding should not be empty"
-            );
+            assert!(!formatted_finding.is_empty(), "Formatted finding should not be empty");
             println!(
                 "   Formatted finding preview (first 200 chars): {}",
                 &formatted_finding[..std::cmp::min(200, formatted_finding.len())]
@@ -607,10 +537,7 @@ lodash==4.17.20
         // Test formatting correlations
         if let Some(correlation) = correlations.first() {
             let formatted_correlation = tui_enhancer.format_correlation_result(correlation);
-            assert!(
-                !formatted_correlation.is_empty(),
-                "Formatted correlation should not be empty"
-            );
+            assert!(!formatted_correlation.is_empty(), "Formatted correlation should not be empty");
             println!(
                 "   Formatted correlation preview (first 100 chars): {}",
                 &formatted_correlation[..std::cmp::min(100, formatted_correlation.len())]
@@ -619,35 +546,20 @@ lodash==4.17.20
 
         // Test formatting findings list
         let findings_list = tui_enhancer.format_findings_list(&findings, "Test Findings Summary");
-        assert!(
-            !findings_list.is_empty(),
-            "Findings list should not be empty"
-        );
+        assert!(!findings_list.is_empty(), "Findings list should not be empty");
 
         // Test dashboard generation
         let dashboard = tui_enhancer.format_dashboard(&findings, &correlations);
         assert!(!dashboard.is_empty(), "Dashboard should not be empty");
-        println!(
-            "   ✅ TUI enhancements working correctly (dashboard: {} chars)",
-            dashboard.len()
-        );
+        println!("   ✅ TUI enhancements working correctly (dashboard: {} chars)", dashboard.len());
 
         // 11. Verify Integration Success
         println!("\n🏁 Integration test summary:");
-        println!(
-            "   - Correlation Engine: ✅ Found {} correlations",
-            correlations.len()
-        );
+        println!("   - Correlation Engine: ✅ Found {} correlations", correlations.len());
         println!("   - CVE Intelligence: ✅ Processed findings with mock CVE data");
         println!("   - Dependency Analysis: ✅ Analyzed mock dependencies");
-        println!(
-            "   - Knowledge Base: ✅ Enriched {} findings",
-            kb_entries.len()
-        );
-        println!(
-            "   - Root Cause Analysis: ✅ Identified {} root causes",
-            root_causes.len()
-        );
+        println!("   - Knowledge Base: ✅ Enriched {} findings", kb_entries.len());
+        println!("   - Root Cause Analysis: ✅ Identified {} root causes", root_causes.len());
         println!("   - Scan Diff Intelligence: ✅ Compared scans with detailed analysis");
         println!("   - Workflow Features: ✅ Processed findings through workflow filters");
         println!("   - Performance Optimizations: ✅ Tested caching and deduplication");
@@ -686,9 +598,7 @@ lodash==4.17.20
         // Correlation Engine
         let correlation_engine = CorrelationEngine::new();
         let empty_findings: Vec<Finding> = vec![];
-        let correlations = correlation_engine
-            .correlate_findings(&empty_findings)
-            .unwrap();
+        let correlations = correlation_engine.correlate_findings(&empty_findings).unwrap();
         assert_eq!(correlations.len(), 0);
         println!("   ✅ Correlation Engine isolated correctly");
 
@@ -711,9 +621,7 @@ lodash==4.17.20
 
         // Root Cause Analyzer
         let root_cause_analyzer = RootCauseAnalyzer::new();
-        let root_causes = root_cause_analyzer
-            .analyze_root_causes(&empty_findings)
-            .unwrap();
+        let root_causes = root_cause_analyzer.analyze_root_causes(&empty_findings).unwrap();
         assert_eq!(root_causes.len(), 0);
         println!("   ✅ Root Cause Analyzer isolated correctly");
 

@@ -81,9 +81,7 @@ impl WorkflowManager {
         notes: Option<&str>,
     ) -> IntelligenceResult<()> {
         if !self.config.enable_acknowledgment {
-            return Err(IntelligenceError::WorkflowFeatureDisabled(
-                "acknowledgment".to_string(),
-            ));
+            return Err(IntelligenceError::WorkflowFeatureDisabled("acknowledgment".to_string()));
         }
 
         let acknowledgment = Acknowledgment {
@@ -94,8 +92,7 @@ impl WorkflowManager {
             status: AcknowledgmentStatus::Acknowledged,
         };
 
-        self.acknowledged_findings
-            .insert(finding_id, acknowledgment);
+        self.acknowledged_findings.insert(finding_id, acknowledgment);
         Ok(())
     }
 
@@ -107,9 +104,7 @@ impl WorkflowManager {
         reason: &str,
     ) -> IntelligenceResult<()> {
         if !self.config.enable_false_positive {
-            return Err(IntelligenceError::WorkflowFeatureDisabled(
-                "false positive".to_string(),
-            ));
+            return Err(IntelligenceError::WorkflowFeatureDisabled("false positive".to_string()));
         }
 
         let record = FalsePositiveRecord {
@@ -131,16 +126,12 @@ impl WorkflowManager {
     /// Add an ignore rule for a specific pattern
     pub fn add_ignore_rule(&mut self, rule: IgnoreRule) -> IntelligenceResult<()> {
         if !self.config.enable_ignore_rules {
-            return Err(IntelligenceError::WorkflowFeatureDisabled(
-                "ignore rules".to_string(),
-            ));
+            return Err(IntelligenceError::WorkflowFeatureDisabled("ignore rules".to_string()));
         }
 
         // Check limit
         if self.ignore_rules.len() >= self.config.max_ignore_rules {
-            return Err(IntelligenceError::IgnoreRuleLimitExceeded(
-                self.config.max_ignore_rules,
-            ));
+            return Err(IntelligenceError::IgnoreRuleLimitExceeded(self.config.max_ignore_rules));
         }
 
         // Compile regex pattern for faster matching
@@ -161,9 +152,7 @@ impl WorkflowManager {
         days: Option<u32>,
     ) -> IntelligenceResult<()> {
         if !self.config.enable_ignore_rules {
-            return Err(IntelligenceError::WorkflowFeatureDisabled(
-                "ignore rules".to_string(),
-            ));
+            return Err(IntelligenceError::WorkflowFeatureDisabled("ignore rules".to_string()));
         }
 
         let ignore_days = days.unwrap_or(self.config.default_temp_ignore_days);
@@ -334,10 +323,9 @@ impl WorkflowManager {
                 result.false_positive_count += 1;
                 // Add metadata and filter out
                 let mut updated_finding = finding.clone();
-                updated_finding.metadata.insert(
-                    "workflow_false_positive".to_string(),
-                    serde_json::Value::Bool(true),
-                );
+                updated_finding
+                    .metadata
+                    .insert("workflow_false_positive".to_string(), serde_json::Value::Bool(true));
                 if let Some(fp) = self.false_positives.get(&finding_id) {
                     updated_finding.metadata.insert(
                         "workflow_false_positive_marked_by".to_string(),
@@ -364,10 +352,9 @@ impl WorkflowManager {
                 result.ignored_count += 1;
                 // Add metadata and filter out
                 let mut updated_finding = finding.clone();
-                updated_finding.metadata.insert(
-                    "workflow_ignored".to_string(),
-                    serde_json::Value::Bool(true),
-                );
+                updated_finding
+                    .metadata
+                    .insert("workflow_ignored".to_string(), serde_json::Value::Bool(true));
                 // Don't add to filtered findings - remove from results
                 continue;
             }
@@ -390,22 +377,12 @@ impl WorkflowManager {
         report.push_str("# Workflow Status Report\n\n");
 
         report.push_str(&format!("## Summary\n"));
-        report.push_str(&format!(
-            "- Acknowledged findings: {}\n",
-            self.acknowledged_findings.len()
-        ));
-        report.push_str(&format!(
-            "- False positive findings: {}\n",
-            self.false_positives.len()
-        ));
-        report.push_str(&format!(
-            "- Active ignore rules: {}\n",
-            self.ignore_rules.len()
-        ));
-        report.push_str(&format!(
-            "- Expired rules cleaned up: {}\n\n",
-            self.cleanup_expired_rules()
-        ));
+        report
+            .push_str(&format!("- Acknowledged findings: {}\n", self.acknowledged_findings.len()));
+        report.push_str(&format!("- False positive findings: {}\n", self.false_positives.len()));
+        report.push_str(&format!("- Active ignore rules: {}\n", self.ignore_rules.len()));
+        report
+            .push_str(&format!("- Expired rules cleaned up: {}\n\n", self.cleanup_expired_rules()));
 
         if !self.acknowledged_findings.is_empty() {
             report.push_str("## Acknowledged Findings\n");
@@ -555,9 +532,7 @@ mod tests {
         let user = "test_user";
 
         // Acknowledge a finding
-        assert!(manager
-            .acknowledge_finding(finding_id, user, Some("Test acknowledgment"))
-            .is_ok());
+        assert!(manager.acknowledge_finding(finding_id, user, Some("Test acknowledgment")).is_ok());
 
         // Check acknowledgment status
         let ack_status = manager.get_acknowledgment_status(finding_id);
@@ -578,9 +553,7 @@ mod tests {
         let reason = "This is clearly not a vulnerability";
 
         // Mark as false positive
-        assert!(manager
-            .mark_false_positive(finding_id, user, reason)
-            .is_ok());
+        assert!(manager.mark_false_positive(finding_id, user, reason).is_ok());
 
         // Check false positive status
         let fp_status = manager.get_false_positive_status(finding_id);
@@ -645,14 +618,10 @@ mod tests {
         let mut finding3 = create_test_finding("Path Traversal", Severity::Critical);
 
         // Acknowledge one finding
-        manager
-            .acknowledge_finding(finding1.id, "user1", Some("Reviewed"))
-            .unwrap();
+        manager.acknowledge_finding(finding1.id, "user1", Some("Reviewed")).unwrap();
 
         // Mark another as false positive
-        manager
-            .mark_false_positive(finding3.id, "user2", "Test environment artifact")
-            .unwrap();
+        manager.mark_false_positive(finding3.id, "user2", "Test environment artifact").unwrap();
 
         let mut findings = vec![finding1.clone(), finding2.clone(), finding3.clone()];
         let result = manager.process_findings(&mut findings).unwrap();
@@ -675,9 +644,7 @@ mod tests {
         let user = "test_user";
 
         // Temporarily ignore the finding
-        assert!(manager
-            .temporarily_ignore_finding(&finding, user, Some(7))
-            .is_ok());
+        assert!(manager.temporarily_ignore_finding(&finding, user, Some(7)).is_ok());
 
         // Should now be ignored
         assert!(manager.should_ignore_finding(&finding));

@@ -7,7 +7,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::{CapabilitySet, PluginId, PluginManifest};
+use crate::{CapabilitySet, PluginManifest};
+use openre_core::ids::PluginId;
 
 /// Plugin registry entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,17 +25,9 @@ pub struct RegistryEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum PluginSource {
-    Local {
-        path: PathBuf,
-    },
-    Remote {
-        registry_url: String,
-        version: String,
-        checksum: String,
-    },
-    Builtin {
-        name: String,
-    },
+    Local { path: PathBuf },
+    Remote { registry_url: String, version: String, checksum: String },
+    Builtin { name: String },
 }
 
 /// Registry configuration
@@ -48,9 +41,7 @@ pub struct RegistryConfig {
 
 impl Default for RegistryConfig {
     fn default() -> Self {
-        let data_dir = dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("openre");
+        let data_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("openre");
 
         Self {
             local_path: data_dir.join("plugins"),
@@ -71,10 +62,7 @@ impl PluginRegistry {
     pub fn new(config: RegistryConfig) -> Result<Self> {
         std::fs::create_dir_all(&config.local_path)?;
 
-        let registry = Self {
-            config,
-            entries: Arc::new(RwLock::new(HashMap::new())),
-        };
+        let registry = Self { config, entries: Arc::new(RwLock::new(HashMap::new())) };
 
         registry.load_local()?;
         Ok(registry)
@@ -92,7 +80,8 @@ impl PluginRegistry {
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
                 let content = std::fs::read_to_string(&path)?;
                 let entry: RegistryEntry = serde_json::from_str(&content)?;
-                let id = entry.manifest.id.clone();
+                let id = PluginId::from_str(&entry.manifest.name)
+                    .map_err(|_| anyhow::anyhow!("Invalid plugin ID"))?;
                 self.entries.blocking_write().insert(id, entry);
             }
         }
@@ -102,13 +91,8 @@ impl PluginRegistry {
     pub async fn install(&self, source: PluginSource) -> Result<PluginId> {
         match source {
             PluginSource::Local { path } => self.install_local(path).await,
-            PluginSource::Remote {
-                registry_url,
-                version,
-                checksum,
-            } => {
-                self.install_remote(&registry_url, &version, &checksum)
-                    .await
+            PluginSource::Remote { registry_url, version, checksum } => {
+                self.install_remote(&registry_url, &version, &checksum).await
             }
             PluginSource::Builtin { name } => self.enable_builtin(&name).await,
         }
@@ -119,14 +103,11 @@ impl PluginRegistry {
         let manifest_path = path.join("plugin.json");
         let manifest_content = tokio::fs::read_to_string(manifest_path).await?;
         let manifest: PluginManifest = serde_json::from_str(&manifest_content)?;
-        let plugin_id = manifest.id.clone();
+        let plugin_id =
+            PluginId::from_str(&manifest.name).map_err(|_| anyhow::anyhow!("Invalid plugin ID"))?;
 
         // Copy to local registry
-        let install_path = self
-            .config
-            .local_path
-            .join("installed")
-            .join(&plugin_id.to_string());
+        let install_path = self.config.local_path.join("installed").join(&plugin_id.to_string());
         tokio::fs::create_dir_all(&install_path).await?;
 
         // Copy plugin files
@@ -169,7 +150,7 @@ impl PluginRegistry {
         let entries_dir = self.config.local_path.join("entries");
         tokio::fs::create_dir_all(&entries_dir).await?;
 
-        let path = entries_dir.join(format!("{}.json", entry.manifest.id));
+        let path = entries_dir.join(format!("{}.json", entry.manifest.name));
         let content = serde_json::to_string_pretty(entry)?;
         tokio::fs::write(path, content).await?;
         Ok(())
@@ -209,11 +190,7 @@ impl PluginRegistry {
             if let Some(path) = entry.installed_path {
                 tokio::fs::remove_dir_all(path).await.ok();
             }
-            let entry_path = self
-                .config
-                .local_path
-                .join("entries")
-                .join(format!("{}.json", id));
+            let entry_path = self.config.local_path.join("entries").join(format!("{}.json", id));
             tokio::fs::remove_file(entry_path).await.ok();
         }
         Ok(())

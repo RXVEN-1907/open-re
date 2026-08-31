@@ -19,7 +19,7 @@ openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
 openre-storage = { path = "../openre-storage", default-features = false }
-wasmtime = { workspace = true, optional = true }
+wasmtime = { workspace = true, optional = true, features = ["component-model", "async"] }
 wasmtime-wasi = { version = "20.0", features = ["preview1"], optional = true }
 wasmparser = { workspace = true, optional = true }
 libloading = { version = "0.8", optional = true }
@@ -44,6 +44,8 @@ url = "2.5"
 reqwest = { version = "0.12", features = ["json", "cookies", "gzip", "brotli", "deflate", "rustls-tls", "multipart"] }
 http = "1.0"
 urlencoding = "2.1"
+dirs = "5.0"
+openre-plugins-macros = { path = "../openre-plugins-macros" }
 
 [dev-dependencies]
 wiremock = "0.5"

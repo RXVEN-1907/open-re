@@ -7,11 +7,8 @@ fn test_prompt_compiler_creation() {
     assert!(!compiler.list_templates().is_empty());
 
     // Check that all expected templates are present
-    let template_names: Vec<&str> = compiler
-        .list_templates()
-        .iter()
-        .map(|t| t.name.as_str())
-        .collect();
+    let template_names: Vec<&str> =
+        compiler.list_templates().iter().map(|t| t.name.as_str()).collect();
 
     assert!(template_names.contains(&"explain_finding_system"));
     assert!(template_names.contains(&"explain_finding_user"));

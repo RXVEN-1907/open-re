@@ -71,10 +71,7 @@ struct CachedCveEntry {
 
 impl CveCache {
     fn new(ttl_seconds: u64) -> Self {
-        Self {
-            entries: HashMap::new(),
-            ttl_seconds,
-        }
+        Self { entries: HashMap::new(), ttl_seconds }
     }
 
     fn get(&self, key: &str) -> Option<&CveInfo> {
@@ -89,13 +86,8 @@ impl CveCache {
     }
 
     fn insert(&mut self, key: String, cve_info: CveInfo) {
-        self.entries.insert(
-            key,
-            CachedCveEntry {
-                cve_info,
-                cached_at: std::time::SystemTime::now(),
-            },
-        );
+        self.entries
+            .insert(key, CachedCveEntry { cve_info, cached_at: std::time::SystemTime::now() });
     }
 
     fn clear_expired(&mut self) {
@@ -114,18 +106,12 @@ impl CveIntelligence {
     /// Create a new CVE intelligence system
     pub fn new(config: CveIntelligenceConfig) -> Self {
         let cache = if config.enable_caching {
-            Some(std::sync::RwLock::new(CveCache::new(
-                config.cache_ttl_seconds,
-            )))
+            Some(std::sync::RwLock::new(CveCache::new(config.cache_ttl_seconds)))
         } else {
             None
         };
 
-        Self {
-            providers: Vec::new(),
-            config,
-            cache,
-        }
+        Self { providers: Vec::new(), config, cache }
     }
 
     /// Add a CVE provider
@@ -182,10 +168,7 @@ impl CveIntelligence {
 
             // Try each provider to find CVEs for this software/version
             for provider in &self.providers {
-                match provider
-                    .search_cves_for_software(&software_name, &version)
-                    .await
-                {
+                match provider.search_cves_for_software(&software_name, &version).await {
                     Ok(mut cves) => {
                         if !cves.is_empty() {
                             info!(
@@ -337,12 +320,7 @@ impl CveIntelligence {
                 }
                 Ok(None) => continue,
                 Err(e) => {
-                    warn!(
-                        "Error getting CVE {} from {}: {}",
-                        cve_id,
-                        provider.provider_name(),
-                        e
-                    );
+                    warn!("Error getting CVE {} from {}: {}", cve_id, provider.provider_name(), e);
                 }
             }
         }
@@ -398,10 +376,9 @@ impl CveIntelligence {
                 }
 
                 // Add metadata about CVE matching
-                finding.metadata.insert(
-                    "cve_intelligence_matched".to_string(),
-                    serde_json::Value::Bool(true),
-                );
+                finding
+                    .metadata
+                    .insert("cve_intelligence_matched".to_string(), serde_json::Value::Bool(true));
                 finding.metadata.insert(
                     "cve_intelligence_count".to_string(),
                     serde_json::Value::Number(serde_json::Number::from(cves.len())),
@@ -450,9 +427,7 @@ impl MockCveProvider {
             },
         );
 
-        Self {
-            cve_database: database,
-        }
+        Self { cve_database: database }
     }
 }
 
@@ -562,10 +537,7 @@ mod tests {
             business_impact: None,
         };
 
-        let results = cve_intel
-            .match_findings_against_cves(&[finding])
-            .await
-            .unwrap();
+        let results = cve_intel.match_findings_against_cves(&[finding]).await.unwrap();
         assert_eq!(results.len(), 1);
 
         let (_, cves) = &results[0];

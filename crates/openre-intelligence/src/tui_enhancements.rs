@@ -55,9 +55,7 @@ pub struct TuiEnhancer {
 impl TuiEnhancer {
     /// Create a new TUI enhancer with default configuration
     pub fn new() -> Self {
-        Self {
-            config: TuiConfig::default(),
-        }
+        Self { config: TuiConfig::default() }
     }
 
     /// Create a new TUI enhancer with custom configuration
@@ -111,10 +109,7 @@ impl TuiEnhancer {
                 Category::VulnerableComponents => "🧩",
                 _ => "⚠️",
             };
-            output.push_str(&format!(
-                "   {} Category: {:?}\n",
-                category_emoji, finding.category
-            ));
+            output.push_str(&format!("   {} Category: {:?}\n", category_emoji, finding.category));
         } else {
             output.push_str(&format!("   Category: {:?}\n", finding.category));
         }
@@ -211,17 +206,11 @@ impl TuiEnhancer {
         }
 
         // Root cause information if available
-        if finding
-            .metadata
-            .contains_key("root_cause_analysis_performed")
-        {
+        if finding.metadata.contains_key("root_cause_analysis_performed") {
             output.push_str("   🌱 Root Cause Analysis Performed\n");
 
             if let Some(root_cause_count) = finding.metadata.get("root_cause_count") {
-                output.push_str(&format!(
-                    "      Related to {} root cause(s)\n",
-                    root_cause_count
-                ));
+                output.push_str(&format!("      Related to {} root cause(s)\n", root_cause_count));
             }
         }
 
@@ -317,10 +306,7 @@ impl TuiEnhancer {
         }
 
         output.push_str(&format!("   Type: {:?}\n", correlation.correlation_type));
-        output.push_str(&format!(
-            "   Confidence: {:.2}%\n",
-            correlation.confidence * 100.0
-        ));
+        output.push_str(&format!("   Confidence: {:.2}%\n", correlation.confidence * 100.0));
 
         let desc_text = self.wrap_text(&correlation.description, self.config.max_width - 6);
         output.push_str(&format!("   Description: {}\n", desc_text));
@@ -401,36 +387,21 @@ impl TuiEnhancer {
         let mut output = String::new();
 
         if self.config.enable_emojis && self.config.enable_colors {
-            let emoji = if !dep_info.vulnerabilities.is_empty() {
-                "⚠️"
-            } else {
-                "✅"
-            };
-            let color = if !dep_info.vulnerabilities.is_empty() {
-                "red"
-            } else {
-                "green"
-            };
+            let emoji = if !dep_info.vulnerabilities.is_empty() { "⚠️" } else { "✅" };
+            let color = if !dep_info.vulnerabilities.is_empty() { "red" } else { "green" };
             output.push_str(&format!(
                 "{} {} Dependency Information\n",
                 emoji,
                 emoji.to_string().color(color).bold()
             ));
         } else if self.config.enable_emojis {
-            let emoji = if !dep_info.vulnerabilities.is_empty() {
-                "⚠️"
-            } else {
-                "✅"
-            };
+            let emoji = if !dep_info.vulnerabilities.is_empty() { "⚠️" } else { "✅" };
             output.push_str(&format!("{} Dependency Information\n", emoji));
         } else {
             output.push_str("Dependency Information\n");
         }
 
-        output.push_str(&format!(
-            "   Package: {} ({})\n",
-            dep_info.name, dep_info.version
-        ));
+        output.push_str(&format!("   Package: {} ({})\n", dep_info.name, dep_info.version));
         output.push_str(&format!("   Ecosystem: {}\n", dep_info.ecosystem));
 
         if let Some(latest_version) = &dep_info.latest_version {
@@ -517,26 +488,11 @@ impl TuiEnhancer {
         output.push('\n');
 
         // Summary statistics
-        let critical_count = findings
-            .iter()
-            .filter(|f| f.severity == Severity::Critical)
-            .count();
-        let high_count = findings
-            .iter()
-            .filter(|f| f.severity == Severity::High)
-            .count();
-        let medium_count = findings
-            .iter()
-            .filter(|f| f.severity == Severity::Medium)
-            .count();
-        let low_count = findings
-            .iter()
-            .filter(|f| f.severity == Severity::Low)
-            .count();
-        let info_count = findings
-            .iter()
-            .filter(|f| f.severity == Severity::Info)
-            .count();
+        let critical_count = findings.iter().filter(|f| f.severity == Severity::Critical).count();
+        let high_count = findings.iter().filter(|f| f.severity == Severity::High).count();
+        let medium_count = findings.iter().filter(|f| f.severity == Severity::Medium).count();
+        let low_count = findings.iter().filter(|f| f.severity == Severity::Low).count();
+        let info_count = findings.iter().filter(|f| f.severity == Severity::Info).count();
 
         output.push_str("📈 Findings Summary:\n");
         if self.config.enable_colors {
@@ -544,22 +500,10 @@ impl TuiEnhancer {
                 "   🔴 Critical: {}\n",
                 critical_count.to_string().red().bold()
             ));
-            output.push_str(&format!(
-                "   🟠 High: {}\n",
-                high_count.to_string().yellow().bold()
-            ));
-            output.push_str(&format!(
-                "   🟡 Medium: {}\n",
-                medium_count.to_string().blue().bold()
-            ));
-            output.push_str(&format!(
-                "   🟢 Low: {}\n",
-                low_count.to_string().green().bold()
-            ));
-            output.push_str(&format!(
-                "   🔵 Info: {}\n",
-                info_count.to_string().cyan().bold()
-            ));
+            output.push_str(&format!("   🟠 High: {}\n", high_count.to_string().yellow().bold()));
+            output.push_str(&format!("   🟡 Medium: {}\n", medium_count.to_string().blue().bold()));
+            output.push_str(&format!("   🟢 Low: {}\n", low_count.to_string().green().bold()));
+            output.push_str(&format!("   🔵 Info: {}\n", info_count.to_string().cyan().bold()));
         } else {
             output.push_str(&format!("   Critical: {}\n", critical_count));
             output.push_str(&format!("   High: {}\n", high_count));
@@ -575,19 +519,13 @@ impl TuiEnhancer {
         output.push_str(&format!("   Chain Count: {}\n", correlations.len()));
 
         let avg_confidence: f64 = if !correlations.is_empty() {
-            correlations
-                .iter()
-                .map(|c| c.confidence as f64)
-                .sum::<f64>()
+            correlations.iter().map(|c| c.confidence as f64).sum::<f64>()
                 / correlations.len() as f64
         } else {
             0.0
         };
 
-        output.push_str(&format!(
-            "   Avg Confidence: {:.1}%\n\n",
-            avg_confidence * 100.0
-        ));
+        output.push_str(&format!("   Avg Confidence: {:.1}%\n\n", avg_confidence * 100.0));
 
         // Top categories
         let mut category_counts = HashMap::new();
@@ -606,15 +544,11 @@ impl TuiEnhancer {
         output.push('\n');
 
         // Workflow status
-        let acknowledged_count = findings
-            .iter()
-            .filter(|f| f.metadata.contains_key("workflow_acknowledged"))
-            .count();
+        let acknowledged_count =
+            findings.iter().filter(|f| f.metadata.contains_key("workflow_acknowledged")).count();
 
-        let false_positive_count = findings
-            .iter()
-            .filter(|f| f.metadata.contains_key("workflow_false_positive"))
-            .count();
+        let false_positive_count =
+            findings.iter().filter(|f| f.metadata.contains_key("workflow_false_positive")).count();
 
         output.push_str("✅ Workflow Status:\n");
         output.push_str(&format!("   Acknowledged: {}\n", acknowledged_count));
@@ -648,20 +582,12 @@ pub struct ProgressIndicator {
 
 impl ProgressIndicator {
     pub fn new(operation: String, enable_colors: bool) -> Self {
-        Self {
-            operation,
-            start_time: std::time::Instant::now(),
-            enable_colors,
-        }
+        Self { operation, start_time: std::time::Instant::now(), enable_colors }
     }
 
     pub fn update(&self, current: usize, total: usize) {
         let elapsed = self.start_time.elapsed();
-        let progress = if total > 0 {
-            (current as f64 / total as f64) * 100.0
-        } else {
-            100.0
-        };
+        let progress = if total > 0 { (current as f64 / total as f64) * 100.0 } else { 100.0 };
 
         let elapsed_secs = elapsed.as_secs();
         let minutes = elapsed_secs / 60;
@@ -702,10 +628,7 @@ impl ProgressIndicator {
                 seconds
             );
         } else {
-            println!(
-                "\n{} - Completed in {}m {}s",
-                self.operation, minutes, seconds
-            );
+            println!("\n{} - Completed in {}m {}s", self.operation, minutes, seconds);
         }
     }
 }
@@ -947,10 +870,7 @@ mod tests {
 
     #[test]
     fn test_text_wrapping() {
-        let enhancer = TuiEnhancer::with_config(TuiConfig {
-            max_width: 40,
-            ..Default::default()
-        });
+        let enhancer = TuiEnhancer::with_config(TuiConfig { max_width: 40, ..Default::default() });
 
         let long_text = "This is a very long text that should be wrapped to multiple lines for better readability in the terminal interface.";
         let wrapped = enhancer.wrap_text(long_text, 20);

@@ -47,21 +47,11 @@ fn test_standard_references() {
     assert!(!refs.is_empty());
 
     // Check for expected references
-    let has_owasp_a07 = refs
-        .iter()
-        .any(|r| r.id == "A07:2021" && r.ref_type == "OWASP");
-    let has_owasp_a05 = refs
-        .iter()
-        .any(|r| r.id == "A05:2021" && r.ref_type == "OWASP");
-    let has_cwe_384 = refs
-        .iter()
-        .any(|r| r.id == "CWE-384" && r.ref_type == "CWE");
-    let has_cwe_614 = refs
-        .iter()
-        .any(|r| r.id == "CWE-614" && r.ref_type == "CWE");
-    let has_cwe_1004 = refs
-        .iter()
-        .any(|r| r.id == "CWE-1004" && r.ref_type == "CWE");
+    let has_owasp_a07 = refs.iter().any(|r| r.id == "A07:2021" && r.ref_type == "OWASP");
+    let has_owasp_a05 = refs.iter().any(|r| r.id == "A05:2021" && r.ref_type == "OWASP");
+    let has_cwe_384 = refs.iter().any(|r| r.id == "CWE-384" && r.ref_type == "CWE");
+    let has_cwe_614 = refs.iter().any(|r| r.id == "CWE-614" && r.ref_type == "CWE");
+    let has_cwe_1004 = refs.iter().any(|r| r.id == "CWE-1004" && r.ref_type == "CWE");
 
     assert!(has_owasp_a07);
     assert!(has_owasp_a05);
@@ -110,10 +100,7 @@ fn test_extract_cookies_with_domain_and_expiry() {
     assert_eq!(cookies.len(), 1);
     let cookie = &cookies[0];
     assert_eq!(cookie.domain, Some(".example.com".to_string()));
-    assert_eq!(
-        cookie.expires,
-        Some("Wed, 21 Oct 2026 07:28:00 GMT".to_string())
-    );
+    assert_eq!(cookie.expires, Some("Wed, 21 Oct 2026 07:28:00 GMT".to_string()));
     assert_eq!(cookie.max_age, Some(3600));
 }
 
@@ -229,10 +216,7 @@ fn test_cookie_info_serialization() {
 fn test_http_response_structure() {
     let mut headers = HashMap::new();
     headers.insert("content-type".to_string(), "text/html".to_string());
-    headers.insert(
-        "set-cookie".to_string(),
-        "session=abc; Secure; HttpOnly".to_string(),
-    );
+    headers.insert("set-cookie".to_string(), "session=abc; Secure; HttpOnly".to_string());
 
     let response = HttpResponse {
         status: 200,
@@ -290,10 +274,7 @@ fn test_finding_with_evidence() {
     });
 
     assert_eq!(finding.evidence.len(), 1);
-    assert_eq!(
-        finding.evidence[0].evidence_type,
-        EvidenceType::HttpResponse
-    );
+    assert_eq!(finding.evidence[0].evidence_type, EvidenceType::HttpResponse);
 }
 
 #[test]
@@ -357,9 +338,6 @@ fn test_category_owasp_mapping() {
         Category::SecurityMisconfiguration.owasp_category(),
         Some("A05:2021 - Security Misconfiguration")
     );
-    assert_eq!(
-        Category::Injection.owasp_category(),
-        Some("A03:2021 - Injection")
-    );
+    assert_eq!(Category::Injection.owasp_category(), Some("A03:2021 - Injection"));
     assert_eq!(Category::InformationDisclosure.owasp_category(), None);
 }

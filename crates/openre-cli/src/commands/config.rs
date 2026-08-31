@@ -173,9 +173,7 @@ impl ConfigCommands {
             ConfigCommands::Edit => {
                 let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
                 if let Some(path) = ctx.config.path() {
-                    let status = std::process::Command::new(&editor)
-                        .arg(&path)
-                        .status()?;
+                    let status = std::process::Command::new(&editor).arg(&path).status()?;
                     if status.success() {
                         println!("Configuration edited. Reloading...");
                         ctx.config.reload()?;
@@ -183,7 +181,9 @@ impl ConfigCommands {
                         println!("Editor exited with error.");
                     }
                 } else {
-                    println!("No configuration file found. Create one first with 'openre config set'.");
+                    println!(
+                        "No configuration file found. Create one first with 'openre config set'."
+                    );
                 }
             }
         }

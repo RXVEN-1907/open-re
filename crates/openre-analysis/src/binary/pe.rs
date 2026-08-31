@@ -65,10 +65,8 @@ impl PeParser {
             // Goblin 0.7: import.name is Cow<'_, str>
             let name_str: &str = import.name.as_ref();
             if !name_str.is_empty() {
-                info.imports.push(Import {
-                    name: name_str.to_string(),
-                    library: Some(dll_name.clone()),
-                });
+                info.imports
+                    .push(Import { name: name_str.to_string(), library: Some(dll_name.clone()) });
             }
         }
 
@@ -154,11 +152,7 @@ impl BinaryIdentifier for PeIdentifier {
         Ok(BinaryIdentification {
             format: BinaryFormat::Pe,
             architecture: PeParser::arch_from_pe(&pe),
-            bitness: if pe.is_64 {
-                Bitness::Bit64
-            } else {
-                Bitness::Bit32
-            },
+            bitness: if pe.is_64 { Bitness::Bit64 } else { Bitness::Bit32 },
             endianness: Endianness::Little, // PE is always little-endian
             os: OperatingSystem::Windows,
             entry_point: Some(pe.entry as u64),
@@ -302,11 +296,7 @@ impl BinaryMetadataExtractor for PeMetadataExtractor {
             identification: BinaryIdentification {
                 format: BinaryFormat::Pe,
                 architecture: PeParser::arch_from_pe(&pe),
-                bitness: if pe.is_64 {
-                    Bitness::Bit64
-                } else {
-                    Bitness::Bit32
-                },
+                bitness: if pe.is_64 { Bitness::Bit64 } else { Bitness::Bit32 },
                 endianness: Endianness::Little,
                 os: OperatingSystem::Windows,
                 entry_point: Some(pe.entry as u64),
@@ -396,9 +386,5 @@ fn calculate_hashes(data: &[u8]) -> FileHashes {
     let sha1_hash = format!("{:x}", Sha1::digest(data));
     let sha256_hash = format!("{:x}", Sha256::digest(data));
 
-    FileHashes {
-        md5: md5_hash,
-        sha1: sha1_hash,
-        sha256: sha256_hash,
-    }
+    FileHashes { md5: md5_hash, sha1: sha1_hash, sha256: sha256_hash }
 }

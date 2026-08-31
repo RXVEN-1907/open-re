@@ -45,10 +45,7 @@ async fn test_end_to_end_report_lifecycle() {
     let findings: Vec<Finding> = (0..3).map(|_| create_test_finding(scan_id)).collect();
 
     // Generate report using the reporting engine
-    let config = ReportConfig {
-        min_severity: Some(Severity::Medium),
-        ..Default::default()
-    };
+    let config = ReportConfig { min_severity: Some(Severity::Medium), ..Default::default() };
     let generator = ReportGenerator::new(config);
     let scans = vec![];
     let targets = vec![];
@@ -59,10 +56,7 @@ async fn test_end_to_end_report_lifecycle() {
     assert!(markdown.contains("SQL Injection"));
 
     // Save deduplicated findings to history
-    storage
-        .save_deduplicated_findings(&scan_id, &findings)
-        .await
-        .unwrap();
+    storage.save_deduplicated_findings(&scan_id, &findings).await.unwrap();
     let retrieved = storage.get_deduplicated_findings(&scan_id).await.unwrap();
     assert_eq!(retrieved.len(), 3);
     assert_eq!(retrieved[0].title, "SQL Injection");
@@ -101,11 +95,7 @@ async fn test_end_to_end_report_lifecycle() {
     };
 
     storage.save_risk_metrics(&metrics).await.unwrap();
-    let latest = storage
-        .get_latest_risk_metrics(&project_id)
-        .await
-        .unwrap()
-        .unwrap();
+    let latest = storage.get_latest_risk_metrics(&project_id).await.unwrap().unwrap();
     assert_eq!(latest.overall_risk_score, 85);
     assert_eq!(latest.high_count, 3);
 
@@ -178,10 +168,7 @@ async fn test_end_to_end_report_lifecycle() {
     assert_eq!(retrieved_summary.finding_stats.total, 3);
 
     // List scan history for project
-    let history = manager
-        .get_project_history(&project_id, 10, 0)
-        .await
-        .unwrap();
+    let history = manager.get_project_history(&project_id, 10, 0).await.unwrap();
     assert_eq!(history.len(), 1);
 }
 
@@ -223,18 +210,12 @@ async fn test_evidence_storage_and_retrieval() {
 
     // Retrieve and verify
     let retrieved = storage.get_evidence("ev-http-1").await.unwrap().unwrap();
-    assert_eq!(
-        retrieved.description,
-        "SQL injection payload sent to login endpoint"
-    );
+    assert_eq!(retrieved.description, "SQL injection payload sent to login endpoint");
     assert_eq!(retrieved.evidence_type, CoreEvidenceType::HttpRequest);
     assert!(retrieved.data.is_some());
 
     // List evidence for finding
-    let all_evidence = storage
-        .list_evidence_for_finding(&finding_id)
-        .await
-        .unwrap();
+    let all_evidence = storage.list_evidence_for_finding(&finding_id).await.unwrap();
     assert_eq!(all_evidence.len(), 1);
 }
 
@@ -346,11 +327,8 @@ async fn test_pagination() {
     assert_eq!(page2.len(), 5);
 
     // All summaries should have unique IDs
-    let mut all_ids: Vec<_> = page1
-        .iter()
-        .chain(page2.iter())
-        .map(|s| s.scan_id.to_string())
-        .collect();
+    let mut all_ids: Vec<_> =
+        page1.iter().chain(page2.iter()).map(|s| s.scan_id.to_string()).collect();
     let original_len = all_ids.len();
     all_ids.sort();
     all_ids.dedup();

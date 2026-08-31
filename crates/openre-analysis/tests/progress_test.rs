@@ -1,5 +1,7 @@
 // crates/openre-analysis/tests/progress_test.rs
-use openre_analysis::progress::{JobProgress, JobStatus, ProgressTracker, StageProgress, StageStatus};
+use openre_analysis::progress::{
+    JobProgress, JobStatus, ProgressTracker, StageProgress, StageStatus,
+};
 use openre_core::ids::{JobId, StageId, WorkerId};
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -78,7 +80,9 @@ async fn test_progress_subscription() {
     };
 
     // Update progress directly (can't clone tracker)
-    openre_analysis::progress::ProgressTracker::update_progress_static(&tracker, progress).await.unwrap();
+    openre_analysis::progress::ProgressTracker::update_progress_static(&tracker, progress)
+        .await
+        .unwrap();
 
     // Try to receive the progress update
     let result = tokio::time::timeout(std::time::Duration::from_secs(5), rx.recv()).await;

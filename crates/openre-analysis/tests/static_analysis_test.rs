@@ -1,12 +1,23 @@
 // crates/openre-analysis/tests/static_analysis_test.rs
-use openre_analysis::binary::{StaticAnalyzerImpl, StaticAnalyzer, ElfMetadataExtractor, PeMetadataExtractor, MachoMetadataExtractor, WasmMetadataExtractor, BinaryMetadataExtractor};
-use openre_analysis::{StaticAnalysisService, StaticAnalysisResult};
-use openre_core::ids::FileId;
-use openre_analysis::binary::common::{BinaryMetadata, BinaryIdentification, BinaryFormat, FileHashes, SectionInfo, SegmentInfo, SymbolInfo, ImportInfo, ImportedFunction, ExportInfo, ExtractedString, ResourceInfo, VersionInfo, SecurityFeatures, Architecture, Bitness, Endianness, OperatingSystem, RelroLevel, SymbolType, SymbolBinding, SymbolVisibility, StringEncoding, SectionCharacteristics, SectionFlags, SegmentPermissions, CompilerInfo, CallEdge, CallType, CfgEdge, CfgEdgeType, LoopInfo, LoopType, Operand, OperandKind, OperandType, TypeInfo, TypeKind, TypeSource, Variable, VariableStorage};
 use chrono::{DateTime, Utc};
+use openre_analysis::binary::common::{
+    Architecture, BinaryFormat, BinaryIdentification, BinaryMetadata, Bitness, CallEdge, CallType,
+    CfgEdge, CfgEdgeType, CompilerInfo, Endianness, ExportInfo, ExtractedString, FileHashes,
+    ImportInfo, ImportedFunction, LoopInfo, LoopType, Operand, OperandKind, OperandType,
+    OperatingSystem, RelroLevel, ResourceInfo, SectionCharacteristics, SectionFlags, SectionInfo,
+    SecurityFeatures, SegmentInfo, SegmentPermissions, StringEncoding, SymbolBinding, SymbolInfo,
+    SymbolType, SymbolVisibility, TypeInfo, TypeKind, TypeSource, Variable, VariableStorage,
+    VersionInfo,
+};
+use openre_analysis::binary::{
+    BinaryMetadataExtractor, ElfMetadataExtractor, MachoMetadataExtractor, PeMetadataExtractor,
+    StaticAnalyzer, StaticAnalyzerImpl, WasmMetadataExtractor,
+};
+use openre_analysis::{StaticAnalysisResult, StaticAnalysisService};
+use openre_core::ids::FileId;
+use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use std::fs;
 
 fn create_test_metadata() -> BinaryMetadata {
     BinaryMetadata {
@@ -41,7 +52,8 @@ async fn test_static_analysis_service() {
     let file_id = FileId::new();
 
     // Create a minimal WASM binary for testing
-    let wasm_bytes = wat::parse_str(r#"(module (func (export "test") (param i32) (result i32)))"#).unwrap();
+    let wasm_bytes =
+        wat::parse_str(r#"(module (func (export "test") (param i32) (result i32)))"#).unwrap();
     let temp = TempDir::new().unwrap();
     let binary_path = temp.path().join("test.wasm");
     fs::write(&binary_path, &wasm_bytes).unwrap();

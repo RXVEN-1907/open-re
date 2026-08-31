@@ -2,7 +2,9 @@
 
 #[cfg(feature = "tui")]
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
+    },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -12,18 +14,19 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap, Table, Row, Cell, Tabs, Clear, TableState},
+    widgets::{
+        Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table, TableState,
+        Tabs, Wrap,
+    },
     Frame, Terminal,
 };
 #[cfg(feature = "tui")]
 use std::{io, sync::Arc, time::Duration};
 #[cfg(feature = "tui")]
 use tokio::sync::{mpsc, Mutex};
-#[cfg(feature = "tui")]
-use tokio::time::sleep;
 
 #[cfg(feature = "tui")]
-use crate::{Check, ScanProfile, OutputFormat, Finding, Severity};
+use crate::{Check, OutputFormat, ScanProfile, Severity};
 #[cfg(feature = "tui")]
 use url::Url;
 
@@ -31,11 +34,7 @@ use url::Url;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScanStatus {
     NotStarted,
-    Running {
-        current: String,
-        progress: usize,
-        total: usize,
-    },
+    Running { current: String, progress: usize, total: usize },
     Completed,
     Error(String),
 }
@@ -322,8 +321,8 @@ impl App {
     fn get_current_list_len(&self) -> usize {
         match self.selected_tab {
             Tab::Target => 1,
-            Tab::Scans => self.scan_history.len().max(1),
-            Tab::Findings => self.get_filtered_findings().len().max(1),
+            Tab::Scans => self.scan_history.len(),
+            Tab::Findings => self.get_filtered_findings().len(),
             Tab::Settings => 8,
             Tab::Help => 1,
         }
@@ -365,18 +364,15 @@ impl App {
     pub async fn run_scan(&mut self) -> anyhow::Result<()> {
         if self.target_input.trim().is_empty() {
             self.status = ScanStatus::Error("Target cannot be empty".to_string());
-            return Ok(());
+            return Err(anyhow::anyhow!("Target cannot be empty"));
         }
 
         let target = self.target_input.trim().to_string();
         let profile = self.profile.clone();
         let format = self.output_format.clone();
 
-        self.status = ScanStatus::Running {
-            current: "Initializing...".to_string(),
-            progress: 0,
-            total: 0,
-        };
+        self.status =
+            ScanStatus::Running { current: "Initializing...".to_string(), progress: 0, total: 0 };
 
         // Create a channel for progress updates
         let (tx, mut rx) = mpsc::channel(32);
@@ -404,11 +400,7 @@ impl App {
         while let Some(msg) = rx.recv().await {
             match msg {
                 ScanMsg::Progress(current, progress, total) => {
-                    self.status = ScanStatus::Running {
-                        current,
-                        progress,
-                        total,
-                    };
+                    self.status = ScanStatus::Running { current, progress, total };
                 }
                 ScanMsg::Done(result) => {
                     self.scan_results = Some(result.clone());
@@ -455,9 +447,7 @@ async fn run_scan_with_progress(
     let mut all_findings = Vec::new();
 
     for (i, check) in checks_to_run.iter().enumerate() {
-        let _ = tx
-            .send(ScanMsg::Progress(check.name().to_string(), i, checks_count))
-            .await;
+        let _ = tx.send(ScanMsg::Progress(check.name().to_string(), i + 1, checks_count)).await;
 
         match check.run(&client, &target_url).await {
             Ok(findings) => all_findings.extend(findings),
@@ -488,13 +478,10 @@ pub async fn run_tui() -> anyhow::Result<()> {
     let mut app = App::new();
     let result = run_app(&mut terminal, &mut app).await;
 
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
+    // Ensure terminal cleanup runs even on error
+    let _ = disable_raw_mode();
+    let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture);
+    let _ = terminal.show_cursor();
 
     result
 }
@@ -589,6 +576,7 @@ async fn handle_key_event(key: crossterm::event::KeyEvent, app: &mut App) -> any
         KeyCode::Char('q') | KeyCode::Esc => {
             if matches!(app.status, ScanStatus::Running { .. }) {
                 // Don't quit during scan
+                return Ok(false);
             } else {
                 return Ok(true);
             }
@@ -727,10 +715,10 @@ fn ui(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(8),   // Banner area
-            Constraint::Length(3),   // Tabs
-            Constraint::Min(10),     // Main content
-            Constraint::Length(3),   // Status bar
+            Constraint::Length(8), // Banner area
+            Constraint::Length(3), // Tabs
+            Constraint::Min(10),   // Main content
+            Constraint::Length(3), // Status bar
         ])
         .split(size);
 
@@ -770,68 +758,88 @@ fn ui(f: &mut Frame, app: &mut App) {
 fn render_banner(f: &mut Frame, _app: &App, area: Rect, colors: &ThemeColors) {
     let banner_text = if area.width >= 100 {
         vec![
-            Line::from(vec![
-                Span::styled(" ██████╗ ██████╗ ███████╗███╗   ██╗         ██████╗ ███████╗", Style::default().fg(colors.accent_bold).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::styled("██╔═══██╗██╔══██╗██╔════╝████╗  ██║         ██╔══██╗██╔════╝", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::styled("██║   ██║██████╔╝█████╗  ██╔██╗ ██║ ██████╗ ██████╔╝█████╗", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::styled("██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║ ╚═════╝ ██╔══██╗██╔══╝", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::styled("╚██████╔╝██║     ███████╗██║ ╚████║         ██║  ██║███████╗", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::styled(" ╚═════╝ ╚══╝     ╚══════╝╚═╝  ╚═══╝         ╚═╝  ╚═╝╚══════╝", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-            ]),
+            Line::from(vec![Span::styled(
+                " ██████╗ ██████╗ ███████╗███╗   ██╗         ██████╗ ███████╗",
+                Style::default().fg(colors.accent_bold).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(vec![Span::styled(
+                "██╔═══██╗██╔══██╗██╔════╝████╗  ██║         ██╔══██╗██╔════╝",
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(vec![Span::styled(
+                "██║   ██║██████╔╝█████╗  ██╔██╗ ██║ ██████╗ ██████╔╝█████╗",
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(vec![Span::styled(
+                "██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║ ╚═════╝ ██╔══██╗██╔══╝",
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(vec![Span::styled(
+                "╚██████╔╝██║     ███████╗██║ ╚████║         ██║  ██║███████╗",
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(vec![Span::styled(
+                " ╚═════╝ ╚══╝     ╚══════╝╚═╝  ╚═══╝         ╚═╝  ╚═╝╚══════╝",
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            )]),
         ]
     } else {
         vec![
-            Line::from(vec![
-                Span::styled("███████╗██████╗ ██████╗  ██████╗ ███████╗███████╗", Style::default().fg(colors.accent_bold).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::styled("██╔════╝██╔══██╗██╔══██╗██╔═══██╗██╔════╝██╔════╝", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::styled("█████╗  ██████╔╝██████╔╝██║   ██║███████╗█████╗", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::styled("██╔══╝  ██╔══██╗██╔═══╝ ██║   ██║╚════██║██╔══╝", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::styled("███████╗██║  ██║██║     ╚██████╔╝███████╗███████╗", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(vec![
-                Span::styled("╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚══════╝╚══════╝", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-            ]),
+            Line::from(vec![Span::styled(
+                "███████╗██████╗ ██████╗  ██████╗ ███████╗███████╗",
+                Style::default().fg(colors.accent_bold).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(vec![Span::styled(
+                "██╔════╝██╔══██╗██╔══██╗██╔═══██╗██╔════╝██╔════╝",
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(vec![Span::styled(
+                "█████╗  ██████╔╝██████╔╝██║   ██║███████╗█████╗",
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(vec![Span::styled(
+                "██╔══╝  ██╔══██╗██╔═══╝ ██║   ██║╚════██║██╔══╝",
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(vec![Span::styled(
+                "███████╗██║  ██║██║     ╚██████╔╝███████╗███████╗",
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(vec![Span::styled(
+                "╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚══════╝╚══════╝",
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            )]),
         ]
     };
 
-    let banner = Paragraph::new(banner_text)
-        .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors.border)));
+    let banner = Paragraph::new(banner_text).alignment(Alignment::Center).block(
+        Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors.border)),
+    );
 
     f.render_widget(banner, area);
 }
 
 #[cfg(feature = "tui")]
 fn render_tabs(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors) {
-    let tabs: Vec<Line> = Tab::ALL.iter().map(|tab| {
-        let style = if *tab == app.selected_tab {
-            Style::default().fg(colors.selected_fg).bg(colors.selected_bg).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(colors.fg)
-        };
-        Line::from(Span::styled(format!(" {} ", tab.label()), style))
-    }).collect();
+    let tabs: Vec<Line> = Tab::ALL
+        .iter()
+        .map(|tab| {
+            let style = if *tab == app.selected_tab {
+                Style::default()
+                    .fg(colors.selected_fg)
+                    .bg(colors.selected_bg)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(colors.fg)
+            };
+            Line::from(Span::styled(format!(" {} ", tab.label()), style))
+        })
+        .collect();
 
     let tabs_widget = Tabs::new(tabs)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors.border)))
+        .block(
+            Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors.border)),
+        )
         .style(Style::default().fg(colors.fg))
         .highlight_style(Style::default().add_modifier(Modifier::BOLD))
         .select(app.selected_tab as usize);
@@ -853,13 +861,18 @@ fn render_target_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors)
         .split(area);
 
     // Target input
-    let input = Paragraph::new(app.target_input.as_str())
-        .style(Style::default().fg(colors.fg))
-        .block(Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(if app.selected_tab == Tab::Target { colors.accent } else { colors.border }))
-            .title(" Target URL ")
-            .title_style(Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)));
+    let input =
+        Paragraph::new(app.target_input.as_str()).style(Style::default().fg(colors.fg)).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(if app.selected_tab == Tab::Target {
+                    colors.accent
+                } else {
+                    colors.border
+                }))
+                .title(" Target URL ")
+                .title_style(Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
+        );
     f.render_widget(input, chunks[0]);
 
     // Profile selector
@@ -868,13 +881,13 @@ fn render_target_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors)
         ScanProfile::Standard => "Standard (15 checks) - Balanced scan, ~10-15s",
         ScanProfile::Full => "Full (18 checks) - Comprehensive audit, ~30-60s",
     };
-    let profile = Paragraph::new(profile_text)
-        .style(Style::default().fg(colors.fg))
-        .block(Block::default()
+    let profile = Paragraph::new(profile_text).style(Style::default().fg(colors.fg)).block(
+        Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(colors.border))
             .title(" Scan Profile ")
-            .title_style(Style::default().fg(colors.accent)));
+            .title_style(Style::default().fg(colors.accent)),
+    );
     f.render_widget(profile, chunks[1]);
 
     // Output format
@@ -883,13 +896,13 @@ fn render_target_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors)
         OutputFormat::Json => "JSON - Machine-readable structured output",
         OutputFormat::Sarif => "SARIF - CI/CD integration format",
     };
-    let format = Paragraph::new(format_text)
-        .style(Style::default().fg(colors.fg))
-        .block(Block::default()
+    let format = Paragraph::new(format_text).style(Style::default().fg(colors.fg)).block(
+        Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(colors.border))
             .title(" Output Format ")
-            .title_style(Style::default().fg(colors.accent)));
+            .title_style(Style::default().fg(colors.accent)),
+    );
     f.render_widget(format, chunks[2]);
 
     // Quick actions
@@ -912,66 +925,88 @@ fn render_target_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors)
         ScanStatus::Error(e) => format!("Error: {}", e),
     };
     let status = Paragraph::new(status_text)
-        .style(Style::default().fg(if matches!(app.status, ScanStatus::Error(_)) { colors.error } else { colors.success }))
-        .block(Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(colors.border))
-            .title(" Status ")
-            .title_style(Style::default().fg(colors.accent)));
+        .style(Style::default().fg(if matches!(app.status, ScanStatus::Error(_)) {
+            colors.error
+        } else {
+            colors.success
+        }))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors.border))
+                .title(" Status ")
+                .title_style(Style::default().fg(colors.accent)),
+        );
     f.render_widget(status, chunks[4]);
 }
 
 #[cfg(feature = "tui")]
-fn render_scans_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors) {
+fn render_scans_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeColors) {
     if app.scan_history.is_empty() {
         let empty = Paragraph::new("No scans yet. Go to Target tab and run a scan.")
             .style(Style::default().fg(colors.muted))
             .alignment(Alignment::Center)
-            .block(Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(colors.border))
-                .title(" Scan History ")
-                .title_style(Style::default().fg(colors.accent)));
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(colors.border))
+                    .title(" Scan History ")
+                    .title_style(Style::default().fg(colors.accent)),
+            );
         f.render_widget(empty, area);
         return;
     }
 
-    let items: Vec<ListItem> = app.scan_history.iter().enumerate().map(|(i, scan)| {
-        let selected = app.list_state.selected() == Some(i);
-        let style = if selected {
-            Style::default().fg(colors.selected_fg).bg(colors.selected_bg).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(colors.fg)
-        };
+    let items: Vec<ListItem> = app
+        .scan_history
+        .iter()
+        .enumerate()
+        .map(|(i, scan)| {
+            let selected = app.list_state.selected() == Some(i);
+            let style = if selected {
+                Style::default()
+                    .fg(colors.selected_fg)
+                    .bg(colors.selected_bg)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(colors.fg)
+            };
 
-        let severity_counts = count_severities(&scan.findings);
-        let severity_str = format!("🔴{} 🟠{} 🟡{} 🟢{} 🔵{}",
-            severity_counts.get(&Severity::Critical).unwrap_or(&0),
-            severity_counts.get(&Severity::High).unwrap_or(&0),
-            severity_counts.get(&Severity::Medium).unwrap_or(&0),
-            severity_counts.get(&Severity::Low).unwrap_or(&0),
-            severity_counts.get(&Severity::Info).unwrap_or(&0),
-        );
+            let severity_counts = count_severities(&scan.findings);
+            let severity_str = format!(
+                "🔴{} 🟠{} 🟡{} 🟢{} 🔵{}",
+                severity_counts.get(&Severity::Critical).unwrap_or(&0),
+                severity_counts.get(&Severity::High).unwrap_or(&0),
+                severity_counts.get(&Severity::Medium).unwrap_or(&0),
+                severity_counts.get(&Severity::Low).unwrap_or(&0),
+                severity_counts.get(&Severity::Info).unwrap_or(&0),
+            );
 
-        let time_str = scan.duration.as_secs_f32();
-        ListItem::new(Line::from(vec![
-            Span::styled(format!("{:3}. ", i + 1), style),
-            Span::styled(&scan.target, style),
-            Span::styled(format!("  [{}] ", format!("{:?}", scan.profile)), Style::default().fg(colors.accent)),
-            Span::styled(format!("{:.1}s ", time_str), Style::default().fg(colors.muted)),
-            Span::styled(severity_str, style),
-        ]))
-    }).collect();
+            let time_str = scan.duration.as_secs_f32();
+            ListItem::new(Line::from(vec![
+                Span::styled(format!("{:3}. ", i + 1), style),
+                Span::styled(&scan.target, style),
+                Span::styled(
+                    format!("  [{}] ", format!("{:?}", scan.profile)),
+                    Style::default().fg(colors.accent),
+                ),
+                Span::styled(format!("{:.1}s ", time_str), Style::default().fg(colors.muted)),
+                Span::styled(severity_str, style),
+            ]))
+        })
+        .collect();
 
     let list = List::new(items)
-        .block(Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(colors.border))
-            .title(" Scan History (Enter to load, j/k to navigate) ")
-            .title_style(Style::default().fg(colors.accent)))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors.border))
+                .title(" Scan History (Enter to load, j/k to navigate) ")
+                .title_style(Style::default().fg(colors.accent)),
+        )
         .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
-    f.render_stateful_widget(list, area, &mut app.list_state.clone());
+    f.render_stateful_widget(list, area, &mut app.list_state);
 }
 
 #[cfg(feature = "tui")]
@@ -990,11 +1025,13 @@ fn render_findings_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeC
         let empty = Paragraph::new(msg)
             .style(Style::default().fg(colors.muted))
             .alignment(Alignment::Center)
-            .block(Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(colors.border))
-                .title(" Findings ")
-                .title_style(Style::default().fg(colors.accent)));
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(colors.border))
+                    .title(" Findings ")
+                    .title_style(Style::default().fg(colors.accent)),
+            );
         f.render_widget(empty, area);
         return;
     }
@@ -1005,60 +1042,85 @@ fn render_findings_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeC
         Cell::from("Title").style(Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
         Cell::from("Check").style(Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
         Cell::from("Conf").style(Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-    ]).style(Style::default().bg(colors.selected_bg));
-
-    let rows: Vec<Row> = findings.iter().enumerate().map(|(i, finding)| {
-        let selected = app.findings_table_state.selected() == Some(i);
-        let base_style = if selected {
-            Style::default().fg(colors.selected_fg).bg(colors.selected_bg).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(colors.fg)
-        };
-
-        let (sev_icon, sev_color) = severity_style(&finding.severity, colors);
-        let title = if finding.title.len() > 50 {
-            format!("{}...", &finding.title[..47])
-        } else {
-            finding.title.clone()
-        };
-
-        Row::new(vec![
-            Cell::from(sev_icon).style(Style::default().fg(sev_color)),
-            Cell::from(title).style(base_style),
-            Cell::from(finding.plugin_source.clone()).style(base_style),
-            Cell::from(format!("{:?}", finding.confidence)).style(base_style),
-        ]).style(base_style)
-    }).collect();
-
-    let table = Table::new(rows, [
-        Constraint::Length(4),
-        Constraint::Min(30),
-        Constraint::Length(20),
-        Constraint::Length(10),
     ])
-        .header(header)
-        .block(Block::default()
+    .style(Style::default().bg(colors.selected_bg));
+
+    let rows: Vec<Row> = findings
+        .iter()
+        .enumerate()
+        .map(|(i, finding)| {
+            let selected = app.findings_table_state.selected() == Some(i);
+            let base_style = if selected {
+                Style::default()
+                    .fg(colors.selected_fg)
+                    .bg(colors.selected_bg)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(colors.fg)
+            };
+
+            let (sev_icon, sev_color) = severity_style(&finding.severity, colors);
+            let title = if finding.title.len() > 50 {
+                format!("{}...", &finding.title[..47])
+            } else {
+                finding.title.clone()
+            };
+
+            Row::new(vec![
+                Cell::from(sev_icon).style(Style::default().fg(sev_color)),
+                Cell::from(title).style(base_style),
+                Cell::from(finding.plugin_source.clone()).style(base_style),
+                Cell::from(format!("{:?}", finding.confidence)).style(base_style),
+            ])
+            .style(base_style)
+        })
+        .collect();
+
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(4),
+            Constraint::Min(30),
+            Constraint::Length(20),
+            Constraint::Length(10),
+        ],
+    )
+    .header(header)
+    .block(
+        Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(colors.border))
-            .title(format!(" Findings ({} total) [s=filter / =search e=export r=rescan] ", findings.len()))
-            .title_style(Style::default().fg(colors.accent)))
-        .column_spacing(1)
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
-        .highlight_symbol("▶ ");
+            .title(format!(
+                " Findings ({} total) [s=filter / =search e=export r=rescan] ",
+                findings.len()
+            ))
+            .title_style(Style::default().fg(colors.accent)),
+    )
+    .column_spacing(1)
+    .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+    .highlight_symbol("▶ ");
 
-    f.render_stateful_widget(table, area, &mut app.findings_table_state);
+    // Split area for table and filter status
+    let (table_area, filter_area) = if app.severity_filter.is_some() || !app.search_query.is_empty()
+    {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(0), Constraint::Length(1)])
+            .split(area);
+        (chunks[0], Some(chunks[1]))
+    } else {
+        (area, None)
+    };
+
+    f.render_stateful_widget(table, table_area, &mut app.findings_table_state);
 
     // Show filter status
-    if app.severity_filter.is_some() || !app.search_query.is_empty() {
+    if let Some(filter_area) = filter_area {
         let filter_info = format!(
             "Filters: Severity={} Search='{}'",
             app.severity_filter.map(|s| format!("{:?}", s)).unwrap_or("All".to_string()),
             app.search_query
         );
-        let filter_area = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(0), Constraint::Length(1)])
-            .split(area)[1];
         let filter_widget = Paragraph::new(filter_info)
             .style(Style::default().fg(colors.warning))
             .alignment(Alignment::Left);
@@ -1067,7 +1129,7 @@ fn render_findings_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeC
 }
 
 #[cfg(feature = "tui")]
-fn render_settings_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors) {
+fn render_settings_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeColors) {
     let settings = vec![
         ("1", "Scan Profile", format!("{:?}", app.profile)),
         ("2", "", "Quick (6 checks)".to_string()),
@@ -1078,101 +1140,136 @@ fn render_settings_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColor
         ("t", "Theme", format!("{:?}", app.theme)),
     ];
 
-    let items: Vec<ListItem> = settings.iter().enumerate().map(|(i, (key, label, value))| {
-        let selected = app.list_state.selected() == Some(i);
-        let style = if selected {
-            Style::default().fg(colors.selected_fg).bg(colors.selected_bg).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(colors.fg)
-        };
+    let items: Vec<ListItem> = settings
+        .iter()
+        .enumerate()
+        .map(|(i, (key, label, value))| {
+            let selected = app.list_state.selected() == Some(i);
+            let style = if selected {
+                Style::default()
+                    .fg(colors.selected_fg)
+                    .bg(colors.selected_bg)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(colors.fg)
+            };
 
-        let key_span = Span::styled(format!(" [{}] ", key), Style::default().fg(colors.accent).add_modifier(Modifier::BOLD));
-        let label_span = Span::styled(format!("{:<20}", label), style);
-        let value_span = Span::styled(value, Style::default().fg(colors.muted));
+            let key_span = Span::styled(
+                format!(" [{}] ", key),
+                Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+            );
+            let label_span = Span::styled(format!("{:<20}", label), style);
+            let value_span = Span::styled(value, Style::default().fg(colors.muted));
 
-        ListItem::new(Line::from(vec![key_span, label_span, value_span]))
-    }).collect();
+            ListItem::new(Line::from(vec![key_span, label_span, value_span]))
+        })
+        .collect();
 
     let list = List::new(items)
-        .block(Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(colors.border))
-            .title(" Settings (Press key to change, F2 to cycle theme) ")
-            .title_style(Style::default().fg(colors.accent)))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors.border))
+                .title(" Settings (Press key to change, F2 to cycle theme) ")
+                .title_style(Style::default().fg(colors.accent)),
+        )
         .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
-    f.render_stateful_widget(list, area, &mut app.list_state.clone());
+    f.render_stateful_widget(list, area, &mut app.list_state);
 }
 
 #[cfg(feature = "tui")]
 fn render_help_tab(f: &mut Frame, _app: &App, area: Rect, colors: &ThemeColors) {
     let help_text = vec![
-        Line::from(vec![Span::styled("openre-scan TUI Help", Style::default().fg(colors.accent_bold).add_modifier(Modifier::BOLD))]),
+        Line::from(vec![Span::styled(
+            "openre-scan TUI Help",
+            Style::default().fg(colors.accent_bold).add_modifier(Modifier::BOLD),
+        )]),
         Line::from(""),
+        Line::from(vec![Span::styled(
+            "Navigation:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
         Line::from(vec![
-            Span::styled("Navigation:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
+            Span::styled("  Tab / Shift+Tab", Style::default().fg(colors.warning)),
+            Span::raw(" - Switch tabs"),
         ]),
         Line::from(vec![
-            Span::styled("  Tab / Shift+Tab", Style::default().fg(colors.warning)), Span::raw(" - Switch tabs"),
+            Span::styled("  j / k / ↓ / ↑", Style::default().fg(colors.warning)),
+            Span::raw(" - Navigate up/down"),
         ]),
         Line::from(vec![
-            Span::styled("  j / k / ↓ / ↑", Style::default().fg(colors.warning)), Span::raw(" - Navigate up/down"),
+            Span::styled("  g / G", Style::default().fg(colors.warning)),
+            Span::raw(" - Go to top/bottom"),
         ]),
         Line::from(vec![
-            Span::styled("  g / G", Style::default().fg(colors.warning)), Span::raw(" - Go to top/bottom"),
-        ]),
-        Line::from(vec![
-            Span::styled("  Enter", Style::default().fg(colors.warning)), Span::raw(" - Start scan / Select item / Show detail"),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("Findings Tab:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-        ]),
-        Line::from(vec![
-            Span::styled("  /", Style::default().fg(colors.warning)), Span::raw(" - Search findings"),
-        ]),
-        Line::from(vec![
-            Span::styled("  s", Style::default().fg(colors.warning)), Span::raw(" - Cycle severity filter"),
-        ]),
-        Line::from(vec![
-            Span::styled("  f", Style::default().fg(colors.warning)), Span::raw(" - Toggle filter mode"),
-        ]),
-        Line::from(vec![
-            Span::styled("  e", Style::default().fg(colors.warning)), Span::raw(" - Export findings (TODO)"),
-        ]),
-        Line::from(vec![
-            Span::styled("  r", Style::default().fg(colors.warning)), Span::raw(" - Rescan current target"),
+            Span::styled("  Enter", Style::default().fg(colors.warning)),
+            Span::raw(" - Start scan / Select item / Show detail"),
         ]),
         Line::from(""),
+        Line::from(vec![Span::styled(
+            "Findings Tab:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
         Line::from(vec![
-            Span::styled("Settings Tab:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
+            Span::styled("  /", Style::default().fg(colors.warning)),
+            Span::raw(" - Search findings"),
         ]),
         Line::from(vec![
-            Span::styled("  1/2/3", Style::default().fg(colors.warning)), Span::raw(" - Quick/Standard/Full profile"),
+            Span::styled("  s", Style::default().fg(colors.warning)),
+            Span::raw(" - Cycle severity filter"),
         ]),
         Line::from(vec![
-            Span::styled("  4/5/6", Style::default().fg(colors.warning)), Span::raw(" - Table/JSON/SARIF format"),
+            Span::styled("  f", Style::default().fg(colors.warning)),
+            Span::raw(" - Toggle filter mode"),
         ]),
         Line::from(vec![
-            Span::styled("  t", Style::default().fg(colors.warning)), Span::raw(" - Cycle theme (Dark/Light/HighContrast)"),
+            Span::styled("  e", Style::default().fg(colors.warning)),
+            Span::raw(" - Export findings (TODO)"),
+        ]),
+        Line::from(vec![
+            Span::styled("  r", Style::default().fg(colors.warning)),
+            Span::raw(" - Rescan current target"),
         ]),
         Line::from(""),
+        Line::from(vec![Span::styled(
+            "Settings Tab:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
         Line::from(vec![
-            Span::styled("Global:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
+            Span::styled("  1/2/3", Style::default().fg(colors.warning)),
+            Span::raw(" - Quick/Standard/Full profile"),
         ]),
         Line::from(vec![
-            Span::styled("  F1", Style::default().fg(colors.warning)), Span::raw(" - Toggle this help"),
+            Span::styled("  4/5/6", Style::default().fg(colors.warning)),
+            Span::raw(" - Table/JSON/SARIF format"),
         ]),
         Line::from(vec![
-            Span::styled("  F2", Style::default().fg(colors.warning)), Span::raw(" - Cycle theme"),
-        ]),
-        Line::from(vec![
-            Span::styled("  Ctrl+Q / Ctrl+C / Esc", Style::default().fg(colors.warning)), Span::raw(" - Quit"),
+            Span::styled("  t", Style::default().fg(colors.warning)),
+            Span::raw(" - Cycle theme (Dark/Light/HighContrast)"),
         ]),
         Line::from(""),
+        Line::from(vec![Span::styled(
+            "Global:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
         Line::from(vec![
-            Span::styled("Scan Profiles:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
+            Span::styled("  F1", Style::default().fg(colors.warning)),
+            Span::raw(" - Toggle this help"),
         ]),
+        Line::from(vec![
+            Span::styled("  F2", Style::default().fg(colors.warning)),
+            Span::raw(" - Cycle theme"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Ctrl+Q / Ctrl+C / Esc", Style::default().fg(colors.warning)),
+            Span::raw(" - Quit"),
+        ]),
+        Line::from(""),
+        Line::from(vec![Span::styled(
+            "Scan Profiles:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
         Line::from("  Quick  - Essential checks only (~6)"),
         Line::from("  Standard - Common security checks (~15)"),
         Line::from("  Full - All available checks (~18)"),
@@ -1180,11 +1277,13 @@ fn render_help_tab(f: &mut Frame, _app: &App, area: Rect, colors: &ThemeColors) 
 
     let help = Paragraph::new(Text::from(help_text))
         .style(Style::default().fg(colors.fg))
-        .block(Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(colors.border))
-            .title(" Help (F1 to close) ")
-            .title_style(Style::default().fg(colors.accent)))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors.border))
+                .title(" Help (F1 to close) ")
+                .title_style(Style::default().fg(colors.accent)),
+        )
         .wrap(Wrap { trim: true });
 
     f.render_widget(help, area);
@@ -1211,12 +1310,18 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors)
     let full_status = format!("{} | {} {}", status_text, theme_indicator, filter_indicator);
 
     let status = Paragraph::new(full_status)
-        .style(Style::default().fg(if matches!(app.status, ScanStatus::Error(_)) { colors.error } else { colors.success }))
-        .block(Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(colors.border))
-            .title(" Status ")
-            .title_style(Style::default().fg(colors.accent)));
+        .style(Style::default().fg(if matches!(app.status, ScanStatus::Error(_)) {
+            colors.error
+        } else {
+            colors.success
+        }))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors.border))
+                .title(" Status ")
+                .title_style(Style::default().fg(colors.accent)),
+        );
     f.render_widget(status, area);
 }
 
@@ -1226,40 +1331,105 @@ fn render_help_overlay(f: &mut Frame, _app: &App, colors: &ThemeColors) {
     f.render_widget(Clear, area);
 
     let help_text = vec![
-        Line::from(vec![Span::styled("openre-scan TUI - Keyboard Shortcuts", Style::default().fg(colors.accent_bold).add_modifier(Modifier::BOLD))]),
+        Line::from(vec![Span::styled(
+            "openre-scan TUI - Keyboard Shortcuts",
+            Style::default().fg(colors.accent_bold).add_modifier(Modifier::BOLD),
+        )]),
         Line::from(""),
-        Line::from(vec![Span::styled("Navigation:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD))]),
-        Line::from(vec![Span::styled("  Tab / Shift+Tab", Style::default().fg(colors.warning)), Span::raw(" - Switch between tabs")]),
-        Line::from(vec![Span::styled("  j / k / ↓ / ↑", Style::default().fg(colors.warning)), Span::raw(" - Navigate lists up/down")]),
-        Line::from(vec![Span::styled("  g / G", Style::default().fg(colors.warning)), Span::raw(" - Go to top/bottom of list")]),
-        Line::from(vec![Span::styled("  Enter", Style::default().fg(colors.warning)), Span::raw(" - Start scan / Select item / View detail")]),
+        Line::from(vec![Span::styled(
+            "Navigation:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
+        Line::from(vec![
+            Span::styled("  Tab / Shift+Tab", Style::default().fg(colors.warning)),
+            Span::raw(" - Switch between tabs"),
+        ]),
+        Line::from(vec![
+            Span::styled("  j / k / ↓ / ↑", Style::default().fg(colors.warning)),
+            Span::raw(" - Navigate lists up/down"),
+        ]),
+        Line::from(vec![
+            Span::styled("  g / G", Style::default().fg(colors.warning)),
+            Span::raw(" - Go to top/bottom of list"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Enter", Style::default().fg(colors.warning)),
+            Span::raw(" - Start scan / Select item / View detail"),
+        ]),
         Line::from(""),
-        Line::from(vec![Span::styled("Findings Tab:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD))]),
-        Line::from(vec![Span::styled("  /", Style::default().fg(colors.warning)), Span::raw(" - Search findings by title/description")]),
-        Line::from(vec![Span::styled("  s", Style::default().fg(colors.warning)), Span::raw(" - Cycle severity filter (Critical → High → Medium → Low → Info → Off)")]),
-        Line::from(vec![Span::styled("  f", Style::default().fg(colors.warning)), Span::raw(" - Toggle filter mode")]),
-        Line::from(vec![Span::styled("  e", Style::default().fg(colors.warning)), Span::raw(" - Export findings (TODO)")]),
-        Line::from(vec![Span::styled("  r", Style::default().fg(colors.warning)), Span::raw(" - Rescan current target")]),
+        Line::from(vec![Span::styled(
+            "Findings Tab:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
+        Line::from(vec![
+            Span::styled("  /", Style::default().fg(colors.warning)),
+            Span::raw(" - Search findings by title/description"),
+        ]),
+        Line::from(vec![
+            Span::styled("  s", Style::default().fg(colors.warning)),
+            Span::raw(" - Cycle severity filter (Critical → High → Medium → Low → Info → Off)"),
+        ]),
+        Line::from(vec![
+            Span::styled("  f", Style::default().fg(colors.warning)),
+            Span::raw(" - Toggle filter mode"),
+        ]),
+        Line::from(vec![
+            Span::styled("  e", Style::default().fg(colors.warning)),
+            Span::raw(" - Export findings (TODO)"),
+        ]),
+        Line::from(vec![
+            Span::styled("  r", Style::default().fg(colors.warning)),
+            Span::raw(" - Rescan current target"),
+        ]),
         Line::from(""),
-        Line::from(vec![Span::styled("Settings Tab:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD))]),
-        Line::from(vec![Span::styled("  1/2/3", Style::default().fg(colors.warning)), Span::raw(" - Quick/Standard/Full scan profile")]),
-        Line::from(vec![Span::styled("  4/5/6", Style::default().fg(colors.warning)), Span::raw(" - Table/JSON/SARIF output format")]),
-        Line::from(vec![Span::styled("  t", Style::default().fg(colors.warning)), Span::raw(" - Cycle theme")]),
+        Line::from(vec![Span::styled(
+            "Settings Tab:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
+        Line::from(vec![
+            Span::styled("  1/2/3", Style::default().fg(colors.warning)),
+            Span::raw(" - Quick/Standard/Full scan profile"),
+        ]),
+        Line::from(vec![
+            Span::styled("  4/5/6", Style::default().fg(colors.warning)),
+            Span::raw(" - Table/JSON/SARIF output format"),
+        ]),
+        Line::from(vec![
+            Span::styled("  t", Style::default().fg(colors.warning)),
+            Span::raw(" - Cycle theme"),
+        ]),
         Line::from(""),
-        Line::from(vec![Span::styled("Global:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD))]),
-        Line::from(vec![Span::styled("  F1", Style::default().fg(colors.warning)), Span::raw(" - Toggle this help")]),
-        Line::from(vec![Span::styled("  F2", Style::default().fg(colors.warning)), Span::raw(" - Cycle theme (Dark/Light/HighContrast)")]),
-        Line::from(vec![Span::styled("  Ctrl+Q / Ctrl+C", Style::default().fg(colors.warning)), Span::raw(" - Quit application")]),
-        Line::from(vec![Span::styled("  Esc", Style::default().fg(colors.warning)), Span::raw(" - Close dialog/overlay")]),
+        Line::from(vec![Span::styled(
+            "Global:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
+        Line::from(vec![
+            Span::styled("  F1", Style::default().fg(colors.warning)),
+            Span::raw(" - Toggle this help"),
+        ]),
+        Line::from(vec![
+            Span::styled("  F2", Style::default().fg(colors.warning)),
+            Span::raw(" - Cycle theme (Dark/Light/HighContrast)"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Ctrl+Q / Ctrl+C", Style::default().fg(colors.warning)),
+            Span::raw(" - Quit application"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Esc", Style::default().fg(colors.warning)),
+            Span::raw(" - Close dialog/overlay"),
+        ]),
     ];
 
     let help = Paragraph::new(Text::from(help_text))
         .style(Style::default().fg(colors.fg))
-        .block(Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(colors.accent))
-            .title(" Help (F1/Esc to close) ")
-            .title_style(Style::default().fg(colors.accent_bold)))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors.accent))
+                .title(" Help (F1/Esc to close) ")
+                .title_style(Style::default().fg(colors.accent_bold)),
+        )
         .wrap(Wrap { trim: true });
 
     f.render_widget(help, area);
@@ -1270,15 +1440,16 @@ fn render_search_overlay(f: &mut Frame, app: &App, colors: &ThemeColors) {
     let area = centered_rect(60, 20, f.size());
     f.render_widget(Clear, area);
 
-    let search_text = format!("Search: {}{}", app.search_query, if app.search_query.len() % 2 == 0 { "█" } else { "" });
+    // Show a static cursor block for better visibility
+    let search_text = format!("Search: {}█", app.search_query);
 
-    let search = Paragraph::new(search_text)
-        .style(Style::default().fg(colors.fg))
-        .block(Block::default()
+    let search = Paragraph::new(search_text).style(Style::default().fg(colors.fg)).block(
+        Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(colors.accent))
             .title(" Search (Enter to confirm, Esc to cancel) ")
-            .title_style(Style::default().fg(colors.accent_bold)));
+            .title_style(Style::default().fg(colors.accent_bold)),
+    );
 
     f.render_widget(search, area);
 }
@@ -1300,7 +1471,10 @@ fn render_detail_overlay(f: &mut Frame, app: &App, colors: &ThemeColors) {
         Line::from(vec![
             Span::styled(sev_icon, Style::default().fg(sev_color)),
             Span::raw(" "),
-            Span::styled(&finding.title, Style::default().fg(colors.fg).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                &finding.title,
+                Style::default().fg(colors.fg).add_modifier(Modifier::BOLD),
+            ),
         ]),
         Line::from(""),
         Line::from(vec![
@@ -1318,10 +1492,16 @@ fn render_detail_overlay(f: &mut Frame, app: &App, colors: &ThemeColors) {
             Span::styled(&finding.plugin_source, Style::default().fg(colors.fg)),
         ]),
         Line::from(""),
-        Line::from(vec![Span::styled("Description:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD))]),
+        Line::from(vec![Span::styled(
+            "Description:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
         Line::from(finding.description.clone()),
         Line::from(""),
-        Line::from(vec![Span::styled("Evidence:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD))]),
+        Line::from(vec![Span::styled(
+            "Evidence:",
+            Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        )]),
         Line::from(""),
     ];
 
@@ -1341,9 +1521,10 @@ fn render_detail_overlay(f: &mut Frame, app: &App, colors: &ThemeColors) {
     }
 
     detail_lines.push(Line::from(""));
-    detail_lines.push(Line::from(vec![
-        Span::styled("Remediation:", Style::default().fg(colors.accent).add_modifier(Modifier::BOLD)),
-    ]));
+    detail_lines.push(Line::from(vec![Span::styled(
+        "Remediation:",
+        Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+    )]));
 
     if let Some(remediation) = &finding.remediation {
         detail_lines.push(Line::from(vec![
@@ -1356,23 +1537,27 @@ fn render_detail_overlay(f: &mut Frame, app: &App, colors: &ThemeColors) {
                 Span::styled(step, Style::default().fg(colors.fg)),
             ]));
         }
-        detail_lines.push(Line::from(vec![
-            Span::styled(format!("  Effort: {:?}, Priority: {:?}", remediation.effort, remediation.priority), Style::default().fg(colors.muted)),
-        ]));
+        detail_lines.push(Line::from(vec![Span::styled(
+            format!("  Effort: {:?}, Priority: {:?}", remediation.effort, remediation.priority),
+            Style::default().fg(colors.muted),
+        )]));
     }
 
     detail_lines.push(Line::from(""));
-    detail_lines.push(Line::from(vec![
-        Span::styled("[e] Export  [c] Copy  [Esc] Close", Style::default().fg(colors.warning)),
-    ]));
+    detail_lines.push(Line::from(vec![Span::styled(
+        "[e] Export  [c] Copy  [Esc] Close",
+        Style::default().fg(colors.warning),
+    )]));
 
     let detail = Paragraph::new(Text::from(detail_lines))
         .style(Style::default().fg(colors.fg))
-        .block(Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(colors.accent))
-            .title(" Finding Detail ")
-            .title_style(Style::default().fg(colors.accent_bold)))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors.accent))
+                .title(" Finding Detail ")
+                .title_style(Style::default().fg(colors.accent_bold)),
+        )
         .wrap(Wrap { trim: true });
 
     f.render_widget(detail, area);

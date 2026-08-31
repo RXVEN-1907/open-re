@@ -4,7 +4,7 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use colored::Colorize;
-use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use openre_core::ids::ScanId;
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
@@ -53,8 +53,14 @@ pub mod tui;
 fn print_banner() {
     println!("{}", ASCII_BANNER.bright_cyan().bold());
     println!("{}", "Open-source Reverse Engineering & Offensive Security Platform".bright_white());
-    println!("{}", "Modern security tools + LLMs for automated binary, web, API & app analysis".dimmed());
-    println!("{}", "Discover vulnerabilities • Generate PoC exploits • Actionable remediation".dimmed());
+    println!(
+        "{}",
+        "Modern security tools + LLMs for automated binary, web, API & app analysis".dimmed()
+    );
+    println!(
+        "{}",
+        "Discover vulnerabilities • Generate PoC exploits • Actionable remediation".dimmed()
+    );
     println!();
 }
 
@@ -86,9 +92,7 @@ fn terminal_width() -> Option<usize> {
         }
     }
     // Fallback to env var
-    std::env::var("COLUMNS")
-        .ok()
-        .and_then(|s| s.parse().ok())
+    std::env::var("COLUMNS").ok().and_then(|s| s.parse().ok())
 }
 
 /// Animated spinner for startup
@@ -110,9 +114,13 @@ async fn show_startup_animation() {
 #[derive(Parser, Debug)]
 #[command(name = "openre-scan")]
 #[command(about = "Lightweight Security Scanner")]
-#[command(long_about = "openre-scan: Lightweight standalone security scanner for web applications and APIs\n\nA minimal, fast security assessment tool with 18+ security checks across three scan profiles.\nPart of the open-re platform: https://github.com/RXVEN-1907/open-re")]
+#[command(
+    long_about = "openre-scan: Lightweight standalone security scanner for web applications and APIs\n\nA minimal, fast security assessment tool with 18+ security checks across three scan profiles.\nPart of the open-re platform: https://github.com/RXVEN-1907/open-re"
+)]
 #[command(version)]
-#[command(after_help = "Examples:\n  openre-scan scan https://example.com --profile quick\n  openre-scan scan https://example.com --profile standard --format json\n  openre-scan scan https://example.com --profile full --output results.sarif\n  openre-scan tui\n\nFor more information, visit: https://github.com/RXVEN-1907/open-re")]
+#[command(
+    after_help = "Examples:\n  openre-scan scan https://example.com --profile quick\n  openre-scan scan https://example.com --profile standard --format json\n  openre-scan scan https://example.com --profile full --output results.sarif\n  openre-scan tui\n\nFor more information, visit: https://github.com/RXVEN-1907/open-re"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -234,11 +242,7 @@ async fn main() -> anyhow::Result<()> {
         colored::control::set_override(false);
     }
 
-    let level = if cli.verbose {
-        Level::DEBUG
-    } else {
-        Level::INFO
-    };
+    let level = if cli.verbose { Level::DEBUG } else { Level::INFO };
     let filter = EnvFilter::new(level.to_string());
     fmt().with_env_filter(filter).compact().init();
 
@@ -313,10 +317,8 @@ pub async fn run_scan_internal(
     let client = build_client(timeout, max_redirects, false, user_agent, None)?;
 
     let all_checks = get_all_checks(&profile);
-    let checks_to_run: Vec<Check> = all_checks
-        .into_iter()
-        .filter(|c| c.name() != "sensitive-files")
-        .collect();
+    let checks_to_run: Vec<Check> =
+        all_checks.into_iter().filter(|c| c.name() != "sensitive-files").collect();
 
     let mut all_findings = Vec::new();
 
@@ -373,16 +375,10 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
     let checks_to_run: Vec<Check> = all_checks
         .into_iter()
         .filter(|c| {
-            let should_run = config
-                .checks
-                .as_ref()
-                .map(|cs| cs.iter().any(|s| s == c.name()))
-                .unwrap_or(true);
-            let should_exclude = config
-                .exclude
-                .as_ref()
-                .map(|es| es.iter().any(|s| s == c.name()))
-                .unwrap_or(false);
+            let should_run =
+                config.checks.as_ref().map(|cs| cs.iter().any(|s| s == c.name())).unwrap_or(true);
+            let should_exclude =
+                config.exclude.as_ref().map(|es| es.iter().any(|s| s == c.name())).unwrap_or(false);
             should_run && !should_exclude
         })
         .collect();
@@ -395,10 +391,27 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
     let line_bot = format!("{}", "└".dimmed()) + &"─".repeat(78) + &format!("{}", "┘".dimmed());
 
     println!("{}", line_top);
-    println!("{} {:<76} {}", "│".dimmed(), "🔍 openre-scan — Security Scan".bold().bright_cyan(), "│".dimmed());
+    println!(
+        "{} {:<76} {}",
+        "│".dimmed(),
+        "🔍 openre-scan — Security Scan".bold().bright_cyan(),
+        "│".dimmed()
+    );
     println!("{}", line_mid);
-    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Target:".bold(), config.target_str.bright_white(), "│".dimmed());
-    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Profile:".bold(), format!("{:?} ({} checks)", config.profile, checks_count).bright_white(), "│".dimmed());
+    println!(
+        "{} {:<20} {:<56} {}",
+        "│".dimmed(),
+        "Target:".bold(),
+        config.target_str.bright_white(),
+        "│".dimmed()
+    );
+    println!(
+        "{} {:<20} {:<56} {}",
+        "│".dimmed(),
+        "Profile:".bold(),
+        format!("{:?} ({} checks)", config.profile, checks_count).bright_white(),
+        "│".dimmed()
+    );
     println!("{}", line_bot);
     println!();
 
@@ -406,7 +419,8 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
     println!("{}", "📋 Checks to run:".bold().bright_blue());
     for (i, check) in checks_to_run.iter().enumerate() {
         let check_info = get_check_description(check);
-        println!("  {}. {} {}",
+        println!(
+            "  {}. {} {}",
             format!("{:2}", i + 1).dimmed(),
             check.name().bright_cyan(),
             check_info.dimmed()
@@ -419,7 +433,9 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
         let pb = multi_progress.add(ProgressBar::new(checks_count as u64));
         pb.set_style(
             ProgressStyle::default_bar()
-                .template("{spinner:.green} {msg:<40} [{bar:40.cyan/blue}] {pos}/{len} ({percent}%)")
+                .template(
+                    "{spinner:.green} {msg:<40} [{bar:40.cyan/blue}] {pos}/{len} ({percent}%)",
+                )
                 .unwrap()
                 .progress_chars("█▉▊▋▌▍▎▏ "),
         );
@@ -449,10 +465,12 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
                             Severity::Low => "🟢".to_string(),
                             Severity::Info => "🔵".to_string(),
                         };
-                        println!("  {} {} {} [{}]",
+                        println!(
+                            "  {} {} {} [{}]",
                             "✓".green(),
                             finding.title.bright_white(),
-                            format!("({})", finding.severity).color(severity_color(&finding.severity)),
+                            format!("({})", finding.severity)
+                                .color(severity_color(&finding.severity)),
                             check.name().dimmed()
                         );
                     }
@@ -462,10 +480,20 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
             Err(e) => {
                 if let Some(pb) = &progress_bar {
                     pb.suspend(|| {
-                        eprintln!("{} {} failed: {}", "✗".red().bold(), check.name().bright_yellow(), e);
+                        eprintln!(
+                            "{} {} failed: {}",
+                            "✗".red().bold(),
+                            check.name().bright_yellow(),
+                            e
+                        );
                     });
                 } else {
-                    eprintln!("{} {} failed: {}", "✗".red().bold(), check.name().bright_yellow(), e);
+                    eprintln!(
+                        "{} {} failed: {}",
+                        "✗".red().bold(),
+                        check.name().bright_yellow(),
+                        e
+                    );
                 }
             }
         }
@@ -489,10 +517,34 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
     println!("{}", line_top);
     println!("{} {:<76} {}", "│".dimmed(), "📋 Scan Results".bold().bright_green(), "│".dimmed());
     println!("{}", line_mid);
-    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Scan ID:".bold(), scan_id.to_string().bright_white(), "│".dimmed());
-    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Duration:".bold(), format!("{:.2}s", duration.as_secs_f32()).bright_white(), "│".dimmed());
-    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Checks Run:".bold(), checks_count.to_string().bright_white(), "│".dimmed());
-    println!("{} {:<20} {:<56} {}", "│".dimmed(), "Findings:".bold(), all_findings.len().to_string().bright_white(), "│".dimmed());
+    println!(
+        "{} {:<20} {:<56} {}",
+        "│".dimmed(),
+        "Scan ID:".bold(),
+        scan_id.to_string().bright_white(),
+        "│".dimmed()
+    );
+    println!(
+        "{} {:<20} {:<56} {}",
+        "│".dimmed(),
+        "Duration:".bold(),
+        format!("{:.2}s", duration.as_secs_f32()).bright_white(),
+        "│".dimmed()
+    );
+    println!(
+        "{} {:<20} {:<56} {}",
+        "│".dimmed(),
+        "Checks Run:".bold(),
+        checks_count.to_string().bright_white(),
+        "│".dimmed()
+    );
+    println!(
+        "{} {:<20} {:<56} {}",
+        "│".dimmed(),
+        "Findings:".bold(),
+        all_findings.len().to_string().bright_white(),
+        "│".dimmed()
+    );
     println!("{}", line_bot);
     println!();
 
@@ -558,13 +610,8 @@ fn print_severity_summary(findings: &[Finding]) {
     }
 
     println!("{}", "📊 Findings by Severity:".bold().bright_blue());
-    for sev in [
-        Severity::Critical,
-        Severity::High,
-        Severity::Medium,
-        Severity::Low,
-        Severity::Info,
-    ] {
+    for sev in [Severity::Critical, Severity::High, Severity::Medium, Severity::Low, Severity::Info]
+    {
         if let Some(count) = counts.get(&sev) {
             let (icon, color) = match sev {
                 Severity::Critical => ("🔴", "red"),
@@ -740,10 +787,7 @@ async fn check_http_headers(client: &Client, target: &Url) -> anyhow::Result<Vec
     if let Some(server) = headers.get("server") {
         let finding = Finding::new(FindingConfig {
             title: "Server Header Disclosure".to_string(),
-            description: format!(
-                "Server header reveals: {}",
-                server.to_str().unwrap_or("unknown")
-            ),
+            description: format!("Server header reveals: {}", server.to_str().unwrap_or("unknown")),
             severity: Severity::Info,
             confidence: Confidence::High,
             category: Category::InformationDisclosure,
@@ -753,12 +797,12 @@ async fn check_http_headers(client: &Client, target: &Url) -> anyhow::Result<Vec
             plugin_version: "1.0".to_string(),
             scan_id: scan_id(),
         });
-        let evidence = Evidence::new(
-            EvidenceType::HttpResponse,
-            "Server header present".to_string(),
-        )
-        .with_data(serde_json::json!({"header": "server", "value": server.to_str().unwrap_or("")}))
-        .with_location(target.to_string());
+        let evidence =
+            Evidence::new(EvidenceType::HttpResponse, "Server header present".to_string())
+                .with_data(
+                    serde_json::json!({"header": "server", "value": server.to_str().unwrap_or("")}),
+                )
+                .with_location(target.to_string());
         findings.push(finding.with_evidence(evidence));
     }
 
@@ -798,12 +842,7 @@ async fn check_security_headers(client: &Client, target: &Url) -> anyhow::Result
     let headers = response.headers();
 
     let security_headers = [
-        (
-            "x-frame-options",
-            "X-Frame-Options",
-            Severity::Medium,
-            "Clickjacking protection",
-        ),
+        ("x-frame-options", "X-Frame-Options", Severity::Medium, "Clickjacking protection"),
         (
             "x-content-type-options",
             "X-Content-Type-Options",
@@ -822,30 +861,10 @@ async fn check_security_headers(client: &Client, target: &Url) -> anyhow::Result
             Severity::High,
             "Content Security Policy",
         ),
-        (
-            "referrer-policy",
-            "Referrer-Policy",
-            Severity::Medium,
-            "Referrer policy",
-        ),
-        (
-            "permissions-policy",
-            "Permissions-Policy",
-            Severity::Low,
-            "Feature policy",
-        ),
-        (
-            "cross-origin-opener-policy",
-            "Cross-Origin-Opener-Policy",
-            Severity::Low,
-            "COOP",
-        ),
-        (
-            "cross-origin-resource-policy",
-            "Cross-Origin-Resource-Policy",
-            Severity::Low,
-            "CORP",
-        ),
+        ("referrer-policy", "Referrer-Policy", Severity::Medium, "Referrer policy"),
+        ("permissions-policy", "Permissions-Policy", Severity::Low, "Feature policy"),
+        ("cross-origin-opener-policy", "Cross-Origin-Opener-Policy", Severity::Low, "COOP"),
+        ("cross-origin-resource-policy", "Cross-Origin-Resource-Policy", Severity::Low, "CORP"),
     ];
 
     for (header_name, display_name, severity, description) in security_headers {
@@ -870,18 +889,11 @@ async fn check_security_headers(client: &Client, target: &Url) -> anyhow::Result
             .with_location(target.to_string());
             let remediation = RemediationGuidance::new(
                 format!("Add {} header", display_name),
-                vec![format!(
-                    "Add the {} header to your HTTP responses",
-                    display_name
-                )],
+                vec![format!("Add the {} header to your HTTP responses", display_name)],
                 RemediationEffort::Low,
                 RemediationPriority::High,
             );
-            findings.push(
-                finding
-                    .with_evidence(evidence)
-                    .with_remediation(remediation),
-            );
+            findings.push(finding.with_evidence(evidence).with_remediation(remediation));
         }
     }
 
@@ -921,11 +933,7 @@ async fn check_cookie_security(client: &Client, target: &Url) -> anyhow::Result<
                     RemediationEffort::Low,
                     RemediationPriority::High,
                 );
-                findings.push(
-                    finding
-                        .with_evidence(evidence)
-                        .with_remediation(remediation),
-                );
+                findings.push(finding.with_evidence(evidence).with_remediation(remediation));
             }
 
             if !cookie.to_lowercase().contains("httponly") {
@@ -953,11 +961,7 @@ async fn check_cookie_security(client: &Client, target: &Url) -> anyhow::Result<
                     RemediationEffort::Low,
                     RemediationPriority::High,
                 );
-                findings.push(
-                    finding
-                        .with_evidence(evidence)
-                        .with_remediation(remediation),
-                );
+                findings.push(finding.with_evidence(evidence).with_remediation(remediation));
             }
 
             if !cookie.to_lowercase().contains("samesite") {
@@ -1075,12 +1079,10 @@ async fn check_csp(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>
                 plugin_version: "1.0".to_string(),
                 scan_id: scan_id(),
             });
-            let evidence = Evidence::new(
-                EvidenceType::HttpResponse,
-                "CSP with unsafe-inline".to_string(),
-            )
-            .with_data(serde_json::json!({"csp": csp_str}))
-            .with_location(target.to_string());
+            let evidence =
+                Evidence::new(EvidenceType::HttpResponse, "CSP with unsafe-inline".to_string())
+                    .with_data(serde_json::json!({"csp": csp_str}))
+                    .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
 
@@ -1097,12 +1099,10 @@ async fn check_csp(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding>
                 plugin_version: "1.0".to_string(),
                 scan_id: scan_id(),
             });
-            let evidence = Evidence::new(
-                EvidenceType::HttpResponse,
-                "CSP with unsafe-eval".to_string(),
-            )
-            .with_data(serde_json::json!({"csp": csp_str}))
-            .with_location(target.to_string());
+            let evidence =
+                Evidence::new(EvidenceType::HttpResponse, "CSP with unsafe-eval".to_string())
+                    .with_data(serde_json::json!({"csp": csp_str}))
+                    .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
 
@@ -1176,12 +1176,10 @@ async fn check_cors(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding
                 plugin_version: "1.0".to_string(),
                 scan_id: scan_id(),
             });
-            let evidence = Evidence::new(
-                EvidenceType::HttpResponse,
-                "CORS wildcard origin".to_string(),
-            )
-            .with_data(serde_json::json!({"acao": acao_str}))
-            .with_location(target.to_string());
+            let evidence =
+                Evidence::new(EvidenceType::HttpResponse, "CORS wildcard origin".to_string())
+                    .with_data(serde_json::json!({"acao": acao_str}))
+                    .with_location(target.to_string());
             let remediation = RemediationGuidance::new(
                 "Restrict CORS origins".to_string(),
                 vec![
@@ -1191,11 +1189,7 @@ async fn check_cors(client: &Client, target: &Url) -> anyhow::Result<Vec<Finding
                 RemediationEffort::Low,
                 RemediationPriority::Medium,
             );
-            findings.push(
-                finding
-                    .with_evidence(evidence)
-                    .with_remediation(remediation),
-            );
+            findings.push(finding.with_evidence(evidence).with_remediation(remediation));
         }
     }
 
@@ -1234,13 +1228,7 @@ async fn check_information_disclosure(
     let response = client.get(target.as_str()).send().await?;
     let headers = response.headers();
 
-    let debug_headers = [
-        "x-debug-token",
-        "x-drupal-cache",
-        "x-varnish",
-        "via",
-        "x-cache",
-    ];
+    let debug_headers = ["x-debug-token", "x-drupal-cache", "x-varnish", "via", "x-cache"];
     for header in debug_headers {
         if headers.contains_key(header) {
             let finding = Finding::new(FindingConfig {
@@ -1279,12 +1267,10 @@ async fn check_information_disclosure(
                 plugin_version: "1.0".to_string(),
                 scan_id: scan_id(),
             });
-            let evidence = Evidence::new(
-                EvidenceType::HttpResponse,
-                "Server version disclosed".to_string(),
-            )
-            .with_data(serde_json::json!({"server": server_str}))
-            .with_location(target.to_string());
+            let evidence =
+                Evidence::new(EvidenceType::HttpResponse, "Server version disclosed".to_string())
+                    .with_data(serde_json::json!({"server": server_str}))
+                    .with_location(target.to_string());
             findings.push(finding.with_evidence(evidence));
         }
     }
@@ -1396,12 +1382,12 @@ async fn check_robots_txt(client: &Client, target: &Url) -> anyhow::Result<Vec<F
                 plugin_version: "1.0".to_string(),
                 scan_id: scan_id(),
             });
-            let evidence = Evidence::new(
-                EvidenceType::HttpResponse,
-                "robots.txt accessible".to_string(),
-            )
-            .with_data(serde_json::json!({"content": body.chars().take(500).collect::<String>()}))
-            .with_location(robots_url.to_string());
+            let evidence =
+                Evidence::new(EvidenceType::HttpResponse, "robots.txt accessible".to_string())
+                    .with_data(
+                        serde_json::json!({"content": body.chars().take(500).collect::<String>()}),
+                    )
+                    .with_location(robots_url.to_string());
             findings.push(finding.with_evidence(evidence));
 
             for line in body.lines() {
@@ -1460,11 +1446,9 @@ async fn check_sitemap(client: &Client, target: &Url) -> anyhow::Result<Vec<Find
                 plugin_version: "1.0".to_string(),
                 scan_id: scan_id(),
             });
-            let evidence = Evidence::new(
-                EvidenceType::HttpResponse,
-                "sitemap.xml accessible".to_string(),
-            )
-            .with_location(sitemap_url.to_string());
+            let evidence =
+                Evidence::new(EvidenceType::HttpResponse, "sitemap.xml accessible".to_string())
+                    .with_location(sitemap_url.to_string());
             findings.push(finding.with_evidence(evidence));
         }
         Ok(_) => {}
@@ -1506,12 +1490,10 @@ async fn check_directory_listing(client: &Client, target: &Url) -> anyhow::Resul
                 plugin_version: "1.0".to_string(),
                 scan_id: scan_id(),
             });
-            let evidence = Evidence::new(
-                EvidenceType::HttpResponse,
-                "Directory listing detected".to_string(),
-            )
-            .with_data(serde_json::json!({"indicator": indicator}))
-            .with_location(target.to_string());
+            let evidence =
+                Evidence::new(EvidenceType::HttpResponse, "Directory listing detected".to_string())
+                    .with_data(serde_json::json!({"indicator": indicator}))
+                    .with_location(target.to_string());
             let remediation = RemediationGuidance::new(
                 "Disable directory listing".to_string(),
                 vec![
@@ -1521,11 +1503,7 @@ async fn check_directory_listing(client: &Client, target: &Url) -> anyhow::Resul
                 RemediationEffort::Low,
                 RemediationPriority::High,
             );
-            findings.push(
-                finding
-                    .with_evidence(evidence)
-                    .with_remediation(remediation),
-            );
+            findings.push(finding.with_evidence(evidence).with_remediation(remediation));
             break;
         }
     }
@@ -1606,10 +1584,8 @@ async fn check_forms(client: &Client, target: &Url) -> anyhow::Result<Vec<Findin
         let action = form.attr("action").unwrap_or("");
         let method = form.attr("method").unwrap_or("GET").to_uppercase();
 
-        let password_inputs = form
-            .find(Name("input"))
-            .filter(|n| n.attr("type") == Some("password"))
-            .count();
+        let password_inputs =
+            form.find(Name("input")).filter(|n| n.attr("type") == Some("password")).count();
 
         if password_inputs > 0 && method == "GET" {
             let finding = Finding::new(FindingConfig {
@@ -1626,12 +1602,10 @@ async fn check_forms(client: &Client, target: &Url) -> anyhow::Result<Vec<Findin
                 plugin_version: "1.0".to_string(),
                 scan_id: scan_id(),
             });
-            let evidence = Evidence::new(
-                EvidenceType::HttpResponse,
-                "Password field in GET form".to_string(),
-            )
-            .with_data(serde_json::json!({"action": action, "method": method}))
-            .with_location(target.to_string());
+            let evidence =
+                Evidence::new(EvidenceType::HttpResponse, "Password field in GET form".to_string())
+                    .with_data(serde_json::json!({"action": action, "method": method}))
+                    .with_location(target.to_string());
             let remediation = RemediationGuidance::new(
                 "Use POST for forms with password fields".to_string(),
                 vec![
@@ -1641,11 +1615,7 @@ async fn check_forms(client: &Client, target: &Url) -> anyhow::Result<Vec<Findin
                 RemediationEffort::Low,
                 RemediationPriority::Immediate,
             );
-            findings.push(
-                finding
-                    .with_evidence(evidence)
-                    .with_remediation(remediation),
-            );
+            findings.push(finding.with_evidence(evidence).with_remediation(remediation));
         }
 
         let autocomplete = form.attr("autocomplete");
@@ -1708,10 +1678,7 @@ async fn check_links(client: &Client, target: &Url) -> anyhow::Result<Vec<Findin
     let body = response.text().await.unwrap_or_default();
 
     let document = Document::from(body.as_str());
-    let links = document
-        .find(Name("a"))
-        .filter_map(|n| n.attr("href"))
-        .collect::<Vec<_>>();
+    let links = document.find(Name("a")).filter_map(|n| n.attr("href")).collect::<Vec<_>>();
 
     let mut _external_links = 0;
     let mut http_links = 0;
@@ -1776,10 +1743,7 @@ async fn check_scripts(client: &Client, target: &Url) -> anyhow::Result<Vec<Find
     let body = response.text().await.unwrap_or_default();
 
     let document = Document::from(body.as_str());
-    let scripts = document
-        .find(Name("script"))
-        .filter_map(|n| n.attr("src"))
-        .collect::<Vec<_>>();
+    let scripts = document.find(Name("script")).filter_map(|n| n.attr("src")).collect::<Vec<_>>();
 
     for script in scripts {
         if script.starts_with("http://") {
@@ -1803,17 +1767,11 @@ async fn check_scripts(client: &Client, target: &Url) -> anyhow::Result<Vec<Find
         }
     }
 
-    let inline_scripts = document
-        .find(Name("script"))
-        .filter(|n| n.attr("src").is_none())
-        .count();
+    let inline_scripts = document.find(Name("script")).filter(|n| n.attr("src").is_none()).count();
     if inline_scripts > 0 {
         let finding = Finding::new(FindingConfig {
             title: "Inline Scripts Detected".to_string(),
-            description: format!(
-                "Found {} inline script(s) which may violate CSP",
-                inline_scripts
-            ),
+            description: format!("Found {} inline script(s) which may violate CSP", inline_scripts),
             severity: Severity::Info,
             confidence: Confidence::Medium,
             category: Category::SecurityMisconfiguration,
@@ -1823,12 +1781,10 @@ async fn check_scripts(client: &Client, target: &Url) -> anyhow::Result<Vec<Find
             plugin_version: "1.0".to_string(),
             scan_id: scan_id(),
         });
-        let evidence = Evidence::new(
-            EvidenceType::HttpResponse,
-            "Inline scripts found".to_string(),
-        )
-        .with_data(serde_json::json!({"count": inline_scripts}))
-        .with_location(target.to_string());
+        let evidence =
+            Evidence::new(EvidenceType::HttpResponse, "Inline scripts found".to_string())
+                .with_data(serde_json::json!({"count": inline_scripts}))
+                .with_location(target.to_string());
         findings.push(finding.with_evidence(evidence));
     }
 
@@ -2036,13 +1992,8 @@ fn print_table_results(
     }
 
     println!("\n{}", "📊 Summary by Severity".bold());
-    for sev in [
-        Severity::Critical,
-        Severity::High,
-        Severity::Medium,
-        Severity::Low,
-        Severity::Info,
-    ] {
+    for sev in [Severity::Critical, Severity::High, Severity::Medium, Severity::Low, Severity::Info]
+    {
         if let Some(count) = severity_counts.get(&sev) {
             let color = match sev {
                 Severity::Critical => "red",
@@ -2180,7 +2131,11 @@ fn show_version() {
     print_banner();
     println!("{} {}", "Version:".bold(), env!("CARGO_PKG_VERSION").bright_white());
     println!("{} {}", "Component:".bold(), "openre-scan (standalone scanner)".bright_white());
-    println!("{} {}", "Repository:".bold(), "https://github.com/RXVEN-1907/open-re".bright_blue().underline());
+    println!(
+        "{} {}",
+        "Repository:".bold(),
+        "https://github.com/RXVEN-1907/open-re".bright_blue().underline()
+    );
     println!("{} {}", "Platform:".bold(), "open-re v0.2.0-dev".bright_white());
     println!();
     println!("{}", "Part of the open-re platform:".dimmed());
@@ -2267,13 +2222,6 @@ impl RemediationGuidanceExt for RemediationGuidance {
         effort: RemediationEffort,
         priority: RemediationPriority,
     ) -> Self {
-        Self {
-            summary,
-            steps,
-            code_examples: Vec::new(),
-            references: Vec::new(),
-            effort,
-            priority,
-        }
+        Self { summary, steps, code_examples: Vec::new(), references: Vec::new(), effort, priority }
     }
 }

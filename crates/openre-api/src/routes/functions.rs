@@ -46,9 +46,7 @@ async fn list_functions(
     let file_id: Option<FileId> = filter.file_id.as_deref().and_then(|s| s.parse().ok());
 
     if project_id.is_none() && file_id.is_none() {
-        return Err(crate::error::ApiError::BadRequest(
-            "project_id or file_id required".into(),
-        ));
+        return Err(crate::error::ApiError::BadRequest("project_id or file_id required".into()));
     }
 
     let _ = (state, claims);
@@ -80,9 +78,7 @@ async fn get_function(
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<FunctionResponse>> {
     // Would need project store to get function
-    Err(crate::error::ApiError::NotImplemented(
-        "Function retrieval not yet implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("Function retrieval not yet implemented".into()))
 }
 
 /// Get pseudocode
@@ -102,9 +98,7 @@ async fn get_pseudocode(
     Path(id): Path<FunctionId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<PseudocodeResponse>> {
-    Err(crate::error::ApiError::NotImplemented(
-        "Pseudocode retrieval not yet implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("Pseudocode retrieval not yet implemented".into()))
 }
 
 /// Get CFG
@@ -124,9 +118,7 @@ async fn get_cfg(
     Path(id): Path<FunctionId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<CfgResponse>> {
-    Err(crate::error::ApiError::NotImplemented(
-        "CFG retrieval not yet implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("CFG retrieval not yet implemented".into()))
 }
 
 /// Get xrefs
@@ -136,9 +128,7 @@ async fn get_xrefs(
     Extension(claims): Extension<crate::auth::Claims>,
     Query(params): Query<XrefParams>,
 ) -> ApiResult<Json<XrefResponse>> {
-    Err(crate::error::ApiError::NotImplemented(
-        "Xrefs retrieval not yet implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("Xrefs retrieval not yet implemented".into()))
 }
 
 /// Get annotations
@@ -147,9 +137,7 @@ async fn get_annotations(
     Path(id): Path<FunctionId>,
     Extension(claims): Extension<crate::auth::Claims>,
 ) -> ApiResult<Json<AnnotationsResponse>> {
-    Err(crate::error::ApiError::NotImplemented(
-        "Annotations retrieval not yet implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("Annotations retrieval not yet implemented".into()))
 }
 
 // Request/Response types

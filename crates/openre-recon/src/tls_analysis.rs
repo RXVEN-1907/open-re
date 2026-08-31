@@ -69,9 +69,7 @@ impl TlsAnalysisPlugin {
 
         // Parse URL to get hostname
         let parsed = url::Url::parse(url).map_err(crate::internal_err)?;
-        let host = parsed
-            .host_str()
-            .ok_or_else(|| anyhow::anyhow!("No host in URL"))?;
+        let host = parsed.host_str().ok_or_else(|| anyhow::anyhow!("No host in URL"))?;
         let port = parsed.port().unwrap_or(443);
 
         // Connect and get certificate
@@ -87,12 +85,7 @@ impl TlsAnalysisPlugin {
         result.cipher_suite = Some("TLS_AES_256_GCM_SHA384".to_string());
 
         // Check HSTS
-        let response = self
-            .client
-            .get(url)
-            .send()
-            .await
-            .map_err(crate::internal_err)?;
+        let response = self.client.get(url).send().await.map_err(crate::internal_err)?;
         if let Some(hsts) = response.headers().get("strict-transport-security") {
             result.hsts = Some(hsts.to_str().unwrap_or("").to_string());
         }
@@ -187,11 +180,7 @@ impl Plugin for TlsAnalysisPlugin {
             repository: "https://github.com/RXVEN-1907/open-re".to_string(),
             homepage: None,
             categories: vec!["reconnaissance".to_string()],
-            keywords: vec![
-                "tls".to_string(),
-                "ssl".to_string(),
-                "certificate".to_string(),
-            ],
+            keywords: vec!["tls".to_string(), "ssl".to_string(), "certificate".to_string()],
         }
     }
 
@@ -413,11 +402,7 @@ impl ReconPlugin for TlsAnalysisPlugin {
             );
         }
 
-        info!(
-            "TLS analysis completed for: {} - {} findings",
-            target_url,
-            findings.len()
-        );
+        info!("TLS analysis completed for: {} - {} findings", target_url, findings.len());
         Ok(findings)
     }
 }

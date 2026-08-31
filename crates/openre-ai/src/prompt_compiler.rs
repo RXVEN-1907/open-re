@@ -14,10 +14,7 @@ pub struct PromptCompiler {
 
 impl PromptCompiler {
     pub fn new() -> Self {
-        let mut compiler = Self {
-            templates: HashMap::new(),
-            few_shot_examples: HashMap::new(),
-        };
+        let mut compiler = Self { templates: HashMap::new(), few_shot_examples: HashMap::new() };
         compiler.register_builtin_templates();
         compiler
     }
@@ -202,10 +199,7 @@ Calling convention: System V AMD64"#
             if let Some(name) = func.name {
                 enriched_vars.insert("function_name".to_string(), name);
             }
-            enriched_vars.insert(
-                "function_address".to_string(),
-                format!("0x{:x}", func.address),
-            );
+            enriched_vars.insert("function_address".to_string(), format!("0x{:x}", func.address));
         }
 
         if let Ok(blocks) = project_store.get_basic_blocks(function_id).await {

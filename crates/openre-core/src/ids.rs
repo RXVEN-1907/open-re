@@ -20,6 +20,10 @@ macro_rules! define_id {
                 Self(uuid)
             }
 
+            pub fn from_str(s: &str) -> Result<Self, uuid::Error> {
+                Ok(Self(Uuid::parse_str(s)?))
+            }
+
             pub fn as_uuid(&self) -> Uuid {
                 self.0
             }
@@ -332,11 +336,76 @@ impl Capability {
 }
 
 /// Risk level for capabilities
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum RiskLevel {
     Low,
     Medium,
     High,
+}
+
+/// Capability set for a plugin
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CapabilitySet {
+    capabilities: std::collections::HashSet<Capability>,
+}
+
+impl CapabilitySet {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn from_iter(caps: impl IntoIterator<Item = Capability>) -> Self {
+        Self { capabilities: caps.into_iter().collect() }
+    }
+
+    pub fn add(&mut self, cap: Capability) {
+        self.capabilities.insert(cap);
+    }
+
+    pub fn remove(&mut self, cap: Capability) {
+        self.capabilities.remove(&cap);
+    }
+
+    pub fn has(&self, cap: Capability) -> bool {
+        self.capabilities.contains(&cap)
+    }
+
+    pub fn all(&self) -> impl Iterator<Item = Capability> + '_ {
+        self.capabilities.iter().copied()
+    }
+
+    pub fn highest_risk(&self) -> RiskLevel {
+        self.capabilities.iter().map(|c| c.risk_level()).max().unwrap_or(RiskLevel::Low)
+    }
+
+    pub fn requires_consent(&self) -> Vec<Capability> {
+        self.capabilities.iter().filter(|c| c.requires_user_consent()).copied().collect()
+    }
+}
+
+/// Capability request from plugin
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapabilityRequest {
+    pub capability: Capability,
+    pub justification: String,
+    pub required: bool,
+}
+
+/// Capability response to plugin
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapabilityResponse {
+    pub granted: bool,
+    pub reason: Option<String>,
+}
+
+/// Validate capabilities for a plugin type
+pub fn validate_capabilities(
+    _plugin_type: PluginType,
+    _capabilities: &[Capability],
+) -> anyhow::Result<()> {
+    // For now, accept any capability
+    // In a real implementation, this would validate against plugin type restrictions
+    Ok(())
 }
 
 /// File formats
@@ -401,29 +470,12 @@ impl Architecture {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum JobStatus {
-    Queued {
-        queued_at: chrono::DateTime<chrono::Utc>,
-    },
-    Running {
-        worker_id: WorkerId,
-        started_at: chrono::DateTime<chrono::Utc>,
-        stage: StageName,
-    },
-    Completed {
-        completed_at: chrono::DateTime<chrono::Utc>,
-    },
-    Failed {
-        error: String,
-        failed_at: chrono::DateTime<chrono::Utc>,
-        retryable: bool,
-    },
-    Cancelled {
-        cancelled_at: chrono::DateTime<chrono::Utc>,
-        reason: String,
-    },
-    Scheduled {
-        run_at: chrono::DateTime<chrono::Utc>,
-    },
+    Queued { queued_at: chrono::DateTime<chrono::Utc> },
+    Running { worker_id: WorkerId, started_at: chrono::DateTime<chrono::Utc>, stage: StageName },
+    Completed { completed_at: chrono::DateTime<chrono::Utc> },
+    Failed { error: String, failed_at: chrono::DateTime<chrono::Utc>, retryable: bool },
+    Cancelled { cancelled_at: chrono::DateTime<chrono::Utc>, reason: String },
+    Scheduled { run_at: chrono::DateTime<chrono::Utc> },
 }
 
 /// Job priority levels

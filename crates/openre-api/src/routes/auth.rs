@@ -43,9 +43,7 @@ async fn login(
 ) -> ApiResult<Json<LoginResponse>> {
     let _ = (state, payload);
     // User storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("user storage not implemented".into()))
 }
 
 /// Register
@@ -66,9 +64,7 @@ async fn register(
 ) -> ApiResult<Json<LoginResponse>> {
     let _ = (state, payload);
     // User storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("user storage not implemented".into()))
 }
 
 /// Refresh token
@@ -78,9 +74,7 @@ async fn refresh_token(
 ) -> ApiResult<Json<LoginResponse>> {
     let _ = (state, payload);
     // Refresh token persistence is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("user storage not implemented".into()))
 }
 
 /// Logout
@@ -90,9 +84,7 @@ async fn logout(
 ) -> ApiResult<()> {
     let _ = (state, claims);
     // Refresh token persistence is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("user storage not implemented".into()))
 }
 
 /// Get current user
@@ -102,9 +94,7 @@ async fn get_current_user(
 ) -> ApiResult<Json<UserResponse>> {
     let _ = (&state, &claims);
     // User storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("user storage not implemented".into()))
 }
 
 /// Change password
@@ -115,9 +105,7 @@ async fn change_password(
 ) -> ApiResult<()> {
     let _ = (&state, payload, &claims);
     // User storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("user storage not implemented".into()))
 }
 
 /// List API keys

@@ -40,7 +40,9 @@ toml = "0.8"
 urlencoding = { workspace = true }
 dirs = "5.0"
 futures = { workspace = true }
+regex = { workspace = true }
 goblin = { workspace = true }
 wasmparser = { workspace = true }
 object = { workspace = true }
 scroll = { workspace = true }
+rusqlite = { workspace = true }

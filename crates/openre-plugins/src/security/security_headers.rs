@@ -1,26 +1,26 @@
-//! Security Headers Security Plugin
+//! Security header analysis Security Plugin
 
-use crate::{Capability, CapabilitySet, PluginManifest, PluginMetadata};
+use crate::{CapabilitySet, PluginManifest, SimplePluginMetadata};
+use openre_core::Capability;
 
 pub fn manifest() -> PluginManifest {
-    PluginManifest {
-        metadata: PluginMetadata {
-            name: "security-security_headers".to_string(),
-            version: "0.1.0".to_string(),
-            description: "Security header analysis".to_string(),
-            author: "open-re team".to_string(),
-            license: "MIT".to_string(),
-            repository: "https://github.com/RXVEN-1907/open-re".to_string(),
-            homepage: None,
-            categories: vec!["security".to_string(), "analysis".to_string()],
-            keywords: vec!["security".to_string(), "security-headers".to_string()],
-        },
-        required_capabilities: CapabilitySet::from_iter(vec![
-            Capability::NetworkAccess,
-            Capability::CallAi,
-        ]),
-        optional_capabilities: CapabilitySet::new(),
-    }
+    let metadata = SimplePluginMetadata {
+        name: "security-security_headers".to_string(),
+        version: "0.1.0".to_string(),
+        description: "Security header analysis".to_string(),
+        author: "open-re team".to_string(),
+        license: "MIT".to_string(),
+        repository: "https://github.com/RXVEN-1907/open-re".to_string(),
+        homepage: None,
+        categories: vec!["security".to_string(), "analysis".to_string()],
+        keywords: vec!["security".to_string(), "security-headers".to_string()],
+    };
+
+    PluginManifest::from_simple(
+        metadata,
+        vec![Capability::NetworkAccess, Capability::CallAi],
+        vec![],
+    )
 }
 
 #[cfg(test)]
@@ -30,7 +30,7 @@ mod tests {
     #[test]
     fn test_manifest() {
         let m = manifest();
-        assert_eq!(m.metadata.name, "security-security_headers");
-        assert!(!m.required_capabilities.all().next().is_none());
+        assert_eq!(m.name, "security-security_headers");
+        assert!(!m.plugin.capabilities.is_empty());
     }
 }

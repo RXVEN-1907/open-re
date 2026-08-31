@@ -63,9 +63,7 @@ pub struct ScanDiffAnalyzer {
 impl ScanDiffAnalyzer {
     /// Create a new scan diff analyzer with default configuration
     pub fn new() -> Self {
-        Self {
-            config: ScanDiffConfig::default(),
-        }
+        Self { config: ScanDiffConfig::default() }
     }
 
     /// Create a new scan diff analyzer with custom configuration
@@ -86,19 +84,13 @@ impl ScanDiffAnalyzer {
         // falling back to the finding title so re-discovered issues correlate
         // even when ids differ between scanner runs.
         fn identity_key(f: &Finding) -> String {
-            f.fingerprint
-                .clone()
-                .unwrap_or_else(|| format!("title:{}", f.title))
+            f.fingerprint.clone().unwrap_or_else(|| format!("title:{}", f.title))
         }
 
-        let previous_map: HashMap<String, &Finding> = previous_findings
-            .iter()
-            .map(|f| (identity_key(f), f))
-            .collect();
-        let current_map: HashMap<String, &Finding> = current_findings
-            .iter()
-            .map(|f| (identity_key(f), f))
-            .collect();
+        let previous_map: HashMap<String, &Finding> =
+            previous_findings.iter().map(|f| (identity_key(f), f)).collect();
+        let current_map: HashMap<String, &Finding> =
+            current_findings.iter().map(|f| (identity_key(f), f)).collect();
 
         // Identify new findings
         let new_findings: Vec<&Finding> = current_findings
@@ -352,14 +344,9 @@ impl ScanDiffAnalyzer {
 
         // Basic statistics
         report.push_str("## Summary\n");
-        report.push_str(&format!(
-            "- Previous scan findings: {}\n",
-            analysis.total_findings_previous
-        ));
-        report.push_str(&format!(
-            "- Current scan findings: {}\n",
-            analysis.total_findings_current
-        ));
+        report
+            .push_str(&format!("- Previous scan findings: {}\n", analysis.total_findings_previous));
+        report.push_str(&format!("- Current scan findings: {}\n", analysis.total_findings_current));
         report.push_str(&format!(
             "- Net change: {:+} ({:+.1}%)\n",
             analysis.net_change, analysis.change_percentage
@@ -375,10 +362,7 @@ impl ScanDiffAnalyzer {
 
         // New findings
         if !analysis.new_findings.is_empty() {
-            report.push_str(&format!(
-                "## New Findings ({})\n",
-                analysis.new_findings.len()
-            ));
+            report.push_str(&format!("## New Findings ({})\n", analysis.new_findings.len()));
 
             // Critical new findings
             if !analysis.critical_new_findings.is_empty() {
@@ -500,10 +484,8 @@ impl ScanDiffAnalyzer {
 
         // Severity changes
         if !analysis.severity_changes.is_empty() {
-            report.push_str(&format!(
-                "## Severity Changes ({})\n",
-                analysis.severity_changes.len()
-            ));
+            report
+                .push_str(&format!("## Severity Changes ({})\n", analysis.severity_changes.len()));
 
             let increased_severity: Vec<&SeverityChange> = analysis
                 .severity_changes
@@ -518,15 +500,11 @@ impl ScanDiffAnalyzer {
                 .collect();
 
             if !increased_severity.is_empty() {
-                report.push_str(&format!(
-                    "### Severity Increased ({})\n",
-                    increased_severity.len()
-                ));
+                report
+                    .push_str(&format!("### Severity Increased ({})\n", increased_severity.len()));
                 for change in &increased_severity {
-                    if let Some(finding) = current_scan
-                        .findings
-                        .iter()
-                        .find(|f| f.id == change.finding_id)
+                    if let Some(finding) =
+                        current_scan.findings.iter().find(|f| f.id == change.finding_id)
                     {
                         report.push_str(&format!(
                             "- {} - {:?} → {:?}\n",
@@ -540,15 +518,11 @@ impl ScanDiffAnalyzer {
             }
 
             if !decreased_severity.is_empty() {
-                report.push_str(&format!(
-                    "### Severity Decreased ({})\n",
-                    decreased_severity.len()
-                ));
+                report
+                    .push_str(&format!("### Severity Decreased ({})\n", decreased_severity.len()));
                 for change in &decreased_severity {
-                    if let Some(finding) = current_scan
-                        .findings
-                        .iter()
-                        .find(|f| f.id == change.finding_id)
+                    if let Some(finding) =
+                        current_scan.findings.iter().find(|f| f.id == change.finding_id)
                     {
                         report.push_str(&format!(
                             "- {} - {:?} → {:?}\n",
@@ -777,9 +751,7 @@ mod tests {
 
         let current_scan = create_test_scan_data(curr_findings);
 
-        let analysis = analyzer
-            .compare_scans(&previous_scan, &current_scan)
-            .unwrap();
+        let analysis = analyzer.compare_scans(&previous_scan, &current_scan).unwrap();
 
         // Should have 3 new findings (CSRF, Path Traversal, Command Injection)
         assert_eq!(analysis.new_findings.len(), 3);
@@ -802,10 +774,7 @@ mod tests {
         let analyzer = ScanDiffAnalyzer::new();
 
         // Create previous scan with a medium severity finding
-        let prev_findings = vec![create_test_finding(
-            "Vulnerable Component",
-            Severity::Medium,
-        )];
+        let prev_findings = vec![create_test_finding("Vulnerable Component", Severity::Medium)];
         let previous_scan = create_test_scan_data(prev_findings);
 
         // Create current scan with the same finding but higher severity
@@ -815,19 +784,14 @@ mod tests {
 
         let current_scan = create_test_scan_data(curr_findings);
 
-        let analysis = analyzer
-            .compare_scans(&previous_scan, &current_scan)
-            .unwrap();
+        let analysis = analyzer.compare_scans(&previous_scan, &current_scan).unwrap();
 
         // Should detect the severity change
         assert_eq!(analysis.severity_changes.len(), 1);
 
         let severity_change = &analysis.severity_changes[0];
         assert_eq!(severity_change.change_type, SeverityChangeType::Increased);
-        assert_eq!(
-            severity_change.previous_severity,
-            crate::SeverityLevel::Medium
-        );
+        assert_eq!(severity_change.previous_severity, crate::SeverityLevel::Medium);
         assert_eq!(severity_change.current_severity, crate::SeverityLevel::High);
     }
 
@@ -848,9 +812,7 @@ mod tests {
         ];
         let current_scan = create_test_scan_data(curr_findings);
 
-        let analysis = analyzer
-            .compare_scans(&previous_scan, &current_scan)
-            .unwrap();
+        let analysis = analyzer.compare_scans(&previous_scan, &current_scan).unwrap();
 
         // Should not be a significant change (only low severity findings)
         assert!(!analysis.is_significant_change);

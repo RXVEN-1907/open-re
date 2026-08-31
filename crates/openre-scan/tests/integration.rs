@@ -43,10 +43,7 @@ async fn get_test_server() -> &'static TestServer {
             // Wait for server to be ready
             tokio::time::sleep(Duration::from_millis(1000)).await;
 
-            TestServer {
-                base_url: "http://localhost:8080".to_string(),
-                _child: child,
-            }
+            TestServer { base_url: "http://localhost:8080".to_string(), _child: child }
         })
         .await
 }
@@ -77,9 +74,7 @@ async fn test_scan_pipeline_quick_profile() {
     assert!(has_server_header, "Should detect server header disclosure");
 
     // Should include security-headers findings
-    let has_missing_hsts = findings
-        .iter()
-        .any(|f| f.title.contains("Strict-Transport-Security"));
+    let has_missing_hsts = findings.iter().any(|f| f.title.contains("Strict-Transport-Security"));
     assert!(has_missing_hsts, "Should detect missing HSTS header");
 }
 
@@ -137,17 +132,11 @@ async fn test_finding_generation_has_evidence() {
 
     // Most findings should have evidence (some informational ones may not)
     let findings_with_evidence = findings.iter().filter(|f| !f.evidence.is_empty()).count();
-    assert!(
-        findings_with_evidence > 0,
-        "At least some findings should have evidence"
-    );
+    assert!(findings_with_evidence > 0, "At least some findings should have evidence");
 
     for finding in &findings {
         assert!(!finding.target.is_empty(), "Finding should have target");
-        assert!(
-            !finding.plugin_source.is_empty(),
-            "Finding should have plugin source"
-        );
+        assert!(!finding.plugin_source.is_empty(), "Finding should have plugin source");
         // Severity should be one of the valid variants
         assert!(matches!(
             finding.severity,
@@ -277,10 +266,7 @@ async fn test_remediation_guidance() {
 
     // At least some findings should have remediation
     let with_remediation = findings.iter().filter(|f| f.remediation.is_some()).count();
-    assert!(
-        with_remediation > 0,
-        "At least some findings should have remediation guidance"
-    );
+    assert!(with_remediation > 0, "At least some findings should have remediation guidance");
 
     // Check remediation structure
     for finding in &findings {
@@ -309,16 +295,10 @@ async fn test_severity_and_confidence() {
     let findings = findings.unwrap();
 
     // Should have findings across different severities
-    let has_high = findings
-        .iter()
-        .any(|f| matches!(f.severity, Severity::High));
-    let has_medium = findings
-        .iter()
-        .any(|f| matches!(f.severity, Severity::Medium));
+    let has_high = findings.iter().any(|f| matches!(f.severity, Severity::High));
+    let has_medium = findings.iter().any(|f| matches!(f.severity, Severity::Medium));
     let has_low = findings.iter().any(|f| matches!(f.severity, Severity::Low));
-    let has_info = findings
-        .iter()
-        .any(|f| matches!(f.severity, Severity::Info));
+    let has_info = findings.iter().any(|f| matches!(f.severity, Severity::Info));
 
     assert!(has_high, "Should have HIGH severity findings");
     assert!(has_medium, "Should have MEDIUM severity findings");

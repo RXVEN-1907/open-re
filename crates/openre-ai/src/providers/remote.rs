@@ -144,10 +144,7 @@ impl ModelProvider for RemoteProvider {
 
         let response = req.send().await.context("Failed to send request")?;
         if !response.status().is_success() {
-            let error = response
-                .text()
-                .await
-                .context("Failed to read error response")?;
+            let error = response.text().await.context("Failed to read error response")?;
             return Err(openre_core::Error::Internal(anyhow::anyhow!(
                 "Remote API error: {}",
                 error
@@ -172,15 +169,9 @@ impl ModelProvider for RemoteProvider {
             request_builder = request_builder.bearer_auth(key);
         }
 
-        let response = request_builder
-            .send()
-            .await
-            .context("Failed to send streaming request")?;
+        let response = request_builder.send().await.context("Failed to send streaming request")?;
         if !response.status().is_success() {
-            let error = response
-                .text()
-                .await
-                .context("Failed to read error response")?;
+            let error = response.text().await.context("Failed to read error response")?;
             return Err(openre_core::Error::Internal(anyhow::anyhow!(
                 "Remote API error: {}",
                 error
@@ -216,25 +207,17 @@ impl ModelProvider for RemoteProvider {
             req = req.bearer_auth(key);
         }
 
-        let response = req
-            .send()
-            .await
-            .context("Failed to send embedding request")?;
+        let response = req.send().await.context("Failed to send embedding request")?;
         if !response.status().is_success() {
-            let error = response
-                .text()
-                .await
-                .context("Failed to read error response")?;
+            let error = response.text().await.context("Failed to read error response")?;
             return Err(openre_core::Error::Internal(anyhow::anyhow!(
                 "Embedding error: {}",
                 error
             )));
         }
 
-        let result: serde_json::Value = response
-            .json()
-            .await
-            .context("Failed to parse embedding response")?;
+        let result: serde_json::Value =
+            response.json().await.context("Failed to parse embedding response")?;
         let embeddings = result["data"]
             .as_array()
             .ok_or_else(|| {

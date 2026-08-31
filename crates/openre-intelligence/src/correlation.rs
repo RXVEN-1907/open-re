@@ -49,9 +49,7 @@ pub struct CorrelationEngine {
 impl CorrelationEngine {
     /// Create a new correlation engine with default configuration
     pub fn new() -> Self {
-        Self {
-            config: CorrelationConfig::default(),
-        }
+        Self { config: CorrelationConfig::default() }
     }
 
     /// Create a new correlation engine with custom configuration
@@ -214,10 +212,7 @@ impl CorrelationEngine {
         // Group findings by target for more efficient correlation
         let mut findings_by_target: HashMap<&str, Vec<&Finding>> = HashMap::new();
         for finding in findings {
-            findings_by_target
-                .entry(&finding.target)
-                .or_default()
-                .push(finding);
+            findings_by_target.entry(&finding.target).or_default().push(finding);
         }
 
         // For each target, look for strengthening/weakening patterns
@@ -225,10 +220,7 @@ impl CorrelationEngine {
             // Look for multiple findings of the same category that might strengthen each other
             let mut category_count: HashMap<Category, Vec<&Finding>> = HashMap::new();
             for finding in &target_findings {
-                category_count
-                    .entry(finding.category.clone())
-                    .or_default()
-                    .push(finding);
+                category_count.entry(finding.category.clone()).or_default().push(finding);
             }
 
             // Create strengthening correlations for categories with multiple findings
@@ -445,10 +437,7 @@ mod tests {
 
         assert_eq!(correlations.len(), 1);
         let correlation = &correlations[0];
-        assert_eq!(
-            correlation.correlation_type,
-            CorrelationType::InfoDisclosureChain
-        );
+        assert_eq!(correlation.correlation_type, CorrelationType::InfoDisclosureChain);
         assert_eq!(correlation.finding_ids.len(), 2);
         assert!(correlation.finding_ids.contains(&dir_finding.id));
         assert!(correlation.finding_ids.contains(&git_finding.id));

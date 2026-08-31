@@ -34,9 +34,7 @@ pub struct ProviderRegistry {
 
 impl ProviderRegistry {
     pub fn new() -> Self {
-        Self {
-            providers: HashMap::new(),
-        }
+        Self { providers: HashMap::new() }
     }
 
     pub fn register(&mut self, provider: Box<dyn ModelProvider>) {
@@ -80,10 +78,7 @@ pub struct ProviderId {
 
 impl ProviderId {
     pub fn new(provider_type: &str, model_name: &str) -> Self {
-        Self {
-            provider_type: provider_type.to_string(),
-            model_name: model_name.to_string(),
-        }
+        Self { provider_type: provider_type.to_string(), model_name: model_name.to_string() }
     }
 }
 

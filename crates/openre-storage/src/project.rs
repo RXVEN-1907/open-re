@@ -42,10 +42,7 @@ impl ProjectStore {
         conn.execute("PRAGMA temp_store=MEMORY", [])?;
         conn.execute("PRAGMA busy_timeout=30000", [])?;
 
-        let store = Self {
-            db_path,
-            conn: Arc::new(Mutex::new(Some(conn))),
-        };
+        let store = Self { db_path, conn: Arc::new(Mutex::new(Some(conn))) };
 
         Ok(store)
     }
@@ -100,14 +97,8 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_functions_address ON functions(address)",
-            [],
-        )?;
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_functions_name ON functions(name)",
-            [],
-        )?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_functions_address ON functions(address)", [])?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_functions_name ON functions(name)", [])?;
 
         // Basic blocks table
         conn.execute(
@@ -190,10 +181,7 @@ impl ProjectStore {
             "CREATE INDEX IF NOT EXISTS idx_cfg_edges_from ON cfg_edges(from_block_id)",
             [],
         )?;
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_cfg_edges_to ON cfg_edges(to_block_id)",
-            [],
-        )?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_cfg_edges_to ON cfg_edges(to_block_id)", [])?;
 
         // Call edges table
         conn.execute(
@@ -239,10 +227,7 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_loops_function ON loops(function_id)",
-            [],
-        )?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_loops_function ON loops(function_id)", [])?;
 
         // Variables table
         conn.execute(
@@ -272,10 +257,7 @@ impl ProjectStore {
             "CREATE INDEX IF NOT EXISTS idx_variables_function ON variables(function_id)",
             [],
         )?;
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_variables_name ON variables(name)",
-            [],
-        )?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_variables_name ON variables(name)", [])?;
 
         // Types table
         conn.execute(
@@ -295,14 +277,8 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_types_name ON types(name)",
-            [],
-        )?;
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_types_kind ON types(kind)",
-            [],
-        )?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_types_name ON types(name)", [])?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_types_kind ON types(kind)", [])?;
 
         // Pseudocode table
         conn.execute(
@@ -375,14 +351,8 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_strings_address ON strings(address)",
-            [],
-        )?;
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_strings_value ON strings(value)",
-            [],
-        )?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_strings_address ON strings(address)", [])?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_strings_value ON strings(value)", [])?;
         // FTS5 for full-text search
         conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS strings_fts USING fts5(value, content='strings', content_rowid='id')", [])?;
 
@@ -403,14 +373,8 @@ impl ProjectStore {
             [],
         )?;
 
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_constants_address ON constants(address)",
-            [],
-        )?;
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_constants_value ON constants(value)",
-            [],
-        )?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_constants_address ON constants(address)", [])?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_constants_value ON constants(value)", [])?;
 
         // Indexes table
         conn.execute(

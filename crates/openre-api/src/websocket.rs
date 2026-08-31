@@ -21,49 +21,21 @@ use uuid::Uuid;
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WsMessage {
     // Client -> Server
-    Subscribe {
-        channels: Vec<String>,
-    },
-    Unsubscribe {
-        channels: Vec<String>,
-    },
+    Subscribe { channels: Vec<String> },
+    Unsubscribe { channels: Vec<String> },
     Ping,
-    Auth {
-        token: String,
-    },
+    Auth { token: String },
 
     // Server -> Client
-    Subscribed {
-        channels: Vec<String>,
-    },
-    Unsubscribed {
-        channels: Vec<String>,
-    },
+    Subscribed { channels: Vec<String> },
+    Unsubscribed { channels: Vec<String> },
     Pong,
-    AuthSuccess {
-        user_id: String,
-    },
-    AuthError {
-        message: String,
-    },
-    Progress {
-        job_id: String,
-        progress: JobProgressUpdate,
-    },
-    AnalysisUpdate {
-        job_id: String,
-        stage: String,
-        message: String,
-    },
-    Notification {
-        title: String,
-        message: String,
-        level: NotificationLevel,
-    },
-    Error {
-        code: String,
-        message: String,
-    },
+    AuthSuccess { user_id: String },
+    AuthError { message: String },
+    Progress { job_id: String, progress: JobProgressUpdate },
+    AnalysisUpdate { job_id: String, stage: String, message: String },
+    Notification { title: String, message: String, level: NotificationLevel },
+    Error { code: String, message: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,13 +68,7 @@ pub struct WsConnection {
 impl WsConnection {
     pub fn new(socket: WebSocket, state: Arc<AppState>) -> Self {
         let (tx, _) = broadcast::channel(100);
-        Self {
-            socket,
-            state,
-            subscriptions: Vec::new(),
-            user_id: None,
-            tx,
-        }
+        Self { socket, state, subscriptions: Vec::new(), user_id: None, tx }
     }
 
     pub async fn run(mut self) {
@@ -233,10 +199,7 @@ impl WsConnection {
             self.subscriptions.push(format!("project:{}", project_id));
         }
 
-        self.send(WsMessage::AuthSuccess {
-            user_id: claims.sub,
-        })
-        .await
+        self.send(WsMessage::AuthSuccess { user_id: claims.sub }).await
     }
 
     async fn send(&mut self, msg: WsMessage) -> ApiResult<()> {
@@ -272,10 +235,7 @@ pub struct WsManager {
 impl WsManager {
     pub fn new() -> Self {
         let (global_tx, _) = broadcast::channel(1000);
-        Self {
-            connections: Arc::new(RwLock::new(HashMap::new())),
-            global_tx,
-        }
+        Self { connections: Arc::new(RwLock::new(HashMap::new())), global_tx }
     }
 
     pub async fn register(&self, connection_id: String, tx: broadcast::Sender<WsMessage>) {

@@ -119,9 +119,7 @@ fn print_csv<T: Serialize>(value: &T) -> Result<(), CliError> {
             }
         }
     } else {
-        return Err(CliError::InvalidInput(
-            "CSV output requires an array".into(),
-        ));
+        return Err(CliError::InvalidInput("CSV output requires an array".into()));
     }
 
     Ok(())
@@ -134,10 +132,7 @@ fn format_value(value: &serde_json::Value) -> String {
         serde_json::Value::Bool(b) => b.to_string(),
         serde_json::Value::Null => "".to_string(),
         serde_json::Value::Array(arr) => {
-            format!(
-                "[{}]",
-                arr.iter().map(format_value).collect::<Vec<_>>().join(", ")
-            )
+            format!("[{}]", arr.iter().map(format_value).collect::<Vec<_>>().join(", "))
         }
         serde_json::Value::Object(obj) => {
             format!(

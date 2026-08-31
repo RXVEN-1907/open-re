@@ -71,9 +71,7 @@ impl JobRetryPolicy {
         }
 
         let error_str = error.to_string().to_lowercase();
-        self.retryable_errors
-            .iter()
-            .any(|e| error_str.contains(&e.to_lowercase()))
+        self.retryable_errors.iter().any(|e| error_str.contains(&e.to_lowercase()))
     }
 }
 

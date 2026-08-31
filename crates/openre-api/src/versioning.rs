@@ -46,10 +46,7 @@ impl FromStr for ApiVersion {
         match s.to_lowercase().as_str() {
             "v1" | "1" => Ok(ApiVersion::V1),
             "v2" | "2" => Ok(ApiVersion::V2),
-            _ => Err(ApiError::BadRequest(format!(
-                "Unsupported API version: {}",
-                s
-            ))),
+            _ => Err(ApiError::BadRequest(format!("Unsupported API version: {}", s))),
         }
     }
 }
@@ -128,17 +125,11 @@ pub async fn version_middleware(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
 
     // Add API version headers
-    response.headers_mut().insert(
-        "x-api-version",
-        HeaderValue::from_static(ApiVersion::current().as_str()),
-    );
-    response.headers_mut().insert(
-        "x-api-supported-versions",
-        HeaderValue::from_static("v1, v2"),
-    );
     response
         .headers_mut()
-        .insert("x-api-deprecated-versions", HeaderValue::from_static(""));
+        .insert("x-api-version", HeaderValue::from_static(ApiVersion::current().as_str()));
+    response.headers_mut().insert("x-api-supported-versions", HeaderValue::from_static("v1, v2"));
+    response.headers_mut().insert("x-api-deprecated-versions", HeaderValue::from_static(""));
 
     response
 }
@@ -212,10 +203,7 @@ pub struct VersionedRouter {
 
 impl VersionedRouter {
     pub fn new() -> Self {
-        Self {
-            v1_routes: axum::Router::new(),
-            v2_routes: axum::Router::new(),
-        }
+        Self { v1_routes: axum::Router::new(), v2_routes: axum::Router::new() }
     }
 
     pub fn v1(mut self, routes: axum::Router) -> Self {

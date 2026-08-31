@@ -97,16 +97,12 @@ async fn get_plugin(
 ) -> ApiResult<Json<PluginResponse>> {
     let _ = claims;
 
-    let metadata = state
-        .plugin_registry
-        .get_metadata(&id)
-        .await
-        .map_err(|e| match &e {
-            openre_core::error::Error::NotFound(_) => {
-                crate::error::ApiError::NotFound("Plugin not found".into())
-            }
-            _ => crate::error::ApiError::Internal(e.to_string()),
-        })?;
+    let metadata = state.plugin_registry.get_metadata(&id).await.map_err(|e| match &e {
+        openre_core::error::Error::NotFound(_) => {
+            crate::error::ApiError::NotFound("Plugin not found".into())
+        }
+        _ => crate::error::ApiError::Internal(e.to_string()),
+    })?;
 
     Ok(Json(plugin_response_from_metadata(&metadata)))
 }
@@ -147,12 +143,8 @@ async fn install_plugin(
             let description = manifest.description.clone();
             let author = manifest.author.clone();
             let plugin_type = manifest.plugin.r#type.as_str().to_string();
-            let capabilities = manifest
-                .plugin
-                .capabilities
-                .iter()
-                .map(|c| format!("{:?}", c))
-                .collect();
+            let capabilities =
+                manifest.plugin.capabilities.iter().map(|c| format!("{:?}", c)).collect();
 
             let installed_at = chrono::Utc::now();
             let metadata = PluginMetadata {
@@ -214,9 +206,7 @@ async fn enable_plugin(
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    Err(crate::error::ApiError::NotImplemented(
-        "plugin enable/disable not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("plugin enable/disable not implemented yet".into()))
 }
 
 /// Disable plugin
@@ -231,9 +221,7 @@ async fn disable_plugin(
         return Err(crate::error::ApiError::Forbidden("Admin required".into()));
     }
 
-    Err(crate::error::ApiError::NotImplemented(
-        "plugin enable/disable not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("plugin enable/disable not implemented yet".into()))
 }
 
 /// Configure plugin
@@ -316,13 +304,7 @@ fn plugin_response_from_metadata(m: &PluginMetadata) -> PluginResponse {
         description: m.manifest.description.clone(),
         author: m.manifest.author.clone(),
         plugin_type: m.manifest.plugin.r#type.as_str().to_string(),
-        capabilities: m
-            .manifest
-            .plugin
-            .capabilities
-            .iter()
-            .map(|c| format!("{:?}", c))
-            .collect(),
+        capabilities: m.manifest.plugin.capabilities.iter().map(|c| format!("{:?}", c)).collect(),
         enabled: matches!(m.status, PluginStatus::Active),
         config: None,
         installed_at: m.installed_at,

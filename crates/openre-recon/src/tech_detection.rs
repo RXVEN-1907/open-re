@@ -40,23 +40,14 @@ impl TechDetectionPlugin {
             .build()
             .map_err(crate::internal_err)?;
 
-        Ok(Self {
-            config,
-            client,
-            fingerprints: TechnologyFingerprints::default(),
-        })
+        Ok(Self { config, client, fingerprints: TechnologyFingerprints::default() })
     }
 
     /// Detect technologies from response
     async fn detect_technologies(&self, url: &str) -> Result<TechnologyDetectionResult> {
         let mut result = TechnologyDetectionResult::default();
 
-        let response = self
-            .client
-            .get(url)
-            .send()
-            .await
-            .map_err(crate::internal_err)?;
+        let response = self.client.get(url).send().await.map_err(crate::internal_err)?;
         let headers: HashMap<String, String> = response
             .headers()
             .iter()
@@ -148,25 +139,11 @@ impl TechDetectionPlugin {
 
         // JavaScript frameworks
         let js_frameworks = [
-            (
-                "React",
-                vec!["react", "react-dom", "__react", "data-reactroot"],
-            ),
+            ("React", vec!["react", "react-dom", "__react", "data-reactroot"]),
             ("Vue.js", vec!["vue.js", "vue.min.js", "__vue__", "data-v-"]),
-            (
-                "Angular",
-                vec!["angular", "ng-app", "ng-controller", "ng-version"],
-            ),
+            ("Angular", vec!["angular", "ng-app", "ng-controller", "ng-version"]),
             ("jQuery", vec!["jquery", "jquery.min.js", "$(", "jQuery"]),
-            (
-                "Bootstrap",
-                vec![
-                    "bootstrap",
-                    "bootstrap.min.css",
-                    "btn-primary",
-                    "container-fluid",
-                ],
-            ),
+            ("Bootstrap", vec!["bootstrap", "bootstrap.min.css", "btn-primary", "container-fluid"]),
             ("Next.js", vec!["__next", "next.js", "_next/static"]),
             ("Nuxt.js", vec!["nuxt", "__nuxt", "_nuxt/"]),
             ("Svelte", vec!["svelte", "__svelte"]),
@@ -185,23 +162,11 @@ impl TechDetectionPlugin {
 
         // CMS detection
         let cms_patterns = [
-            (
-                "WordPress",
-                vec!["wp-content", "wp-includes", "wp-json", "wordpress"],
-            ),
-            (
-                "Drupal",
-                vec!["drupal", "sites/default/files", "drupal.settings"],
-            ),
+            ("WordPress", vec!["wp-content", "wp-includes", "wp-json", "wordpress"]),
+            ("Drupal", vec!["drupal", "sites/default/files", "drupal.settings"]),
             ("Joomla", vec!["joomla", "com_content", "option=com_"]),
-            (
-                "Magento",
-                vec!["magento", "mage/cookies", "mage/translation"],
-            ),
-            (
-                "Shopify",
-                vec!["shopify", "cdn.shopify.com", "shopify.theme"],
-            ),
+            ("Magento", vec!["magento", "mage/cookies", "mage/translation"]),
+            ("Shopify", vec!["shopify", "cdn.shopify.com", "shopify.theme"]),
         ];
 
         for (name, patterns) in cms_patterns {
@@ -218,16 +183,10 @@ impl TechDetectionPlugin {
         // Framework detection
         let framework_patterns = [
             ("Laravel", vec!["laravel", "laravel_session", "csrf_token"]),
-            (
-                "Django",
-                vec!["csrfmiddlewaretoken", "django", "__admin_media_prefix__"],
-            ),
+            ("Django", vec!["csrfmiddlewaretoken", "django", "__admin_media_prefix__"]),
             ("Express", vec!["express", "x-powered-by: express"]),
             ("Spring", vec!["spring", "jsessionid", "_spring_"]),
-            (
-                "ASP.NET Core",
-                vec!["asp.net", "__requestverificationtoken"],
-            ),
+            ("ASP.NET Core", vec!["asp.net", "__requestverificationtoken"]),
             ("Flask", vec!["flask", "werkzeug", "jinja2"]),
         ];
 

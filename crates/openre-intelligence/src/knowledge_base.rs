@@ -172,10 +172,7 @@ impl KnowledgeBase {
     fn initialize_owasp_mappings(&mut self) {
         self.owasp_mappings.insert(
             Category::Injection,
-            vec![
-                "A03:2021 - Injection".to_string(),
-                "A01:2017 - Injection".to_string(),
-            ],
+            vec!["A03:2021 - Injection".to_string(), "A01:2017 - Injection".to_string()],
         );
 
         self.owasp_mappings.insert(
@@ -441,10 +438,7 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
                 title: format!(
                     "CWE-{} - {}",
                     cwe_id.strip_prefix("CWE-").unwrap_or(cwe_id),
-                    self.cwe_database
-                        .get(cwe_id)
-                        .map(|c| &c.name[..])
-                        .unwrap_or("Unknown CWE")
+                    self.cwe_database.get(cwe_id).map(|c| &c.name[..]).unwrap_or("Unknown CWE")
                 ),
                 url: format!(
                     "https://cwe.mitre.org/data/definitions/{}.html",
@@ -528,11 +522,8 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
         }
 
         // Get secure coding guidelines for the category
-        let secure_coding_guidelines = self
-            .secure_coding_guidelines
-            .get(&finding.category)
-            .cloned()
-            .unwrap_or_default();
+        let secure_coding_guidelines =
+            self.secure_coding_guidelines.get(&finding.category).cloned().unwrap_or_default();
 
         // Create knowledge base entry
         let kb_entry = KnowledgeBaseEntry {
@@ -547,10 +538,9 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
         };
 
         // Add knowledge base metadata
-        finding.metadata.insert(
-            "knowledge_base_enriched".to_string(),
-            serde_json::Value::Bool(true),
-        );
+        finding
+            .metadata
+            .insert("knowledge_base_enriched".to_string(), serde_json::Value::Bool(true));
 
         Ok(Some(kb_entry))
     }
@@ -562,11 +552,8 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
         cwe_ids: &mut Vec<String>,
         capec_ids: &mut Vec<String>,
     ) {
-        let text = format!(
-            "{} {}",
-            finding.title.to_lowercase(),
-            finding.description.to_lowercase()
-        );
+        let text =
+            format!("{} {}", finding.title.to_lowercase(), finding.description.to_lowercase());
 
         if text.contains("sql") && (text.contains("inject") || text.contains("injection")) {
             cwe_ids.push("CWE-89".to_string());

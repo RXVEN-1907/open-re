@@ -202,16 +202,9 @@ pub enum AuthConfig {
     /// Cookie-based authentication
     Cookie { name: String, value: String },
     /// OAuth2 authentication
-    OAuth2 {
-        client_id: String,
-        client_secret: String,
-        token_url: Url,
-        scopes: Vec<String>,
-    },
+    OAuth2 { client_id: String, client_secret: String, token_url: Url, scopes: Vec<String> },
     /// Custom authentication
-    Custom {
-        config: HashMap<String, serde_json::Value>,
-    },
+    Custom { config: HashMap<String, serde_json::Value> },
 }
 
 impl AuthConfig {
@@ -238,9 +231,7 @@ impl AuthConfig {
             }
             AuthConfig::OAuth2 { .. } => {
                 // OAuth2 would require token refresh logic - placeholder for now
-                return Err(ScannerError::Authentication(
-                    "OAuth2 not yet implemented".to_string(),
-                ));
+                return Err(ScannerError::Authentication("OAuth2 not yet implemented".to_string()));
             }
             AuthConfig::Custom { config } => {
                 for (key, value) in config {
@@ -270,11 +261,7 @@ pub struct RateLimitConfig {
 
 impl Default for RateLimitConfig {
     fn default() -> Self {
-        Self {
-            requests_per_second: 10,
-            burst: 20,
-            timeout: Duration::from_secs(30),
-        }
+        Self { requests_per_second: 10, burst: 20, timeout: Duration::from_secs(30) }
     }
 }
 
@@ -495,12 +482,8 @@ impl Target {
         }
 
         // Normalize headers (lowercase keys)
-        let normalized_headers: HashMap<String, String> = self
-            .metadata
-            .headers
-            .drain()
-            .map(|(k, v)| (k.to_lowercase(), v))
-            .collect();
+        let normalized_headers: HashMap<String, String> =
+            self.metadata.headers.drain().map(|(k, v)| (k.to_lowercase(), v)).collect();
         self.metadata.headers = normalized_headers;
 
         self.updated_at = chrono::Utc::now();
@@ -515,9 +498,7 @@ pub struct TargetManager {
 impl TargetManager {
     /// Create a new target manager
     pub fn new() -> Self {
-        Self {
-            targets: dashmap::DashMap::new(),
-        }
+        Self { targets: dashmap::DashMap::new() }
     }
 
     /// Register a new target
@@ -554,11 +535,7 @@ impl TargetManager {
 
     /// Find targets by type
     pub fn find_by_type(&self, target_type: &TargetType) -> Vec<Target> {
-        self.targets
-            .iter()
-            .filter(|t| t.target_type == *target_type)
-            .map(|t| t.clone())
-            .collect()
+        self.targets.iter().filter(|t| t.target_type == *target_type).map(|t| t.clone()).collect()
     }
 
     /// Find targets by tag
@@ -593,14 +570,8 @@ mod tests {
 
     #[test]
     fn test_target_type_from_str() {
-        assert_eq!(
-            "local_web_app".parse::<TargetType>().unwrap(),
-            TargetType::LocalWebApp
-        );
-        assert_eq!(
-            "rest_api".parse::<TargetType>().unwrap(),
-            TargetType::RestApi
-        );
+        assert_eq!("local_web_app".parse::<TargetType>().unwrap(), TargetType::LocalWebApp);
+        assert_eq!("rest_api".parse::<TargetType>().unwrap(), TargetType::RestApi);
         assert_eq!(
             "custom_type".parse::<TargetType>().unwrap(),
             TargetType::Custom("custom_type".to_string())
@@ -630,9 +601,7 @@ mod tests {
         assert!(target.validate().is_err());
 
         // Add auth and should pass
-        target.metadata.auth = Some(AuthConfig::BearerToken {
-            token: "test-token".to_string(),
-        });
+        target.metadata.auth = Some(AuthConfig::BearerToken { token: "test-token".to_string() });
         assert!(target.validate().is_ok());
     }
 

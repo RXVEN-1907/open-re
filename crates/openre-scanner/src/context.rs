@@ -108,10 +108,8 @@ impl SharedHttpClient {
                 }
                 crate::target::AuthConfig::Basic { username, password } => {
                     let credentials = base64::encode(format!("{}:{}", username, password));
-                    default_headers.insert(
-                        "Authorization".to_string(),
-                        format!("Basic {}", credentials),
-                    );
+                    default_headers
+                        .insert("Authorization".to_string(), format!("Basic {}", credentials));
                 }
                 crate::target::AuthConfig::ApiKey { header, key } => {
                     default_headers.insert(header.clone(), key.clone());
@@ -163,12 +161,7 @@ impl SharedHttpClient {
             .as_ref()
             .map(|rl| Arc::new(RateLimiter::new(rl.requests_per_second)));
 
-        Ok(Self {
-            client,
-            default_headers,
-            default_timeout: config.plugin_timeout,
-            rate_limiter,
-        })
+        Ok(Self { client, default_headers, default_timeout: config.plugin_timeout, rate_limiter })
     }
 
     /// Get the underlying client
@@ -325,10 +318,7 @@ struct CacheEntry {
 impl ScanCache {
     /// Create a new scan cache
     pub fn new(default_ttl: Duration) -> Self {
-        Self {
-            cache: Arc::new(dashmap::DashMap::new()),
-            default_ttl,
-        }
+        Self { cache: Arc::new(dashmap::DashMap::new()), default_ttl }
     }
 
     /// Get a value from cache
@@ -348,9 +338,7 @@ impl ScanCache {
 
     /// Set a value in cache
     pub fn set(&self, key: String, value: serde_json::Value, ttl: Option<Duration>) {
-        let expires_at = ttl
-            .or(Some(self.default_ttl))
-            .map(|ttl| chrono::Utc::now() + ttl);
+        let expires_at = ttl.or(Some(self.default_ttl)).map(|ttl| chrono::Utc::now() + ttl);
         self.cache.insert(key, CacheEntry { value, expires_at });
     }
 
@@ -507,11 +495,7 @@ impl ScanContext {
     /// Add discovered parameter
     pub async fn add_parameter(&self, endpoint_url: &str, parameter: DiscoveredParameter) {
         let mut metadata = self.metadata.write().await;
-        metadata
-            .parameters
-            .entry(endpoint_url.to_string())
-            .or_default()
-            .push(parameter);
+        metadata.parameters.entry(endpoint_url.to_string()).or_default().push(parameter);
     }
 
     /// Add technology fingerprint
@@ -583,11 +567,7 @@ mod tests {
         let cache = ScanCache::new(Duration::from_secs(60));
         assert!(cache.is_empty());
 
-        cache.set(
-            "key1".to_string(),
-            serde_json::json!({"test": "value"}),
-            None,
-        );
+        cache.set("key1".to_string(), serde_json::json!({"test": "value"}), None);
         assert_eq!(cache.len(), 1);
 
         let value = cache.get("key1").unwrap();

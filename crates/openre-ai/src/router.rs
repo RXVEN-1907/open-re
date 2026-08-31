@@ -17,11 +17,7 @@ pub struct ModelRouter {
 
 impl ModelRouter {
     pub fn new(registry: Arc<ProviderRegistry>, config: AiConfig) -> Self {
-        Self {
-            registry,
-            config,
-            usage_stats: Arc::new(RwLock::new(HashMap::new())),
-        }
+        Self { registry, config, usage_stats: Arc::new(RwLock::new(HashMap::new())) }
     }
 
     /// Select the best provider for a request
@@ -29,9 +25,7 @@ impl ModelRouter {
         let candidates = self.get_candidates(request).await?;
 
         if candidates.is_empty() {
-            return Err(openre_core::Error::Internal(anyhow!(
-                "No suitable provider found"
-            )));
+            return Err(openre_core::Error::Internal(anyhow!("No suitable provider found")));
         }
 
         // Apply routing strategy
@@ -219,9 +213,7 @@ impl ModelRouter {
         success: bool,
     ) {
         let mut stats = self.usage_stats.write().await;
-        let entry = stats
-            .entry(provider_id.clone())
-            .or_insert_with(ProviderStats::default);
+        let entry = stats.entry(provider_id.clone()).or_insert_with(ProviderStats::default);
 
         entry.total_requests += 1;
         entry.total_tokens += tokens as u64;

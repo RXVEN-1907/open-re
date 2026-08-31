@@ -137,9 +137,9 @@ use tokio::sync::RwLock;
 /// Fingerprint for change detection
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Fingerprint {
-    pub hash: String,          // SHA256 of binary
-    pub size: u64,             // File size
-    pub modified: u64,         // Modification timestamp
+    pub hash: String,                                 // SHA256 of binary
+    pub size: u64,                                    // File size
+    pub modified: u64,                                // Modification timestamp
     pub stage_fingerprints: HashMap<StageId, String>, // Per-stage fingerprints
 }
 
@@ -154,10 +154,18 @@ impl Fingerprint {
         Ok(Self {
             hash,
             size: metadata.len(),
-            modified: metadata.modified()
-                .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("Failed to get modification time: {}", e)))?
+            modified: metadata
+                .modified()
+                .map_err(|e| {
+                    openre_core::Error::Internal(anyhow::anyhow!(
+                        "Failed to get modification time: {}",
+                        e
+                    ))
+                })?
                 .duration_since(std::time::UNIX_EPOCH)
-                .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("Time conversion failed: {}", e)))?
+                .map_err(|e| {
+                    openre_core::Error::Internal(anyhow::anyhow!("Time conversion failed: {}", e))
+                })?
                 .as_secs(),
             stage_fingerprints: HashMap::new(),
         })
@@ -197,10 +205,7 @@ impl Default for IncrementalCache {
 
 impl IncrementalCache {
     pub fn new() -> Self {
-        Self {
-            fingerprints: HashMap::new(),
-            stage_results: HashMap::new(),
-        }
+        Self { fingerprints: HashMap::new(), stage_results: HashMap::new() }
     }
 
     pub fn get_fingerprint(&self, analysis_id: &AnalysisId) -> Option<&Fingerprint> {
@@ -211,15 +216,21 @@ impl IncrementalCache {
         self.fingerprints.insert(analysis_id, fingerprint);
     }
 
-    pub fn get_stage_result(&self, analysis_id: &AnalysisId, stage: &StageId) -> Option<&CachedStageResult> {
+    pub fn get_stage_result(
+        &self,
+        analysis_id: &AnalysisId,
+        stage: &StageId,
+    ) -> Option<&CachedStageResult> {
         self.stage_results.get(analysis_id)?.get(stage)
     }
 
-    pub fn set_stage_result(&mut self, analysis_id: AnalysisId, stage: StageId, result: CachedStageResult) {
-        self.stage_results
-            .entry(analysis_id)
-            .or_default()
-            .insert(stage, result);
+    pub fn set_stage_result(
+        &mut self,
+        analysis_id: AnalysisId,
+        stage: StageId,
+        result: CachedStageResult,
+    ) {
+        self.stage_results.entry(analysis_id).or_default().insert(stage, result);
     }
 
     pub fn invalidate(&mut self, analysis_id: &AnalysisId) {
@@ -251,10 +262,7 @@ impl FingerprintIncrementalAnalyzer {
             IncrementalCache::new()
         };
 
-        Ok(Self {
-            cache: Arc::new(RwLock::new(cache)),
-            cache_dir,
-        })
+        Ok(Self { cache: Arc::new(RwLock::new(cache)), cache_dir })
     }
 
     pub async fn analyze_if_changed(
@@ -269,28 +277,37 @@ impl FingerprintIncrementalAnalyzer {
         if let Some(cached) = cached_fp {
             if cached.matches(&current_fp) {
                 // Check if all stages are still cached (none invalidated)
-                let cached_results = self.cache.read().await.stage_results.get(&analysis_id).cloned();
+                let cached_results =
+                    self.cache.read().await.stage_results.get(&analysis_id).cloned();
                 if let Some(cached_results) = cached_results {
                     // Check if the fingerprint has stage fingerprints that we can verify against
                     // For now, if any stage is missing from the cache, we should re-analyze
                     // Get the expected stages from the fingerprint
-                    let expected_stages: Vec<StageId> = cached.stage_fingerprints.keys().cloned().collect();
-                    let all_stages_present = expected_stages.iter().all(|s| cached_results.contains_key(s));
+                    let expected_stages: Vec<StageId> =
+                        cached.stage_fingerprints.keys().cloned().collect();
+                    let all_stages_present =
+                        expected_stages.iter().all(|s| cached_results.contains_key(s));
 
                     if all_stages_present {
                         // All stages present, return cached results
-                        return Ok(cached_results.into_iter().map(|(stage, _)| {
-                            let stage_id = stage.clone();
-                            (stage, StageResult {
-                                stage_id,
-                                status: StageStatus::Success,
-                                started_at: chrono::Utc::now(),
-                                completed_at: chrono::Utc::now(),
-                                output: serde_json::Value::Null,
-                                metrics: StageMetrics::default(),
-                                artifacts: Vec::new(),
+                        return Ok(cached_results
+                            .into_iter()
+                            .map(|(stage, _)| {
+                                let stage_id = stage.clone();
+                                (
+                                    stage,
+                                    StageResult {
+                                        stage_id,
+                                        status: StageStatus::Success,
+                                        started_at: chrono::Utc::now(),
+                                        completed_at: chrono::Utc::now(),
+                                        output: serde_json::Value::Null,
+                                        metrics: StageMetrics::default(),
+                                        artifacts: Vec::new(),
+                                    },
+                                )
                             })
-                        }).collect());
+                            .collect());
                     }
                     // If any stage is missing, fall through to re-analyze
                 }
@@ -305,14 +322,18 @@ impl FingerprintIncrementalAnalyzer {
             let mut cache = self.cache.write().await;
             cache.set_fingerprint(analysis_id, current_fp);
             for (stage, result) in &results {
-                cache.set_stage_result(analysis_id, stage.clone(), CachedStageResult {
-                    stage_id: stage.clone(),
-                    status: format!("{:?}", result.status),
-                    data: result.output.clone(),
-                    started_at: Some(result.started_at.to_rfc3339()),
-                    completed_at: Some(result.completed_at.to_rfc3339()),
-                    duration_ms: 0,
-                });
+                cache.set_stage_result(
+                    analysis_id,
+                    stage.clone(),
+                    CachedStageResult {
+                        stage_id: stage.clone(),
+                        status: format!("{:?}", result.status),
+                        data: result.output.clone(),
+                        started_at: Some(result.started_at.to_rfc3339()),
+                        completed_at: Some(result.completed_at.to_rfc3339()),
+                        duration_ms: 0,
+                    },
+                );
             }
         }
 

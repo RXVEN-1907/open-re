@@ -42,9 +42,8 @@ impl Config {
             .merge(Env::prefixed("OPENRE_").split("__"))
             .merge(Json::file("config.local.json"));
 
-        let config: Config = figment
-            .extract()
-            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        let config: Config =
+            figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))?;
         config.validate()?;
         Ok(config)
     }
@@ -102,9 +101,7 @@ impl ServerConfig {
             return Err(openre_core::Error::Config("Server port cannot be 0".into()));
         }
         if self.workers == 0 {
-            return Err(openre_core::Error::Config(
-                "Server workers cannot be 0".into(),
-            ));
+            return Err(openre_core::Error::Config("Server workers cannot be 0".into()));
         }
         Ok(())
     }
@@ -119,10 +116,7 @@ impl Default for ServerConfig {
             request_timeout_secs: 30,
             body_limit_mb: 100,
             enable_cors: true,
-            cors_origins: vec![
-                "http://localhost:3000".into(),
-                "http://localhost:5173".into(),
-            ],
+            cors_origins: vec!["http://localhost:3000".into(), "http://localhost:5173".into()],
             tls: None,
         }
     }
@@ -153,14 +147,10 @@ pub struct DatabaseConfig {
 impl DatabaseConfig {
     fn validate(&self) -> Result<()> {
         if self.url.is_empty() {
-            return Err(openre_core::Error::Config(
-                "Database URL cannot be empty".into(),
-            ));
+            return Err(openre_core::Error::Config("Database URL cannot be empty".into()));
         }
         if self.max_connections == 0 {
-            return Err(openre_core::Error::Config(
-                "Max connections cannot be 0".into(),
-            ));
+            return Err(openre_core::Error::Config("Max connections cannot be 0".into()));
         }
         Ok(())
     }
@@ -193,9 +183,7 @@ pub struct RedisConfig {
 impl RedisConfig {
     fn validate(&self) -> Result<()> {
         if self.url.is_empty() {
-            return Err(openre_core::Error::Config(
-                "Redis URL cannot be empty".into(),
-            ));
+            return Err(openre_core::Error::Config("Redis URL cannot be empty".into()));
         }
         Ok(())
     }
@@ -243,9 +231,7 @@ pub struct S3Config {
 impl StorageConfig {
     fn validate(&self) -> Result<()> {
         if self.max_file_size_mb == 0 {
-            return Err(openre_core::Error::Config(
-                "Max file size cannot be 0".into(),
-            ));
+            return Err(openre_core::Error::Config("Max file size cannot be 0".into()));
         }
         Ok(())
     }
@@ -314,9 +300,7 @@ impl Default for RemoteConfig {
 impl PluginConfig {
     fn validate(&self) -> Result<()> {
         if self.max_memory_mb == 0 {
-            return Err(openre_core::Error::Config(
-                "Plugin max memory cannot be 0".into(),
-            ));
+            return Err(openre_core::Error::Config("Plugin max memory cannot be 0".into()));
         }
         Ok(())
     }
@@ -386,9 +370,7 @@ pub struct PrivacyConfig {
 impl AiConfig {
     fn validate(&self) -> Result<()> {
         if self.onnx.threads == 0 {
-            return Err(openre_core::Error::Config(
-                "ONNX threads cannot be 0".into(),
-            ));
+            return Err(openre_core::Error::Config("ONNX threads cannot be 0".into()));
         }
         Ok(())
     }
@@ -402,10 +384,7 @@ impl Default for AiConfig {
             allow_remote: false,
             allowed_remote_providers: vec![],
             models_dir: PathBuf::from("./models"),
-            onnx: OnnxConfig {
-                threads: num_cpus::get(),
-                providers: vec!["cpu".into()],
-            },
+            onnx: OnnxConfig { threads: num_cpus::get(), providers: vec!["cpu".into()] },
             llama_cpp: LlamaCppConfig {
                 gpu_layers: 0,
                 context_size: 4096,
@@ -505,9 +484,7 @@ pub struct SchedulerConfig {
 impl QueueConfig {
     fn validate(&self) -> Result<()> {
         if self.worker.min_workers > self.worker.max_workers {
-            return Err(openre_core::Error::Config(
-                "Min workers cannot exceed max workers".into(),
-            ));
+            return Err(openre_core::Error::Config("Min workers cannot exceed max workers".into()));
         }
         Ok(())
     }
@@ -553,10 +530,7 @@ impl Default for QueueConfig {
                 exponential_base: 2.0,
                 jitter: true,
             },
-            scheduler: SchedulerConfig {
-                enabled: true,
-                check_interval_secs: 10,
-            },
+            scheduler: SchedulerConfig { enabled: true, check_interval_secs: 10 },
             poll_interval_ms: 5000,
             max_retries: 3,
             base_retry_delay_ms: 1000,
@@ -627,9 +601,7 @@ pub struct AuditConfig {
 impl TelemetryConfig {
     fn validate(&self) -> Result<()> {
         if self.metrics.enabled && self.metrics.port == 0 {
-            return Err(openre_core::Error::Config(
-                "Metrics port cannot be 0".into(),
-            ));
+            return Err(openre_core::Error::Config("Metrics port cannot be 0".into()));
         }
         Ok(())
     }
@@ -646,11 +618,7 @@ impl Default for TelemetryConfig {
                 max_file_size_mb: 100,
                 max_files: 10,
             },
-            metrics: MetricsConfig {
-                enabled: true,
-                port: 9090,
-                path: "/metrics".into(),
-            },
+            metrics: MetricsConfig { enabled: true, port: 9090, path: "/metrics".into() },
             tracing: TracingConfig {
                 enabled: true,
                 otlp_endpoint: None,
@@ -782,9 +750,7 @@ pub struct SessionConfig {
 impl AuthConfig {
     fn validate(&self) -> Result<()> {
         if self.jwt.algorithm != "RS256" {
-            return Err(openre_core::Error::Config(
-                "JWT algorithm must be RS256".into(),
-            ));
+            return Err(openre_core::Error::Config("JWT algorithm must be RS256".into()));
         }
         Ok(())
     }

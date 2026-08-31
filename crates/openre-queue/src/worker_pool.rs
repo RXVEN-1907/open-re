@@ -107,11 +107,8 @@ impl WorkerPool {
         handlers: Vec<BoxedJobHandler>,
         mut shutdown_rx: mpsc::Receiver<()>,
     ) {
-        let priorities = [
-            crate::job::Priority::High,
-            crate::job::Priority::Default,
-            crate::job::Priority::Low,
-        ];
+        let priorities =
+            [crate::job::Priority::High, crate::job::Priority::Default, crate::job::Priority::Low];
         let poll_interval = Duration::from_millis(queue_config.poll_interval_ms);
 
         loop {
@@ -193,9 +190,7 @@ impl WorkerPool {
     /// Scale worker pool
     pub async fn scale(&mut self, new_size: usize, handlers: Vec<BoxedJobHandler>) -> Result<()> {
         if new_size > self.worker_config.max_workers {
-            return Err(openre_core::Error::InvalidInput(
-                "Cannot exceed max_workers".into(),
-            ));
+            return Err(openre_core::Error::InvalidInput("Cannot exceed max_workers".into()));
         }
 
         let current = self.workers.len();

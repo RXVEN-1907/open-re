@@ -94,13 +94,7 @@ pub enum AiCommands {
 impl AiCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            AiCommands::Chat {
-                message,
-                model,
-                temperature,
-                max_tokens,
-                stream,
-            } => {
+            AiCommands::Chat { message, model, temperature, max_tokens, stream } => {
                 let mut payload = serde_json::json!({
                     "messages": [{ "role": "user", "content": message }],
                 });
@@ -173,12 +167,7 @@ impl AiCommands {
                 }
             }
 
-            AiCommands::Analyze {
-                finding_id,
-                provider,
-                model,
-                stream,
-            } => {
+            AiCommands::Analyze { finding_id, provider, model, stream } => {
                 let mut payload = serde_json::json!({
                     "finding_id": finding_id,
                     "action": "analyze",
@@ -245,11 +234,7 @@ impl AiCommands {
                 }
             }
 
-            AiCommands::Explain {
-                finding_id,
-                provider,
-                model,
-            } => {
+            AiCommands::Explain { finding_id, provider, model } => {
                 let mut payload = serde_json::json!({
                     "finding_id": finding_id,
                     "action": "explain",
@@ -275,11 +260,7 @@ impl AiCommands {
                 );
             }
 
-            AiCommands::Remediate {
-                finding_id,
-                provider,
-                model,
-            } => {
+            AiCommands::Remediate { finding_id, provider, model } => {
                 let mut payload = serde_json::json!({
                     "finding_id": finding_id,
                     "action": "remediate",
@@ -305,11 +286,7 @@ impl AiCommands {
                 );
             }
 
-            AiCommands::Correlate {
-                project,
-                provider,
-                model,
-            } => {
+            AiCommands::Correlate { project, provider, model } => {
                 // Resolve project ID
                 let project_id = resolve_project_id(&mut ctx, &project).await?;
 
@@ -373,7 +350,8 @@ async fn resolve_project_id(ctx: &mut Context, project: &str) -> Result<String, 
         return Ok(project.to_string());
     }
 
-    let response = ctx.get(&format!("/api/projects?search={}", urlencoding::encode(project))).await?;
+    let response =
+        ctx.get(&format!("/api/projects?search={}", urlencoding::encode(project))).await?;
     let list: ProjectListResponse = response.json().await?;
 
     if let Some(project) = list.projects.first() {

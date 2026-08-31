@@ -142,20 +142,14 @@ impl ScanProgress {
         self.status = status;
         self.completed_plugins = completed;
         self.total_plugins = total;
-        self.progress_percent = if total > 0 {
-            (completed as f32 / total as f32) * 100.0
-        } else {
-            0.0
-        };
+        self.progress_percent =
+            if total > 0 { (completed as f32 / total as f32) * 100.0 } else { 0.0 };
     }
 
     /// Add finding
     pub fn add_finding(&mut self, severity: &str) {
         self.total_findings += 1;
-        *self
-            .findings_by_severity
-            .entry(severity.to_string())
-            .or_insert(0) += 1;
+        *self.findings_by_severity.entry(severity.to_string()).or_insert(0) += 1;
     }
 
     /// Set current plugin
@@ -253,10 +247,7 @@ impl CancellationToken {
     /// Create a new cancellation token
     pub fn new() -> Self {
         let (sender, _) = broadcast::channel(1);
-        Self {
-            cancelled: Arc::new(parking_lot::Mutex::new(false)),
-            sender,
-        }
+        Self { cancelled: Arc::new(parking_lot::Mutex::new(false)), sender }
     }
 
     /// Check if cancelled
@@ -350,8 +341,7 @@ impl ScanManager {
         progress.total_plugins = plugins.len();
 
         // Update status to running
-        self.update_scan_status(scan_id, ScanStatus::Running)
-            .await?;
+        self.update_scan_status(scan_id, ScanStatus::Running).await?;
         progress.status = ScanStatus::Running;
         progress.started_at = Some(chrono::Utc::now());
         self.broadcast_progress(progress.clone());
@@ -400,8 +390,7 @@ impl ScanManager {
         for plugin in plugins {
             // Check cancellation
             if cancellation_token.is_cancelled() {
-                self.update_scan_status(scan_id, ScanStatus::Cancelled)
-                    .await?;
+                self.update_scan_status(scan_id, ScanStatus::Cancelled).await?;
                 return Ok(());
             }
 
@@ -430,11 +419,9 @@ impl ScanManager {
                 };
 
                 // Run plugin with timeout
-                let result = timeout(
-                    plugin_timeout,
-                    plugin_manager.execute_plugin(&plugin_id, &context),
-                )
-                .await;
+                let result =
+                    timeout(plugin_timeout, plugin_manager.execute_plugin(&plugin_id, &context))
+                        .await;
 
                 execution.completed_at = Some(chrono::Utc::now());
                 execution.duration = Some(execution_start.elapsed());
@@ -492,8 +479,7 @@ impl ScanManager {
             }
 
             // Update progress
-            self.update_scan_progress(scan_id, completed, failed, total_plugins)
-                .await?;
+            self.update_scan_progress(scan_id, completed, failed, total_plugins).await?;
         }
 
         // Finalize scan
@@ -538,11 +524,7 @@ impl ScanManager {
             }
 
             // Check if plugin supports target type
-            if plugin
-                .capabilities
-                .iter()
-                .any(|c| c.target_types.contains(&target.target_type))
-            {
+            if plugin.capabilities.iter().any(|c| c.target_types.contains(&target.target_type)) {
                 compatible.push(plugin);
             }
         }
@@ -577,10 +559,7 @@ impl ScanManager {
             session.progress.update(status, completed, total);
             session.progress.failed_plugins = failed;
             session.progress.elapsed = session.started_at.map_or(Duration::ZERO, |start| {
-                chrono::Utc::now()
-                    .signed_duration_since(start)
-                    .to_std()
-                    .unwrap_or(Duration::ZERO)
+                chrono::Utc::now().signed_duration_since(start).to_std().unwrap_or(Duration::ZERO)
             });
             self.storage.save_scan(&session).await?;
             self.broadcast_progress(session.progress.clone());
@@ -678,8 +657,7 @@ impl ScanManager {
             if let Some(token) = &session.cancellation_token {
                 token.cancel();
             }
-            self.update_scan_status(*scan_id, ScanStatus::Cancelled)
-                .await?;
+            self.update_scan_status(*scan_id, ScanStatus::Cancelled).await?;
             Ok(())
         } else {
             Err(ScannerError::ScanNotFound(scan_id.to_string()))
@@ -695,8 +673,7 @@ impl ScanManager {
     pub async fn resume_scan(&self, scan_id: &ScanId) -> ScannerResult<()> {
         if let Some(session) = self.active_scans.get(scan_id) {
             if session.status == ScanStatus::Paused {
-                self.update_scan_status(*scan_id, ScanStatus::Running)
-                    .await?;
+                self.update_scan_status(*scan_id, ScanStatus::Running).await?;
                 Ok(())
             } else {
                 Err(ScannerError::Scan("Scan is not paused".to_string()))
@@ -713,18 +690,12 @@ impl ScanManager {
 
     /// Get scan findings
     pub fn get_findings(&self, scan_id: &ScanId) -> Vec<Finding> {
-        self.active_scans
-            .get(scan_id)
-            .map(|s| s.findings.clone())
-            .unwrap_or_default()
+        self.active_scans.get(scan_id).map(|s| s.findings.clone()).unwrap_or_default()
     }
 
     /// Get scan logs
     pub fn get_logs(&self, scan_id: &ScanId) -> Vec<ScanLogEntry> {
-        self.active_scans
-            .get(scan_id)
-            .map(|s| s.logs.clone())
-            .unwrap_or_default()
+        self.active_scans.get(scan_id).map(|s| s.logs.clone()).unwrap_or_default()
     }
 }
 

@@ -9,21 +9,25 @@ use indicatif::{ProgressBar, ProgressStyle};
 use openre_analysis::{
     binary::{
         common::{
-            Architecture, BinaryFormat, BinaryIdentification, BinaryMetadata, ExportInfo, FunctionInfo,
-            ImportInfo, InstructionInfo, SectionInfo, SegmentInfo, SymbolInfo,
+            Architecture, BinaryFormat, BinaryIdentification, BinaryMetadata, ExportInfo,
+            FileHashes, ImportInfo, ImportedFunction, OperatingSystem, SectionInfo, SegmentInfo,
+            SymbolInfo,
         },
         elf::{ElfIdentifier, ElfMetadataExtractor},
         macho::{MachoIdentifier, MachoMetadataExtractor},
         pe::{PeIdentifier, PeMetadataExtractor},
-        traits::{BinaryIdentifier, BinaryMetadataExtractor},
+        traits::{BinaryIdentifier, BinaryMetadataExtractor, StaticAnalyzer},
         wasm::{WasmIdentifier, WasmMetadataExtractor},
     },
-    orchestrator::{AnalysisConfig, AnalysisJob, Orchestrator, StageId},
+    orchestrator::{AnalysisConfig, AnalysisJob, Orchestrator},
     progress::{JobProgress, JobStatus, StageProgress, StageStatus as ProgressStageStatus},
+    StaticAnalysisService,
 };
-use openre_core::ids::{FileId, JobId, ProjectId, UserId};
+use openre_core::ids::{FileId, JobId, ProjectId, StageId, UserId};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tabled::{settings::Style, Table, Tabled};
@@ -78,9 +82,9 @@ pub struct ParseArgs {
     #[arg(value_name = "FILE")]
     pub file: PathBuf,
 
-    /// Force format (auto-detected if not specified)
-    #[arg(short, long, value_enum)]
-    pub format: Option<BinaryFormatArg>,
+    /// Force binary format (auto-detected if not specified)
+    #[arg(long, value_enum, value_name = "FORMAT")]
+    pub binary_format: Option<BinaryFormatArg>,
 
     /// Output format
     #[arg(short, long, value_enum, default_value = "table")]
@@ -378,21 +382,31 @@ pub enum PipelineStagesArg {
 impl From<PipelineStagesArg> for Vec<StageId> {
     fn from(s: PipelineStagesArg) -> Self {
         match s {
-            PipelineStagesArg::All => StageId::all_ordered(),
-            PipelineStagesArg::Identification => vec![StageId::Identification],
-            PipelineStagesArg::Loading => vec![StageId::Loading],
-            PipelineStagesArg::Disassembly => vec![StageId::Disassembly],
-            PipelineStagesArg::ControlFlow => vec![StageId::ControlFlow],
-            PipelineStagesArg::DataFlow => vec![StageId::DataFlow],
-            PipelineStagesArg::TypeRecovery => vec![StageId::TypeRecovery],
-            PipelineStagesArg::Decompilation => vec![StageId::Decompilation],
-            PipelineStagesArg::AiEnrichment => vec![StageId::AiEnrichment],
-            PipelineStagesArg::Finalization => vec![StageId::Finalization],
+            PipelineStagesArg::All => vec![
+                StageId::new("identification"),
+                StageId::new("loading"),
+                StageId::new("disassembly"),
+                StageId::new("control_flow"),
+                StageId::new("data_flow"),
+                StageId::new("type_recovery"),
+                StageId::new("decompilation"),
+                StageId::new("ai_enrichment"),
+                StageId::new("finalization"),
+            ],
+            PipelineStagesArg::Identification => vec![StageId::new("identification")],
+            PipelineStagesArg::Loading => vec![StageId::new("loading")],
+            PipelineStagesArg::Disassembly => vec![StageId::new("disassembly")],
+            PipelineStagesArg::ControlFlow => vec![StageId::new("control_flow")],
+            PipelineStagesArg::DataFlow => vec![StageId::new("data_flow")],
+            PipelineStagesArg::TypeRecovery => vec![StageId::new("type_recovery")],
+            PipelineStagesArg::Decompilation => vec![StageId::new("decompilation")],
+            PipelineStagesArg::AiEnrichment => vec![StageId::new("ai_enrichment")],
+            PipelineStagesArg::Finalization => vec![StageId::new("finalization")],
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum OutputFormatArg {
     Table,
@@ -607,6 +621,7 @@ impl AnalysisCommands {
             BinaryFormat::Pe => Box::new(PeMetadataExtractor::default()),
             BinaryFormat::MachO => Box::new(MachoMetadataExtractor::default()),
             BinaryFormat::Wasm => Box::new(WasmMetadataExtractor::default()),
+            BinaryFormat::Unknown => panic!("Unknown binary format"),
         }
     }
 
@@ -617,18 +632,15 @@ impl AnalysisCommands {
             BinaryFormat::Pe => Box::new(PeIdentifier::default()),
             BinaryFormat::MachO => Box::new(MachoIdentifier::default()),
             BinaryFormat::Wasm => Box::new(WasmIdentifier::default()),
+            BinaryFormat::Unknown => panic!("Unknown binary format"),
         }
     }
 
     /// Detect binary format from file
     async fn detect_format(file: &PathBuf) -> Result<BinaryFormat, CliError> {
         let data = std::fs::read(file)?;
-        let formats = [
-            BinaryFormat::Elf,
-            BinaryFormat::Pe,
-            BinaryFormat::MachO,
-            BinaryFormat::Wasm,
-        ];
+        let formats =
+            [BinaryFormat::Elf, BinaryFormat::Pe, BinaryFormat::MachO, BinaryFormat::Wasm];
 
         for format in formats {
             let identifier = Self::get_identifier(format);
@@ -657,14 +669,15 @@ impl AnalysisCommands {
         let mut metadata = extractor.extract_metadata(&data).await?;
 
         // Set file_id from hash
-        metadata.file_id = FileId::from_string(&metadata.hashes.sha256).unwrap_or_default();
+        metadata.file_id =
+            FileId::from_str(&metadata.hashes.sha256).unwrap_or_else(|_| FileId::new());
 
         Ok(metadata)
     }
 
     /// Parse command - identify binary format
     async fn cmd_parse(args: ParseArgs, ctx: Context) -> Result<(), CliError> {
-        let format = match args.format {
+        let format = match args.binary_format {
             Some(f) => f.into(),
             None => Self::detect_format(&args.file).await?,
         };
@@ -673,7 +686,7 @@ impl AnalysisCommands {
         let identifier = Self::get_identifier(format);
         let identification = identifier.identify(&data).await?;
 
-        let info = vec![
+        let mut info = vec![
             BinaryInfoDisplay {
                 property: "Format".to_string(),
                 value: format!("{:?}", identification.format),
@@ -707,13 +720,13 @@ impl AnalysisCommands {
             },
         ];
 
-        if let Some(compiler) = identification.compiler_info {
+        if let Some(ref compiler) = identification.compiler_info {
             info.push(BinaryInfoDisplay {
                 property: "Compiler".to_string(),
                 value: format!(
                     "{} {}",
                     compiler.name,
-                    compiler.version.unwrap_or_default()
+                    compiler.version.clone().unwrap_or_default()
                 ),
             });
         }
@@ -734,15 +747,12 @@ impl AnalysisCommands {
         let metadata = Self::load_metadata(&args.file, None).await?;
         let id = &metadata.identification;
 
-        let info = vec![
+        let mut info = vec![
             BinaryInfoDisplay {
                 property: "File".to_string(),
                 value: args.file.display().to_string(),
             },
-            BinaryInfoDisplay {
-                property: "Format".to_string(),
-                value: format!("{:?}", id.format),
-            },
+            BinaryInfoDisplay { property: "Format".to_string(), value: format!("{:?}", id.format) },
             BinaryInfoDisplay {
                 property: "Architecture".to_string(),
                 value: format!("{:?}", id.architecture),
@@ -761,10 +771,7 @@ impl AnalysisCommands {
             },
             BinaryInfoDisplay {
                 property: "Entry Point".to_string(),
-                value: id
-                    .entry_point
-                    .map(|e| format!("0x{:x}", e))
-                    .unwrap_or("N/A".to_string()),
+                value: id.entry_point.map(|e| format!("0x{:x}", e)).unwrap_or("N/A".to_string()),
             },
             BinaryInfoDisplay {
                 property: "Sections".to_string(),
@@ -780,20 +787,19 @@ impl AnalysisCommands {
             },
             BinaryInfoDisplay {
                 property: "Imports".to_string(),
-                value: metadata.imports.iter().map(|i| i.functions.len()).sum::<usize>().to_string(),
+                value: metadata
+                    .imports
+                    .iter()
+                    .map(|i| i.functions.len())
+                    .sum::<usize>()
+                    .to_string(),
             },
             BinaryInfoDisplay {
                 property: "Exports".to_string(),
                 value: metadata.exports.len().to_string(),
             },
-            BinaryInfoDisplay {
-                property: "MD5".to_string(),
-                value: metadata.hashes.md5.clone(),
-            },
-            BinaryInfoDisplay {
-                property: "SHA1".to_string(),
-                value: metadata.hashes.sha1.clone(),
-            },
+            BinaryInfoDisplay { property: "MD5".to_string(), value: metadata.hashes.md5.clone() },
+            BinaryInfoDisplay { property: "SHA1".to_string(), value: metadata.hashes.sha1.clone() },
             BinaryInfoDisplay {
                 property: "SHA256".to_string(),
                 value: metadata.hashes.sha256.clone(),
@@ -803,11 +809,7 @@ impl AnalysisCommands {
         if let Some(compiler) = &id.compiler_info {
             info.push(BinaryInfoDisplay {
                 property: "Compiler".to_string(),
-                value: format!(
-                    "{} {}",
-                    compiler.name,
-                    compiler.version.as_deref().unwrap_or("")
-                ),
+                value: format!("{} {}", compiler.name, compiler.version.as_deref().unwrap_or("")),
             });
         }
 
@@ -829,7 +831,9 @@ impl AnalysisCommands {
             .symbols
             .into_iter()
             .filter(|s| {
-                if args.globals_only && s.binding != openre_analysis::binary::common::SymbolBinding::Global {
+                if args.globals_only
+                    && s.binding != openre_analysis::binary::common::SymbolBinding::Global
+                {
                     return false;
                 }
                 if let Some(filter) = args.filter_type {
@@ -919,10 +923,7 @@ impl AnalysisCommands {
                         .address
                         .map(|a| format!("0x{:x}", a))
                         .unwrap_or("N/A".to_string()),
-                    ordinal: func
-                        .ordinal
-                        .map(|o| o.to_string())
-                        .unwrap_or("N/A".to_string()),
+                    ordinal: func.ordinal.map(|o| o.to_string()).unwrap_or("N/A".to_string()),
                 })
             })
             .collect();
@@ -976,26 +977,24 @@ impl AnalysisCommands {
     /// Strings command
     async fn cmd_strings(args: StringsArgs, ctx: Context) -> Result<(), CliError> {
         let data = std::fs::read(&args.file)?;
-        let extractor = Self::get_extractor(Self::detect_format(&args.file).await?).await;
+        let format = Self::detect_format(&args.file).await?;
+        let extractor = Self::get_extractor(format).await;
         let strings = extractor.extract_strings(&data).await?;
 
         let mut filtered: Vec<StringDisplay> = strings
             .into_iter()
-            .filter(|s| s.value.len() >= args.min_length)
+            .filter(|s| s.content.len() >= args.min_length)
             .filter(|s| {
                 if let Some(pattern) = &args.pattern {
-                    regex::Regex::new(pattern)
-                        .ok()
-                        .map(|re| re.is_match(&s.value))
-                        .unwrap_or(false)
+                    Regex::new(pattern).ok().map(|re| re.is_match(&s.content)).unwrap_or(false)
                 } else {
                     true
                 }
             })
             .map(|s| StringDisplay {
-                offset: format!("0x{:x}", s.offset),
-                length: s.value.len().to_string(),
-                string: s.value,
+                offset: format!("0x{:x}", s.address),
+                length: s.content.len().to_string(),
+                string: s.content,
             })
             .collect();
 
@@ -1076,15 +1075,19 @@ impl AnalysisCommands {
         let data = std::fs::read(&args.file)?;
 
         // Use static analysis to find functions
-        let analyzer = openre_analysis::binary::static_analysis::StaticAnalyzerImpl::default();
-        let functions = analyzer.find_functions(&data, &metadata).await?;
+        let analyzer = StaticAnalysisService::new();
+        let result = analyzer.analyze(metadata.file_id, &metadata).await?;
 
-        let mut funcs: Vec<FunctionDisplay> = functions
+        let mut funcs: Vec<FunctionDisplay> = result
+            .functions
             .into_iter()
             .filter(|f| f.size >= args.min_size as u64)
             .filter(|f| {
                 if let Some(pattern) = &args.pattern {
-                    f.name.as_ref().map(|n| n.to_lowercase().contains(&pattern.to_lowercase())).unwrap_or(false)
+                    f.name
+                        .as_ref()
+                        .map(|n| n.to_lowercase().contains(&pattern.to_lowercase()))
+                        .unwrap_or(false)
                 } else {
                     true
                 }
@@ -1123,9 +1126,8 @@ impl AnalysisCommands {
 
         // Parse function address/name
         let func_addr = if args.function.starts_with("0x") {
-            u64::from_str_radix(&args.function[2..], 16).map_err(|_| {
-                CliError::InvalidInput("Invalid function address format".into())
-            })?
+            u64::from_str_radix(&args.function[2..], 16)
+                .map_err(|_| CliError::InvalidInput("Invalid function address format".into()))?
         } else {
             // Find by name
             metadata
@@ -1171,9 +1173,8 @@ impl AnalysisCommands {
         let data = std::fs::read(&args.file)?;
 
         let func_addr = if args.function.starts_with("0x") {
-            u64::from_str_radix(&args.function[2..], 16).map_err(|_| {
-                CliError::InvalidInput("Invalid function address format".into())
-            })?
+            u64::from_str_radix(&args.function[2..], 16)
+                .map_err(|_| CliError::InvalidInput("Invalid function address format".into()))?
         } else {
             metadata
                 .symbols
@@ -1183,15 +1184,12 @@ impl AnalysisCommands {
                 .ok_or_else(|| CliError::InvalidInput("Function not found".into()))?
         };
 
-        // Run control flow analysis
-        let analyzer = openre_analysis::binary::static_analysis::StaticAnalyzerImpl::default();
-        let cfg = analyzer.analyze_control_flow(&data, &metadata).await?;
+        // Run control flow analysis using the full analysis service
+        let analyzer = StaticAnalysisService::new();
+        let result = analyzer.analyze(metadata.file_id, &metadata).await?;
 
         // Filter to requested function
-        let func_cfg = cfg
-            .functions
-            .into_iter()
-            .find(|f| f.address == func_addr);
+        let func_cfg = result.control_flow.functions.into_iter().find(|f| f.address == func_addr);
 
         if let Some(func) = func_cfg {
             if args.dot {
@@ -1201,7 +1199,9 @@ impl AnalysisCommands {
                 for bb in &func.basic_blocks {
                     dot.push_str(&format!(
                         "  BB_{:x} [label=\"BB @ 0x{:x} ({} ins)\"];\n",
-                        bb.address, bb.address, bb.instructions.len()
+                        bb.address,
+                        bb.address,
+                        bb.instructions.len()
                     ));
                     for succ in &bb.successors {
                         dot.push_str(&format!("  BB_{:x} -> BB_{:x};\n", bb.address, succ));
@@ -1265,9 +1265,8 @@ impl AnalysisCommands {
         let data = std::fs::read(&args.file)?;
 
         let func_addr = if args.function.starts_with("0x") {
-            u64::from_str_radix(&args.function[2..], 16).map_err(|_| {
-                CliError::InvalidInput("Invalid function address format".into())
-            })?
+            u64::from_str_radix(&args.function[2..], 16)
+                .map_err(|_| CliError::InvalidInput("Invalid function address format".into()))?
         } else {
             metadata
                 .symbols
@@ -1277,9 +1276,9 @@ impl AnalysisCommands {
                 .ok_or_else(|| CliError::InvalidInput("Function not found".into()))?
         };
 
-        // Run data flow analysis
-        let analyzer = openre_analysis::binary::static_analysis::StaticAnalyzerImpl::default();
-        let df = analyzer.analyze_data_flow(&data, &metadata).await?;
+        // Run data flow analysis using the full analysis service
+        let analyzer = StaticAnalysisService::new();
+        let result = analyzer.analyze(metadata.file_id, &metadata).await?;
 
         // Filter to requested function (simplified)
         #[derive(Serialize, Deserialize)]
@@ -1314,7 +1313,8 @@ impl AnalysisCommands {
             dep_type: String,
         }
 
-        let variables: Vec<VariableDisplay> = df
+        let variables: Vec<VariableDisplay> = result
+            .data_flow
             .variables
             .into_iter()
             .map(|v| VariableDisplay {
@@ -1326,7 +1326,8 @@ impl AnalysisCommands {
             })
             .collect();
 
-        let dependencies: Vec<DependencyDisplay> = df
+        let dependencies: Vec<DependencyDisplay> = result
+            .data_flow
             .data_dependencies
             .into_iter()
             .map(|d| DependencyDisplay {
@@ -1381,7 +1382,7 @@ impl AnalysisCommands {
         // Create pipeline context
         let project_id = args
             .project_id
-            .and_then(|s| ProjectId::from_string(&s).ok())
+            .and_then(|s| ProjectId::from_str(&s).ok())
             .unwrap_or_else(ProjectId::new);
 
         let job = AnalysisJob::new(
@@ -1395,7 +1396,7 @@ impl AnalysisCommands {
                 ai_enabled: args.ai_enabled,
                 incremental: false,
             },
-            UserId::nil(),
+            UserId::new(),
         );
 
         pb.set_message("Building pipeline...");
@@ -1451,9 +1452,8 @@ impl AnalysisCommands {
     /// Pipeline status command
     async fn cmd_pipeline_status(args: PipelineStatusArgs, ctx: Context) -> Result<(), CliError> {
         // In a real implementation, this would query the queue/job system
-        let job_id = JobId::from_string(&args.id).map_err(|_| {
-            CliError::InvalidInput("Invalid job ID format".into())
-        })?;
+        let job_id = JobId::from_str(&args.id)
+            .map_err(|e| CliError::InvalidInput(format!("Invalid job ID format: {}", e)))?;
 
         // Placeholder - would fetch from queue
         #[derive(Serialize, Deserialize, Tabled)]
@@ -1488,9 +1488,8 @@ impl AnalysisCommands {
 
     /// Pipeline cancel command
     async fn cmd_pipeline_cancel(args: PipelineCancelArgs, ctx: Context) -> Result<(), CliError> {
-        let _job_id = JobId::from_string(&args.id).map_err(|_| {
-            CliError::InvalidInput("Invalid job ID format".into())
-        })?;
+        let _job_id = JobId::from_str(&args.id)
+            .map_err(|e| CliError::InvalidInput(format!("Invalid job ID format: {}", e)))?;
 
         // In a real implementation, this would send cancellation to the queue
         println!("Cancellation requested for job: {}", args.id);

@@ -80,12 +80,7 @@ impl AuthService {
         validation.set_audience(&[config.jwt_audience.clone()]);
         validation.validate_exp = true;
 
-        Self {
-            config,
-            encoding_key,
-            decoding_key,
-            validation,
-        }
+        Self { config, encoding_key, decoding_key, validation }
     }
 
     /// Create access token
@@ -97,10 +92,7 @@ impl AuthService {
         permissions: Vec<String>,
         project_id: Option<String>,
     ) -> ApiResult<String> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as usize;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize;
         let exp = now + self.config.access_token_ttl_seconds as usize;
 
         let claims = Claims {
@@ -121,10 +113,7 @@ impl AuthService {
 
     /// Create refresh token
     pub fn create_refresh_token(&self, user_id: &str) -> ApiResult<String> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as usize;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize;
         let exp = now + self.config.refresh_token_ttl_seconds as usize;
 
         let claims = Claims {
@@ -154,10 +143,7 @@ impl AuthService {
         let secret = Uuid::new_v4().to_string().replace("-", "");
         let api_key = format!("{}{}_{}", self.config.api_key_prefix, key_id, secret);
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as usize;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize;
         let exp = now + 365 * 24 * 60 * 60; // 1 year
 
         let claims = Claims {
@@ -243,10 +229,7 @@ impl AuthService {
 
     /// Extract API key from header
     pub fn extract_api_key(headers: &HeaderMap) -> Option<String> {
-        headers
-            .get("x-api-key")
-            .and_then(|h| h.to_str().ok())
-            .map(|s| s.to_string())
+        headers.get("x-api-key").and_then(|h| h.to_str().ok()).map(|s| s.to_string())
     }
 }
 
@@ -315,10 +298,7 @@ pub fn require_permission(permission: &str) -> impl Fn(Extension<Claims>) -> Api
         if claims.permissions.contains(&perm) || claims.roles.contains(&"admin".to_string()) {
             Ok(())
         } else {
-            Err(ApiError::Forbidden(format!(
-                "Permission required: {}",
-                perm
-            )))
+            Err(ApiError::Forbidden(format!("Permission required: {}", perm)))
         }
     }
 }

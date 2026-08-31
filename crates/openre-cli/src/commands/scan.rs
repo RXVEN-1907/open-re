@@ -122,15 +122,7 @@ pub enum ScanCommands {
 impl ScanCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            ScanCommands::Create {
-                project,
-                target,
-                profile,
-                name,
-                description,
-                schedule,
-                run,
-            } => {
+            ScanCommands::Create { project, target, profile, name, description, schedule, run } => {
                 // First, resolve project ID if name given
                 let project_id = resolve_project_id(&mut ctx, &project).await?;
 
@@ -158,14 +150,17 @@ impl ScanCommands {
                 if run {
                     // Auto-run the scan
                     println!("Starting scan...");
-                    let run_response = ctx.post(&format!("/api/scans/{}/run", scan.id), &serde_json::json!({})).await?;
+                    let run_response = ctx
+                        .post(&format!("/api/scans/{}/run", scan.id), &serde_json::json!({}))
+                        .await?;
                     let run_result: ScanRunResponse = run_response.json().await?;
                     print_output(&run_result, &ctx.output_format)?;
                 }
             }
 
             ScanCommands::Run { id, background } => {
-                let response = ctx.post(&format!("/api/scans/{}/run", id), &serde_json::json!({})).await?;
+                let response =
+                    ctx.post(&format!("/api/scans/{}/run", id), &serde_json::json!({})).await?;
                 let run_result: ScanRunResponse = response.json().await?;
                 print_output(&run_result, &ctx.output_format)?;
 
@@ -180,8 +175,10 @@ impl ScanCommands {
                         let status_response = ctx.get(&format!("/api/scans/{}/status", id)).await?;
                         let status: ScanStatusResponse = status_response.json().await?;
 
-                        print!("\rStatus: {} | Progress: {}% | Findings: {}",
-                            status.status, status.progress, status.findings_count);
+                        print!(
+                            "\rStatus: {} | Progress: {}% | Findings: {}",
+                            status.status, status.progress, status.findings_count
+                        );
                         use std::io::{self, Write};
                         io::stdout().flush()?;
 
@@ -193,15 +190,13 @@ impl ScanCommands {
                 }
             }
 
-            ScanCommands::List {
-                project,
-                page,
-                per_page,
-                status,
-            } => {
+            ScanCommands::List { project, page, per_page, status } => {
                 let project_id = resolve_project_id(&mut ctx, &project).await?;
 
-                let mut url = format!("/api/scans?project_id={}&page={}&per_page={}", project_id, page, per_page);
+                let mut url = format!(
+                    "/api/scans?project_id={}&page={}&per_page={}",
+                    project_id, page, per_page
+                );
                 if let Some(status) = status {
                     url.push_str(&format!("&status={}", status));
                 }
@@ -241,14 +236,16 @@ impl ScanCommands {
             }
 
             ScanCommands::Cancel { id } => {
-                let response = ctx.post(&format!("/api/scans/{}/cancel", id), &serde_json::json!({})).await?;
+                let response =
+                    ctx.post(&format!("/api/scans/{}/cancel", id), &serde_json::json!({})).await?;
                 let result: ScanCancelResponse = response.json().await?;
                 println!("Scan cancelled successfully!");
                 print_output(&result, &ctx.output_format)?;
             }
 
             ScanCommands::Resume { id } => {
-                let response = ctx.post(&format!("/api/scans/{}/resume", id), &serde_json::json!({})).await?;
+                let response =
+                    ctx.post(&format!("/api/scans/{}/resume", id), &serde_json::json!({})).await?;
                 let result: ScanRunResponse = response.json().await?;
                 println!("Scan resumed successfully!");
                 print_output(&result, &ctx.output_format)?;
@@ -256,18 +253,21 @@ impl ScanCommands {
 
             ScanCommands::Status { id, interval } => {
                 println!("Monitoring scan {} (press Ctrl+C to stop)...", id);
-                let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval));
+                let mut interval =
+                    tokio::time::interval(tokio::time::Duration::from_secs(interval));
                 loop {
                     interval.tick().await;
                     let response = ctx.get(&format!("/api/scans/{}/status", id)).await?;
                     let status: ScanStatusResponse = response.json().await?;
 
-                    print!("\r\x1b[2KStatus: {} | Progress: {}% | Checks: {}/{} | Findings: {}",
+                    print!(
+                        "\r\x1b[2KStatus: {} | Progress: {}% | Checks: {}/{} | Findings: {}",
                         status.status,
                         status.progress,
                         status.checks_completed,
                         status.checks_total,
-                        status.findings_count);
+                        status.findings_count
+                    );
                     use std::io::{self, Write};
                     io::stdout().flush()?;
 
@@ -279,7 +279,8 @@ impl ScanCommands {
             }
 
             ScanCommands::Export { id, format, output } => {
-                let response = ctx.get(&format!("/api/scans/{}/export?format={}", id, format)).await?;
+                let response =
+                    ctx.get(&format!("/api/scans/{}/export?format={}", id, format)).await?;
                 let export: ScanExportResponse = response.json().await?;
 
                 if let Some(output_path) = output {
@@ -303,7 +304,8 @@ async fn resolve_project_id(ctx: &mut Context, project: &str) -> Result<String, 
     }
 
     // Otherwise, search by name
-    let response = ctx.get(&format!("/api/projects?search={}", urlencoding::encode(project))).await?;
+    let response =
+        ctx.get(&format!("/api/projects?search={}", urlencoding::encode(project))).await?;
     let list: ProjectListResponse = response.json().await?;
 
     if let Some(project) = list.projects.first() {

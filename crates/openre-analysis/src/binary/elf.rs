@@ -87,10 +87,7 @@ impl ElfParser {
                     });
                 } else if binding == crate::SymbolBinding::Global && sym.st_shndx != 0 {
                     // Export
-                    info.exports.push(Export {
-                        name: name.to_string(),
-                        address: sym.st_value,
-                    });
+                    info.exports.push(Export { name: name.to_string(), address: sym.st_value });
                 }
             }
         }
@@ -179,11 +176,7 @@ impl BinaryIdentifier for ElfIdentifier {
         Ok(BinaryIdentification {
             format: BinaryFormat::Elf,
             architecture: ElfParser::arch_from_elf(&elf),
-            bitness: if elf.is_64 {
-                Bitness::Bit64
-            } else {
-                Bitness::Bit32
-            },
+            bitness: if elf.is_64 { Bitness::Bit64 } else { Bitness::Bit32 },
             endianness: if elf.header.e_ident[goblin::elf::header::EI_DATA]
                 == goblin::elf::header::ELFDATA2LSB
             {
@@ -329,11 +322,7 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
             identification: BinaryIdentification {
                 format: BinaryFormat::Elf,
                 architecture: ElfParser::arch_from_elf(&elf),
-                bitness: if elf.is_64 {
-                    Bitness::Bit64
-                } else {
-                    Bitness::Bit32
-                },
+                bitness: if elf.is_64 { Bitness::Bit64 } else { Bitness::Bit32 },
                 endianness: if elf.header.e_ident[goblin::elf::header::EI_DATA]
                     == goblin::elf::header::ELFDATA2LSB
                 {
@@ -429,9 +418,5 @@ fn calculate_hashes(data: &[u8]) -> FileHashes {
     let sha1_hash = format!("{:x}", Sha1::digest(data));
     let sha256_hash = format!("{:x}", Sha256::digest(data));
 
-    FileHashes {
-        md5: md5_hash,
-        sha1: sha1_hash,
-        sha256: sha256_hash,
-    }
+    FileHashes { md5: md5_hash, sha1: sha1_hash, sha256: sha256_hash }
 }

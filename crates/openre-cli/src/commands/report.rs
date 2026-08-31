@@ -114,7 +114,8 @@ impl ReportCommands {
                 let report: ReportGenerateResponse = response.json().await?;
 
                 if let Some(output_path) = output {
-                    let download_response = ctx.get(&format!("/api/reports/{}/download", report.id)).await?;
+                    let download_response =
+                        ctx.get(&format!("/api/reports/{}/download", report.id)).await?;
                     let data = download_response.bytes().await?;
                     tokio::fs::write(&output_path, data).await?;
                     println!("Report saved to {}", output_path);
@@ -127,7 +128,12 @@ impl ReportCommands {
             ReportCommands::List { project, page, per_page } => {
                 let project_id = resolve_project_id(&mut ctx, &project).await?;
 
-                let response = ctx.get(&format!("/api/reports?project_id={}&page={}&per_page={}", project_id, page, per_page)).await?;
+                let response = ctx
+                    .get(&format!(
+                        "/api/reports?project_id={}&page={}&per_page={}",
+                        project_id, page, per_page
+                    ))
+                    .await?;
                 let list: ReportListResponse = response.json().await?;
                 print_output(&list.reports, &ctx.output_format)?;
                 println!(
@@ -184,7 +190,8 @@ async fn resolve_project_id(ctx: &mut Context, project: &str) -> Result<String, 
         return Ok(project.to_string());
     }
 
-    let response = ctx.get(&format!("/api/projects?search={}", urlencoding::encode(project))).await?;
+    let response =
+        ctx.get(&format!("/api/projects?search={}", urlencoding::encode(project))).await?;
     let list: ProjectListResponse = response.json().await?;
 
     if let Some(project) = list.projects.first() {

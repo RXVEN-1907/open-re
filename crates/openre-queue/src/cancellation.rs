@@ -124,17 +124,11 @@ impl CancellationManager {
             "timestamp": chrono::Utc::now().to_rfc3339(),
         });
 
-        let _: () = conn
-            .publish("openre:cancellation", serde_json::to_string(&signal)?)
-            .await?;
+        let _: () = conn.publish("openre:cancellation", serde_json::to_string(&signal)?).await?;
 
         // Also add to a cancellation stream for workers to poll
         let _: () = conn
-            .xadd(
-                "openre:cancellation:signals",
-                "*",
-                &[("job_id", job_id.to_string())],
-            )
+            .xadd("openre:cancellation:signals", "*", &[("job_id", job_id.to_string())])
             .await?;
 
         Ok(())
@@ -167,10 +161,7 @@ impl CancellationManager {
 
     /// Register cancellation handler for a worker
     pub fn register_handler(&self) -> CancellationHandler {
-        CancellationHandler {
-            cancel_rx: self.cancel_tx.subscribe(),
-            client: self.client.clone(),
-        }
+        CancellationHandler { cancel_rx: self.cancel_tx.subscribe(), client: self.client.clone() }
     }
 
     /// Get cancellation status

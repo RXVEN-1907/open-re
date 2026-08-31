@@ -964,10 +964,7 @@ impl Finding {
 
     /// Get a short summary of the finding
     pub fn summary(&self) -> String {
-        format!(
-            "[{}] {} - {} ({})",
-            self.severity, self.title, self.target, self.plugin_source
-        )
+        format!("[{}] {} - {} ({})", self.severity, self.title, self.target, self.plugin_source)
     }
 
     /// Generate a fingerprint for deduplication

@@ -72,12 +72,7 @@ pub enum PluginCommands {
 impl PluginCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            PluginCommands::List {
-                page,
-                per_page,
-                plugin_type,
-                enabled,
-            } => {
+            PluginCommands::List { page, per_page, plugin_type, enabled } => {
                 let mut url = format!("/api/plugins?page={}&per_page={}", page, per_page);
                 if let Some(plugin_type) = plugin_type {
                     url.push_str(&format!("&plugin_type={}", plugin_type));
@@ -148,10 +143,7 @@ impl PluginCommands {
 
             PluginCommands::Enable { id } => {
                 let response = ctx
-                    .post(
-                        &format!("/api/plugins/{}/enable", id),
-                        &serde_json::json!({}),
-                    )
+                    .post(&format!("/api/plugins/{}/enable", id), &serde_json::json!({}))
                     .await?;
                 let plugin: PluginResponse = response.json().await?;
                 print_output(&plugin, &ctx.output_format)?;
@@ -160,10 +152,7 @@ impl PluginCommands {
 
             PluginCommands::Disable { id } => {
                 let response = ctx
-                    .post(
-                        &format!("/api/plugins/{}/disable", id),
-                        &serde_json::json!({}),
-                    )
+                    .post(&format!("/api/plugins/{}/disable", id), &serde_json::json!({}))
                     .await?;
                 let plugin: PluginResponse = response.json().await?;
                 print_output(&plugin, &ctx.output_format)?;

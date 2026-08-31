@@ -51,12 +51,7 @@ pub struct ToolResult {
 
 impl ToolResult {
     pub fn success(output: serde_json::Value) -> Self {
-        Self {
-            success: true,
-            output,
-            error: None,
-            metadata: HashMap::new(),
-        }
+        Self { success: true, output, error: None, metadata: HashMap::new() }
     }
 
     pub fn error(error: String) -> Self {
@@ -76,9 +71,7 @@ pub struct ToolRegistry {
 
 impl ToolRegistry {
     pub fn new() -> Self {
-        let mut registry = Self {
-            tools: HashMap::new(),
-        };
+        let mut registry = Self { tools: HashMap::new() };
         registry.register_builtin_tools();
         registry
     }
@@ -159,19 +152,14 @@ impl AiTool for ReadBinaryTool {
         let length = args["length"]
             .as_u64()
             .ok_or_else(|| openre_core::Error::InvalidInput("length required".into()))?;
-        let file_id = args["file_id"]
-            .as_str()
-            .and_then(|s| s.parse().ok())
-            .or(context.current_file);
+        let file_id =
+            args["file_id"].as_str().and_then(|s| s.parse().ok()).or(context.current_file);
 
         let file_id =
             file_id.ok_or_else(|| openre_core::Error::InvalidInput("file_id required".into()))?;
 
         // Read from object store
-        let data = context
-            .object_store
-            .read_file(file_id, offset, length)
-            .await?;
+        let data = context.object_store.read_file(file_id, offset, length).await?;
 
         let b64 = base64::engine::general_purpose::STANDARD.encode(&data);
         let hex_str = hex::encode(&data);
@@ -212,9 +200,7 @@ impl AiTool for WriteAnnotationTool {
 
     async fn execute(&self, args: serde_json::Value, context: &ToolContext) -> Result<ToolResult> {
         if !context.permissions.write_annotation {
-            return Ok(ToolResult::error(
-                "Write annotation permission denied".into(),
-            ));
+            return Ok(ToolResult::error("Write annotation permission denied".into()));
         }
 
         let project_store = context
@@ -274,12 +260,7 @@ impl AiTool for WriteAnnotationTool {
                     .add_address_annotation(addr, annotation_type, content, confidence)
                     .await?;
             }
-            _ => {
-                return Ok(ToolResult::error(format!(
-                    "Unknown target type: {}",
-                    target_type
-                )))
-            }
+            _ => return Ok(ToolResult::error(format!("Unknown target type: {}", target_type))),
         }
 
         Ok(ToolResult::success(serde_json::json!({
@@ -333,10 +314,8 @@ impl AiTool for QueryDatabaseTool {
             return Ok(ToolResult::error("Only SELECT queries allowed".into()));
         }
 
-        let params: Vec<serde_json::Value> = args["params"]
-            .as_array()
-            .map(|a| a.to_vec())
-            .unwrap_or_default();
+        let params: Vec<serde_json::Value> =
+            args["params"].as_array().map(|a| a.to_vec()).unwrap_or_default();
 
         let results = project_store.execute_query(query, &params).await?;
 
@@ -473,9 +452,7 @@ impl AiTool for GetInstructionsTool {
             }
             Ok(ToolResult::success(serde_json::to_value(all_instructions)?))
         } else {
-            Ok(ToolResult::error(
-                "Either block_id or function_id required".into(),
-            ))
+            Ok(ToolResult::error("Either block_id or function_id required".into()))
         }
     }
 }
@@ -617,9 +594,7 @@ impl AiTool for GetStringsTool {
         let encoding = args["encoding"].as_str().unwrap_or("ascii");
         let address = args["address"].as_u64();
 
-        let strings = project_store
-            .get_strings(min_length, encoding, address)
-            .await?;
+        let strings = project_store.get_strings(min_length, encoding, address).await?;
 
         Ok(ToolResult::success(serde_json::to_value(strings)?))
     }

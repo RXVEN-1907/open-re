@@ -108,10 +108,7 @@ impl DisassemblerPlugin for NoopDisassembler {
         _binary: &IsolatedBinary,
         _func: FunctionBoundary,
     ) -> Result<DisassemblyFunctionResult> {
-        Ok(DisassemblyFunctionResult {
-            instructions: vec![],
-            blocks: vec![],
-        })
+        Ok(DisassemblyFunctionResult { instructions: vec![], blocks: vec![] })
     }
 }
 

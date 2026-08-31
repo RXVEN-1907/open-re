@@ -135,9 +135,7 @@ impl BinaryIdentifier for MachoIdentifier {
 
     async fn identify(&self, data: &[u8]) -> ResultCore<BinaryIdentification> {
         if data.len() < 4 {
-            return Err(openre_core::Error::Internal(anyhow::anyhow!(
-                "Data too small for MachO"
-            )));
+            return Err(openre_core::Error::Internal(anyhow::anyhow!("Data too small for MachO")));
         }
 
         let magic = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
@@ -146,8 +144,9 @@ impl BinaryIdentifier for MachoIdentifier {
         let (architecture, bitness, is_64, entry_point) = if is_fat {
             (crate::Architecture::Unknown, Bitness::Bit64, true, None)
         } else {
-            let macho = MachO::parse(data, 0)
-                .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("MachO parse error: {}", e)))?;
+            let macho = MachO::parse(data, 0).map_err(|e| {
+                openre_core::Error::Internal(anyhow::anyhow!("MachO parse error: {}", e))
+            })?;
             let arch = MachoParser::arch_from_macho(&macho);
             let is_64 = macho.is_64;
             (arch, if is_64 { Bitness::Bit64 } else { Bitness::Bit32 }, is_64, Some(macho.entry))
@@ -187,8 +186,9 @@ impl BinaryMetadataExtractor for MachoMetadataExtractor {
             }
         }
 
-        let macho = MachO::parse(&bytes, 0)
-            .map_err(|e| openre_core::Error::Internal(anyhow::anyhow!("MachO parse error: {}", e)))?;
+        let macho = MachO::parse(&bytes, 0).map_err(|e| {
+            openre_core::Error::Internal(anyhow::anyhow!("MachO parse error: {}", e))
+        })?;
 
         let arch = MachoParser::arch_from_macho(&macho);
         let is_64 = macho.is_64;
@@ -397,9 +397,5 @@ fn calculate_hashes(data: &[u8]) -> FileHashes {
     let sha1_hash = format!("{:x}", Sha1::digest(data));
     let sha256_hash = format!("{:x}", Sha256::digest(data));
 
-    FileHashes {
-        md5: md5_hash,
-        sha1: sha1_hash,
-        sha256: sha256_hash,
-    }
+    FileHashes { md5: md5_hash, sha1: sha1_hash, sha256: sha256_hash }
 }

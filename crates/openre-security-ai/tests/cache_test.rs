@@ -17,13 +17,8 @@ async fn test_cache_basic_operations() {
     };
 
     // Test putting and getting
-    let result = cache
-        .put(
-            key.clone(),
-            "test result".to_string(),
-            Some("test-model".to_string()),
-        )
-        .await;
+    let result =
+        cache.put(key.clone(), "test result".to_string(), Some("test-model".to_string())).await;
     assert!(result.is_ok());
 
     let cached = cache.get(&key).await;
@@ -58,14 +53,8 @@ async fn test_cache_invalidation() {
         template_version: "1.0.0".to_string(),
     };
 
-    cache
-        .put(key1.clone(), "result 1".to_string(), None)
-        .await
-        .unwrap();
-    cache
-        .put(key2.clone(), "result 2".to_string(), None)
-        .await
-        .unwrap();
+    cache.put(key1.clone(), "result 1".to_string(), None).await.unwrap();
+    cache.put(key2.clone(), "result 2".to_string(), None).await.unwrap();
 
     // Verify both are cached
     assert!(cache.get(&key1).await.is_some());

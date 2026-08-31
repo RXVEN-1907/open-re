@@ -45,9 +45,7 @@ async fn chat_completion(
 ) -> ApiResult<Json<ChatCompletionResponse>> {
     let request = openre_ai::providers::CompletionRequest {
         messages: payload.messages.into_iter().map(|m| m.into()).collect(),
-        tools: payload
-            .tools
-            .map(|tools| tools.into_iter().map(Into::into).collect()),
+        tools: payload.tools.map(|tools| tools.into_iter().map(Into::into).collect()),
         tool_choice: payload.tool_choice.map(Into::into),
         temperature: payload.temperature,
         max_tokens: payload.max_tokens,
@@ -71,9 +69,7 @@ async fn chat_completion_stream(
 ) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     let request = openre_ai::providers::CompletionRequest {
         messages: payload.messages.into_iter().map(|m| m.into()).collect(),
-        tools: payload
-            .tools
-            .map(|tools| tools.into_iter().map(Into::into).collect()),
+        tools: payload.tools.map(|tools| tools.into_iter().map(Into::into).collect()),
         tool_choice: payload.tool_choice.map(Into::into),
         temperature: payload.temperature,
         max_tokens: payload.max_tokens,
@@ -433,9 +429,7 @@ impl From<openre_ai::providers::Message> for ChatMessageResponse {
         Self {
             role: format!("{:?}", m.role).to_lowercase(),
             content: m.content,
-            tool_calls: m
-                .tool_calls
-                .map(|tc| tc.into_iter().map(|t| t.into()).collect()),
+            tool_calls: m.tool_calls.map(|tc| tc.into_iter().map(|t| t.into()).collect()),
         }
     }
 }
@@ -449,11 +443,7 @@ pub struct ToolCallResponse {
 
 impl From<openre_ai::providers::ToolCall> for ToolCallResponse {
     fn from(t: openre_ai::providers::ToolCall) -> Self {
-        Self {
-            id: t.id,
-            name: t.name,
-            arguments: t.arguments,
-        }
+        Self { id: t.id, name: t.name, arguments: t.arguments }
     }
 }
 
@@ -491,17 +481,9 @@ pub struct AnalyzeFunctionResponse {
 
 impl From<openre_ai::providers::CompletionResponse> for AnalyzeFunctionResponse {
     fn from(r: openre_ai::providers::CompletionResponse) -> Self {
-        let content = r
-            .choices
-            .first()
-            .and_then(|c| c.message.content.clone())
-            .unwrap_or_default();
+        let content = r.choices.first().and_then(|c| c.message.content.clone()).unwrap_or_default();
 
-        Self {
-            analysis: content,
-            model: r.model,
-            usage: r.usage.into(),
-        }
+        Self { analysis: content, model: r.model, usage: r.usage.into() }
     }
 }
 

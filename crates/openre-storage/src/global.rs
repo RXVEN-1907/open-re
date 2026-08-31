@@ -42,9 +42,7 @@ impl GlobalStore {
     /// Create a new global store
     pub async fn new(config: &DatabaseConfig) -> Result<Self> {
         let options = PgConnectOptions::from_str(&config.url).map_err(map_sqlx_error)?;
-        let pool = PgPool::connect_with(options)
-            .await
-            .map_err(map_sqlx_error)?;
+        let pool = PgPool::connect_with(options).await.map_err(map_sqlx_error)?;
 
         // Note: Pool options like max_connections, min_connections, etc.
         // are set via the pool builder in sqlx 0.6+
@@ -52,9 +50,7 @@ impl GlobalStore {
 
         info!("Connected to PostgreSQL database");
 
-        let store = Self {
-            pool: Arc::new(pool),
-        };
+        let store = Self { pool: Arc::new(pool) };
 
         // Run migrations if enabled
         if config.run_migrations {
@@ -79,10 +75,7 @@ impl GlobalStore {
             let migrator = sqlx::migrate::Migrator::new(std::path::Path::new("./migrations"))
                 .await
                 .map_err(|e| openre_core::Error::Internal(e.into()))?;
-            migrator
-                .run(&*self.pool)
-                .await
-                .map_err(|e| openre_core::Error::Internal(e.into()))?;
+            migrator.run(&*self.pool).await.map_err(|e| openre_core::Error::Internal(e.into()))?;
         }
         info!("Database migrations completed");
         Ok(())
@@ -90,10 +83,7 @@ impl GlobalStore {
 
     /// Health check
     pub async fn health_check(&self) -> Result<()> {
-        sqlx::query("SELECT 1")
-            .execute(&*self.pool)
-            .await
-            .map_err(map_sqlx_error)?;
+        sqlx::query("SELECT 1").execute(&*self.pool).await.map_err(map_sqlx_error)?;
         Ok(())
     }
 
@@ -141,44 +131,18 @@ impl GlobalStore {
                 JobStatus::Queued { queued_at } => {
                     ("queued", None, 0.0, None, None, Some(*queued_at))
                 }
-                JobStatus::Running {
-                    worker_id: _worker_id,
-                    started_at,
-                    stage,
-                } => (
-                    "running",
-                    Some(stage.as_str()),
-                    0.0,
-                    None,
-                    Some(*started_at),
-                    None,
-                ),
+                JobStatus::Running { worker_id: _worker_id, started_at, stage } => {
+                    ("running", Some(stage.as_str()), 0.0, None, Some(*started_at), None)
+                }
                 JobStatus::Completed { completed_at } => {
                     ("completed", None, 1.0, None, None, Some(*completed_at))
                 }
-                JobStatus::Failed {
-                    error,
-                    failed_at,
-                    retryable: _retryable,
-                } => (
-                    "failed",
-                    None,
-                    0.0,
-                    Some(error.clone()),
-                    None,
-                    Some(*failed_at),
-                ),
-                JobStatus::Cancelled {
-                    cancelled_at,
-                    reason,
-                } => (
-                    "cancelled",
-                    None,
-                    0.0,
-                    Some(reason.clone()),
-                    None,
-                    Some(*cancelled_at),
-                ),
+                JobStatus::Failed { error, failed_at, retryable: _retryable } => {
+                    ("failed", None, 0.0, Some(error.clone()), None, Some(*failed_at))
+                }
+                JobStatus::Cancelled { cancelled_at, reason } => {
+                    ("cancelled", None, 0.0, Some(reason.clone()), None, Some(*cancelled_at))
+                }
                 JobStatus::Scheduled { run_at } => {
                     ("scheduled", None, 0.0, None, None, Some(*run_at))
                 }

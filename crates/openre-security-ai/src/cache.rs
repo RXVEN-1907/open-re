@@ -114,12 +114,8 @@ impl AnalysisCache {
             self.evict_lru();
         }
 
-        let entry = CachedEntry {
-            data,
-            cached_at: SystemTime::now(),
-            ttl: self.default_ttl,
-            model_info,
-        };
+        let entry =
+            CachedEntry { data, cached_at: SystemTime::now(), ttl: self.default_ttl, model_info };
 
         self.entries.insert(key, entry);
         Ok(())
@@ -159,11 +155,8 @@ impl AnalysisCache {
     /// Evict least recently used entries when cache is full
     fn evict_lru(&self) {
         // Simple approach: remove oldest entries
-        let mut entries: Vec<_> = self
-            .entries
-            .iter()
-            .map(|entry| (entry.key().clone(), entry.cached_at))
-            .collect();
+        let mut entries: Vec<_> =
+            self.entries.iter().map(|entry| (entry.key().clone(), entry.cached_at)).collect();
 
         // Sort by timestamp (oldest first)
         entries.sort_by_key(|(_, timestamp)| *timestamp);

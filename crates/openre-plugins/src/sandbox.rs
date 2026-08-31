@@ -50,10 +50,7 @@ impl PluginSandbox {
             Self::permissions_to_capabilities(&config.filesystem, &config.network);
         let capability_enforcer = CapabilityEnforcer::new(granted_capabilities);
 
-        Self {
-            config,
-            capability_enforcer,
-        }
+        Self { config, capability_enforcer }
     }
 
     fn permissions_to_capabilities(
@@ -86,9 +83,9 @@ impl PluginSandbox {
 
     pub fn check_filesystem_read(&self, path: &PathBuf) -> Result<()> {
         match &self.config.filesystem {
-            FilesystemPermission::None => Err(openre_core::Error::Forbidden(
-                "Filesystem access denied".into(),
-            )),
+            FilesystemPermission::None => {
+                Err(openre_core::Error::Forbidden("Filesystem access denied".into()))
+            }
             FilesystemPermission::Read { paths } => {
                 if paths.iter().any(|p| path.starts_with(p)) {
                     Ok(())
@@ -135,10 +132,7 @@ impl PluginSandbox {
                 }
             }
             FilesystemPermission::Sandbox { mount_points } => {
-                if mount_points
-                    .iter()
-                    .any(|m| path.starts_with(&m.guest_path) && !m.readonly)
-                {
+                if mount_points.iter().any(|m| path.starts_with(&m.guest_path) && !m.readonly) {
                     Ok(())
                 } else {
                     Err(openre_core::Error::Forbidden(format!(
@@ -153,9 +147,9 @@ impl PluginSandbox {
 
     pub fn check_network(&self, host: &str, port: u16) -> Result<()> {
         match &self.config.network {
-            NetworkPermission::None => Err(openre_core::Error::Forbidden(
-                "Network access denied".into(),
-            )),
+            NetworkPermission::None => {
+                Err(openre_core::Error::Forbidden("Network access denied".into()))
+            }
             NetworkPermission::Localhost { ports } => {
                 if (host == "localhost" || host == "127.0.0.1") && ports.contains(&port) {
                     Ok(())
@@ -170,10 +164,7 @@ impl PluginSandbox {
                 if domains.iter().any(|d| host.ends_with(d)) {
                     Ok(())
                 } else {
-                    Err(openre_core::Error::Forbidden(format!(
-                        "Domain not allowed: {}",
-                        host
-                    )))
+                    Err(openre_core::Error::Forbidden(format!("Domain not allowed: {}", host)))
                 }
             }
         }
@@ -191,19 +182,14 @@ pub struct CapabilityEnforcer {
 
 impl CapabilityEnforcer {
     pub fn new(granted: Vec<Capability>) -> Self {
-        Self {
-            granted: granted.into_iter().collect(),
-        }
+        Self { granted: granted.into_iter().collect() }
     }
 
     pub fn check(&self, capability: Capability) -> Result<()> {
         if self.granted.contains(&capability) {
             Ok(())
         } else {
-            Err(openre_core::Error::Forbidden(format!(
-                "Capability not granted: {:?}",
-                capability
-            )))
+            Err(openre_core::Error::Forbidden(format!("Capability not granted: {:?}", capability)))
         }
     }
 

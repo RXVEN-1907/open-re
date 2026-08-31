@@ -6,6 +6,20 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+/// Simple plugin metadata for security plugins
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimplePluginMetadata {
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub author: String,
+    pub license: String,
+    pub repository: String,
+    pub homepage: Option<String>,
+    pub categories: Vec<String>,
+    pub keywords: Vec<String>,
+}
+
 /// Plugin manifest (plugin.toml)
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PluginManifest {
@@ -23,6 +37,52 @@ pub struct PluginManifest {
     pub ui: Option<UiConfig>,
     pub config: Option<ConfigSchema>,
     pub path: Option<PathBuf>, // Added for runtime use
+}
+
+impl PluginManifest {
+    /// Create a PluginManifest from simple metadata (for security plugins)
+    pub fn from_simple(
+        metadata: SimplePluginMetadata,
+        required_capabilities: Vec<Capability>,
+        optional_capabilities: Vec<Capability>,
+    ) -> Self {
+        Self {
+            name: metadata.name,
+            version: metadata.version,
+            description: metadata.description,
+            author: metadata.author,
+            license: metadata.license,
+            repository: Some(metadata.repository),
+            homepage: metadata.homepage,
+            plugin: PluginConfig {
+                r#type: PluginType::Security,
+                capabilities: required_capabilities
+                    .into_iter()
+                    .chain(optional_capabilities)
+                    .collect(),
+                min_core_version: "0.1.0".to_string(),
+                max_core_version: "1.0.0".to_string(),
+                entry: EntryConfig {
+                    wasm: Some("plugin.wasm".to_string()),
+                    native: HashMap::new(),
+                },
+            },
+            build: BuildConfig {
+                target: BuildTarget::Wasm,
+                rust_version: "1.75".to_string(),
+                features: vec!["security".to_string()],
+            },
+            dependencies: HashMap::new(),
+            resources: ResourceConfig {
+                max_memory_mb: 128,
+                max_fuel: 10_000_000,
+                max_execution_time_secs: 300,
+            },
+            ui: None,
+            config: None,
+            path: None,
+        }
+    }
 }
 
 /// Remote registry configuration
@@ -140,14 +200,10 @@ impl PluginManifest {
     /// Validate the manifest
     pub fn validate(&self) -> Result<()> {
         if self.name.is_empty() {
-            return Err(openre_core::Error::Validation(
-                "Plugin name cannot be empty".into(),
-            ));
+            return Err(openre_core::Error::Validation("Plugin name cannot be empty".into()));
         }
         if self.version.is_empty() {
-            return Err(openre_core::Error::Validation(
-                "Plugin version cannot be empty".into(),
-            ));
+            return Err(openre_core::Error::Validation("Plugin version cannot be empty".into()));
         }
         if self.plugin.capabilities.is_empty() {
             return Err(openre_core::Error::Validation(
@@ -156,7 +212,7 @@ impl PluginManifest {
         }
 
         // Validate capabilities match plugin type
-        crate::capability::validate_capabilities(self.plugin.r#type, &self.plugin.capabilities)?;
+        openre_core::validate_capabilities(self.plugin.r#type, &self.plugin.capabilities[..])?;
 
         // Validate entry points exist
         match self.build.target {

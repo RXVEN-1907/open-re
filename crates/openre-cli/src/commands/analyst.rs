@@ -128,11 +128,7 @@ pub enum SummaryAudience {
 impl AnalystCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         match self {
-            AnalystCommands::Explain {
-                scan_id,
-                finding_id,
-                stream,
-            } => {
+            AnalystCommands::Explain { scan_id, finding_id, stream } => {
                 if stream {
                     let response = ctx
                         .client
@@ -168,11 +164,7 @@ impl AnalystCommands {
                 }
             }
 
-            AnalystCommands::Remediate {
-                scan_id,
-                finding_id,
-                stream,
-            } => {
+            AnalystCommands::Remediate { scan_id, finding_id, stream } => {
                 let payload = serde_json::json!({
                     "scan_id": scan_id,
                     "finding_id": finding_id,
@@ -209,12 +201,7 @@ impl AnalystCommands {
                 }
             }
 
-            AnalystCommands::Correlate {
-                scan_id,
-                severity,
-                category,
-                stream,
-            } => {
+            AnalystCommands::Correlate { scan_id, severity, category, stream } => {
                 let mut filter = serde_json::Map::new();
                 if let Some(sev) = severity {
                     filter.insert(
@@ -295,11 +282,7 @@ impl AnalystCommands {
                 }
             }
 
-            AnalystCommands::Summarize {
-                scan_id,
-                audience,
-                stream,
-            } => {
+            AnalystCommands::Summarize { scan_id, audience, stream } => {
                 let payload = serde_json::json!({
                     "scan_id": scan_id,
                     "audience": format!("{:?}", audience).to_lowercase(),
@@ -334,11 +317,7 @@ impl AnalystCommands {
                 }
             }
 
-            AnalystCommands::Query {
-                scan_id,
-                question,
-                stream,
-            } => {
+            AnalystCommands::Query { scan_id, question, stream } => {
                 let payload = serde_json::json!({
                     "scan_id": scan_id,
                     "question": question,
@@ -370,11 +349,7 @@ impl AnalystCommands {
                 }
             }
 
-            AnalystCommands::Compare {
-                base_scan_id,
-                target_scan_id,
-                stream,
-            } => {
+            AnalystCommands::Compare { base_scan_id, target_scan_id, stream } => {
                 let payload = serde_json::json!({
                     "base_scan_id": base_scan_id,
                     "target_scan_id": target_scan_id,

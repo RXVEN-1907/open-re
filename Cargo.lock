@@ -3309,12 +3309,15 @@ dependencies = [
  "serde_json",
  "sha1",
  "sha2 0.10.9",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
+ "tokio-test",
  "tokio-util",
  "tracing",
  "uuid",
  "wasmparser 0.215.0",
+ "wat",
  "xmas-elf",
 ]
 
@@ -3379,7 +3382,9 @@ dependencies = [
  "openre-queue",
  "openre-storage",
  "openre-telemetry",
+ "regex",
  "reqwest",
+ "rusqlite",
  "scroll",
  "serde",
  "serde_json",
@@ -3471,11 +3476,13 @@ dependencies = [
  "base64 0.21.7",
  "chrono",
  "dashmap",
+ "dirs 5.0.1",
  "http 1.5.0",
  "libloading",
  "notify",
  "openre-config",
  "openre-core",
+ "openre-plugins-macros",
  "openre-storage",
  "openre-telemetry",
  "regex",
@@ -3497,6 +3504,15 @@ dependencies = [
  "wasmtime",
  "wasmtime-wasi",
  "wiremock",
+]
+
+[[package]]
+name = "openre-plugins-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

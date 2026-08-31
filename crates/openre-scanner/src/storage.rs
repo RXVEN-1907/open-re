@@ -157,9 +157,7 @@ pub struct SqliteScanStorage {
 impl SqliteScanStorage {
     /// Create a new SQLite scan storage
     pub async fn new(database_url: &str) -> ScannerResult<Self> {
-        Ok(Self {
-            database_url: database_url.to_string(),
-        })
+        Ok(Self { database_url: database_url.to_string() })
     }
 
     /// Placeholder error until the SQLite backend is implemented
@@ -218,8 +216,7 @@ impl ScanStorage for SqliteScanStorage {
         limit: usize,
         offset: usize,
     ) -> ScannerResult<Vec<Finding>> {
-        self.get_findings_filtered(filter, sort, limit, offset)
-            .await
+        self.get_findings_filtered(filter, sort, limit, offset).await
     }
 
     async fn count_findings(&self, _filter: FindingFilter) -> ScannerResult<u64> {
@@ -325,23 +322,13 @@ impl ScanStorage for MemoryScanStorage {
 
     async fn save_finding(&self, scan_id: ScanId, finding: &Finding) -> ScannerResult<()> {
         self.findings.insert(finding.id, finding.clone());
-        self.findings_by_scan
-            .entry(scan_id)
-            .or_default()
-            .push(finding.id);
+        self.findings_by_scan.entry(scan_id).or_default().push(finding.id);
         Ok(())
     }
 
     async fn get_findings(&self, scan_id: &ScanId) -> ScannerResult<Vec<Finding>> {
-        let ids = self
-            .findings_by_scan
-            .get(scan_id)
-            .map(|v| v.clone())
-            .unwrap_or_default();
-        Ok(ids
-            .iter()
-            .filter_map(|id| self.findings.get(id).map(|f| f.clone()))
-            .collect())
+        let ids = self.findings_by_scan.get(scan_id).map(|v| v.clone()).unwrap_or_default();
+        Ok(ids.iter().filter_map(|id| self.findings.get(id).map(|f| f.clone())).collect())
     }
 
     async fn list_findings(
@@ -351,14 +338,12 @@ impl ScanStorage for MemoryScanStorage {
         limit: usize,
         offset: usize,
     ) -> ScannerResult<Vec<Finding>> {
-        self.get_findings_filtered(filter, sort, limit, offset)
-            .await
+        self.get_findings_filtered(filter, sort, limit, offset).await
     }
 
     async fn count_findings(&self, filter: FindingFilter) -> ScannerResult<u64> {
-        let findings = self
-            .get_findings_filtered(filter, FindingSort::SeverityDesc, usize::MAX, 0)
-            .await?;
+        let findings =
+            self.get_findings_filtered(filter, FindingSort::SeverityDesc, usize::MAX, 0).await?;
         Ok(findings.len() as u64)
     }
 
@@ -470,9 +455,8 @@ impl ScanStorage for MemoryScanStorage {
     }
 
     async fn get_finding_stats(&self, filter: FindingFilter) -> ScannerResult<FindingStats> {
-        let findings = self
-            .get_findings_filtered(filter, FindingSort::SeverityDesc, usize::MAX, 0)
-            .await?;
+        let findings =
+            self.get_findings_filtered(filter, FindingSort::SeverityDesc, usize::MAX, 0).await?;
 
         let mut by_severity = HashMap::new();
         let mut by_confidence = HashMap::new();
@@ -532,11 +516,7 @@ impl ScanStorage for MemoryScanStorage {
     }
 
     async fn get_logs(&self, scan_id: &ScanId) -> ScannerResult<Vec<ScanLogEntry>> {
-        Ok(self
-            .logs
-            .get(scan_id)
-            .map(|l| l.clone())
-            .unwrap_or_default())
+        Ok(self.logs.get(scan_id).map(|l| l.clone()).unwrap_or_default())
     }
 
     async fn save_target(&self, target: &Target) -> ScannerResult<()> {
@@ -557,10 +537,7 @@ impl ScanStorage for MemoryScanStorage {
     }
 
     async fn save_plugin_execution(&self, record: &PluginExecutionRecord) -> ScannerResult<()> {
-        self.plugin_executions
-            .entry(record.scan_id)
-            .or_default()
-            .push(record.clone());
+        self.plugin_executions.entry(record.scan_id).or_default().push(record.clone());
         Ok(())
     }
 
@@ -568,11 +545,7 @@ impl ScanStorage for MemoryScanStorage {
         &self,
         scan_id: &ScanId,
     ) -> ScannerResult<Vec<PluginExecutionRecord>> {
-        Ok(self
-            .plugin_executions
-            .get(scan_id)
-            .map(|v| v.clone())
-            .unwrap_or_default())
+        Ok(self.plugin_executions.get(scan_id).map(|v| v.clone()).unwrap_or_default())
     }
 }
 

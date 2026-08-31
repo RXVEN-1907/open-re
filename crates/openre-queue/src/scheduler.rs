@@ -71,22 +71,14 @@ impl Scheduler {
         let job_data = serde_json::to_string(&job)?;
         let score = run_at.timestamp_millis() as f64;
 
-        let _: () = conn
-            .zadd("openre:scheduler:once", job_id.to_string(), score)
-            .await?;
-        let _: () = conn
-            .hset("openre:scheduler:once:data", job_id.to_string(), job_data)
-            .await?;
+        let _: () = conn.zadd("openre:scheduler:once", job_id.to_string(), score).await?;
+        let _: () = conn.hset("openre:scheduler:once:data", job_id.to_string(), job_data).await?;
 
         // Track in memory
-        self.scheduled_jobs.write().await.insert(
-            job_id,
-            ScheduledJob {
-                job,
-                run_at,
-                recurring: false,
-            },
-        );
+        self.scheduled_jobs
+            .write()
+            .await
+            .insert(job_id, ScheduledJob { job, run_at, recurring: false });
 
         self.metrics.jobs_scheduled.increment(1);
 
@@ -126,15 +118,10 @@ impl Scheduler {
         // Store in Redis
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let data = serde_json::to_string(&recurring_job)?;
-        let _: () = conn
-            .hset("openre:scheduler:recurring", &job_id, data)
-            .await?;
+        let _: () = conn.hset("openre:scheduler:recurring", &job_id, data).await?;
 
         // Track in memory
-        self.recurring_jobs
-            .write()
-            .await
-            .insert(job_id.clone(), recurring_job);
+        self.recurring_jobs.write().await.insert(job_id.clone(), recurring_job);
 
         self.metrics.jobs_scheduled.increment(1);
 
@@ -156,21 +143,12 @@ impl Scheduler {
             // Persist
             let mut conn = self.client.get_multiplexed_async_connection().await?;
             let data = serde_json::to_string(job)?;
-            let _: () = conn
-                .hset("openre:scheduler:recurring", job_id, data)
-                .await?;
+            let _: () = conn.hset("openre:scheduler:recurring", job_id, data).await?;
 
-            info!(
-                "Recurring job {} {}",
-                job_id,
-                if enabled { "enabled" } else { "disabled" }
-            );
+            info!("Recurring job {} {}", job_id, if enabled { "enabled" } else { "disabled" });
             Ok(())
         } else {
-            Err(openre_core::Error::NotFound(format!(
-                "Recurring job not found: {}",
-                job_id
-            )))
+            Err(openre_core::Error::NotFound(format!("Recurring job not found: {}", job_id)))
         }
     }
 
@@ -181,12 +159,8 @@ impl Scheduler {
 
         if removed {
             let mut conn = self.client.get_multiplexed_async_connection().await?;
-            let _: () = conn
-                .zrem("openre:scheduler:once", job_id.to_string())
-                .await?;
-            let _: () = conn
-                .hdel("openre:scheduler:once:data", job_id.to_string())
-                .await?;
+            let _: () = conn.zrem("openre:scheduler:once", job_id.to_string()).await?;
+            let _: () = conn.hdel("openre:scheduler:once:data", job_id.to_string()).await?;
             self.metrics.jobs_missed.increment(1);
         }
 
@@ -264,9 +238,7 @@ impl Scheduler {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
 
         // Get due jobs
-        let due_jobs: Vec<String> = conn
-            .zrangebyscore("openre:scheduler:once", 0, now_ms)
-            .await?;
+        let due_jobs: Vec<String> = conn.zrangebyscore("openre:scheduler:once", 0, now_ms).await?;
 
         for job_id_str in due_jobs {
             let job_data: Option<String> =
@@ -347,9 +319,8 @@ impl Scheduler {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
 
         // Load one-time jobs
-        let scheduled_jobs: Vec<(String, f64)> = conn
-            .zrange_withscores("openre:scheduler:once", 0, -1)
-            .await?;
+        let scheduled_jobs: Vec<(String, f64)> =
+            conn.zrange_withscores("openre:scheduler:once", 0, -1).await?;
 
         for (job_id_str, score) in scheduled_jobs {
             let job_data: Option<String> =
@@ -360,14 +331,10 @@ impl Scheduler {
                 let run_at = chrono::DateTime::from_timestamp_millis(score as i64)
                     .unwrap_or(chrono::Utc::now());
 
-                self.scheduled_jobs.write().await.insert(
-                    job.id,
-                    ScheduledJob {
-                        job,
-                        run_at,
-                        recurring: false,
-                    },
-                );
+                self.scheduled_jobs
+                    .write()
+                    .await
+                    .insert(job.id, ScheduledJob { job, run_at, recurring: false });
             }
         }
 

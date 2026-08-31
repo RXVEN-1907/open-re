@@ -96,10 +96,7 @@ impl ModelProvider for MockModelProvider {
     }
 
     fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            chat: true,
-            ..Default::default()
-        }
+        ProviderCapabilities { chat: true, ..Default::default() }
     }
 
     fn max_context_tokens(&self) -> usize {
@@ -123,11 +120,7 @@ impl ModelProvider for MockModelProvider {
                 message: Message::assistant("Mock response".to_string()),
                 finish_reason: FinishReason::Stop,
             }],
-            usage: Usage {
-                prompt_tokens: 10,
-                completion_tokens: 5,
-                total_tokens: 15,
-            },
+            usage: Usage { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
             created: 0,
         })
     }
@@ -135,12 +128,8 @@ impl ModelProvider for MockModelProvider {
     async fn stream(&self, _request: CompletionRequest) -> OpenreResult<StreamingResponse> {
         let (tx, rx) = tokio::sync::mpsc::channel(10);
 
-        tx.send(StreamChunk::Content("Mock streaming response".to_string()))
-            .await
-            .unwrap();
-        tx.send(StreamChunk::Finish(FinishReason::Stop))
-            .await
-            .unwrap();
+        tx.send(StreamChunk::Content("Mock streaming response".to_string())).await.unwrap();
+        tx.send(StreamChunk::Finish(FinishReason::Stop)).await.unwrap();
 
         Ok(StreamingResponse { stream: rx })
     }
@@ -150,10 +139,6 @@ impl ModelProvider for MockModelProvider {
     }
 
     async fn health_check(&self) -> OpenreResult<HealthStatus> {
-        Ok(HealthStatus {
-            healthy: true,
-            message: None,
-            latency_ms: None,
-        })
+        Ok(HealthStatus { healthy: true, message: None, latency_ms: None })
     }
 }

@@ -19,7 +19,10 @@ pub use result::*;
 pub use traits::*;
 
 // Re-export commonly used types
-pub use ids::{Architecture, Capability, FileFormat, JobStatus, PluginType, Priority, RiskLevel};
+pub use ids::{
+    Architecture, Capability, FileFormat, JobStatus, PluginId, PluginType, Priority, RiskLevel,
+    StageId,
+};
 pub use plugin::{
     CapabilityRequest, CapabilityResponse, CapabilitySet, CommandContext, CommandRegistration,
     CommandResult, Plugin, PluginInitInfo, PluginManifest, PluginMetadata, PluginRegistry,

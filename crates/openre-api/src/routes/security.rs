@@ -23,10 +23,7 @@ pub fn routes(state: std::sync::Arc<AppState>) -> Router {
         .route("/findings/:id", get(get_finding))
         .route("/findings/stats", get(get_finding_stats))
         .route("/scans/:scan_id/findings", get(get_scan_findings))
-        .route(
-            "/scans/:scan_id/findings/stats",
-            get(get_scan_finding_stats),
-        )
+        .route("/scans/:scan_id/findings/stats", get(get_scan_finding_stats))
         // Injection-specific endpoints
         .route("/injection/findings", get(list_injection_findings))
         .route("/injection/findings/stats", get(get_injection_stats))
@@ -41,40 +38,19 @@ pub fn routes(state: std::sync::Arc<AppState>) -> Router {
         .route("/graphql/findings/stats", get(get_graphql_stats))
         // Rate limiting endpoints
         .route("/rate-limiting/findings", get(list_rate_limiting_findings))
-        .route(
-            "/rate-limiting/findings/stats",
-            get(get_rate_limiting_stats),
-        )
+        .route("/rate-limiting/findings/stats", get(get_rate_limiting_stats))
         // Access control endpoints
-        .route(
-            "/access-control/findings",
-            get(list_access_control_findings),
-        )
-        .route(
-            "/access-control/findings/stats",
-            get(get_access_control_stats),
-        )
+        .route("/access-control/findings", get(list_access_control_findings))
+        .route("/access-control/findings/stats", get(get_access_control_stats))
         // File upload endpoints
         .route("/file-upload/findings", get(list_file_upload_findings))
         .route("/file-upload/findings/stats", get(get_file_upload_stats))
         // Path traversal endpoints
-        .route(
-            "/path-traversal/findings",
-            get(list_path_traversal_findings),
-        )
-        .route(
-            "/path-traversal/findings/stats",
-            get(get_path_traversal_stats),
-        )
+        .route("/path-traversal/findings", get(list_path_traversal_findings))
+        .route("/path-traversal/findings/stats", get(get_path_traversal_stats))
         // Sensitive info endpoints
-        .route(
-            "/sensitive-info/findings",
-            get(list_sensitive_info_findings),
-        )
-        .route(
-            "/sensitive-info/findings/stats",
-            get(get_sensitive_info_stats),
-        )
+        .route("/sensitive-info/findings", get(list_sensitive_info_findings))
+        .route("/sensitive-info/findings/stats", get(get_sensitive_info_stats))
         .with_state(state)
 }
 
@@ -420,11 +396,7 @@ impl From<Finding> for FindingResponse {
             target: f.target,
             target_type: f.target_type,
             evidence: f.evidence.into_iter().map(EvidenceResponse::from).collect(),
-            references: f
-                .references
-                .into_iter()
-                .map(ReferenceResponse::from)
-                .collect(),
+            references: f.references.into_iter().map(ReferenceResponse::from).collect(),
             plugin_source: f.plugin_source,
             plugin_version: f.plugin_version,
             timestamp: f.timestamp,
@@ -512,11 +484,7 @@ impl From<openre_scanner::result::FindingStats> for FindingStatsResponse {
                 .into_iter()
                 .map(|(k, v)| (format!("{:?}", k), v as u64))
                 .collect(),
-            by_plugin: s
-                .by_plugin
-                .into_iter()
-                .map(|(k, v)| (k, v as u64))
-                .collect(),
+            by_plugin: s.by_plugin.into_iter().map(|(k, v)| (k, v as u64)).collect(),
             verified_count: s.verified as u64,
             false_positive_count: s.false_positives as u64,
             avg_risk_score: s.avg_risk_score,

@@ -62,9 +62,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<()> {
 }
 
 fn create_log_file(path: &Option<PathBuf>) -> Result<File> {
-    let path = path
-        .clone()
-        .unwrap_or_else(|| PathBuf::from("./logs/openre.log"));
+    let path = path.clone().unwrap_or_else(|| PathBuf::from("./logs/openre.log"));
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }

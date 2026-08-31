@@ -93,11 +93,9 @@ impl IntoResponse for ApiError {
             ApiError::Forbidden(msg) => (StatusCode::FORBIDDEN, "forbidden", msg.clone()),
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, "not_found", msg.clone()),
             ApiError::Conflict(msg) => (StatusCode::CONFLICT, "conflict", msg.clone()),
-            ApiError::PayloadTooLarge(msg) => (
-                StatusCode::PAYLOAD_TOO_LARGE,
-                "payload_too_large",
-                msg.clone(),
-            ),
+            ApiError::PayloadTooLarge(msg) => {
+                (StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large", msg.clone())
+            }
             ApiError::InvalidId(msg) => (StatusCode::BAD_REQUEST, "invalid_id", msg.clone()),
             ApiError::RateLimited(msg) => {
                 (StatusCode::TOO_MANY_REQUESTS, "rate_limited", msg.clone())
@@ -105,19 +103,15 @@ impl IntoResponse for ApiError {
             ApiError::NotAcceptable(msg) => {
                 (StatusCode::NOT_ACCEPTABLE, "not_acceptable", msg.clone())
             }
-            ApiError::Internal(msg) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "internal_error",
-                msg.clone(),
-            ),
+            ApiError::Internal(msg) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal_error", msg.clone())
+            }
             ApiError::NotImplemented(msg) => {
                 (StatusCode::NOT_IMPLEMENTED, "not_implemented", msg.clone())
             }
-            ApiError::ServiceUnavailable(msg) => (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "service_unavailable",
-                msg.clone(),
-            ),
+            ApiError::ServiceUnavailable(msg) => {
+                (StatusCode::SERVICE_UNAVAILABLE, "service_unavailable", msg.clone())
+            }
             ApiError::ValidationError(errors) => {
                 let details = serde_json::to_value(errors).ok();
                 return (

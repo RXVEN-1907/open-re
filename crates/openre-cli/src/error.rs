@@ -1,5 +1,7 @@
 //! CLI error types
 
+use openre_core::Error as CoreError;
+use rusqlite::Error as RusqliteError;
 use thiserror::Error;
 
 /// CLI error
@@ -38,8 +40,17 @@ pub enum CliError {
     #[error("TOML parse error: {0}")]
     TomlParseError(#[from] toml::de::Error),
 
+    #[error("Core error: {0}")]
+    CoreError(#[from] CoreError),
+
     #[error("URL encoding error: {0}")]
     UrlEncodingError(String),
+
+    #[error("Offline mode: {0}")]
+    OfflineMode(String),
+
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] RusqliteError),
 }
 
 pub type CliResult<T> = Result<T, CliError>;

@@ -55,10 +55,7 @@ impl ProgressTracker {
             estimated_remaining: None,
         };
 
-        self.progress_cache
-            .write()
-            .await
-            .insert(job_id, progress.clone());
+        self.progress_cache.write().await.insert(job_id, progress.clone());
         self.persist_progress(&progress).await?;
 
         self.metrics.jobs_tracked.increment(1);
@@ -142,10 +139,8 @@ impl ProgressTracker {
                 stages.push(stage_prog.clone());
             }
 
-            let completed = stages
-                .iter()
-                .filter(|s| s.status == crate::StageStatus::Completed)
-                .count() as u32;
+            let completed =
+                stages.iter().filter(|s| s.status == crate::StageStatus::Completed).count() as u32;
             (stages.clone(), completed)
         };
 
@@ -158,13 +153,7 @@ impl ProgressTracker {
         self.persist_stage_progress(job_id, &stages_clone).await?;
         self.broadcast_update(ProgressUpdate {
             job_id,
-            progress: self
-                .progress_cache
-                .read()
-                .await
-                .get(&job_id)
-                .cloned()
-                .unwrap_or_default(),
+            progress: self.progress_cache.read().await.get(&job_id).cloned().unwrap_or_default(),
             stage_progress: Some(stage_prog),
         })
         .await;
@@ -174,8 +163,7 @@ impl ProgressTracker {
 
     /// Mark stage as started
     pub async fn start_stage(&self, job_id: JobId, stage_name: &str) -> Result<()> {
-        self.update_stage_progress(job_id, stage_name, 0.0, crate::StageStatus::Running, None)
-            .await
+        self.update_stage_progress(job_id, stage_name, 0.0, crate::StageStatus::Running, None).await
     }
 
     /// Mark stage as completed
@@ -185,26 +173,14 @@ impl ProgressTracker {
         stage_name: &str,
         details: Option<String>,
     ) -> Result<()> {
-        self.update_stage_progress(
-            job_id,
-            stage_name,
-            1.0,
-            crate::StageStatus::Completed,
-            details,
-        )
-        .await
+        self.update_stage_progress(job_id, stage_name, 1.0, crate::StageStatus::Completed, details)
+            .await
     }
 
     /// Mark stage as failed
     pub async fn fail_stage(&self, job_id: JobId, stage_name: &str, error: String) -> Result<()> {
-        self.update_stage_progress(
-            job_id,
-            stage_name,
-            0.0,
-            crate::StageStatus::Failed,
-            Some(error),
-        )
-        .await
+        self.update_stage_progress(job_id, stage_name, 0.0, crate::StageStatus::Failed, Some(error))
+            .await
     }
 
     /// Get job progress
@@ -235,9 +211,7 @@ impl ProgressTracker {
     async fn persist_progress(&self, progress: &JobProgress) -> Result<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let data = serde_json::to_string(progress)?;
-        let _: () = conn
-            .hset("openre:job:progress", progress.job_id.to_string(), data)
-            .await?;
+        let _: () = conn.hset("openre:job:progress", progress.job_id.to_string(), data).await?;
         let _: () = conn.expire("openre:job:progress", 86400).await?; // 24h TTL
         Ok(())
     }
@@ -245,9 +219,7 @@ impl ProgressTracker {
     async fn persist_stage_progress(&self, job_id: JobId, stages: &[StageProgress]) -> Result<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let data = serde_json::to_string(stages)?;
-        let _: () = conn
-            .hset("openre:job:stage_progress", job_id.to_string(), data)
-            .await?;
+        let _: () = conn.hset("openre:job:stage_progress", job_id.to_string(), data).await?;
         let _: () = conn.expire("openre:job:stage_progress", 86400).await?;
         Ok(())
     }
@@ -258,10 +230,7 @@ impl ProgressTracker {
 
         if let Some(data) = data {
             let progress: JobProgress = serde_json::from_str(&data)?;
-            self.progress_cache
-                .write()
-                .await
-                .insert(job_id, progress.clone());
+            self.progress_cache.write().await.insert(job_id, progress.clone());
             Ok(Some(progress))
         } else {
             Ok(None)
@@ -270,16 +239,12 @@ impl ProgressTracker {
 
     async fn load_stage_progress(&self, job_id: JobId) -> Result<Vec<StageProgress>> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
-        let data: Option<String> = conn
-            .hget("openre:job:stage_progress", job_id.to_string())
-            .await?;
+        let data: Option<String> =
+            conn.hget("openre:job:stage_progress", job_id.to_string()).await?;
 
         if let Some(data) = data {
             let stages: Vec<StageProgress> = serde_json::from_str(&data)?;
-            self.stage_progress_cache
-                .write()
-                .await
-                .insert(job_id, stages.clone());
+            self.stage_progress_cache.write().await.insert(job_id, stages.clone());
             Ok(stages)
         } else {
             Ok(Vec::new())
@@ -309,10 +274,7 @@ impl ProgressTracker {
         let max_age = chrono::Duration::hours(24);
 
         progress_cache.retain(|_, v| now - v.updated_at < max_age);
-        stage_cache.retain(|_, v| {
-            v.iter()
-                .any(|s| now - s.started_at.unwrap_or(now) < max_age)
-        });
+        stage_cache.retain(|_, v| v.iter().any(|s| now - s.started_at.unwrap_or(now) < max_age));
 
         debug!("Cleaned up old progress entries");
     }

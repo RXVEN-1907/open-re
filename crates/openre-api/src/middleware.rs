@@ -35,15 +35,11 @@ pub async fn request_id(
         .unwrap_or_else(|| Uuid::new_v4().to_string());
 
     // Add to request extensions for handlers to use
-    request
-        .extensions_mut()
-        .insert(RequestId(request_id.clone()));
+    request.extensions_mut().insert(RequestId(request_id.clone()));
 
     // Add to response headers
     let mut response = next.run(request).await;
-    response
-        .headers_mut()
-        .insert("x-request-id", HeaderValue::from_str(&request_id).unwrap());
+    response.headers_mut().insert("x-request-id", HeaderValue::from_str(&request_id).unwrap());
 
     response
 }
@@ -159,11 +155,8 @@ pub async fn validation(
         || method == axum::http::Method::PUT
         || method == axum::http::Method::PATCH
     {
-        let content_type = request
-            .headers()
-            .get("content-type")
-            .and_then(|h| h.to_str().ok())
-            .unwrap_or("");
+        let content_type =
+            request.headers().get("content-type").and_then(|h| h.to_str().ok()).unwrap_or("");
 
         if !content_type.starts_with("application/json")
             && !content_type.starts_with("multipart/form-data")
@@ -185,19 +178,10 @@ pub async fn security_headers(
     let mut response = next.run(request).await;
 
     let headers = response.headers_mut();
-    headers.insert(
-        "X-Content-Type-Options",
-        HeaderValue::from_static("nosniff"),
-    );
+    headers.insert("X-Content-Type-Options", HeaderValue::from_static("nosniff"));
     headers.insert("X-Frame-Options", HeaderValue::from_static("DENY"));
-    headers.insert(
-        "X-XSS-Protection",
-        HeaderValue::from_static("1; mode=block"),
-    );
-    headers.insert(
-        "Referrer-Policy",
-        HeaderValue::from_static("strict-origin-when-cross-origin"),
-    );
+    headers.insert("X-XSS-Protection", HeaderValue::from_static("1; mode=block"));
+    headers.insert("Referrer-Policy", HeaderValue::from_static("strict-origin-when-cross-origin"));
     headers.insert(
         "Permissions-Policy",
         HeaderValue::from_static("geolocation=(), microphone=(), camera=()"),

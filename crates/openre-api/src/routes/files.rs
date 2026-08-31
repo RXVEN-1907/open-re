@@ -42,9 +42,7 @@ async fn list_files(
 ) -> ApiResult<Json<FileListResponse>> {
     let _ = (state, claims);
     // File listing is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "file listing not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("file listing not implemented yet".into()))
 }
 
 /// Upload file
@@ -67,9 +65,7 @@ async fn upload_file(
 ) -> ApiResult<Json<FileResponse>> {
     let _ = (&state, &claims, &mut multipart);
     // Object storage + file record persistence are not yet implemented.
-    Err(crate::error::ApiError::NotImplemented(
-        "file upload storage not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("file upload storage not implemented yet".into()))
 }
 
 /// Get file
@@ -91,9 +87,7 @@ async fn get_file(
 ) -> ApiResult<Json<FileResponse>> {
     let _ = (state, id, claims);
     // File record storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "file retrieval not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("file retrieval not implemented yet".into()))
 }
 
 /// Delete file
@@ -116,9 +110,7 @@ async fn delete_file(
 ) -> ApiResult<()> {
     let _ = (state, id, claims);
     // File record storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "file deletion not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("file deletion not implemented yet".into()))
 }
 
 /// Download file
@@ -129,9 +121,7 @@ async fn download_file(
 ) -> ApiResult<axum::response::Response> {
     let _ = (state, id, claims);
     // File record storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "file download not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("file download not implemented yet".into()))
 }
 
 /// Start analysis
@@ -155,10 +145,7 @@ async fn start_analysis(
 
     let job_id = state.queue_manager.enqueue(job).await?;
 
-    Ok(Json(AnalysisResponse {
-        job_id,
-        status: "queued".to_string(),
-    }))
+    Ok(Json(AnalysisResponse { job_id, status: "queued".to_string() }))
 }
 
 // Request/Response types

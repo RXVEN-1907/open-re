@@ -41,9 +41,7 @@ async fn list_exports(
 ) -> ApiResult<Json<ExportListResponse>> {
     let _ = (state, claims);
     // Export persistence is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "export listing not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("export listing not implemented yet".into()))
 }
 
 /// Create export
@@ -109,9 +107,7 @@ async fn get_export(
 ) -> ApiResult<Json<ExportResponse>> {
     let _ = (state, id, claims);
     // Export persistence is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "export retrieval not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("export retrieval not implemented yet".into()))
 }
 
 /// Download export
@@ -122,9 +118,7 @@ async fn download_export(
 ) -> ApiResult<axum::response::Response> {
     let _ = (state, id, claims);
     // Export persistence is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "export download not implemented yet".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("export download not implemented yet".into()))
 }
 
 // Request/Response types

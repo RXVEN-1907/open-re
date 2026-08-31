@@ -420,12 +420,7 @@ impl HistoryManager {
             false_positive_count: summary.finding_stats.false_positives,
             exploit_available_count: summary.finding_stats.exploit_available_count,
             exploited_in_wild_count: summary.finding_stats.exploited_in_wild_count,
-            top_cwes: summary
-                .finding_stats
-                .by_cwe
-                .iter()
-                .map(|(k, v)| (k.clone(), *v))
-                .collect(),
+            top_cwes: summary.finding_stats.by_cwe.iter().map(|(k, v)| (k.clone(), *v)).collect(),
             top_owasp: summary
                 .finding_stats
                 .by_owasp_category
@@ -455,9 +450,7 @@ impl HistoryManager {
         limit: usize,
         offset: usize,
     ) -> Result<Vec<ScanSummary>, HistoryError> {
-        self.storage
-            .list_scan_summaries(Some(*project_id), limit, offset)
-            .await
+        self.storage.list_scan_summaries(Some(*project_id), limit, offset).await
     }
 
     /// Get all scan history
@@ -495,9 +488,7 @@ impl HistoryManager {
         &self,
         scan_id: &ScanId,
     ) -> Result<Vec<ReportArtifact>, HistoryError> {
-        self.storage
-            .list_report_artifacts(Some(*scan_id), 100, 0)
-            .await
+        self.storage.list_report_artifacts(Some(*scan_id), 100, 0).await
     }
 
     /// Store evidence
@@ -519,9 +510,7 @@ impl HistoryManager {
         scan_id: &ScanId,
         findings: &[Finding],
     ) -> Result<(), HistoryError> {
-        self.storage
-            .save_deduplicated_findings(scan_id, findings)
-            .await
+        self.storage.save_deduplicated_findings(scan_id, findings).await
     }
 
     /// Get deduplicated findings
@@ -549,9 +538,7 @@ impl HistoryManager {
         limit: usize,
         offset: usize,
     ) -> Result<Vec<ScanComparison>, HistoryError> {
-        self.storage
-            .list_comparisons(project_id, limit, offset)
-            .await
+        self.storage.list_comparisons(project_id, limit, offset).await
     }
 
     /// Get risk metrics history
@@ -561,9 +548,7 @@ impl HistoryManager {
         date_from: Option<DateTime<Utc>>,
         date_to: Option<DateTime<Utc>>,
     ) -> Result<Vec<RiskMetrics>, HistoryError> {
-        self.storage
-            .get_risk_metrics(project_id, date_from, date_to)
-            .await
+        self.storage.get_risk_metrics(project_id, date_from, date_to).await
     }
 
     /// Get latest risk metrics

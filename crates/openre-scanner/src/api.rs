@@ -345,10 +345,7 @@ pub fn create_router(state: ApiState) -> Router {
     Router::new()
         // Scan endpoints
         .route("/scans", post(create_scan).get(list_scans))
-        .route(
-            "/scans/:id",
-            get(get_scan).put(update_scan).delete(cancel_scan),
-        )
+        .route("/scans/:id", get(get_scan).put(update_scan).delete(cancel_scan))
         .route("/scans/:id/cancel", post(cancel_scan))
         .route("/scans/:id/pause", post(pause_scan))
         .route("/scans/:id/resume", post(resume_scan))
@@ -357,19 +354,13 @@ pub fn create_router(state: ApiState) -> Router {
         .route("/scans/:id/logs", get(get_scan_logs))
         // Target endpoints
         .route("/targets", post(create_target).get(list_targets))
-        .route(
-            "/targets/:id",
-            get(get_target).put(update_target).delete(delete_target),
-        )
+        .route("/targets/:id", get(get_target).put(update_target).delete(delete_target))
         // Plugin endpoints
         .route("/plugins", get(list_plugins))
         .route("/plugins/:id", get(get_plugin))
         .route("/plugins/:id/enable", post(enable_plugin))
         .route("/plugins/:id/disable", post(disable_plugin))
-        .route(
-            "/plugins/:id/config",
-            get(get_plugin_config).put(set_plugin_config),
-        )
+        .route("/plugins/:id/config", get(get_plugin_config).put(set_plugin_config))
         // Finding endpoints
         .route("/findings/stats", get(get_finding_stats))
         // OpenAPI documentation
@@ -413,20 +404,17 @@ async fn create_scan(
     }
 
     // Get target
-    let target = state
-        .target_manager
-        .get(&request.target_id)
-        .ok_or_else(|| {
-            (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "not_found".to_string(),
-                    message: format!("Target {} not found", request.target_id),
-                    details: None,
-                }),
-            )
-                .into_response()
-        })?;
+    let target = state.target_manager.get(&request.target_id).ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "not_found".to_string(),
+                message: format!("Target {} not found", request.target_id),
+                details: None,
+            }),
+        )
+            .into_response()
+    })?;
 
     // Build scan config
     let mut config = ScanConfig {
@@ -445,21 +433,17 @@ async fn create_scan(
     };
 
     // Start scan
-    let scan_id = state
-        .scan_manager
-        .start_scan(config, target)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "scan_error".to_string(),
-                    message: e.to_string(),
-                    details: None,
-                }),
-            )
-                .into_response()
-        })?;
+    let scan_id = state.scan_manager.start_scan(config, target).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "scan_error".to_string(),
+                message: e.to_string(),
+                details: None,
+            }),
+        )
+            .into_response()
+    })?;
 
     // Get created scan
     let scan = state.scan_manager.get_scan(&scan_id).ok_or_else(|| {
@@ -526,12 +510,8 @@ async fn list_scans(
     Query(params): Query<PaginationParams>,
 ) -> impl IntoResponse {
     let scans = state.scan_manager.list_scans();
-    let scans: Vec<ScanResponse> = scans
-        .into_iter()
-        .skip(params.offset)
-        .take(params.limit)
-        .map(ScanResponse::from)
-        .collect();
+    let scans: Vec<ScanResponse> =
+        scans.into_iter().skip(params.offset).take(params.limit).map(ScanResponse::from).collect();
     Json(scans)
 }
 
@@ -839,15 +819,11 @@ async fn get_scan_findings(
 
     // Build filter
     let filter = FindingFilter {
-        severity: params
-            .severity
-            .map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
+        severity: params.severity.map(|s| s.into_iter().filter_map(|v| v.parse().ok()).collect()),
         confidence: params
             .confidence
             .map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
-        category: params
-            .category
-            .map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
+        category: params.category.map(|c| c.into_iter().filter_map(|v| v.parse().ok()).collect()),
         target: params.target,
         plugin_source: params.plugin_source,
         scan_id: Some(id),
@@ -903,11 +879,8 @@ async fn get_scan_logs(
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, Response> {
     let logs = state.scan_manager.get_logs(&id);
-    let logs: Vec<crate::scan::ScanLogEntry> = logs
-        .into_iter()
-        .skip(params.offset)
-        .take(params.limit)
-        .collect();
+    let logs: Vec<crate::scan::ScanLogEntry> =
+        logs.into_iter().skip(params.offset).take(params.limit).collect();
     Ok(Json(logs).into_response())
 }
 
@@ -1151,20 +1124,17 @@ async fn update_target(
         target.metadata.tags = tags;
     }
 
-    state
-        .target_manager
-        .update(&id, target.clone())
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "target_error".to_string(),
-                    message: e.to_string(),
-                    details: None,
-                }),
-            )
-                .into_response()
-        })?;
+    state.target_manager.update(&id, target.clone()).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "target_error".to_string(),
+                message: e.to_string(),
+                details: None,
+            }),
+        )
+            .into_response()
+    })?;
 
     state.storage.save_target(&target).await.map_err(|e| {
         (
@@ -1345,21 +1315,17 @@ async fn disable_plugin(
     State(state): State<ApiState>,
     Path(id): Path<PluginId>,
 ) -> Result<impl IntoResponse, Response> {
-    state
-        .plugin_manager
-        .disable_plugin(&id)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: "not_found".to_string(),
-                    message: e.to_string(),
-                    details: None,
-                }),
-            )
-                .into_response()
-        })?;
+    state.plugin_manager.disable_plugin(&id).await.map_err(|e| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "not_found".to_string(),
+                message: e.to_string(),
+                details: None,
+            }),
+        )
+            .into_response()
+    })?;
 
     let plugin = state.plugin_manager.get_plugin(&id).ok_or_else(|| {
         (
@@ -1439,21 +1405,17 @@ async fn set_plugin_config(
             .into_response());
     }
 
-    state
-        .plugin_manager
-        .set_plugin_config(config.clone())
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "plugin_error".to_string(),
-                    message: e.to_string(),
-                    details: None,
-                }),
-            )
-                .into_response()
-        })?;
+    state.plugin_manager.set_plugin_config(config.clone()).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "plugin_error".to_string(),
+                message: e.to_string(),
+                details: None,
+            }),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(config).into_response())
 }
@@ -1477,10 +1439,7 @@ async fn get_finding_stats(
     let scan_id = params.get("scan_id").and_then(|s| s.parse().ok());
     let stats = state
         .storage
-        .get_finding_stats(FindingFilter {
-            scan_id,
-            ..Default::default()
-        })
+        .get_finding_stats(FindingFilter { scan_id, ..Default::default() })
         .await
         .map_err(|e| {
             (
@@ -1518,10 +1477,7 @@ mod tests {
         };
         assert!(request.validate().is_ok());
 
-        let invalid_request = CreateScanRequest {
-            name: "".to_string(),
-            ..request
-        };
+        let invalid_request = CreateScanRequest { name: "".to_string(), ..request };
         assert!(invalid_request.validate().is_err());
     }
 

@@ -138,8 +138,10 @@ impl FindingCommands {
             } => {
                 let project_id = resolve_project_id(&mut ctx, &project).await?;
 
-                let mut url = format!("/api/findings?project_id={}&page={}&per_page={}&sort={}&order={}",
-                    project_id, page, per_page, sort, order);
+                let mut url = format!(
+                    "/api/findings?project_id={}&page={}&per_page={}&sort={}&order={}",
+                    project_id, page, per_page, sort, order
+                );
 
                 if let Some(severity) = severity {
                     url.push_str(&format!("&severity={}", severity));
@@ -168,8 +170,12 @@ impl FindingCommands {
             FindingCommands::Show { id, format: _, evidence, remediation } => {
                 let mut url = format!("/api/findings/{}", id);
                 let mut params = Vec::new();
-                if evidence { params.push("evidence=true"); }
-                if remediation { params.push("remediation=true"); }
+                if evidence {
+                    params.push("evidence=true");
+                }
+                if remediation {
+                    params.push("remediation=true");
+                }
                 if !params.is_empty() {
                     url.push_str("?");
                     url.push_str(&params.join("&"));
@@ -180,15 +186,11 @@ impl FindingCommands {
                 print_output(&finding, &ctx.output_format)?;
             }
 
-            FindingCommands::Export {
-                project,
-                format,
-                output,
-                severity,
-            } => {
+            FindingCommands::Export { project, format, output, severity } => {
                 let project_id = resolve_project_id(&mut ctx, &project).await?;
 
-                let mut url = format!("/api/findings/export?project_id={}&format={}", project_id, format);
+                let mut url =
+                    format!("/api/findings/export?project_id={}&format={}", project_id, format);
                 if let Some(severity) = severity {
                     url.push_str(&format!("&severity={}", severity));
                 }
@@ -207,26 +209,31 @@ impl FindingCommands {
             FindingCommands::Stats { project } => {
                 let project_id = resolve_project_id(&mut ctx, &project).await?;
 
-                let response = ctx.get(&format!("/api/findings/stats?project_id={}", project_id)).await?;
+                let response =
+                    ctx.get(&format!("/api/findings/stats?project_id={}", project_id)).await?;
                 let stats: FindingStatsResponse = response.json().await?;
                 print_output(&stats, &ctx.output_format)?;
             }
 
             FindingCommands::Verify { id, status } => {
-                let response = ctx.put(
-                    &format!("/api/findings/{}/verify", id),
-                    &serde_json::json!({ "verified": status })
-                ).await?;
+                let response = ctx
+                    .put(
+                        &format!("/api/findings/{}/verify", id),
+                        &serde_json::json!({ "verified": status }),
+                    )
+                    .await?;
                 let finding: FindingResponse = response.json().await?;
                 println!("Finding marked as {}!", if status { "verified" } else { "unverified" });
                 print_output(&finding, &ctx.output_format)?;
             }
 
             FindingCommands::Note { id, text } => {
-                let response = ctx.post(
-                    &format!("/api/findings/{}/notes", id),
-                    &serde_json::json!({ "text": text })
-                ).await?;
+                let response = ctx
+                    .post(
+                        &format!("/api/findings/{}/notes", id),
+                        &serde_json::json!({ "text": text }),
+                    )
+                    .await?;
                 let note: FindingNoteResponse = response.json().await?;
                 println!("Note added successfully!");
                 print_output(&note, &ctx.output_format)?;
@@ -240,10 +247,9 @@ impl FindingCommands {
                     payload["severity"] = serde_json::json!(severity);
                 }
 
-                let response = ctx.post(
-                    &format!("/api/findings/bulk?project_id={}", project_id),
-                    &payload
-                ).await?;
+                let response = ctx
+                    .post(&format!("/api/findings/bulk?project_id={}", project_id), &payload)
+                    .await?;
                 let result: BulkActionResponse = response.json().await?;
                 println!("Bulk action completed: {} findings affected", result.affected_count);
             }
@@ -259,7 +265,8 @@ async fn resolve_project_id(ctx: &mut Context, project: &str) -> Result<String, 
         return Ok(project.to_string());
     }
 
-    let response = ctx.get(&format!("/api/projects?search={}", urlencoding::encode(project))).await?;
+    let response =
+        ctx.get(&format!("/api/projects?search={}", urlencoding::encode(project))).await?;
     let list: ProjectListResponse = response.json().await?;
 
     if let Some(project) = list.projects.first() {

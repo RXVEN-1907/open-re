@@ -28,12 +28,7 @@ impl ConfigWatcher {
     /// Create a new config watcher
     pub fn new(config: Config) -> Self {
         let (tx, rx) = broadcast::channel(16);
-        Self {
-            config: Arc::new(RwLock::new(config)),
-            watcher: None,
-            tx,
-            _rx: rx,
-        }
+        Self { config: Arc::new(RwLock::new(config)), watcher: None, tx, _rx: rx }
     }
 
     /// Start watching configuration files
@@ -85,9 +80,8 @@ impl ConfigWatcher {
             .merge(Env::prefixed("OPENRE_").split("__"))
             .merge(figment::providers::Json::file("config.local.json"));
 
-        let new_config: Config = figment
-            .extract()
-            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        let new_config: Config =
+            figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))?;
         new_config.validate()?;
 
         let mut guard = config.write().await;
@@ -132,9 +126,7 @@ pub struct ConfigBuilder {
 
 impl ConfigBuilder {
     pub fn new() -> Self {
-        Self {
-            figment: Figment::new(),
-        }
+        Self { figment: Figment::new() }
     }
 
     pub fn defaults<T: Serialize>(mut self, defaults: T) -> Self {
@@ -143,16 +135,12 @@ impl ConfigBuilder {
     }
 
     pub fn toml_file(mut self, path: impl Into<PathBuf>) -> Self {
-        self.figment = self
-            .figment
-            .merge(figment::providers::Toml::file(path.into()));
+        self.figment = self.figment.merge(figment::providers::Toml::file(path.into()));
         self
     }
 
     pub fn json_file(mut self, path: impl Into<PathBuf>) -> Self {
-        self.figment = self
-            .figment
-            .merge(figment::providers::Json::file(path.into()));
+        self.figment = self.figment.merge(figment::providers::Json::file(path.into()));
         self
     }
 
@@ -162,9 +150,7 @@ impl ConfigBuilder {
     }
 
     pub fn build<T: for<'de> Deserialize<'de>>(self) -> Result<T> {
-        self.figment
-            .extract()
-            .map_err(|e| openre_core::Error::Config(e.to_string()))
+        self.figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))
     }
 }
 

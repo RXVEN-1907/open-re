@@ -14,10 +14,7 @@ use utoipa::{IntoParams, ToSchema};
 
 /// User routes
 pub fn routes(state: std::sync::Arc<AppState>) -> Router {
-    Router::new()
-        .route("/", get(list_users))
-        .route("/:id", get(get_user))
-        .with_state(state)
+    Router::new().route("/", get(list_users)).route("/:id", get(get_user)).with_state(state)
 }
 
 /// List users (admin only)
@@ -46,9 +43,7 @@ async fn list_users(
     }
 
     // User storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("user storage not implemented".into()))
 }
 
 /// Get user
@@ -76,9 +71,7 @@ async fn get_user(
     }
 
     // User storage is not yet implemented in GlobalStore.
-    Err(crate::error::ApiError::NotImplemented(
-        "user storage not implemented".into(),
-    ))
+    Err(crate::error::ApiError::NotImplemented("user storage not implemented".into()))
 }
 
 // Request/Response types

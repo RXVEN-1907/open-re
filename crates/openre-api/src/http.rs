@@ -44,18 +44,9 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .merge(api_routes)
         .merge(health_routes)
         .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            api_middleware::request_id,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            api_middleware::logging,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            api_middleware::rate_limit,
-        ))
+        .layer(middleware::from_fn_with_state(state.clone(), api_middleware::request_id))
+        .layer(middleware::from_fn_with_state(state.clone(), api_middleware::logging))
+        .layer(middleware::from_fn_with_state(state.clone(), api_middleware::rate_limit))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
         .layer(RequestBodyLimitLayer::new(50 * 1024 * 1024)) // 50MB

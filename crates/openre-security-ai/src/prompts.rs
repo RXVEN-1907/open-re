@@ -30,9 +30,7 @@ pub struct PromptCompiler {
 impl PromptCompiler {
     /// Create a new prompt compiler
     pub fn new() -> Self {
-        let mut compiler = Self {
-            templates: HashMap::new(),
-        };
+        let mut compiler = Self { templates: HashMap::new() };
 
         // Register built-in templates
         compiler.register_builtin_templates();

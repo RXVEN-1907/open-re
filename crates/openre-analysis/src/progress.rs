@@ -8,7 +8,7 @@ use openre_core::ids::*;
 use openre_queue::QueueManager;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{broadcast, RwLock};
 use tracing::debug;
 
 /// Job progress for real-time updates
@@ -68,11 +68,7 @@ pub struct ProgressTracker {
 impl ProgressTracker {
     pub fn new(queue: Arc<QueueManager>) -> Self {
         let (tx, _rx) = broadcast::channel(1024);
-        Self {
-            queue,
-            cache: Arc::new(RwLock::new(HashMap::new())),
-            progress_tx: tx,
-        }
+        Self { queue, cache: Arc::new(RwLock::new(HashMap::new())), progress_tx: tx }
     }
 
     /// Create a ProgressTracker for testing without QueueManager
@@ -113,7 +109,10 @@ impl ProgressTracker {
     }
 
     /// Update job progress (static version for testing without &self)
-    pub async fn update_progress_static(tracker: &ProgressTracker, progress: JobProgress) -> Result<()> {
+    pub async fn update_progress_static(
+        tracker: &ProgressTracker,
+        progress: JobProgress,
+    ) -> Result<()> {
         tracker.cache.write().await.insert(progress.job_id, progress.clone());
         let _ = tracker.progress_tx.send(progress.clone());
         Ok(())

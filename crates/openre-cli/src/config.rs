@@ -36,12 +36,7 @@ pub struct ProfileConfig {
 
 impl Default for ProfileConfig {
     fn default() -> Self {
-        Self {
-            server_url: None,
-            api_key: None,
-            output_format: None,
-            verbose: None,
-        }
+        Self { server_url: None, api_key: None, output_format: None, verbose: None }
     }
 }
 
@@ -64,11 +59,8 @@ impl Default for CliConfig {
 impl CliConfig {
     /// Load configuration from file
     pub fn load(path: Option<&Path>) -> Result<Self, CliError> {
-        let config_path = if let Some(path) = path {
-            path.to_path_buf()
-        } else {
-            Self::default_config_path()?
-        };
+        let config_path =
+            if let Some(path) = path { path.to_path_buf() } else { Self::default_config_path()? };
 
         if config_path.exists() {
             let content = fs::read_to_string(&config_path)?;
@@ -134,21 +126,14 @@ impl CliConfig {
             "server_url" => self.server_url = value.to_string(),
             "api_key" => self.api_key = Some(value.to_string()),
             "output_format" => {
-                self.output_format = value
-                    .parse()
-                    .map_err(|e: String| CliError::InvalidInput(e))?
+                self.output_format = value.parse().map_err(|e: String| CliError::InvalidInput(e))?
             }
             "verbose" => {
                 self.verbose = value
                     .parse()
                     .map_err(|_| CliError::InvalidInput(format!("Invalid boolean: {}", value)))?
             }
-            _ => {
-                return Err(CliError::InvalidInput(format!(
-                    "Unknown config key: {}",
-                    key
-                )))
-            }
+            _ => return Err(CliError::InvalidInput(format!("Unknown config key: {}", key))),
         }
         Ok(())
     }
@@ -221,7 +206,9 @@ impl CliConfig {
             return Err(CliError::InvalidInput("Cannot delete default profile".into()));
         }
         if self.current_profile.as_deref() == Some(name) {
-            return Err(CliError::InvalidInput("Cannot delete active profile. Switch first.".into()));
+            return Err(CliError::InvalidInput(
+                "Cannot delete active profile. Switch first.".into(),
+            ));
         }
         self.profiles.remove(name);
         Ok(())
@@ -256,15 +243,11 @@ impl CliConfig {
 
     /// Get access token
     pub fn get_access_token(&self) -> Result<String, CliError> {
-        self.access_token
-            .clone()
-            .ok_or(CliError::NotAuthenticated)
+        self.access_token.clone().ok_or(CliError::NotAuthenticated)
     }
 
     /// Get refresh token
     pub fn get_refresh_token(&self) -> Result<String, CliError> {
-        self.refresh_token
-            .clone()
-            .ok_or(CliError::NotAuthenticated)
+        self.refresh_token.clone().ok_or(CliError::NotAuthenticated)
     }
 }

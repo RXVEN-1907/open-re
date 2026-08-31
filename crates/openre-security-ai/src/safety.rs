@@ -44,9 +44,7 @@ impl SafetyGuard {
     }
 
     pub fn new(strict_evidence_checking: bool) -> Self {
-        Self {
-            strict_evidence_checking,
-        }
+        Self { strict_evidence_checking }
     }
 
     /// Tag claims in a response with their sources

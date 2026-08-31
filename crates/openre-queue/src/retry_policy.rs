@@ -38,10 +38,7 @@ impl RetryPolicy {
     pub fn should_retry(&self, job: &Job, error: &openre_core::Error) -> bool {
         // Check max retries
         if job.retry_count >= self.config.max_attempts {
-            debug!(
-                "Job {} exceeded max retries ({})",
-                job.id, self.config.max_attempts
-            );
+            debug!("Job {} exceeded max retries ({})", job.id, self.config.max_attempts);
             return false;
         }
 
@@ -120,13 +117,7 @@ pub struct ExponentialBackoff {
 
 impl ExponentialBackoff {
     pub fn new(base: Duration, max: Duration, multiplier: f64) -> Self {
-        Self {
-            base,
-            max,
-            multiplier,
-            jitter: true,
-            jitter_factor: 0.1,
-        }
+        Self { base, max, multiplier, jitter: true, jitter_factor: 0.1 }
     }
 
     pub fn with_jitter(mut self, enabled: bool, factor: f64) -> Self {

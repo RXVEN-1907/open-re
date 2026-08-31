@@ -51,11 +51,7 @@ pub struct CacheEntry<T> {
 
 impl<T> CacheEntry<T> {
     pub fn new(value: T, ttl: Duration) -> Self {
-        Self {
-            value,
-            created_at: Instant::now(),
-            ttl,
-        }
+        Self { value, created_at: Instant::now(), ttl }
     }
 
     pub fn is_expired(&self) -> bool {
@@ -178,11 +174,8 @@ impl PerformanceOptimizer {
 
     /// Evict oldest entries to make space
     fn evict_oldest_entries(&mut self, count: usize) {
-        let mut entries: Vec<(String, Duration)> = self
-            .cache
-            .iter()
-            .map(|(key, entry)| (key.clone(), entry.age()))
-            .collect();
+        let mut entries: Vec<(String, Duration)> =
+            self.cache.iter().map(|(key, entry)| (key.clone(), entry.age())).collect();
 
         // Sort by age (oldest first)
         entries.sort_by(|a, b| b.1.cmp(&a.1));
@@ -192,10 +185,7 @@ impl PerformanceOptimizer {
             self.cache.remove(&key);
         }
 
-        debug!(
-            "Evicted {} oldest cache entries",
-            count.min(self.cache.len())
-        );
+        debug!("Evicted {} oldest cache entries", count.min(self.cache.len()));
     }
 
     /// Get cache statistics
@@ -279,15 +269,11 @@ impl PerformanceOptimizer {
         }
 
         // Create sets of fingerprints
-        let previous_fingerprints: HashSet<&str> = previous_findings
-            .iter()
-            .filter_map(|f| f.fingerprint.as_deref())
-            .collect();
+        let previous_fingerprints: HashSet<&str> =
+            previous_findings.iter().filter_map(|f| f.fingerprint.as_deref()).collect();
 
-        let current_fingerprints: HashSet<String> = current_findings
-            .iter()
-            .filter_map(|f| f.fingerprint.clone())
-            .collect();
+        let current_fingerprints: HashSet<String> =
+            current_findings.iter().filter_map(|f| f.fingerprint.clone()).collect();
 
         // Identify new, unchanged, and removed findings
         let mut new_findings = Vec::new();
@@ -497,10 +483,8 @@ mod tests {
         assert_eq!(findings.len(), 3); // 5 original - 2 duplicates = 3
 
         // Check that we kept one of each unique fingerprint
-        let fingerprints: Vec<&str> = findings
-            .iter()
-            .filter_map(|f| f.fingerprint.as_deref())
-            .collect();
+        let fingerprints: Vec<&str> =
+            findings.iter().filter_map(|f| f.fingerprint.as_deref()).collect();
 
         assert!(fingerprints.contains(&"fingerprint-1"));
         assert!(fingerprints.contains(&"fingerprint-2"));
@@ -547,12 +531,8 @@ mod tests {
         let mut optimizer = PerformanceOptimizer::new();
 
         // Perform some cache operations
-        optimizer
-            .put_in_cache("key1".to_string(), "value1".to_string())
-            .unwrap();
-        optimizer
-            .put_in_cache("key2".to_string(), "value2".to_string())
-            .unwrap();
+        optimizer.put_in_cache("key1".to_string(), "value1".to_string()).unwrap();
+        optimizer.put_in_cache("key2".to_string(), "value2".to_string()).unwrap();
 
         let _val1: Option<String> = optimizer.get_from_cache("key1").unwrap();
         let _val2: Option<String> = optimizer.get_from_cache("key2").unwrap();

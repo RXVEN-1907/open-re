@@ -49,12 +49,8 @@ impl HttpFingerprintPlugin {
         let mut redirect_chain = Vec::new();
 
         for _ in 0..self.config.max_redirects {
-            let response = self
-                .client
-                .get(&current_url)
-                .send()
-                .await
-                .map_err(crate::internal_err)?;
+            let response =
+                self.client.get(&current_url).send().await.map_err(crate::internal_err)?;
 
             // Collect headers
             let headers: HashMap<String, String> = response
@@ -85,11 +81,8 @@ impl HttpFingerprintPlugin {
 
             // HTTP methods (via OPTIONS)
             if result.allowed_methods.is_empty() {
-                if let Ok(options_resp) = self
-                    .client
-                    .request(Method::OPTIONS, &current_url)
-                    .send()
-                    .await
+                if let Ok(options_resp) =
+                    self.client.request(Method::OPTIONS, &current_url).send().await
                 {
                     if let Some(allow) = options_resp.headers().get("allow") {
                         result.allowed_methods = allow
@@ -258,26 +251,10 @@ impl ReconPlugin for HttpFingerprintPlugin {
         // Missing security headers
         let security = &fingerprint.security_headers;
         let missing_headers = vec![
-            (
-                "Content-Security-Policy",
-                &security.csp,
-                "CSP header missing",
-            ),
-            (
-                "Strict-Transport-Security",
-                &security.hsts,
-                "HSTS header missing",
-            ),
-            (
-                "X-Frame-Options",
-                &security.x_frame_options,
-                "X-Frame-Options header missing",
-            ),
-            (
-                "Referrer-Policy",
-                &security.referrer_policy,
-                "Referrer-Policy header missing",
-            ),
+            ("Content-Security-Policy", &security.csp, "CSP header missing"),
+            ("Strict-Transport-Security", &security.hsts, "HSTS header missing"),
+            ("X-Frame-Options", &security.x_frame_options, "X-Frame-Options header missing"),
+            ("Referrer-Policy", &security.referrer_policy, "Referrer-Policy header missing"),
             (
                 "Permissions-Policy",
                 &security.permissions_policy,
@@ -393,11 +370,7 @@ impl ReconPlugin for HttpFingerprintPlugin {
             );
         }
 
-        info!(
-            "HTTP fingerprinting completed for: {} - {} findings",
-            target_url,
-            findings.len()
-        );
+        info!("HTTP fingerprinting completed for: {} - {} findings", target_url, findings.len());
         Ok(findings)
     }
 }

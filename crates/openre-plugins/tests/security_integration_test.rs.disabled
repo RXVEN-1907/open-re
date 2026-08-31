@@ -82,15 +82,12 @@ async fn test_auth_discovery_plugin_finds_login_form() {
     assert!(findings.len() >= 3);
 
     // Check for login form finding
-    let login_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("login"));
+    let login_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("login"));
     assert!(login_finding.is_some());
 
     // Check for registration form finding
-    let register_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("register"));
+    let register_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("register"));
     assert!(register_finding.is_some());
 }
 
@@ -165,9 +162,8 @@ async fn test_session_management_plugin_analyzes_cookies() {
     let findings = output["findings"].as_array().unwrap();
 
     // Should find session cookie
-    let session_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("Session Cookie"));
+    let session_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("Session Cookie"));
     assert!(session_finding.is_some());
 }
 
@@ -182,10 +178,7 @@ async fn test_cookie_security_plugin_checks_flags() {
             ResponseTemplate::new(200)
                 .set_body_string("<html>Home</html>")
                 .insert_header("content-type", "text/html")
-                .insert_header(
-                    "set-cookie",
-                    "sessionid=abc123; HttpOnly; SameSite=Lax; Path=/",
-                ),
+                .insert_header("set-cookie", "sessionid=abc123; HttpOnly; SameSite=Lax; Path=/"),
         )
         .mount(&mock_server)
         .await;
@@ -207,18 +200,13 @@ async fn test_cookie_security_plugin_checks_flags() {
     let findings = output["findings"].as_array().unwrap();
 
     // Should find missing Secure flag
-    let secure_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("Missing Secure Flag"));
+    let secure_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("Missing Secure Flag"));
     assert!(secure_finding.is_some());
 
     // Should find missing HttpOnly flag (cookie has it, so this shouldn't be found)
-    let httponly_finding = findings.iter().find(|f| {
-        f["title"]
-            .as_str()
-            .unwrap()
-            .contains("Missing HttpOnly Flag")
-    });
+    let httponly_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("Missing HttpOnly Flag"));
     assert!(httponly_finding.is_none());
 }
 
@@ -254,12 +242,8 @@ async fn test_security_headers_plugin_checks_csp() {
     let findings = output["findings"].as_array().unwrap();
 
     // Should find missing CSP
-    let csp_finding = findings.iter().find(|f| {
-        f["title"]
-            .as_str()
-            .unwrap()
-            .contains("Content-Security-Policy")
-    });
+    let csp_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("Content-Security-Policy"));
     assert!(csp_finding.is_some());
 }
 
@@ -333,9 +317,8 @@ async fn test_cors_analysis_plugin_detects_wildcard() {
     let findings = output["findings"].as_array().unwrap();
 
     // Should find wildcard origin issue
-    let wildcard_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("Wildcard Origin"));
+    let wildcard_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("Wildcard Origin"));
     assert!(wildcard_finding.is_some());
 }
 
@@ -373,9 +356,8 @@ async fn test_cors_analysis_plugin_detects_origin_reflection() {
     let findings = output["findings"].as_array().unwrap();
 
     // Should find origin reflection
-    let reflection_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("Origin Reflection"));
+    let reflection_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("Origin Reflection"));
     assert!(reflection_finding.is_some());
 }
 
@@ -411,9 +393,8 @@ async fn test_rate_limiting_plugin_detects_no_limit() {
     let findings = output["findings"].as_array().unwrap();
 
     // Should find no rate limiting
-    let no_limit_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("No Rate Limiting"));
+    let no_limit_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("No Rate Limiting"));
     assert!(no_limit_finding.is_some());
 }
 
@@ -464,9 +445,8 @@ async fn test_rate_limiting_plugin_detects_limit() {
     let findings = output["findings"].as_array().unwrap();
 
     // Should detect rate limiting
-    let rate_limit_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("Rate Limit"));
+    let rate_limit_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("Rate Limit"));
     assert!(rate_limit_finding.is_some());
 }
 
@@ -503,15 +483,13 @@ async fn test_information_disclosure_plugin_detects_server_header() {
     let findings = output["findings"].as_array().unwrap();
 
     // Should find server header disclosure
-    let server_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("Server Header"));
+    let server_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("Server Header"));
     assert!(server_finding.is_some());
 
     // Should find X-Powered-By disclosure
-    let powered_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("X-Powered-By"));
+    let powered_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("X-Powered-By"));
     assert!(powered_finding.is_some());
 }
 
@@ -544,9 +522,7 @@ async fn test_information_disclosure_plugin_detects_debug_page() {
     let findings = output["findings"].as_array().unwrap();
 
     // Should find debug page
-    let debug_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("Debug"));
+    let debug_finding = findings.iter().find(|f| f["title"].as_str().unwrap().contains("Debug"));
     assert!(debug_finding.is_some());
 }
 
@@ -585,9 +561,8 @@ async fn test_information_disclosure_plugin_detects_stack_trace() {
     let findings = output["findings"].as_array().unwrap();
 
     // Should find stack trace
-    let stack_finding = findings
-        .iter()
-        .find(|f| f["title"].as_str().unwrap().contains("Stack Trace"));
+    let stack_finding =
+        findings.iter().find(|f| f["title"].as_str().unwrap().contains("Stack Trace"));
     assert!(stack_finding.is_some());
 }
 

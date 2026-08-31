@@ -134,7 +134,6 @@ services:
           memory: 4G
         reservations:
           memory: 1G
-      replicas: 2
 
   # AI worker (with GPU support if available)
   worker-ai:

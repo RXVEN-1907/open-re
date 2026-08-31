@@ -48,17 +48,13 @@ impl BinaryUploadService {
 
         // Validate format
         if format == BinaryFormat::Unknown {
-            return Err(openre_core::Error::Validation(
-                "Unsupported binary format".to_string(),
-            ));
+            return Err(openre_core::Error::Validation("Unsupported binary format".to_string()));
         }
 
         // Store file in object storage
         let file_id = FileId::new();
         let object_path = format!("binaries/{}/{}.bin", request.project_id, hashes.sha256);
-        self.object_store
-            .put(&object_path, request.file_data.clone())
-            .await?;
+        self.object_store.put(&object_path, request.file_data.clone()).await?;
 
         // Identify binary format and extract basic info
         match self.identify_binary(&request.file_data).await {
@@ -76,8 +72,7 @@ impl BinaryUploadService {
         let analysis_id = AnalysisId::new();
 
         // Queue analysis job for processing
-        self.queue_analysis(analysis_id, file_id, request.project_id)
-            .await?;
+        self.queue_analysis(analysis_id, file_id, request.project_id).await?;
 
         metrics::record_http_request("POST", 201, start.elapsed());
 
@@ -96,9 +91,7 @@ impl BinaryUploadService {
         match format {
             BinaryFormat::Elf => self.elf_identifier.identify(data).await,
             BinaryFormat::Pe => self.pe_identifier.identify(data).await,
-            _ => Err(openre_core::Error::Validation(
-                "Unsupported format".to_string(),
-            )),
+            _ => Err(openre_core::Error::Validation("Unsupported format".to_string())),
         }
     }
 
@@ -159,10 +152,7 @@ impl BinaryUploadService {
             _ => return Ok(None),
         };
 
-        Ok(Some(BinaryMetadata {
-            file_id,
-            ..metadata
-        }))
+        Ok(Some(BinaryMetadata { file_id, ..metadata }))
     }
 }
 
@@ -176,9 +166,5 @@ fn calculate_hashes(data: &[u8]) -> FileHashes {
     let sha1_hash = format!("{:x}", Sha1::digest(data));
     let sha256_hash = format!("{:x}", Sha256::digest(data));
 
-    FileHashes {
-        md5: md5_hash,
-        sha1: sha1_hash,
-        sha256: sha256_hash,
-    }
+    FileHashes { md5: md5_hash, sha1: sha1_hash, sha256: sha256_hash }
 }

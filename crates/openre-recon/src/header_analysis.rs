@@ -46,12 +46,7 @@ impl HeaderAnalysisPlugin {
     async fn analyze_headers(&self, url: &str) -> Result<HeaderAnalysisResult> {
         let mut result = HeaderAnalysisResult::default();
 
-        let response = self
-            .client
-            .get(url)
-            .send()
-            .await
-            .map_err(crate::internal_err)?;
+        let response = self.client.get(url).send().await.map_err(crate::internal_err)?;
 
         // Extract all headers
         let headers: HashMap<String, String> = response
@@ -121,10 +116,7 @@ impl HeaderAnalysisPlugin {
 
         // Check for unsafe-inline
         if let Some(script_src) = directives.get("script-src") {
-            if script_src
-                .iter()
-                .any(|v| v == "'unsafe-inline'" || v == "'unsafe-eval'")
-            {
+            if script_src.iter().any(|v| v == "'unsafe-inline'" || v == "'unsafe-eval'") {
                 issues.push("CSP allows unsafe-inline or unsafe-eval in script-src".to_string());
             }
         }
@@ -180,9 +172,7 @@ impl HeaderAnalysisPlugin {
             }
 
             if !analysis.include_subdomains {
-                analysis
-                    .issues
-                    .push("HSTS missing includeSubDomains directive".to_string());
+                analysis.issues.push("HSTS missing includeSubDomains directive".to_string());
             }
         }
 
@@ -904,11 +894,7 @@ impl ReconPlugin for HeaderAnalysisPlugin {
             );
         }
 
-        info!(
-            "Header analysis completed for: {} - {} findings",
-            target_url,
-            findings.len()
-        );
+        info!("Header analysis completed for: {} - {} findings", target_url, findings.len());
         Ok(findings)
     }
 }

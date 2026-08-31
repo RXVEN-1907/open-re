@@ -21,12 +21,7 @@ pub struct AiCache {
 impl AiCache {
     pub async fn new(config: CacheConfig) -> Result<Self> {
         let disk_cache_path = if config.enabled {
-            Some(
-                std::env::current_dir()?
-                    .join("data")
-                    .join("cache")
-                    .join("ai_cache.json"),
-            )
+            Some(std::env::current_dir()?.join("data").join("cache").join("ai_cache.json"))
         } else {
             None
         };
@@ -136,10 +131,8 @@ impl AiCache {
     }
 
     async fn evict_lru(&self, cache: &mut HashMap<String, CacheEntry>) {
-        if let Some((key, _)) = cache
-            .iter()
-            .min_by_key(|(_, v)| v.last_accessed)
-            .map(|(k, v)| (k.clone(), v.clone()))
+        if let Some((key, _)) =
+            cache.iter().min_by_key(|(_, v)| v.last_accessed).map(|(k, v)| (k.clone(), v.clone()))
         {
             cache.remove(&key);
         }
@@ -178,13 +171,7 @@ impl AiCache {
     async fn load_from_disk(&self, path: &PathBuf, key: &str) -> Option<CompletionResponse> {
         let data = tokio::fs::read(path).await.ok()?;
         let entries: HashMap<String, CacheEntry> = serde_json::from_slice(&data).ok()?;
-        entries.get(key).and_then(|e| {
-            if e.is_expired() {
-                None
-            } else {
-                Some(e.response.clone())
-            }
-        })
+        entries.get(key).and_then(|e| if e.is_expired() { None } else { Some(e.response.clone()) })
     }
 
     async fn record_hit(&self) {
@@ -253,9 +240,7 @@ pub struct StreamingCache {
 
 impl StreamingCache {
     pub fn new() -> Self {
-        Self {
-            cache: Arc::new(RwLock::new(HashMap::new())),
-        }
+        Self { cache: Arc::new(RwLock::new(HashMap::new())) }
     }
 
     pub async fn get(&self, key: &str) -> Option<Vec<StreamChunk>> {
@@ -267,12 +252,7 @@ impl StreamingCache {
     }
 
     pub async fn append(&self, key: &str, chunk: StreamChunk) {
-        self.cache
-            .write()
-            .await
-            .entry(key.to_string())
-            .or_default()
-            .push(chunk);
+        self.cache.write().await.entry(key.to_string()).or_default().push(chunk);
     }
 }
 

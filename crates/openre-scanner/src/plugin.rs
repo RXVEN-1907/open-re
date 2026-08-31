@@ -316,10 +316,7 @@ impl PluginManager {
                             discovered.push(plugin_info);
                         }
                         Err(e) => {
-                            warn!(
-                                "Failed to load plugin manifest at {:?}: {}",
-                                manifest_path, e
-                            );
+                            warn!("Failed to load plugin manifest at {:?}: {}", manifest_path, e);
                         }
                     }
                 }
@@ -441,8 +438,7 @@ impl PluginManager {
         }
 
         // Update status to loading
-        self.update_plugin_status(plugin_id, PluginStatus::Loading)
-            .await?;
+        self.update_plugin_status(plugin_id, PluginStatus::Loading).await?;
 
         let source_path = plugin_info
             .source_path
@@ -580,10 +576,7 @@ impl PluginManager {
             .ok_or_else(|| ScannerError::PluginNotFound(plugin_id.to_string()))?;
 
         if plugin_info.status != PluginStatus::Enabled {
-            return Err(ScannerError::Plugin(format!(
-                "Plugin {} is not enabled",
-                plugin_id
-            )));
+            return Err(ScannerError::Plugin(format!("Plugin {} is not enabled", plugin_id)));
         }
 
         // Execute with timeout
@@ -604,10 +597,7 @@ impl PluginManager {
         match result {
             Ok(Ok(output)) => Ok(serde_json::from_value(output).unwrap_or_default()),
             Ok(Err(e)) => Err(ScannerError::PluginExecutionFailed(e.to_string())),
-            Err(_) => Err(ScannerError::Timeout(format!(
-                "Plugin {} timed out",
-                plugin_id
-            ))),
+            Err(_) => Err(ScannerError::Timeout(format!("Plugin {} timed out", plugin_id))),
         }
     }
 
