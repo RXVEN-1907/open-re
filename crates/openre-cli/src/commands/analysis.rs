@@ -3,7 +3,7 @@
 //! Local binary analysis using openre-analysis crate parsers (ELF, PE, MachO, WASM)
 //! and pipeline orchestrator.
 
-use crate::{print_output, CliError, Context};
+use crate::{print_output, CliError, Context, OfflineAnalysisJob};
 use clap::{Parser, Subcommand, ValueEnum};
 use indicatif::{ProgressBar, ProgressStyle};
 use openre_analysis::{
@@ -583,6 +583,16 @@ struct PipelineStatusDisplay {
 
 impl AnalysisCommands {
     pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
+        // Binary analysis commands (Parse, Info, Symbols, etc.) work offline by default
+        // since they operate on local files
+
+        // Pipeline commands need special handling for offline job management
+        if let AnalysisCommands::Pipeline(ref cmd) = self {
+            if ctx.offline {
+                return Self::cmd_pipeline_offline(cmd.clone(), ctx).await;
+            }
+        }
+
         match self {
             AnalysisCommands::Parse(args) => Self::cmd_parse(args, ctx).await,
             AnalysisCommands::Info(args) => Self::cmd_info(args, ctx).await,
@@ -1381,7 +1391,7 @@ impl AnalysisCommands {
         // Create pipeline context
         let project_id = args
             .project_id
-            .and_then(|s| ProjectId::from_string(&s).ok())
+            .and_then(|s| s.parse::<ProjectId>().ok())
             .unwrap_or_else(ProjectId::new);
 
         let job = AnalysisJob::new(
@@ -1451,9 +1461,8 @@ impl AnalysisCommands {
     /// Pipeline status command
     async fn cmd_pipeline_status(args: PipelineStatusArgs, ctx: Context) -> Result<(), CliError> {
         // In a real implementation, this would query the queue/job system
-        let job_id = JobId::from_string(&args.id).map_err(|_| {
-            CliError::InvalidInput("Invalid job ID format".into())
-        })?;
+        let job_id = args.id.parse::<JobId>()
+            .map_err(|_| CliError::InvalidInput("Invalid job ID format".into()))?;
 
         // Placeholder - would fetch from queue
         #[derive(Serialize, Deserialize, Tabled)]
@@ -1488,13 +1497,204 @@ impl AnalysisCommands {
 
     /// Pipeline cancel command
     async fn cmd_pipeline_cancel(args: PipelineCancelArgs, ctx: Context) -> Result<(), CliError> {
-        let _job_id = JobId::from_string(&args.id).map_err(|_| {
-            CliError::InvalidInput("Invalid job ID format".into())
-        })?;
+        let _job_id = args.id.parse::<JobId>()
+            .map_err(|_| CliError::InvalidInput("Invalid job ID format".into()))?;
 
         // In a real implementation, this would send cancellation to the queue
         println!("Cancellation requested for job: {}", args.id);
         println!("Note: Full cancellation requires queue integration");
+
+        Ok(())
+    }
+
+    /// Pipeline commands for offline mode
+    async fn cmd_pipeline_offline(cmd: PipelineCommands, ctx: Context) -> Result<(), CliError> {
+        let store = ctx.local_store().ok_or(CliError::OfflineMode("Offline store not available".to_string()))?;
+
+        match cmd {
+            PipelineCommands::Run(args) => Self::cmd_pipeline_run_offline(args, ctx, store).await,
+            PipelineCommands::Status(args) => Self::cmd_pipeline_status_offline(args, ctx, store).await,
+            PipelineCommands::Cancel(args) => Self::cmd_pipeline_cancel_offline(args, ctx, store).await,
+        }
+    }
+
+    /// Pipeline run command (offline mode)
+    async fn cmd_pipeline_run_offline(
+        args: PipelineRunArgs,
+        ctx: Context,
+        store: Arc<OfflineStore>,
+    ) -> Result<(), CliError> {
+        // Create progress bar
+        let pb = ProgressBar::new_spinner();
+        pb.set_style(
+            ProgressStyle::default_spinner()
+                .template("{spinner:.green} [{elapsed_precise}] {msg}")
+                .unwrap(),
+        );
+        pb.set_message("Initializing analysis pipeline (offline)...");
+        pb.enable_steady_tick(Duration::from_millis(100));
+
+        // Load metadata
+        let metadata = Self::load_metadata(&args.file, None).await?;
+        let data = std::fs::read(&args.file)?;
+
+        // Create pipeline context
+        let project_id = args
+            .project_id
+            .and_then(|s| ProjectId::from_str(&s).ok())
+            .unwrap_or_else(ProjectId::new);
+
+        let job = AnalysisJob::new(
+            project_id,
+            metadata.file_id,
+            AnalysisConfig {
+                stages: args.stages.into(),
+                priority: openre_analysis::orchestrator::Priority::DEFAULT,
+                max_retries: 3,
+                timeout_secs: 3600,
+                ai_enabled: args.ai_enabled,
+                incremental: false,
+            },
+            UserId::nil(),
+        );
+
+        pb.set_message("Building pipeline...");
+
+        // Run identification stage
+        let identifier = Self::get_identifier(metadata.identification.format);
+        let identification = identifier.identify(&data).await?;
+
+        pb.set_message("Running identification...");
+        pb.finish_with_message("Analysis pipeline started (offline)!");
+
+        // Create offline job record
+        let offline_job = OfflineAnalysisJob {
+            id: job.id,
+            project_id,
+            file_id: metadata.file_id,
+            name: args.file.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            status: "running".to_string(),
+            progress: 10.0,
+            current_stage: Some("identification".to_string()),
+            stages_completed: 1,
+            total_stages: args.stages.into().len() as u32,
+            ai_enabled: args.ai_enabled,
+            stages: args.stages.into().iter().map(|s| format!("{:?}", s)).collect(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            started_at: Some(chrono::Utc::now()),
+            completed_at: None,
+        };
+
+        store.create_analysis_job(offline_job.clone()).await?;
+
+        // Output job info
+        #[derive(Serialize, Deserialize, Tabled)]
+        struct PipelineRunOutput {
+            #[tabled(rename = "Job ID")]
+            job_id: String,
+            #[tabled(rename = "File")]
+            file: String,
+            #[tabled(rename = "Format")]
+            format: String,
+            #[tabled(rename = "Architecture")]
+            architecture: String,
+            #[tabled(rename = "Stages")]
+            stages: String,
+            #[tabled(rename = "AI Enabled")]
+            ai_enabled: String,
+            #[tabled(rename = "Status")]
+            status: String,
+        }
+
+        let output = PipelineRunOutput {
+            job_id: job.id.to_string(),
+            file: args.file.display().to_string(),
+            format: format!("{:?}", identification.format),
+            architecture: format!("{:?}", identification.architecture),
+            stages: match args.stages {
+                PipelineStagesArg::All => "all".to_string(),
+                s => format!("{:?}", s),
+            },
+            ai_enabled: args.ai_enabled.to_string(),
+            status: "Started (offline)".to_string(),
+        };
+
+        print_output(&output, &args.output.into())?;
+
+        println!("Note: Full pipeline execution requires the orchestrator with all dependencies");
+        println!("Job ID: {} stored for tracking", job.id);
+
+        Ok(())
+    }
+
+    /// Pipeline status command (offline mode)
+    async fn cmd_pipeline_status_offline(
+        args: PipelineStatusArgs,
+        ctx: Context,
+        store: Arc<OfflineStore>,
+    ) -> Result<(), CliError> {
+        let job_id = args.id.parse::<JobId>()
+            .map_err(|_| CliError::InvalidInput("Invalid job ID format".to_string()))?;
+
+        let job = store.get_analysis_job(&job_id).await?
+            .ok_or_else(|| CliError::NotFound(format!("Analysis job not found: {}", args.id)))?;
+
+        #[derive(Serialize, Deserialize, Tabled)]
+        struct StatusOutput {
+            #[tabled(rename = "Job ID")]
+            job_id: String,
+            #[tabled(rename = "Status")]
+            status: String,
+            #[tabled(rename = "Progress")]
+            progress: String,
+            #[tabled(rename = "Current Stage")]
+            current_stage: String,
+            #[tabled(rename = "Stages Completed")]
+            stages_completed: String,
+            #[tabled(rename = "Total Stages")]
+            total_stages: String,
+            #[tabled(rename = "AI Enabled")]
+            ai_enabled: String,
+        }
+
+        let output = StatusOutput {
+            job_id: job.id.to_string(),
+            status: job.status,
+            progress: format!("{:.1}%", job.progress),
+            current_stage: job.current_stage.unwrap_or_else(|| "N/A".to_string()),
+            stages_completed: job.stages_completed.to_string(),
+            total_stages: job.total_stages.to_string(),
+            ai_enabled: job.ai_enabled.to_string(),
+        };
+
+        print_output(&output, &args.output.into())?;
+
+        Ok(())
+    }
+
+    /// Pipeline cancel command (offline mode)
+    async fn cmd_pipeline_cancel_offline(
+        args: PipelineCancelArgs,
+        ctx: Context,
+        store: Arc<OfflineStore>,
+    ) -> Result<(), CliError> {
+        let job_id = args.id.parse::<JobId>()
+            .map_err(|_| CliError::InvalidInput("Invalid job ID format".to_string()))?;
+
+        let job = store.update_analysis_job(
+            &job_id,
+            Some("cancelled".to_string()),
+            None,
+            None,
+            None,
+            None,
+            Some(chrono::Utc::now()),
+        ).await?
+            .ok_or_else(|| CliError::NotFound(format!("Analysis job not found: {}", args.id)))?;
+
+        println!("Cancellation requested for job: {}", args.id);
+        println!("Job status updated to: {}", job.status);
 
         Ok(())
     }

@@ -44,3 +44,4 @@ goblin = { workspace = true }
 wasmparser = { workspace = true }
 object = { workspace = true }
 scroll = { workspace = true }
+rusqlite = { version = "0.31", features = ["bundled", "chrono", "serde_json"] }

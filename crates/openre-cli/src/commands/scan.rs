@@ -1,6 +1,6 @@
 //! Scan commands
 
-use crate::{print_output, CliError, Context};
+use crate::{print_output, CliError, Context, OfflineScan};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use openre_core::ids::ScanId;
@@ -13,7 +13,7 @@ pub enum ScanCommands {
     /// Create a new scan
     Create {
         /// Project name or ID
-        #[arg(short, long)]
+        #[arg(long)]
         project: String,
 
         /// Target URL to scan
@@ -54,13 +54,13 @@ pub enum ScanCommands {
     /// List scans for a project
     List {
         /// Project name or ID
-        #[arg(short, long)]
+        #[arg(long)]
         project: String,
 
-        #[arg(short, long, default_value = "1")]
+        #[arg(long, default_value = "1")]
         page: u32,
 
-        #[arg(short, long, default_value = "50")]
+        #[arg(long, default_value = "50")]
         per_page: u32,
 
         #[arg(long)]
@@ -71,9 +71,6 @@ pub enum ScanCommands {
     Show {
         #[arg(short, long)]
         id: String,
-
-        #[arg(short, long, default_value = "table")]
-        format: String,
     },
 
     /// Delete a scan
@@ -121,6 +118,11 @@ pub enum ScanCommands {
 
 impl ScanCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
+        // Check if offline mode
+        if ctx.offline {
+            return self.execute_offline(ctx).await;
+        }
+
         match self {
             ScanCommands::Create {
                 project,
@@ -217,7 +219,7 @@ impl ScanCommands {
                 );
             }
 
-            ScanCommands::Show { id, format } => {
+            ScanCommands::Show { id } => {
                 let response = ctx.get(&format!("/api/scans/{}", id)).await?;
                 let scan: ScanResponse = response.json().await?;
                 print_output(&scan, &ctx.output_format)?;
@@ -288,6 +290,245 @@ impl ScanCommands {
                 } else {
                     println!("{}", export.data);
                 }
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn execute_offline(self, ctx: Context) -> Result<(), CliError> {
+        let store = ctx.local_store().ok_or(CliError::OfflineMode("Offline store not available".to_string()))?;
+
+        match self {
+            ScanCommands::Create {
+                project,
+                target,
+                profile,
+                name,
+                description,
+                schedule: _,
+                run: _,
+            } => {
+                // Resolve project ID
+                let project_id = store.resolve_project_id(&project).await?;
+
+                let scan = OfflineScan {
+                    id: ScanId::new(),
+                    project_id,
+                    name: name.unwrap_or_else(|| format!("scan-{}", chrono::Utc::now().timestamp())),
+                    target,
+                    profile,
+                    status: "pending".to_string(),
+                    progress: 0.0,
+                    findings_count: 0,
+                    checks_total: 0,
+                    checks_completed: 0,
+                    started_at: None,
+                    completed_at: None,
+                    created_at: chrono::Utc::now(),
+                    updated_at: chrono::Utc::now(),
+                };
+
+                store.create_scan(scan.clone()).await?;
+                let response = ScanResponse {
+                    id: scan.id,
+                    project_id: scan.project_id.to_string(),
+                    name: scan.name,
+                    target: scan.target,
+                    profile: scan.profile,
+                    status: scan.status,
+                    progress: scan.progress,
+                    findings_count: scan.findings_count,
+                    checks_total: scan.checks_total,
+                    checks_completed: scan.checks_completed,
+                    started_at: scan.started_at,
+                    completed_at: scan.completed_at,
+                    created_at: scan.created_at,
+                    updated_at: scan.updated_at,
+                };
+                print_output(&response, &ctx.output_format)?;
+                println!("Scan created successfully (offline)!");
+            }
+
+            ScanCommands::Run { id, background: _ } => {
+                let scan_id = id.parse::<ScanId>()
+                    .map_err(|_| CliError::InvalidInput("Invalid scan ID".to_string()))?;
+                let scan = store.update_scan(
+                    &scan_id,
+                    Some("running".to_string()),
+                    Some(0.0),
+                    None,
+                    None,
+                    Some(chrono::Utc::now()),
+                    None,
+                ).await?
+                    .ok_or_else(|| CliError::NotFound(format!("Scan not found: {}", id)))?;
+
+                let response = ScanRunResponse {
+                    scan_id: scan.id,
+                    status: scan.status,
+                    message: "Scan started (offline)".to_string(),
+                };
+                print_output(&response, &ctx.output_format)?;
+                println!("Scan started (offline mode - simulation)");
+            }
+
+            ScanCommands::List {
+                project,
+                page,
+                per_page,
+                status,
+            } => {
+                let project_id = store.resolve_project_id(&project).await?;
+                let scans = store.list_scans(&project_id, page, per_page, status).await?;
+                let total = store.count_scans(&project_id, None).await?;
+                let total_pages = (total + per_page as u64 - 1) / per_page as u64;
+
+                let responses: Vec<ScanResponse> = scans
+                    .into_iter()
+                    .map(|s| ScanResponse {
+                        id: s.id,
+                        project_id: s.project_id.to_string(),
+                        name: s.name,
+                        target: s.target,
+                        profile: s.profile,
+                        status: s.status,
+                        progress: s.progress,
+                        findings_count: s.findings_count,
+                        checks_total: s.checks_total,
+                        checks_completed: s.checks_completed,
+                        started_at: s.started_at,
+                        completed_at: s.completed_at,
+                        created_at: s.created_at,
+                        updated_at: s.updated_at,
+                    })
+                    .collect();
+
+                print_output(&responses, &ctx.output_format)?;
+                println!("Page {} of {} (total: {})", page, total_pages, total);
+            }
+
+            ScanCommands::Show { id } => {
+                let scan_id = id.parse::<ScanId>()
+                    .map_err(|_| CliError::InvalidInput("Invalid scan ID".to_string()))?;
+                let scan = store.get_scan(&scan_id).await?
+                    .ok_or_else(|| CliError::NotFound(format!("Scan not found: {}", id)))?;
+
+                let response = ScanResponse {
+                    id: scan.id,
+                    project_id: scan.project_id.to_string(),
+                    name: scan.name,
+                    target: scan.target,
+                    profile: scan.profile,
+                    status: scan.status,
+                    progress: scan.progress,
+                    findings_count: scan.findings_count,
+                    checks_total: scan.checks_total,
+                    checks_completed: scan.checks_completed,
+                    started_at: scan.started_at,
+                    completed_at: scan.completed_at,
+                    created_at: scan.created_at,
+                    updated_at: scan.updated_at,
+                };
+                print_output(&response, &ctx.output_format)?;
+            }
+
+            ScanCommands::Delete { id, force } => {
+                if !force {
+                    print!("Are you sure you want to delete scan {}? (y/N): ", id);
+                    use std::io::{self, Write};
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    if !input.trim().eq_ignore_ascii_case("y") {
+                        println!("Cancelled.");
+                        return Ok(());
+                    }
+                }
+
+                let scan_id = id.parse::<ScanId>()
+                    .map_err(|_| CliError::InvalidInput("Invalid scan ID".to_string()))?;
+                let deleted = store.delete_scan(&scan_id).await?;
+                if deleted {
+                    println!("Scan deleted successfully (offline)!");
+                } else {
+                    return Err(CliError::NotFound(format!("Scan not found: {}", id)));
+                }
+            }
+
+            ScanCommands::Cancel { id } => {
+                let scan_id = id.parse::<ScanId>()
+                    .map_err(|_| CliError::InvalidInput("Invalid scan ID".to_string()))?;
+                let scan = store.update_scan(
+                    &scan_id,
+                    Some("cancelled".to_string()),
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(chrono::Utc::now()),
+                ).await?
+                    .ok_or_else(|| CliError::NotFound(format!("Scan not found: {}", id)))?;
+
+                let response = ScanCancelResponse {
+                    scan_id: scan.id,
+                    status: scan.status,
+                };
+                println!("Scan cancelled successfully (offline)!");
+                print_output(&response, &ctx.output_format)?;
+            }
+
+            ScanCommands::Resume { id } => {
+                let scan_id = id.parse::<ScanId>()
+                    .map_err(|_| CliError::InvalidInput("Invalid scan ID".to_string()))?;
+                let scan = store.update_scan(
+                    &scan_id,
+                    Some("running".to_string()),
+                    None,
+                    None,
+                    None,
+                    Some(chrono::Utc::now()),
+                    None,
+                ).await?
+                    .ok_or_else(|| CliError::NotFound(format!("Scan not found: {}", id)))?;
+
+                let response = ScanRunResponse {
+                    scan_id: scan.id,
+                    status: scan.status,
+                    message: "Scan resumed (offline)".to_string(),
+                };
+                println!("Scan resumed successfully (offline)!");
+                print_output(&response, &ctx.output_format)?;
+            }
+
+            ScanCommands::Status { id, interval } => {
+                let scan_id = id.parse::<ScanId>()
+                    .map_err(|_| CliError::InvalidInput("Invalid scan ID".to_string()))?;
+                println!("Monitoring scan {} (offline mode - press Ctrl+C to stop)...", id);
+                let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval));
+                loop {
+                    interval.tick().await;
+                    let scan = store.get_scan(&scan_id).await?
+                        .ok_or_else(|| CliError::NotFound(format!("Scan not found: {}", id)))?;
+
+                    print!("\r\x1b[2KStatus: {} | Progress: {}% | Checks: {}/{} | Findings: {}",
+                        scan.status,
+                        scan.progress,
+                        scan.checks_completed,
+                        scan.checks_total,
+                        scan.findings_count);
+                    use std::io::{self, Write};
+                    io::stdout().flush()?;
+
+                    if matches!(scan.status.as_str(), "completed" | "failed" | "cancelled") {
+                        println!("\nScan {}!", scan.status);
+                        break;
+                    }
+                }
+            }
+
+            ScanCommands::Export { id, format, output } => {
+                return Err(CliError::OfflineMode("Export not available in offline mode".to_string()));
             }
         }
 
