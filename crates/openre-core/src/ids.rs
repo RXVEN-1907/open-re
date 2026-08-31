@@ -20,10 +20,6 @@ macro_rules! define_id {
                 Self(uuid)
             }
 
-            pub fn from_str(s: &str) -> Result<Self, uuid::Error> {
-                Ok(Self(Uuid::parse_str(s)?))
-            }
-
             pub fn as_uuid(&self) -> Uuid {
                 self.0
             }
