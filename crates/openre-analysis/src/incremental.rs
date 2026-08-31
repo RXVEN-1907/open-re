@@ -145,11 +145,12 @@ pub struct Fingerprint {
 
 impl Fingerprint {
     pub fn from_binary(path: &Path) -> Result<Self> {
+        use sha2::{Digest, Sha256};
         let metadata = std::fs::metadata(path)?;
         let bytes = std::fs::read(path)?;
         let mut hasher = Sha256::new();
         hasher.update(&bytes);
-        let hash = format!("{:x}", hasher.finalize());
+        let hash = hex::encode(hasher.finalize());
 
         Ok(Self {
             hash,

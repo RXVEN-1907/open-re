@@ -94,17 +94,20 @@ jobs:
       - name: Setup cross-compilation (Linux ARM64)
         if: matrix.zigbuild && runner.os == 'Linux'
         run: |
-          sudo apt-get update && sudo apt-get install -y zig
           cargo install cargo-zigbuild --locked
           rustup target add aarch64-unknown-linux-gnu
 
-      - name: Build release binaries
+      - name: Build release binaries (zigbuild)
+        if: matrix.zigbuild == 'true'
+        shell: bash
         run: |
-          if [[ "${{ matrix.zigbuild }}" == "true" ]]; then
-            cargo zigbuild --release -p openre-cli -p openre-scan --target ${{ matrix.target }}
-          else
-            cargo build --release -p openre-cli -p openre-scan --target ${{ matrix.target }}
-          fi
+          cargo zigbuild --release -p openre-cli -p openre-scan --target ${{ matrix.target }}
+
+      - name: Build release binaries (standard)
+        if: matrix.zigbuild != 'true'
+        shell: bash
+        run: |
+          cargo build --release -p openre-cli -p openre-scan --target ${{ matrix.target }}
 
       - name: Quality checks (format, clippy, tests)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
@@ -113,15 +116,13 @@ jobs:
           cargo clippy -p openre-cli -p openre-scan --all-targets --all-features -- -D warnings
           cargo test -p openre-cli -p openre-scan --locked
 
-      - name: Prepare artifacts
+      - name: Prepare artifacts (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           mkdir -p artifacts
           BIN_NAME_OPENRE="openre"
           BIN_NAME_SCAN="openre-scan"
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            BIN_NAME_OPENRE="openre.exe"
-            BIN_NAME_SCAN="openre-scan.exe"
-          fi
 
           # Copy openre binary
           EXT_OPENRE="${BIN_NAME_OPENRE#openre}"
@@ -139,6 +140,32 @@ jobs:
           done
           # Create combined checksums file (exclude .sha256 files)
           sha256sum -- * | grep -v '\.sha256$' > checksums.txt
+
+      - name: Prepare artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          $BIN_NAME_OPENRE = "openre.exe"
+          $BIN_NAME_SCAN = "openre-scan.exe"
+
+          # Copy openre binary
+          $EXT_OPENRE = $BIN_NAME_OPENRE.Substring("openre".Length)
+          Copy-Item "target/${{ matrix.target }}/release/$BIN_NAME_OPENRE" "artifacts/${{ matrix.artifact_prefix }}-openre$EXT_OPENRE"
+          # Copy openre-scan binary
+          $EXT_SCAN = $BIN_NAME_SCAN.Substring("openre-scan".Length)
+          Copy-Item "target/${{ matrix.target }}/release/$BIN_NAME_SCAN" "artifacts/${{ matrix.artifact_prefix }}-openre-scan$EXT_SCAN"
+
+          Set-Location artifacts
+          # Generate SHA256 checksums
+          Get-ChildItem | Where-Object { -not $_.Name.EndsWith('.sha256') -and -not $_.PSIsContainer } | ForEach-Object {
+            Get-FileHash -Algorithm SHA256 -Path $_.FullName | Select-Object -ExpandProperty Hash | Out-File "$($_.Name).sha256"
+          }
+          # Create combined checksums file (exclude .sha256 files)
+          Get-ChildItem | Where-Object { -not $_.Name.EndsWith('.sha256') -and -not $_.PSIsContainer } | ForEach-Object {
+            $hash = Get-FileHash -Algorithm SHA256 -Path $_.FullName | Select-Object -ExpandProperty Hash
+            "$hash  $($_.Name)" | Out-File -Encoding utf8 checksums.txt -Append
+          }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -163,15 +190,15 @@ jobs:
 
       - name: Generate SBOM (CycloneDX) for openre-scan
         run: |
-          cargo cyclonedx -p openre-scan --all-features --output-format json --output-file sbom-cyclonedx.json
-          cargo cyclonedx -p openre-scan --all-features --output-format xml --output-file sbom-cyclonedx.xml
+          cargo cyclonedx --manifest-path crates/openre-scan/Cargo.toml --all-features --output-format json --output-file sbom-cyclonedx.json
+          cargo cyclonedx --manifest-path crates/openre-scan/Cargo.toml --all-features --output-format xml --output-file sbom-cyclonedx.xml
 
       - name: Install cargo-spdx
         run: cargo install cargo-spdx --locked
 
       - name: Generate SBOM (SPDX) for openre-scan
         run: |
-          cargo spdx -p openre-scan --all-features --output-file sbom-spdx.json
+          cargo spdx --manifest-path crates/openre-scan/Cargo.toml --all-features --output-file sbom-spdx.json
 
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v4
@@ -296,6 +323,47 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      # Publish in dependency order: core crates first, then dependents
+      - name: Publish openre-core to crates.io
+        run: cargo publish --locked -p openre-core
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish openre-config to crates.io
+        run: cargo publish --locked -p openre-config
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish openre-telemetry to crates.io
+        run: cargo publish --locked -p openre-telemetry
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish openre-storage to crates.io
+        run: cargo publish --locked -p openre-storage
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish openre-queue to crates.io
+        run: cargo publish --locked -p openre-queue
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish openre-analysis to crates.io
+        run: cargo publish --locked -p openre-analysis
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish openre-ai to crates.io
+        run: cargo publish --locked -p openre-ai
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish openre-api to crates.io
+        run: cargo publish --locked -p openre-api
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Publish openre-scan to crates.io
         run: cargo publish --locked -p openre-scan

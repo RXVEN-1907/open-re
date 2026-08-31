@@ -3450,6 +3450,7 @@ dependencies = [
  "dashmap 5.5.3",
  "futures",
  "goblin",
+ "hex",
  "md-5",
  "object 0.35.0",
  "openre-ai",

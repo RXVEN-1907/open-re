@@ -159,12 +159,24 @@ impl BinaryUploadService {
 /// Calculate file hashes
 fn calculate_hashes(data: &[u8]) -> FileHashes {
     use md5::{Digest, Md5};
-    use sha1::Sha1;
-    use sha2::Sha256;
+    use sha1::{Digest as Sha1Digest, Sha1};
+    use sha2::{Digest as Sha2Digest, Sha256};
 
-    let md5_hash = format!("{:x}", Md5::digest(data));
-    let sha1_hash = format!("{:x}", Sha1::digest(data));
-    let sha256_hash = format!("{:x}", Sha256::digest(data));
+    let md5_hash = {
+        let mut hasher = Md5::new();
+        hasher.update(data);
+        hex::encode(hasher.finalize())
+    };
+    let sha1_hash = {
+        let mut hasher = Sha1::new();
+        hasher.update(data);
+        hex::encode(hasher.finalize())
+    };
+    let sha256_hash = {
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        hex::encode(hasher.finalize())
+    };
 
     FileHashes { md5: md5_hash, sha1: sha1_hash, sha256: sha256_hash }
 }
