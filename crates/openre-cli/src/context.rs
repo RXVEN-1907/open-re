@@ -53,7 +53,7 @@ impl Context {
 
         if !response.status().is_success() {
             let error = response.text().await?;
-            return Err(CliError::ApiError(error));
+            return Err(error.into());
         }
 
         Ok(response)
@@ -78,7 +78,7 @@ impl Context {
 
         if !response.status().is_success() {
             let error = response.text().await?;
-            return Err(CliError::ApiError(error));
+            return Err(error.into());
         }
 
         Ok(response)
@@ -103,7 +103,7 @@ impl Context {
 
         if !response.status().is_success() {
             let error = response.text().await?;
-            return Err(CliError::ApiError(error));
+            return Err(error.into());
         }
 
         Ok(response)
@@ -123,7 +123,7 @@ impl Context {
 
         if !response.status().is_success() {
             let error = response.text().await?;
-            return Err(CliError::ApiError(error));
+            return Err(error.into());
         }
 
         Ok(response)

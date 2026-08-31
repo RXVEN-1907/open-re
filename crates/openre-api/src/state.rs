@@ -12,7 +12,7 @@ use openre_security_ai::{
     FindingProvider, ScanStorageFindingProvider, SecurityAnalyst, SecurityAnalystImpl,
 };
 use openre_storage::{GlobalStore, ObjectStore};
-use openre_telemetry::{metrics::MetricsRegistry, TelemetryHandle};
+use openre_telemetry::{metrics::MetricsRegistry, TelemetryHandle, init_telemetry, TelemetryGuards};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
@@ -22,14 +22,26 @@ use tokio::sync::RwLock;
 pub struct Telemetry {
     pub metrics: MetricsRegistry,
     pub _handle: TelemetryHandle,
+    pub _guards: TelemetryGuards,
 }
 
 impl Telemetry {
-    pub fn new(_config: &openre_config::TelemetryConfig) -> ApiResult<Self> {
-        Ok(Self {
-            metrics: MetricsRegistry::new(),
-            _handle: TelemetryHandle,
-        })
+    pub async fn new(config: &openre_config::TelemetryConfig) -> ApiResult<Self> {
+        let full_config = openre_config::Config {
+            server: Default::default(),
+            database: Default::default(),
+            redis: Default::default(),
+            storage: Default::default(),
+            plugins: Default::default(),
+            ai: Default::default(),
+            queue: Default::default(),
+            telemetry: config.clone(),
+            security: Default::default(),
+            auth: Default::default(),
+        };
+        let guards = init_telemetry(&full_config).await?;
+
+        Ok(Self { metrics: MetricsRegistry::new(), _handle: TelemetryHandle, _guards: guards })
     }
 }
 
@@ -62,7 +74,7 @@ impl AppState {
     /// Create new application state
     pub async fn new(config: Config) -> ApiResult<Self> {
         // Initialize telemetry
-        let telemetry = Arc::new(Telemetry::new(&config.telemetry)?);
+        let telemetry = Arc::new(Telemetry::new(&config.telemetry).await?);
 
         // Initialize stores
         let global_store = Arc::new(GlobalStore::new(&config.database).await?);

@@ -138,7 +138,7 @@ impl FileCommands {
 
                 if !response.status().is_success() {
                     let error = response.text().await?;
-                    return Err(CliError::ApiError(error));
+                    return Err(error.into());
                 }
 
                 let file_response: FileResponse = response.json().await?;

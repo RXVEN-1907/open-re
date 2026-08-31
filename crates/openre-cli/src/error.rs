@@ -1,5 +1,7 @@
 //! CLI error types
 
+use openre_api::ApiError;
+use openre_core::Error as CoreError;
 use thiserror::Error;
 
 /// CLI error
@@ -12,7 +14,10 @@ pub enum CliError {
     FileNotFound(String),
 
     #[error("API error: {0}")]
-    ApiError(String),
+    ApiError(#[from] ApiError),
+
+    #[error("API error: {0}")]
+    ApiErrorString(String),
 
     #[error("Not authenticated")]
     NotAuthenticated,
@@ -38,8 +43,17 @@ pub enum CliError {
     #[error("TOML parse error: {0}")]
     TomlParseError(#[from] toml::de::Error),
 
+    #[error("Core error: {0}")]
+    CoreError(#[from] CoreError),
+
     #[error("URL encoding error: {0}")]
     UrlEncodingError(String),
+}
+
+impl From<String> for CliError {
+    fn from(s: String) -> Self {
+        CliError::ApiErrorString(s)
+    }
 }
 
 pub type CliResult<T> = Result<T, CliError>;

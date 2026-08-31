@@ -92,6 +92,12 @@ services:
       - api_logs:/app/logs
     networks:
       - openre-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       resources:
         limits:
@@ -128,13 +134,18 @@ services:
       - worker_logs:/app/logs
     networks:
       - openre-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       resources:
         limits:
           memory: 4G
         reservations:
           memory: 1G
-      replicas: 2
 
   # AI worker (with GPU support if available)
   worker-ai:
@@ -169,6 +180,12 @@ services:
       - ./models:/app/models:ro
     networks:
       - openre-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       resources:
         limits:
@@ -196,6 +213,12 @@ services:
       - api
     networks:
       - openre-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # Prometheus for metrics
   prometheus:
@@ -214,6 +237,12 @@ services:
       - "9090:9090"
     networks:
       - openre-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # Grafana for visualization
   grafana:
@@ -233,6 +262,12 @@ services:
       - prometheus
     networks:
       - openre-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 volumes:
   postgres_data:

@@ -10,6 +10,7 @@ pub mod state;
 pub mod validation;
 pub mod versioning;
 pub mod websocket;
+pub mod workers;
 
 pub use auth::*;
 pub use error::*;
@@ -21,3 +22,4 @@ pub use state::*;
 pub use validation::*;
 pub use versioning::*;
 pub use websocket::*;
+pub use workers::*;
