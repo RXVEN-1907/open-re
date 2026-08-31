@@ -350,10 +350,6 @@ impl CapabilitySet {
         Self::default()
     }
 
-    pub fn from_iter(caps: impl IntoIterator<Item = Capability>) -> Self {
-        Self { capabilities: caps.into_iter().collect() }
-    }
-
     pub fn add(&mut self, cap: Capability) {
         self.capabilities.insert(cap);
     }
@@ -402,6 +398,14 @@ pub fn validate_capabilities(
     // For now, accept any capability
     // In a real implementation, this would validate against plugin type restrictions
     Ok(())
+}
+
+impl FromIterator<Capability> for CapabilitySet {
+    fn from_iter<T: IntoIterator<Item = Capability>>(iter: T) -> Self {
+        Self {
+            capabilities: iter.into_iter().collect(),
+        }
+    }
 }
 
 /// File formats
