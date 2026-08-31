@@ -12,7 +12,7 @@ use commands::{
     ai::AiCommands, analyst::AnalystCommands, auth::AuthCommands,
     config::ConfigCommands, file::FileCommands, finding::FindingCommands, function::FunctionCommands,
     plugin::PluginCommands, project::ProjectCommands, report::ReportCommands, scan::ScanCommands,
-    server::ServerCommands,
+    server::ServerCommands, worker::WorkerCommands,
     // analysis::AnalysisCommands, // Temporarily disabled due to compilation errors
 };
 pub use config::CliConfig;
@@ -111,6 +111,10 @@ enum Commands {
     /// Report generation
     #[command(subcommand)]
     Report(ReportCommands),
+
+    /// Worker management
+    #[command(subcommand)]
+    Worker(WorkerCommands),
 }
 
 #[tokio::main]
@@ -156,5 +160,6 @@ async fn main() -> Result<(), CliError> {
         Commands::Scan(cmd) => cmd.execute(ctx).await,
         Commands::Finding(cmd) => cmd.execute(ctx).await,
         Commands::Report(cmd) => cmd.execute(ctx).await,
+        Commands::Worker(cmd) => cmd.execute(ctx).await,
     }
 }

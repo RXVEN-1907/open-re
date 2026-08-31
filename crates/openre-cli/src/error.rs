@@ -1,5 +1,6 @@
 //! CLI error types
 
+use openre_core::Error as CoreError;
 use thiserror::Error;
 
 /// CLI error
@@ -37,6 +38,9 @@ pub enum CliError {
 
     #[error("TOML parse error: {0}")]
     TomlParseError(#[from] toml::de::Error),
+
+    #[error("Core error: {0}")]
+    CoreError(#[from] CoreError),
 
     #[error("URL encoding error: {0}")]
     UrlEncodingError(String),

@@ -32,6 +32,7 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }
+tracing = { workspace = true }
 indicatif = "0.17"
 colored = "2.0"
 tabled = { version = "0.16", features = ["derive"] }
