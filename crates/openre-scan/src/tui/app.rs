@@ -221,6 +221,8 @@ pub struct App {
     pub selected_finding_idx: usize,
     pub last_scan_time: Option<chrono::DateTime<chrono::Utc>>,
     pub scan_history: Vec<TuiScanResult>,
+    pub scan_tx: Option<mpsc::Sender<ScanMsg>>,
+    pub scan_rx: Option<mpsc::Receiver<ScanMsg>>,
 }
 
 #[cfg(feature = "tui")]
@@ -251,6 +253,8 @@ impl Default for App {
             selected_finding_idx: 0,
             last_scan_time: None,
             scan_history: Vec::new(),
+            scan_tx: None,
+            scan_rx: None,
         }
     }
 }
@@ -362,10 +366,10 @@ impl App {
         }
     }
 
-    pub async fn run_scan(&mut self) -> anyhow::Result<()> {
+    pub fn start_scan(&mut self) {
         if self.target_input.trim().is_empty() {
             self.status = ScanStatus::Error("Target cannot be empty".to_string());
-            return Ok(());
+            return;
         }
 
         let target = self.target_input.trim().to_string();
@@ -379,15 +383,16 @@ impl App {
         };
 
         // Create a channel for progress updates
-        let (tx, mut rx) = mpsc::channel(32);
-        let status = Arc::new(Mutex::new(self.status.clone()));
+        let (tx, rx) = mpsc::channel(32);
+        self.scan_tx = Some(tx.clone());
+        self.scan_rx = Some(rx);
 
+        let status = Arc::new(Mutex::new(self.status.clone()));
         let status_clone = status.clone();
         let tx_clone = tx.clone();
 
-        let handle = tokio::spawn(async move {
-            let tx_for_progress = tx_clone.clone();
-            match run_scan_with_progress(target, profile, format, tx_for_progress).await {
+        tokio::spawn(async move {
+            match run_scan_with_progress(target, profile, format, tx_clone).await {
                 Ok(result) => {
                     let mut s = status_clone.lock().await;
                     *s = ScanStatus::Completed;
@@ -399,32 +404,42 @@ impl App {
                 }
             }
         });
+    }
 
-        // Update UI with progress
-        while let Some(msg) = rx.recv().await {
-            match msg {
-                ScanMsg::Progress(current, progress, total) => {
-                    self.status = ScanStatus::Running {
-                        current,
-                        progress,
-                        total,
-                    };
-                }
-                ScanMsg::Done(result) => {
-                    self.scan_results = Some(result.clone());
-                    self.scan_history.push(result);
-                    self.last_scan_time = Some(chrono::Utc::now());
-                    self.status = ScanStatus::Completed;
-                    // Switch to findings tab after scan
-                    self.selected_tab = Tab::Findings;
-                    self.findings_table_state.select(Some(0));
-                    break;
+    pub async fn poll_scan(&mut self) -> bool {
+        let mut had_update = false;
+        if let Some(rx) = &mut self.scan_rx {
+            while let Ok(msg) = rx.try_recv() {
+                had_update = true;
+                match msg {
+                    ScanMsg::Progress(current, progress, total) => {
+                        self.status = ScanStatus::Running {
+                            current,
+                            progress,
+                            total,
+                        };
+                    }
+                    ScanMsg::Done(result) => {
+                        self.scan_results = Some(result.clone());
+                        self.scan_history.push(result);
+                        self.last_scan_time = Some(chrono::Utc::now());
+                        self.status = ScanStatus::Completed;
+                        // Switch to findings tab after scan
+                        self.selected_tab = Tab::Findings;
+                        self.findings_table_state.select(Some(0));
+                        self.scan_tx = None;
+                        self.scan_rx = None;
+                    }
                 }
             }
         }
+        had_update
+    }
 
-        handle.await?;
-        Ok(())
+    pub fn cancel_scan(&mut self) {
+        self.scan_tx = None;
+        self.scan_rx = None;
+        self.status = ScanStatus::NotStarted;
     }
 }
 
@@ -456,7 +471,7 @@ async fn run_scan_with_progress(
 
     for (i, check) in checks_to_run.iter().enumerate() {
         let _ = tx
-            .send(ScanMsg::Progress(check.name().to_string(), i, checks_count))
+            .send(ScanMsg::Progress(check.name().to_string(), i + 1, checks_count))
             .await;
 
         match check.run(&client, &target_url).await {
@@ -506,27 +521,48 @@ async fn run_app<B: ratatui::backend::Backend>(
 ) -> anyhow::Result<()> {
     let tick_rate = Duration::from_millis(50);
     let mut last_tick = std::time::Instant::now();
+    let mut needs_redraw = true;
 
     loop {
-        terminal.draw(|f| ui(f, app))?;
-
+        // Calculate timeout for event poll
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
-        if event::poll(timeout)? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    if handle_key_event(key, app).await? {
-                        break;
+
+        // Poll for events with timeout (blocks in real terminals)
+        let event_ready = event::poll(timeout)?;
+
+        if event_ready {
+            // Process all pending events
+            while event::poll(Duration::ZERO)? {
+                if let Event::Key(key) = event::read()? {
+                    if key.kind == KeyEventKind::Press {
+                        if handle_key_event(key, app).await? {
+                            return Ok(());
+                        }
+                        needs_redraw = true;
                     }
                 }
             }
         }
 
-        if last_tick.elapsed() >= tick_rate {
+        // Poll for scan progress updates
+        let had_scan_update = app.poll_scan().await;
+        if had_scan_update {
+            needs_redraw = true;
+        }
+
+        // Check if tick elapsed
+        let tick_elapsed = last_tick.elapsed() >= tick_rate;
+        if tick_elapsed {
             last_tick = std::time::Instant::now();
+            needs_redraw = true;
+        }
+
+        // Only draw when needed
+        if needs_redraw {
+            terminal.draw(|f| ui(f, app))?;
+            needs_redraw = false;
         }
     }
-
-    Ok(())
 }
 
 #[cfg(feature = "tui")]
@@ -588,7 +624,7 @@ async fn handle_key_event(key: crossterm::event::KeyEvent, app: &mut App) -> any
     match key.code {
         KeyCode::Char('q') | KeyCode::Esc => {
             if matches!(app.status, ScanStatus::Running { .. }) {
-                // Don't quit during scan
+                app.cancel_scan();
             } else {
                 return Ok(true);
             }
@@ -602,7 +638,7 @@ async fn handle_key_event(key: crossterm::event::KeyEvent, app: &mut App) -> any
         KeyCode::Enter => {
             match app.selected_tab {
                 Tab::Target if app.status == ScanStatus::NotStarted => {
-                    app.run_scan().await?;
+                    app.start_scan();
                 }
                 Tab::Scans => {
                     // Load selected scan
@@ -664,8 +700,9 @@ async fn handle_key_event(key: crossterm::event::KeyEvent, app: &mut App) -> any
                         // TODO: Implement export
                     }
                     'r' => {
-                        // Rescan current target
+                        // Rescan current target - go to target tab and reset status
                         app.status = ScanStatus::NotStarted;
+                        app.selected_tab = Tab::Target;
                     }
                     _ => {}
                 }
@@ -1069,39 +1106,45 @@ fn render_findings_tab(f: &mut Frame, app: &mut App, area: Rect, colors: &ThemeC
 #[cfg(feature = "tui")]
 fn render_settings_tab(f: &mut Frame, app: &App, area: Rect, colors: &ThemeColors) {
     let settings = vec![
-        ("1", "Scan Profile", format!("{:?}", app.profile)),
-        ("2", "", "Quick (6 checks)".to_string()),
-        ("3", "", "Standard (15 checks)".to_string()),
-        ("4", "", "Full (18 checks)".to_string()),
-        ("5", "Output Format", format!("{:?}", app.output_format)),
-        ("6", "", "Table / JSON / SARIF".to_string()),
-        ("t", "Theme", format!("{:?}", app.theme)),
+        ("1", "Profile", "Quick (6 checks)", app.profile == ScanProfile::Quick),
+        ("2", "Profile", "Standard (15 checks)", app.profile == ScanProfile::Standard),
+        ("3", "Profile", "Full (18 checks)", app.profile == ScanProfile::Full),
+        ("4", "Format", "Table", app.output_format == OutputFormat::Table),
+        ("5", "Format", "JSON", app.output_format == OutputFormat::Json),
+        ("6", "Format", "SARIF", app.output_format == OutputFormat::Sarif),
+        ("t", "Theme", format!("{:?} (Dark/Light/HighContrast)", app.theme), true),
     ];
 
-    let items: Vec<ListItem> = settings.iter().enumerate().map(|(i, (key, label, value))| {
+    let items: Vec<ListItem> = settings.iter().enumerate().map(|(i, (key, group, value, is_current))| {
         let selected = app.list_state.selected() == Some(i);
-        let style = if selected {
+        let base_style = if selected {
             Style::default().fg(colors.selected_fg).bg(colors.selected_bg).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(colors.fg)
         };
 
         let key_span = Span::styled(format!(" [{}] ", key), Style::default().fg(colors.accent).add_modifier(Modifier::BOLD));
-        let label_span = Span::styled(format!("{:<20}", label), style);
-        let value_span = Span::styled(value, Style::default().fg(colors.muted));
+        let group_span = Span::styled(format!("{:<12}", group), Style::default().fg(colors.muted));
+        let value_style = if is_current {
+            Style::default().fg(colors.success).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(colors.fg)
+        };
+        let value_span = Span::styled(value, value_style);
+        let current_marker = if is_current { Span::styled(" ← current", Style::default().fg(colors.success)) } else { Span::raw("") };
 
-        ListItem::new(Line::from(vec![key_span, label_span, value_span]))
+        ListItem::new(Line::from(vec![key_span, group_span, value_span, current_marker]))
     }).collect();
 
     let list = List::new(items)
         .block(Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(colors.border))
-            .title(" Settings (Press key to change, F2 to cycle theme) ")
+            .title(" Settings (Press 1-6 to change, t/F2 for theme) ")
             .title_style(Style::default().fg(colors.accent)))
         .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
-    f.render_stateful_widget(list, area, &mut app.list_state.clone());
+    f.render_stateful_widget(list, area, &mut app.list_state);
 }
 
 #[cfg(feature = "tui")]
@@ -1270,7 +1313,8 @@ fn render_search_overlay(f: &mut Frame, app: &App, colors: &ThemeColors) {
     let area = centered_rect(60, 20, f.size());
     f.render_widget(Clear, area);
 
-    let search_text = format!("Search: {}{}", app.search_query, if app.search_query.len() % 2 == 0 { "█" } else { "" });
+    // Simple cursor indicator
+    let search_text = format!("Search: {}_", app.search_query);
 
     let search = Paragraph::new(search_text)
         .style(Style::default().fg(colors.fg))
