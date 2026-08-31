@@ -34,13 +34,14 @@ impl ProjectStore {
         let conn = Connection::open(&db_path)?;
 
         // Enable WAL mode for better concurrency
-        conn.execute("PRAGMA journal_mode=WAL", [])?;
-        conn.execute("PRAGMA synchronous=NORMAL", [])?;
-        conn.execute("PRAGMA foreign_keys=ON", [])?;
-        conn.execute("PRAGMA cache_size=-100000", [])?; // 100MB cache
-        conn.execute("PRAGMA mmap_size=268435456", [])?; // 256MB mmap
-        conn.execute("PRAGMA temp_store=MEMORY", [])?;
-        conn.execute("PRAGMA busy_timeout=30000", [])?;
+        // Use prepare+query for PRAGMAs that may return rows in rusqlite 0.31+
+        let _ = conn.prepare("PRAGMA journal_mode=WAL")?.query([])?;
+        let _ = conn.prepare("PRAGMA synchronous=NORMAL")?.query([])?;
+        let _ = conn.prepare("PRAGMA foreign_keys=ON")?.query([])?;
+        let _ = conn.prepare("PRAGMA cache_size=-100000")?.query([])?; // 100MB cache
+        let _ = conn.prepare("PRAGMA mmap_size=268435456")?.query([])?; // 256MB mmap
+        let _ = conn.prepare("PRAGMA temp_store=MEMORY")?.query([])?;
+        let _ = conn.prepare("PRAGMA busy_timeout=30000")?.query([])?;
 
         let store = Self {
             db_path,

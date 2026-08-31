@@ -1,0 +1,50 @@
+[
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 377,
+    "summary": "update_project calls get_project after put_meta_conn but while still holding the connection",
+    "failure_scenario": "update_project() takes meta_conn, does UPDATE, calls put_meta_conn(), then calls get_project() which calls take_meta_conn() again. This works because put_meta_conn was called, BUT the connection was already put back so get_project can acquire it. However, if put_meta_conn fails or panics, the connection is lost. More critically, the pattern of put-then-call-get is fragile and will fail if any early return path forgets to put."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 394,
+    "summary": "update_project calls get_project after successful update",
+    "failure_scenario": "After UPDATE executes and put_meta_conn(conn).await is called, it calls self.get_project(id).await. get_project calls take_meta_conn() which should succeed since connection was put back. However this creates a window where connection state could be inconsistent if called concurrently."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 636,
+    "summary": "update_scan calls get_scan after put_meta_conn on empty updates",
+    "failure_scenario": "When updates.is_empty(), update_scan calls put_meta_conn(conn).await then returns self.get_scan(id).await. Similar to update_project, this works only if put succeeds, but creates redundant lock acquisitions."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 653,
+    "summary": "update_scan calls get_scan after successful update",
+    "failure_scenario": "After UPDATE executes and put_meta_conn, it calls self.get_scan(id).await. Same pattern as update_project - works but fragile and causes double lock acquisition."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 842,
+    "summary": "update_analysis_job calls get_analysis_job after put_meta_conn on empty updates",
+    "failure_scenario": "When updates.is_empty(), update_analysis_job calls put_meta_conn then returns self.get_analysis_job(id).await. Same double-lock pattern."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 859,
+    "summary": "update_analysis_job calls get_analysis_job after successful update",
+    "failure_scenario": "After UPDATE executes and put_meta_conn, it calls self.get_analysis_job(id).await. Same pattern - redundant lock acquisition after put."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 180,
+    "summary": "ProjectStore created with random ProjectId::new() in OfflineStore::new",
+    "failure_scenario": "Every time OfflineStore::new() is called, it creates a new random ProjectId and uses it for ProjectStore. This means the ProjectStore database file path changes on every CLI invocation, losing all previously stored analysis data. Offline mode data does not persist across runs."
+  },
+  {
+    "file": "crates/openre-storage/src/project.rs",
+    "line": 681,
+    "summary": "ProjectStore.get_basic_blocks calls get_instructions_for_block while holding connection",
+    "failure_scenario": "get_basic_blocks calls take_conn() at line 649, then at line 681 calls self.get_instructions_for_block() which tries to take_conn() again at line 691. This causes 'Connection already in use' error because the connection is still held by the outer call. This is a hard failure that breaks basic block retrieval."
+  }
+]

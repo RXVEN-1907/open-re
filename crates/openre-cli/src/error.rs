@@ -1,10 +1,15 @@
 //! CLI error types
 
 use thiserror::Error;
+use openre_core::Error as CoreError;
 
 /// CLI error
 #[derive(Error, Debug)]
 pub enum CliError {
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] rusqlite::Error),
+    #[error("Core error: {0}")]
+    CoreError(#[from] CoreError),
     #[error("Configuration error: {0}")]
     ConfigError(String),
 
@@ -40,6 +45,15 @@ pub enum CliError {
 
     #[error("URL encoding error: {0}")]
     UrlEncodingError(String),
+
+    #[error("Offline mode: {0}")]
+    OfflineMode(String),
+
+    #[error("Not found: {0}")]
+    NotFound(String),
+
+    #[error("Internal error: {0}")]
+    Internal(String),
 }
 
 pub type CliResult<T> = Result<T, CliError>;

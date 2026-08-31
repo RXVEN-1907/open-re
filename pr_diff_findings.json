@@ -1,0 +1,50 @@
+[
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 195,
+    "summary": "Connection leak in take_meta_conn/put_meta_conn pattern - if error occurs between take and put, connection is permanently lost",
+    "failure_scenario": "Any SQL error in create_project, list_projects, get_project, etc. after take_meta_conn() but before put_meta_conn() leaves the mutex containing None. All subsequent operations fail with 'Metadata connection already in use'."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 260,
+    "summary": "Panic on .unwrap() for RFC3339 date parsing - multiple locations",
+    "failure_scenario": "If database contains malformed date strings (e.g., from manual DB edit, corruption, or migration), chrono::DateTime::parse_from_rfc3339().unwrap() panics, crashing the CLI."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 180,
+    "summary": "ProjectStore initialized with random ProjectId instead of actual project ID",
+    "failure_scenario": "OfflineStore::new() creates ProjectStore with ProjectId::new() (random UUID). This ProjectStore is used for per-project analysis data storage but is bound to a non-existent project. All analysis data goes to wrong/phantom project database."
+  },
+  {
+    "file": "crates/openre-cli/src/commands/analysis.rs",
+    "line": 997,
+    "summary": "Regex injection / ReDoS vulnerability in cmd_strings - user-controlled pattern passed directly to regex::Regex::new()",
+    "failure_scenario": "Malicious user provides regex pattern like '(a+)+' causing catastrophic backtracking (ReDoS), hanging the CLI indefinitely on string extraction."
+  },
+  {
+    "file": "crates/openre-cli/src/commands/scan.rs",
+    "line": 508,
+    "summary": "Infinite loop in Status command with no timeout or max iterations",
+    "failure_scenario": "If scan status never transitions to completed/failed/cancelled (e.g., stuck in 'running' due to bug), the monitoring loop runs forever consuming CPU and blocking the terminal."
+  },
+  {
+    "file": "crates/openre-storage/src/project.rs",
+    "line": 55,
+    "summary": "Connection leak in take_conn/put_conn pattern - same bug as OfflineStore",
+    "failure_scenario": "Any error in query(), get_function(), get_basic_blocks(), etc. between take_conn() and put_conn() leaves the mutex with None. All subsequent database operations fail with 'Connection already in use'."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 239,
+    "summary": "Page underflow in list_projects - (page - 1) * per_page panics/wraps if page == 0",
+    "failure_scenario": "CLI user or script passes --page 0 (or API passes 0), causing integer underflow. Debug build panics, release build wraps to huge offset causing OOM or empty results."
+  },
+  {
+    "file": "crates/openre-analysis/tests/static_analysis_test.rs",
+    "line": 58,
+    "summary": "Tests only verify structure, not correctness - assertions are trivially true",
+    "failure_scenario": "assert!(result.section_entropies.len() >= 0) is always true for usize. assert!(!result.functions.is_empty() || result.control_flow.functions.is_empty()) is tautology. Bugs in analysis logic would not be caught."
+  }
+]

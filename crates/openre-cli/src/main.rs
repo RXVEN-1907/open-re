@@ -2,7 +2,7 @@
 
 pub mod commands;
 mod config;
-mod context;
+pub mod context;
 mod error;
 mod output;
 
@@ -10,13 +10,14 @@ use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use commands::{
     ai::AiCommands, analyst::AnalystCommands, auth::AuthCommands,
-    config::ConfigCommands, file::FileCommands, finding::FindingCommands, function::FunctionCommands,
-    plugin::PluginCommands, project::ProjectCommands, report::ReportCommands, scan::ScanCommands,
-    server::ServerCommands,
+    config::ConfigCommands, file::FileCommands, finding::FindingCommands,
+    function::FunctionCommands, plugin::PluginCommands, project::ProjectCommands,
+    report::ReportCommands, scan::ScanCommands, server::ServerCommands,
     // analysis::AnalysisCommands, // Temporarily disabled due to compilation errors
 };
 pub use config::CliConfig;
 pub use context::Context;
+pub use context::{OfflineProject, OfflineScan};
 pub use error::CliError;
 pub use output::{print_output, OutputFormat};
 
@@ -53,6 +54,14 @@ struct Cli {
     #[arg(short, long, global = true)]
     verbose: bool,
 
+    /// Run in offline mode (local operations without API server)
+    #[arg(long, global = true)]
+    offline: bool,
+
+    /// Local database path for offline mode
+    #[arg(long, global = true, value_name = "PATH")]
+    local_db: Option<PathBuf>,
+
     /// Generate shell completions
     #[arg(long, global = true, value_name = "SHELL")]
     completion: Option<Shell>,
@@ -73,8 +82,8 @@ enum Commands {
     File(FileCommands),
 
     // /// Binary analysis (temporarily disabled)
-//     #[command(subcommand)]
-//     Analysis(AnalysisCommands),
+    // #[command(subcommand)]
+    // Analysis(AnalysisCommands),
 
     /// Function analysis
     #[command(subcommand)]
@@ -132,14 +141,16 @@ async fn main() -> Result<(), CliError> {
         .build()?;
 
     // Create context
-    let ctx = Context {
+    let ctx = Context::new(
         config,
         client,
-        server_url: cli.server,
-        api_key: cli.api_key,
-        output_format: cli.format,
-        verbose: cli.verbose,
-    };
+        cli.server,
+        cli.api_key,
+        cli.format,
+        cli.verbose,
+        cli.offline,
+        cli.local_db,
+    )?;
 
     // Execute command
     match cli.command {

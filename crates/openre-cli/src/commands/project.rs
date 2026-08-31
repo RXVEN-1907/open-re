@@ -1,19 +1,21 @@
 //! Project commands
 
-use crate::{print_output, CliError, Context};
+use crate::{print_output, CliError, Context, OfflineProject};
 use clap::{Parser, Subcommand};
 use openre_core::ids::ProjectId;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use tabled::{settings::Style, Table};
+use urlencoding;
 
 #[derive(Subcommand)]
 pub enum ProjectCommands {
     /// List projects
     List {
-        #[arg(short, long, default_value = "1")]
+        #[arg(long, default_value = "1")]
         page: u32,
 
-        #[arg(short, long, default_value = "50")]
+        #[arg(long, default_value = "50")]
         per_page: u32,
 
         #[arg(long)]
@@ -173,6 +175,11 @@ pub enum ShareCommands {
 
 impl ProjectCommands {
     pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
+        // Check if offline mode
+        if ctx.offline {
+            return self.execute_offline(ctx).await;
+        }
+
         match self {
             ProjectCommands::List {
                 page,
@@ -286,6 +293,153 @@ impl ProjectCommands {
                 let export: ExportResponse = response.json().await?;
                 print_output(&export, &ctx.output_format)?;
                 println!("Export started!");
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn execute_offline(self, ctx: Context) -> Result<(), CliError> {
+        let store = ctx.local_store().ok_or(CliError::OfflineMode("Offline store not available".to_string()))?;
+
+        match self {
+            ProjectCommands::List {
+                page,
+                per_page,
+                search,
+            } => {
+                let projects = store.list_projects(page, per_page, search.clone()).await?;
+                let total = store.count_projects(search).await?;
+                let total_pages = (total + per_page as u64 - 1) / per_page as u64;
+
+                // Convert to response type for output
+                let responses: Vec<ProjectResponse> = projects
+                    .into_iter()
+                    .map(|p| ProjectResponse {
+                        id: p.id,
+                        name: p.name,
+                        description: p.description,
+                        owner_id: p.owner_id,
+                        is_public: p.is_public,
+                        settings: p.settings,
+                        created_at: p.created_at,
+                        updated_at: p.updated_at,
+                    })
+                    .collect();
+
+                print_output(&responses, &ctx.output_format)?;
+                println!("Page {} of {} (total: {})", page, total_pages, total);
+            }
+
+            ProjectCommands::Create {
+                name,
+                description,
+                public,
+            } => {
+                let project = OfflineProject {
+                    id: ProjectId::new(),
+                    name,
+                    description,
+                    owner_id: "local-user".to_string(), // Default owner for offline
+                    is_public: public,
+                    settings: None,
+                    created_at: chrono::Utc::now(),
+                    updated_at: chrono::Utc::now(),
+                };
+
+                store.create_project(project.clone()).await?;
+                let response = ProjectResponse {
+                    id: project.id,
+                    name: project.name,
+                    description: project.description,
+                    owner_id: project.owner_id,
+                    is_public: project.is_public,
+                    settings: project.settings,
+                    created_at: project.created_at,
+                    updated_at: project.updated_at,
+                };
+                print_output(&response, &ctx.output_format)?;
+                println!("Project created successfully (offline)!");
+            }
+
+            ProjectCommands::Get { id } => {
+                let project_id = id.parse::<ProjectId>()
+                    .map_err(|_| CliError::InvalidInput("Invalid project ID".to_string()))?;
+                let project = store.get_project(&project_id).await?
+                    .ok_or_else(|| CliError::NotFound(format!("Project not found: {}", id)))?;
+
+                let response = ProjectResponse {
+                    id: project.id,
+                    name: project.name,
+                    description: project.description,
+                    owner_id: project.owner_id,
+                    is_public: project.is_public,
+                    settings: project.settings,
+                    created_at: project.created_at,
+                    updated_at: project.updated_at,
+                };
+                print_output(&response, &ctx.output_format)?;
+            }
+
+            ProjectCommands::Update {
+                id,
+                name,
+                description,
+                public,
+            } => {
+                let project_id = id.parse::<ProjectId>()
+                    .map_err(|_| CliError::InvalidInput("Invalid project ID".to_string()))?;
+                let project = store.update_project(&project_id, name, description, public).await?
+                    .ok_or_else(|| CliError::NotFound(format!("Project not found: {}", id)))?;
+
+                let response = ProjectResponse {
+                    id: project.id,
+                    name: project.name,
+                    description: project.description,
+                    owner_id: project.owner_id,
+                    is_public: project.is_public,
+                    settings: project.settings,
+                    created_at: project.created_at,
+                    updated_at: project.updated_at,
+                };
+                print_output(&response, &ctx.output_format)?;
+                println!("Project updated successfully (offline)!");
+            }
+
+            ProjectCommands::Delete { id, force } => {
+                if !force {
+                    print!("Are you sure you want to delete project {}? (y/N): ", id);
+                    use std::io::{self, Write};
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    if !input.trim().eq_ignore_ascii_case("y") {
+                        println!("Cancelled.");
+                        return Ok(());
+                    }
+                }
+
+                let project_id = id.parse::<ProjectId>()
+                    .map_err(|_| CliError::InvalidInput("Invalid project ID".to_string()))?;
+                let deleted = store.delete_project(&project_id).await?;
+                if deleted {
+                    println!("Project deleted successfully (offline)!");
+                } else {
+                    return Err(CliError::NotFound(format!("Project not found: {}", id)));
+                }
+            }
+
+            ProjectCommands::Collaborator(_) => {
+                return Err(CliError::OfflineMode("Collaborator management not available in offline mode".to_string()));
+            }
+            ProjectCommands::Invite(_) => {
+                return Err(CliError::OfflineMode("Invite management not available in offline mode".to_string()));
+            }
+            ProjectCommands::Share(_) => {
+                return Err(CliError::OfflineMode("Share management not available in offline mode".to_string()));
+            }
+            ProjectCommands::Export { .. } => {
+                return Err(CliError::OfflineMode("Export not available in offline mode".to_string()));
             }
         }
 

@@ -1,0 +1,50 @@
+[
+  {
+    "file": "crates/openre-cli/src/commands/scan.rs",
+    "line": 71,
+    "summary": "Removed `format` argument from ScanCommands::Show subcommand",
+    "failure_scenario": "User wants one-off JSON output for a single scan show command (e.g., `openre scan show --id X --format json`) while keeping table format as default. Now they must use global `--format json` which affects ALL commands including list, create, etc. Per-command format override capability is lost."
+  },
+  {
+    "file": "crates/openre-cli/src/commands/scan.rs",
+    "line": 13,
+    "summary": "Removed short flag `-p` from ScanCommands::Create `project` argument",
+    "failure_scenario": "Users accustomed to `openre scan create -p myproject` must now use `--project myproject`. This is a breaking CLI change but was necessary because `-p` conflicted with `page` and `per_page` short flags in List command. Long flag still works; invariant of argument availability preserved."
+  },
+  {
+    "file": "crates/openre-cli/src/commands/scan.rs",
+    "line": 54,
+    "summary": "Removed short flags from ScanCommands::List `project`, `page`, `per_page` arguments",
+    "failure_scenario": "All three arguments previously used `-p` (first letter of field name) causing clap conflict/ambiguity. Short flags removed to fix the conflict. Long flags (`--project`, `--page`, `--per-page`) still work. Invariant preserved but with reduced convenience."
+  },
+  {
+    "file": "crates/openre-cli/src/commands/project.rs",
+    "line": 10,
+    "summary": "Removed short flags from ProjectCommands::List `page` and `per_page` arguments",
+    "failure_scenario": "Both `page` and `per_page` used `-p` causing clap conflict. Short flags removed to fix ambiguity. Long flags still work. Invariant preserved with reduced convenience."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 914,
+    "summary": "Context::new() changed from infallible constructor to fallible Result-returning function",
+    "failure_scenario": "Offline mode initialization can now fail (disk full, permission denied, SQLite errors). The error is properly propagated via `?` in main.rs. Invariant preserved: context creation failures are now explicitly reported rather than panicking later."
+  },
+  {
+    "file": "crates/openre-cli/src/main.rs",
+    "line": 141,
+    "summary": "Direct Context struct initialization replaced with Context::new() call",
+    "failure_scenario": "Main now properly handles Context creation errors with `?`. Previously infallible struct init could not report offline store setup failures. Invariant preserved with better error handling."
+  },
+  {
+    "file": "crates/openre-storage/src/project.rs",
+    "line": 37,
+    "summary": "PRAGMA execution changed from `conn.execute()` to `conn.prepare().query([])` for rusqlite 0.31+ compatibility",
+    "failure_scenario": "In rusqlite 0.31+, some PRAGMAs (like `journal_mode=WAL`) return result rows. The old `execute()` would error. New code uses `prepare().query([])?` which consumes rows. The `let _ =` discards results but PRAGMA settings still take effect. Invariant preserved: all PRAGMA settings (WAL mode, foreign_keys, cache_size, mmap_size, temp_store, busy_timeout) are applied correctly."
+  },
+  {
+    "file": "crates/openre-cli/src/context.rs",
+    "line": 83,
+    "summary": "OfflineStore::new() creates metadata database and project-specific databases with PRAGMAs using prepare+query pattern",
+    "failure_scenario": "Same rusqlite 0.31+ compatibility fix applied to offline metadata DB and per-project DBs. PRAGMAs for journal_mode=WAL, foreign_keys=ON, busy_timeout=30000 are applied. If `dirs::data_local_dir()` returns None, falls back to current directory. Invariant preserved: offline storage initializes correctly with proper SQLite settings."
+  }
+]
