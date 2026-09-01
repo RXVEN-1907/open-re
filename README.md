@@ -19,7 +19,7 @@ Discover vulnerabilities • Generate PoC exploits • Actionable remediation
 [![Security Audit](https://github.com/RXVEN-1907/open-re/workflows/Security%20Audit/badge.svg)](https://github.com/RXVEN-1907/open-re/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.78+-orange.svg)](https://www.rust-lang.org)
-[![Version](https://img.shields.io/badge/version-v0.2.0--dev-blue.svg)](https://github.com/RXVEN-1907/open-re/releases)
+[![Version](https://img.shields.io/badge/version-v0.2.0-blue.svg)](https://github.com/RXVEN-1907/open-re/releases)
 [![Docs](https://img.shields.io/badge/docs-latest-green.svg)](https://rxven-1907.github.io/open-re)
 
 **open-re** is a comprehensive reverse engineering and offensive security platform combining modern security tools and LLMs for automated analysis of binaries, websites, APIs, and applications — discovering vulnerabilities, generating reproducible PoC exploits, and providing actionable remediation guidance.
@@ -31,15 +31,15 @@ Discover vulnerabilities • Generate PoC exploits • Actionable remediation
 | **openre-scan** | ✅ Stable | Lightweight standalone security scanner for web apps & APIs |
 | **openre-core** | ✅ Stable | Core types, finding model, risk engine, ID system |
 | **openre-intelligence** | ✅ Stable | CVE matching, dependency analysis, finding correlation |
-| **openre-security-ai** | 🚧 Beta | AI-enhanced analysis (LLM-powered vulnerability analysis) |
-| **openre-plugins** | 🚧 Beta | WASM plugin system for extensibility |
-| **openre-api** | 🚧 Alpha | REST/gRPC API server for platform integration |
+| **openre-security-ai** | ✅ Stable | AI-enhanced analysis (LLM-powered vulnerability analysis) |
+| **openre-plugins** | ✅ Stable | WASM plugin system for extensibility |
+| **openre-api** | ✅ Stable | REST/gRPC API server for platform integration |
 | **openre-queue** | ✅ Stable | Distributed job queue with Redis backend |
 | **openre-storage** | ✅ Stable | Object storage & persistence layer |
 | **openre-telemetry** | ✅ Stable | Metrics, tracing, logging, audit logging |
 | **openre-cli** | ✅ Stable | Unified CLI for all platform operations |
-| **openre-analysis** | 🚧 Alpha | Binary analysis pipeline (ELF/PE/MachO/WASM) |
-| **Frontend** | 🚧 Alpha | React 18 + TypeScript + Tailwind web UI |
+| **openre-analysis** | ✅ Stable | Binary analysis pipeline (ELF/PE/MachO/WASM) |
+| **Frontend** | ✅ Stable | React 18 + TypeScript + Tailwind web UI |
 
 ---
 
@@ -604,14 +604,14 @@ log_level = "info"
 
 ## 🗺️ Roadmap
 
-### v0.2.0 (Current Development)
+### v0.2.0 ✅ Released
 
-- [ ] Configuration file support (TOML)
-- [ ] Authentication handling (OAuth, JWT, API keys)
-- [ ] Recursive crawling/spidering
-- [ ] JavaScript rendering/analysis (headless)
-- [ ] Plugin marketplace integration
-- [ ] Multi-tenant API support
+- [x] Configuration file support (TOML)
+- [x] Authentication handling (OAuth, JWT, API keys)
+- [x] Recursive crawling/spidering
+- [x] JavaScript rendering/analysis (headless)
+- [x] Plugin marketplace integration
+- [x] Multi-tenant API support
 
 ### v0.3.0
 
