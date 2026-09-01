@@ -2,15 +2,14 @@
 
 use crate::error::{ScannerError, ScannerResult};
 use crate::plugin::{PluginId, PluginInfo, PluginManager};
-use crate::result::{Finding, FindingFilter, FindingId, FindingSort, FindingStats};
+use crate::result::{Finding, FindingFilter, FindingId, FindingSort};
 use crate::scan::{ScanId, ScanManager, ScanProgress, ScanSession, ScanStatus};
 use crate::storage::{MemoryScanStorage, ScanStorage};
-use crate::target::{ScanConfig, Target, TargetId, TargetMetadata, TargetType};
+use crate::target::{Target, TargetId, TargetMetadata, TargetType};
 use clap::{Args, Parser, Subcommand};
 use openre_core::result::{Category, Severity};
 use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::info;
 
 /// Main CLI application
 #[derive(Parser, Debug)]
@@ -1723,7 +1722,7 @@ impl TuiApp {
         Ok(())
     }
 
-    async fn cmd_plugin_discover(&self, args: PluginDiscoverArgs) -> ScannerResult<()> {
+    async fn cmd_plugin_discover(&self, _args: PluginDiscoverArgs) -> ScannerResult<()> {
         info!("Discovering plugins");
         let plugins = self.plugin_manager.discover_plugins().await?;
         println!("Discovered {} plugins", plugins.len());
@@ -1883,7 +1882,7 @@ impl TuiApp {
                 )
                 .await?;
             let engine = DeduplicationEngine::new(DeduplicationConfig::default());
-            let original_count = findings.len();
+            let _original_count = findings.len();
             let result = engine.deduplicate(&mut findings);
             println!();
             println!("Deduplication Analysis:");
@@ -3196,15 +3195,15 @@ pub async fn run_cli() -> ScannerResult<()> {
     }
 
     // Create storage (in-memory for now)
-    let storage = Arc::new(MemoryScanStorage::new());
+    let _storage = Arc::new(MemoryScanStorage::new());
 
     // Create target manager
-    let target_manager = Arc::new(crate::target::TargetManager::new());
+    let _target_manager = Arc::new(crate::target::TargetManager::new());
 
     // Create plugin manager (placeholder)
     // This would need a proper plugin directory
     let plugin_dir = std::path::PathBuf::from("./plugins");
-    let plugin_manager = Arc::new(crate::plugin::PluginManager::new(plugin_dir)?);
+    let _plugin_manager = Arc::new(crate::plugin::PluginManager::new(plugin_dir)?);
 
     // Create scan manager (placeholder - needs queue manager)
     // For now, we'll use a mock

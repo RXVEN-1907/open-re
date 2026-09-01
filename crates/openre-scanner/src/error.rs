@@ -1,6 +1,5 @@
 //! Error types for the scanning engine
 
-use openre_core::Error;
 use thiserror::Error;
 
 /// Result type for scanner operations

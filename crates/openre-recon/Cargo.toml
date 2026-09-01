@@ -56,8 +56,8 @@ webpki-roots = "0.25"
 
 # HTML parsing
 select = "0.6"
-html5ever = "0.26"
-markup5ever_rcdom = "0.1"
+html5ever = "0.39"
+markup5ever_rcdom = "0.39"
 
 # TLS analysis
 rustls-pki-types = "1.0"

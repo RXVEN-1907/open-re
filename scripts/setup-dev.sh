@@ -122,6 +122,8 @@ install_cargo_tools() {
     local tools=(
         "cargo-audit"
         "cargo-deny"
+        "cargo-cyclonedx"
+        "cargo-spdx"
         "cargo-llvm-cov"
         "cargo-nextest"
         "cargo-make"
@@ -146,22 +148,45 @@ install_cargo_tools() {
 install_node() {
     if command_exists node && command_exists npm; then
         print_success "Node.js already installed: $(node --version)"
-        return 0
+    else
+        print_step "Installing Node.js..."
+
+        if [[ "$PKG_MGR" == "apt" ]]; then
+            # Install Node.js 20 LTS
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+        elif [[ "$PKG_MGR" == "brew" ]]; then
+            brew install node@20
+        elif [[ "$PKG_MGR" == "dnf" ]]; then
+            sudo dnf module install -y nodejs:20
+        else
+            print_warning "Please install Node.js 20+ manually for your platform"
+            return 1
+        fi
+
+        if command_exists node; then
+            print_success "Node.js installed: $(node --version)"
+        else
+            print_error "Failed to install Node.js"
+            return 1
+        fi
     fi
 
-    print_step "Installing Node.js..."
-
-    if [[ "$PKG_MGR" == "apt" ]]; then
-        # Install Node.js 20 LTS
-        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-    elif [[ "$PKG_MGR" == "brew" ]]; then
-        brew install node@20
-    elif [[ "$PKG_MGR" == "dnf" ]]; then
-        sudo dnf module install -y nodejs:20
+    # Install pnpm
+    if command_exists pnpm; then
+        print_success "pnpm already installed: $(pnpm --version)"
     else
-        print_warning "Please install Node.js 20+ manually for your platform"
-        return 1
+        print_step "Installing pnpm..."
+        if command_exists npm; then
+            npm install -g pnpm || print_warning "Failed to install pnpm via npm"
+        elif command_exists corepack; then
+            corepack enable pnpm || print_warning "Failed to enable pnpm via corepack"
+        else
+            print_warning "Cannot install pnpm - npm or corepack not available"
+        fi
+        if command_exists pnpm; then
+            print_success "pnpm installed: $(pnpm --version)"
+        fi
     fi
 
     # Install global npm packages
@@ -169,50 +194,64 @@ install_node() {
         print_info "Installing global npm packages..."
         npm install -g markdownlint-cli cspell @typescript-eslint/parser @typescript-eslint/eslint-plugin || print_warning "Some npm packages failed to install"
     fi
-
-    if command_exists node; then
-        print_success "Node.js installed: $(node --version)"
-    else
-        print_error "Failed to install Node.js"
-        return 1
-    fi
 }
 
 # Install Docker
 install_docker() {
-    if command_exists docker && command_exists docker-compose; then
-        print_success "Docker already installed: $(docker --version)"
-        return 0
-    fi
-
-    print_step "Installing Docker..."
-
-    if [[ "$PKG_MGR" == "apt" ]]; then
-        # Install Docker
-        curl -fsSL https://get.docker.com | sh
-        sudo usermod -aG docker "$USER"
-        # Install docker-compose plugin
-        sudo apt-get update && sudo apt-get install -y docker-compose-plugin
-    elif [[ "$PKG_MGR" == "brew" ]]; then
-        brew install docker docker-compose
-        # Start Docker Desktop on macOS
-        if [[ ! -f /Applications/Docker.app/Contents/MacOS/Docker ]]; then
-            print_warning "Please install Docker Desktop from https://www.docker.com/products/docker-desktop"
-        fi
-    elif [[ "$PKG_MGR" == "dnf" ]]; then
-        sudo dnf install -y docker docker-compose
-        sudo systemctl enable --now docker
-        sudo usermod -aG docker "$USER"
-    else
-        print_warning "Please install Docker manually for your platform"
-        return 1
-    fi
-
     if command_exists docker; then
-        print_success "Docker installed: $(docker --version)"
+        print_success "Docker already installed: $(docker --version)"
     else
-        print_error "Failed to install Docker"
-        return 1
+        print_step "Installing Docker..."
+
+        if [[ "$PKG_MGR" == "apt" ]]; then
+            # Install Docker
+            curl -fsSL https://get.docker.com | sh
+            sudo usermod -aG docker "$USER"
+            # Install docker-compose plugin
+            sudo apt-get update && sudo apt-get install -y docker-compose-plugin
+        elif [[ "$PKG_MGR" == "brew" ]]; then
+            brew install docker docker-compose
+            # Start Docker Desktop on macOS
+            if [[ ! -f /Applications/Docker.app/Contents/MacOS/Docker ]]; then
+                print_warning "Please install Docker Desktop from https://www.docker.com/products/docker-desktop"
+            fi
+        elif [[ "$PKG_MGR" == "dnf" ]]; then
+            sudo dnf install -y docker docker-compose
+            sudo systemctl enable --now docker
+            sudo usermod -aG docker "$USER"
+        else
+            print_warning "Please install Docker manually for your platform"
+            return 1
+        fi
+
+        if command_exists docker; then
+            print_success "Docker installed: $(docker --version)"
+        else
+            print_error "Failed to install Docker"
+            return 1
+        fi
+    fi
+
+    # Verify Docker Compose
+    print_step "Verifying Docker Compose..."
+    if docker compose version >/dev/null 2>&1; then
+        print_success "Docker Compose (plugin) available: $(docker compose version --short)"
+    elif command_exists docker-compose; then
+        print_success "Docker Compose (standalone) available: $(docker-compose --version)"
+    else
+        print_warning "Docker Compose not found. Installing docker-compose-plugin..."
+        if [[ "$PKG_MGR" == "apt" ]]; then
+            sudo apt-get update && sudo apt-get install -y docker-compose-plugin
+        elif [[ "$PKG_MGR" == "dnf" ]]; then
+            sudo dnf install -y docker-compose-plugin
+        elif [[ "$PKG_MGR" == "brew" ]]; then
+            brew install docker-compose
+        fi
+        if docker compose version >/dev/null 2>&1; then
+            print_success "Docker Compose installed: $(docker compose version --short)"
+        else
+            print_warning "Docker Compose verification failed - please verify manually"
+        fi
     fi
 }
 
@@ -510,6 +549,10 @@ print_next_steps() {
     echo -e "  ${BOLD}4.${NC} Run all tests: ${CYAN}cargo test --workspace${NC}"
     echo -e "  ${BOLD}5.${NC} Check formatting: ${CYAN}cargo fmt --all -- --check${NC}"
     echo -e "  ${BOLD}6.${NC} Run linters: ${CYAN}cargo clippy --workspace --all-targets --all-features -- -D warnings${NC}"
+    echo
+    echo -e "  ${BOLD}SBOM Generation:${NC}"
+    echo -e "  • Generate CycloneDX SBOM: ${CYAN}cargo cyclonedx -p openre-scan --all-features${NC}"
+    echo -e "  • Generate SPDX SBOM: ${CYAN}cargo spdx -p openre-scan --all-features${NC}"
     echo
     echo -e "  ${BOLD}Documentation:${NC}"
     echo -e "  • Architecture docs: ${CYAN}docs/architecture/${NC}"

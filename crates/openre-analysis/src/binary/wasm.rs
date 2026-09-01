@@ -1,11 +1,11 @@
 //! WebAssembly Binary Parser
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use async_trait::async_trait;
-use openre_core::ids::{FileId, VariableId};
+use openre_core::ids::FileId;
 use std::path::Path;
 use wasmparser::{
-    Export as WasmExport, ExternalKind, FuncType, Import as WasmImport, Parser, Payload, TypeRef,
+    Export as WasmExport, ExternalKind, Import as WasmImport, Parser, Payload, TypeRef,
 };
 
 use crate::binary::common::*;
@@ -68,7 +68,7 @@ impl WasmParser {
                 Ok(Payload::ImportSection(imports_reader)) => {
                     for import in imports_reader {
                         if let Ok(WasmImport { module, name, ty }) = import {
-                            if let TypeRef::Func(ty_index) = ty {
+                            if let TypeRef::Func(_ty_index) = ty {
                                 info.imports.push(Import {
                                     name: name.to_string(),
                                     library: Some(module.to_string()),
@@ -268,7 +268,7 @@ impl BinaryMetadataExtractor for WasmMetadataExtractor {
                         }
                     }
                 }
-                Ok(Payload::CodeSectionStart { count, range, .. }) => {
+                Ok(Payload::CodeSectionStart { count: _count, range, .. }) => {
                     sections.push(SectionInfo {
                         name: "code".to_string(),
                         virtual_address: range.start as u64,
@@ -471,7 +471,7 @@ impl StaticAnalyzer for WasmParser {
 
     async fn find_functions(
         &self,
-        data: &[u8],
+        _data: &[u8],
         metadata: &BinaryMetadata,
     ) -> Result<Vec<FunctionInfo>> {
         let mut functions = Vec::new();
@@ -521,8 +521,8 @@ impl StaticAnalyzer for WasmParser {
         let mut functions = Vec::new();
         let mut call_graph_nodes = Vec::new();
         let mut call_graph_edges = Vec::new();
-        let mut cfg_nodes = Vec::new();
-        let mut cfg_edges = Vec::new();
+        let cfg_nodes = Vec::new();
+        let cfg_edges = Vec::new();
 
         // Add functions from symbols
         for symbol in &metadata.symbols {
@@ -618,7 +618,7 @@ impl StaticAnalyzer for WasmParser {
 
         // Add imports as data dependencies (simplified)
         for import in &metadata.imports {
-            for func in &import.functions {
+            for _func in &import.functions {
                 var_counter += 1;
                 data_dependencies.push(crate::binary::traits::DataDependency {
                     from: var_counter,

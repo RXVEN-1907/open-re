@@ -1,25 +1,20 @@
 //! Result Aggregator - Re-exports core finding model for scanner with deduplication
 
 use crate::error::{ScannerError, ScannerResult};
-use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 pub use openre_core::ids::FindingId;
-use openre_core::result::*;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
-use uuid::Uuid;
 
 // Re-export core types
 pub use openre_core::result::{
     AssetCriticality, AttackComplexity, AttackVector, BusinessImpactAssessment, Category,
     CertificateInfo, CodeExample, Confidence, Evidence, EvidenceType, ExploitabilityAssessment,
-    Finding, FindingFilter, FindingSort, FindingStats, HttpRequestEvidence, HttpResponseEvidence,
-    ImpactLevel, PayloadEvidence, PrivilegesRequired, Reference, ReferenceType, RegulatoryImpact,
-    RemediationEffort, RemediationGuidance, RemediationPriority, ReproductionDifficulty,
-    ReproductionSteps, Scope, Severity, TimingEvidence, TlsInfo, UserInteraction,
+    Finding, FindingConfig, FindingFilter, FindingSort, FindingStats, HttpRequestEvidence,
+    HttpResponseEvidence, ImpactLevel, PayloadEvidence, PrivilegesRequired, Reference,
+    ReferenceType, RegulatoryImpact, RemediationEffort, RemediationGuidance, RemediationPriority,
+    ReproductionDifficulty, ReproductionSteps, Scope, Severity, TimingEvidence, TlsInfo,
+    UserInteraction,
 };
 
 /// Result Aggregator - aggregates findings from multiple plugins with deduplication

@@ -2,7 +2,6 @@
 
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::Capability;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Sandbox configuration

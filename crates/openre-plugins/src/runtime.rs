@@ -1,13 +1,11 @@
 //! WASM Plugin Runtime using Wasmtime
 
 use anyhow::Result;
-use std::sync::Arc;
-use wasmtime::component::{Component, Instance as ComponentInstance, Linker as ComponentLinker};
 use wasmtime::{Engine, Store};
 
 use wasmtime_wasi::{add_to_linker_sync, WasiCtx, WasiCtxBuilder, WasiView};
 
-use crate::{Capability, CapabilityRequest, CapabilityResponse, PluginManifest};
+use crate::Capability;
 
 /// WASM Plugin Runtime with capability-based security
 pub struct WasmRuntime {
@@ -16,8 +14,8 @@ pub struct WasmRuntime {
 }
 
 struct WasmRuntimeState {
-    allowed_capabilities: Vec<Capability>,
-    plugin_id: String,
+    _allowed_capabilities: Vec<Capability>,
+    _plugin_id: String,
     wasi_ctx: WasiCtx,
     table: wasmtime::component::ResourceTable,
 }
@@ -33,7 +31,7 @@ impl WasiView for WasmRuntimeState {
 }
 
 impl WasmRuntime {
-    pub fn new(allowed_capabilities: Vec<Capability>) -> Result<Self> {
+    pub fn new(_allowed_capabilities: Vec<Capability>) -> Result<Self> {
         let mut config = wasmtime::Config::new();
         config.wasm_component_model(true);
         config.async_support(true);
@@ -52,13 +50,11 @@ impl WasmRuntime {
 
         let wasi_ctx = WasiCtxBuilder::new().inherit_stdio().build();
 
-        let table = wasmtime::component::ResourceTable::new();
-
         let mut store = Store::new(
             &self.engine,
             WasmRuntimeState {
-                allowed_capabilities: vec![],
-                plugin_id: plugin_id.clone(),
+                _allowed_capabilities: vec![],
+                _plugin_id: plugin_id.clone(),
                 wasi_ctx,
                 table: wasmtime::component::ResourceTable::new(),
             },
@@ -69,7 +65,7 @@ impl WasmRuntime {
 
         let instance = self.component_linker.instantiate_async(&mut store, &component).await?;
 
-        Ok(LoadedPlugin { plugin_id, instance, store })
+        Ok(LoadedPlugin { plugin_id, _instance: instance, _store: store })
     }
 
     pub async fn call_plugin(
@@ -85,8 +81,8 @@ impl WasmRuntime {
 
 pub struct LoadedPlugin {
     plugin_id: String,
-    instance: wasmtime::component::Instance,
-    store: Store<WasmRuntimeState>,
+    _instance: wasmtime::component::Instance,
+    _store: Store<WasmRuntimeState>,
 }
 
 impl LoadedPlugin {

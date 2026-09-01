@@ -10,7 +10,6 @@ use crate::binary::common::{
 use crate::orchestrator::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_storage::ProjectStore;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -604,7 +603,7 @@ impl PipelineStage for DecompilationStage {
 
         let pseudocode_map: HashMap<FunctionId, String> = HashMap::new();
         let variables_map: HashMap<FunctionId, Vec<Variable>> = HashMap::new();
-        let mut metrics = StageMetrics::default();
+        let metrics = StageMetrics::default();
 
         let output = DecompilationOutput { pseudocode: pseudocode_map, variables: variables_map };
 

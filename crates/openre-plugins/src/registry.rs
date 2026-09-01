@@ -3,12 +3,12 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::{CapabilitySet, PluginManifest};
+use crate::PluginManifest;
 use openre_core::ids::PluginId;
 
 /// Plugin registry entry
@@ -92,9 +92,11 @@ impl PluginRegistry {
     pub async fn install(&self, source: PluginSource) -> Result<PluginId> {
         match source {
             PluginSource::Local { path } => self.install_local(path).await,
-            PluginSource::Remote { registry_url, version, checksum } => {
-                self.install_remote(&registry_url, &version, &checksum).await
-            }
+            PluginSource::Remote {
+                registry_url: _registry_url,
+                version: _version,
+                checksum: _checksum,
+            } => self.install_remote(&_registry_url, &_version, &_checksum).await,
             PluginSource::Builtin { name } => self.enable_builtin(&name).await,
         }
     }
@@ -132,9 +134,9 @@ impl PluginRegistry {
 
     async fn install_remote(
         &self,
-        registry_url: &str,
-        version: &str,
-        checksum: &str,
+        _registry_url: &str,
+        _version: &str,
+        _checksum: &str,
     ) -> Result<PluginId> {
         // Download from remote registry
         // Verify checksum
@@ -142,7 +144,7 @@ impl PluginRegistry {
         todo!("Implement remote plugin installation")
     }
 
-    async fn enable_builtin(&self, name: &str) -> Result<PluginId> {
+    async fn enable_builtin(&self, _name: &str) -> Result<PluginId> {
         // Enable built-in plugin
         todo!("Implement builtin plugin enabling")
     }
@@ -197,7 +199,7 @@ impl PluginRegistry {
         Ok(())
     }
 
-    pub async fn update(&self, id: &PluginId) -> Result<()> {
+    pub async fn update(&self, _id: &PluginId) -> Result<()> {
         // Check for updates and install
         todo!("Implement plugin update")
     }

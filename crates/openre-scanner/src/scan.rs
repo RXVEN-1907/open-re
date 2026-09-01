@@ -3,19 +3,17 @@
 use crate::context::ScanContext;
 use crate::error::{ScannerError, ScannerResult};
 use crate::plugin::{PluginInfo, PluginManager};
-use crate::result::{Finding, FindingId};
-use crate::target::{ScanConfig, Target, TargetId};
+use crate::result::Finding;
+use crate::target::{ScanConfig, Target};
 pub use openre_core::ids::{JobId, ScanId};
-use openre_core::traits::JobType;
-use openre_queue::{Job, JobStatus, Priority, QueueManager};
+use openre_queue::QueueManager;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::sync::broadcast;
 use tokio::time::{timeout, Instant};
-use tracing::{debug, error, info, warn};
-use uuid::Uuid;
+use tracing::error;
 
 /// Status of a scan
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -397,7 +395,7 @@ impl ScanManager {
             let permit = semaphore.clone().acquire_owned().await.unwrap();
             let plugin_manager = self.plugin_manager.clone();
             let context = context.clone();
-            let cancellation_token = cancellation_token.clone();
+            let _cancellation_token = cancellation_token.clone();
             let plugin_timeout = config.plugin_timeout;
             let plugin_name = plugin.name.clone();
             let plugin_id = plugin.id.clone();

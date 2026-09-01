@@ -1,19 +1,16 @@
 //! Storage layer for persisting scans, targets, plugin executions, findings, logs, and timing information
 
 use crate::error::{ScannerError, ScannerResult};
-use crate::plugin::{PluginConfig, PluginId, PluginInfo};
+use crate::plugin::PluginId;
 use crate::result::{Finding, FindingFilter, FindingId, FindingSort, FindingStats};
 use crate::scan::{ScanId, ScanLogEntry, ScanProgress, ScanSession, ScanStatus};
-use crate::target::{ScanConfig, Target, TargetId, TargetMetadata};
+use crate::target::{ScanConfig, Target, TargetId};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use openre_core::ids::ProjectId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 /// Scan record for database storage

@@ -1,6 +1,7 @@
 //! Target Manager - Target validation, normalization, metadata, and scan configuration
 
 use crate::error::{ScannerError, ScannerResult};
+use base64::Engine;
 pub use openre_core::ids::TargetId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -216,7 +217,8 @@ impl AuthConfig {
                 *request = builder.header("Authorization", format!("Bearer {}", token));
             }
             AuthConfig::Basic { username, password } => {
-                let credentials = base64::encode(format!("{}:{}", username, password));
+                let credentials =
+                    base64::prelude::BASE64_STANDARD.encode(format!("{}:{}", username, password));
                 let builder = std::mem::take(request);
                 *request = builder.header("Authorization", format!("Basic {}", credentials));
             }

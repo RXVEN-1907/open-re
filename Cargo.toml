@@ -174,3 +174,6 @@ debug = true
 [profile.test]
 opt-level = 2
 debug = true
+
+[patch.crates-io]
+select = { path = ".patched-crates/select-patched" }

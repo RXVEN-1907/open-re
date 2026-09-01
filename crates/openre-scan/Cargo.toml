@@ -43,9 +43,9 @@ tracing-subscriber = { workspace = true }
 sha2 = { workspace = true }
 base64 = { workspace = true }
 regex = { workspace = true }
-html5ever = "0.26"
+html5ever = "0.39"
 select = "0.6"
-markup5ever_rcdom = "0.1"
+markup5ever_rcdom = "0.39"
 cookie = "0.16"
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }

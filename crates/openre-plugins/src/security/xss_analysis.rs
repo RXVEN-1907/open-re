@@ -1,6 +1,6 @@
 //! XSS detection (reflected, stored, DOM) Security Plugin
 
-use crate::{CapabilitySet, PluginManifest, SimplePluginMetadata};
+use crate::{PluginManifest, SimplePluginMetadata};
 use openre_core::Capability;
 
 pub fn manifest() -> PluginManifest {

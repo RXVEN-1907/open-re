@@ -87,8 +87,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{info, warn};
 
 /// Plugin information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -450,16 +449,6 @@ impl PluginManager {
         Err(ScannerError::PluginLoadFailed(
             "Plugin instance loading is not yet supported".to_string(),
         ))
-    }
-
-    /// Apply plugin configuration
-    async fn apply_plugin_config(&self, plugin_id: &PluginId) -> ScannerResult<()> {
-        if let Some(config) = self.configs.get(plugin_id) {
-            if let Some(instance) = self.instances.get(plugin_id) {
-                instance.configure(config.config.clone()).await?;
-            }
-        }
-        Ok(())
     }
 
     /// Enable a plugin

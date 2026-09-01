@@ -1,7 +1,7 @@
 //! Plugin manifest parsing and validation
 
 use openre_core::error::OpenreResult as Result;
-use openre_core::ids::{Architecture, Capability, FileFormat, PluginId, PluginType};
+use openre_core::ids::{Capability, PluginId, PluginType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;

@@ -10,7 +10,7 @@
 
 /// Helper types for SDK
 pub mod sdk {
-    use openre_core::ids::{Capability, CapabilitySet, PluginId};
+    use openre_core::ids::{Capability, CapabilitySet};
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
 

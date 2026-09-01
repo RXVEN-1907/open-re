@@ -1,6 +1,6 @@
 //! MachO Binary Parser (simplified for goblin 0.7)
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use goblin::mach::MachO;
 use openre_core::ids::FileId;
@@ -141,7 +141,7 @@ impl BinaryIdentifier for MachoIdentifier {
         let magic = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
         let is_fat = magic == goblin::mach::fat::FAT_MAGIC || magic == goblin::mach::fat::FAT_CIGAM;
 
-        let (architecture, bitness, is_64, entry_point) = if is_fat {
+        let (architecture, bitness, _is_64, entry_point) = if is_fat {
             (crate::Architecture::Unknown, Bitness::Bit64, true, None)
         } else {
             let macho = MachO::parse(data, 0).map_err(|e| {
@@ -198,8 +198,8 @@ impl BinaryMetadataExtractor for MachoMetadataExtractor {
         let mut sections = Vec::new();
         let mut segments = Vec::new();
         let mut symbols = Vec::new();
-        let mut imports = Vec::new();
-        let mut exports = Vec::new();
+        let imports = Vec::new();
+        let exports = Vec::new();
 
         // Parse segments
         for segment in macho.segments.iter() {

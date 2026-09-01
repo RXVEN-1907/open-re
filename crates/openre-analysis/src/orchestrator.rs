@@ -1,18 +1,16 @@
 //! Pipeline orchestrator for open-re
 
-use crate::{incremental::*, metrics::*, progress::*, stages::*};
-use openre_config::QueueConfig;
+use crate::{progress::*, stages::*};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 // use openre_plugins::PluginRegistry; // Temporarily disabled
 use openre_queue::QueueManager;
-use openre_storage::{GlobalStore, ProjectStore};
-use openre_telemetry::{metrics, TelemetryHandle};
+use openre_storage::ProjectStore;
+use openre_telemetry::TelemetryHandle;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Semaphore;
-use tracing::{error, info, warn};
+use tracing::info;
 
 /// Placeholder for PluginRegistry (temporarily disabled)
 #[derive(Debug, Clone, Default)]
@@ -210,7 +208,7 @@ impl Orchestrator {
         Ok(result)
     }
 
-    fn build_dag(&self, ctx: &PipelineContext) -> Result<StageDag> {
+    fn build_dag(&self, _ctx: &PipelineContext) -> Result<StageDag> {
         let mut dag = StageDag::new();
 
         // Add all stages
@@ -358,7 +356,7 @@ impl Orchestrator {
     async fn aggregate_results(
         &self,
         ctx: &PipelineContext,
-        stage_results: &HashMap<StageId, StageResult>,
+        _stage_results: &HashMap<StageId, StageResult>,
     ) -> Result<AnalysisResult> {
         // In a real implementation, this would aggregate results from all stages
         // For now, return a placeholder
@@ -510,7 +508,7 @@ impl StageExecutor {
         let span = self.telemetry.span("stage.execute", stage.id());
         let _guard = span.enter();
 
-        let started_at = chrono::Utc::now();
+        let _started_at = chrono::Utc::now();
         let mut attempt = 0;
 
         loop {

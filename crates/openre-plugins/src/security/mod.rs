@@ -18,7 +18,7 @@ pub mod session_management;
 pub mod sql_injection;
 pub mod xss_analysis;
 
-use crate::{Capability, CapabilitySet, PluginManifest, PluginMetadata};
+use crate::PluginManifest;
 
 /// Get all built-in security plugin manifests
 pub fn builtin_security_plugins() -> Vec<PluginManifest> {

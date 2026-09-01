@@ -52,11 +52,11 @@ impl IncrementalAnalyzer {
                 // Full re-analysis needed
                 affected = StageId::all_ordered();
             }
-            AnalysisChanges::AnnotationAdded { function_id, .. } => {
+            AnalysisChanges::AnnotationAdded { function_id: _, .. } => {
                 // Only AI enrichment might be affected
                 affected.push(StageId::new("ai_enrichment"));
             }
-            AnalysisChanges::TypeChanged { function_id } => {
+            AnalysisChanges::TypeChanged { function_id: _ } => {
                 // Decompilation and downstream
                 affected.extend([StageId::new("decompilation"), StageId::new("ai_enrichment")]);
             }
@@ -127,9 +127,8 @@ pub enum AnalysisChanges {
 
 // Fingerprint-based Incremental Analysis (Alternative Implementation)
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use sha2::Digest;
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::sync::RwLock;
@@ -145,7 +144,7 @@ pub struct Fingerprint {
 
 impl Fingerprint {
     pub fn from_binary(path: &Path) -> Result<Self> {
-        use sha2::{Digest, Sha256};
+        use sha2::Sha256;
         let metadata = std::fs::metadata(path)?;
         let bytes = std::fs::read(path)?;
         let mut hasher = Sha256::new();

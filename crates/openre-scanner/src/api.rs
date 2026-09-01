@@ -1,25 +1,20 @@
 //! API endpoints for scan management
 
-use crate::context::ScanContext;
-use crate::error::{ScannerError, ScannerResult};
 use crate::plugin::{PluginConfig, PluginId, PluginInfo, PluginManager};
-use crate::result::{Finding, FindingFilter, FindingId, FindingSort, FindingStats};
+use crate::result::{Finding, FindingFilter, FindingId, FindingSort};
 use crate::scan::{ScanId, ScanManager, ScanProgress, ScanSession, ScanStatus};
-use crate::storage::{MemoryScanStorage, ScanStorage, SqliteScanStorage};
+use crate::storage::ScanStorage;
 use crate::target::{ScanConfig, Target, TargetId, TargetMetadata, TargetType};
 use axum::{
     extract::{Json, Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{delete, get, post, put},
+    routing::{get, post},
     Router,
 };
-use openre_core::ids::ProjectId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
 use utoipa::{OpenApi, ToSchema};
 use validator::Validate;
 
@@ -417,7 +412,7 @@ async fn create_scan(
     })?;
 
     // Build scan config
-    let mut config = ScanConfig {
+    let config = ScanConfig {
         target_id: request.target_id,
         name: request.name,
         description: request.description,
@@ -535,7 +530,7 @@ async fn update_scan(
     Path(id): Path<ScanId>,
     Json(request): Json<UpdateScanRequest>,
 ) -> Result<impl IntoResponse, Response> {
-    let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
+    let _scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
         (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse {
@@ -962,7 +957,7 @@ async fn create_target(
     }
 
     let target = Target::new(request.target_type, metadata);
-    let target_id = state.target_manager.register(target.clone()).map_err(|e| {
+    let _target_id = state.target_manager.register(target.clone()).map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {

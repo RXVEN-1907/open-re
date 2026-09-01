@@ -7,10 +7,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::{
-    registry::PluginSource, Capability, CapabilitySet, PluginManifest, PluginMetadata,
-    PluginRegistry,
-};
+use crate::{registry::PluginSource, Capability, CapabilitySet, PluginManifest, PluginRegistry};
 use openre_core::ids::PluginId;
 
 /// Plugin configuration

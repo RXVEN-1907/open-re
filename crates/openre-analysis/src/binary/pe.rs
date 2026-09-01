@@ -1,6 +1,6 @@
 //! PE Binary Parser
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use goblin::pe::PE;
 use openre_core::ids::FileId;

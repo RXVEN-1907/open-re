@@ -1,6 +1,6 @@
 //! Static analysis implementation
 
-use anyhow::{anyhow, Result as AnyResult};
+use anyhow::Result as AnyResult;
 use async_trait::async_trait;
 use goblin::{elf::Elf, pe::PE};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,6 @@ use crate::binary::traits::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use openre_telemetry::metrics;
-use tracing::{info, warn};
 
 /// Static analysis service (high-level)
 pub struct StaticAnalysisService;
@@ -141,7 +140,7 @@ impl StaticAnalysisService {
     }
 
     /// Analyze data flow
-    async fn analyze_data_flow(&self, metadata: &BinaryMetadata) -> Result<DataFlowInfo> {
+    async fn analyze_data_flow(&self, _metadata: &BinaryMetadata) -> Result<DataFlowInfo> {
         // Simplified data flow analysis
         Ok(DataFlowInfo { variables: Vec::new(), data_dependencies: Vec::new() })
     }
@@ -273,7 +272,7 @@ impl StaticAnalyzer for StaticAnalyzerImpl {
 
         // Build basic CFG for each function (simplified)
         let mut cfg_nodes = Vec::new();
-        let mut cfg_edges = Vec::new();
+        let _cfg_edges = Vec::new();
 
         for func in &functions {
             if func.size > 0 {
@@ -292,15 +291,15 @@ impl StaticAnalyzer for StaticAnalyzerImpl {
             }
         }
 
-        let cfg = ControlFlowGraph { nodes: cfg_nodes, edges: cfg_edges };
+        let cfg = ControlFlowGraph { nodes: cfg_nodes, edges: _cfg_edges };
 
         Ok(ControlFlowInfo { functions, call_graph, cfg })
     }
 
     async fn analyze_data_flow(
         &self,
-        data: &[u8],
-        metadata: &BinaryMetadata,
+        _data: &[u8],
+        _metadata: &BinaryMetadata,
     ) -> Result<DataFlowInfo> {
         // Simplified data flow analysis - would need full disassembly
         Ok(DataFlowInfo { variables: Vec::new(), data_dependencies: Vec::new() })
@@ -309,7 +308,7 @@ impl StaticAnalyzer for StaticAnalyzerImpl {
 
 impl StaticAnalyzerImpl {
     /// Find functions in ELF binary using disassembly
-    fn find_elf_functions(&self, elf: &Elf, data: &[u8]) -> AnyResult<Vec<FunctionInfo>> {
+    fn find_elf_functions(&self, elf: &Elf, _data: &[u8]) -> AnyResult<Vec<FunctionInfo>> {
         let mut functions = Vec::new();
 
         // Look for functions in .text section
@@ -343,7 +342,7 @@ impl StaticAnalyzerImpl {
     }
 
     /// Find functions in PE binary using disassembly
-    fn find_pe_functions(&self, pe: &PE, data: &[u8]) -> AnyResult<Vec<FunctionInfo>> {
+    fn find_pe_functions(&self, pe: &PE, _data: &[u8]) -> AnyResult<Vec<FunctionInfo>> {
         let mut functions = Vec::new();
 
         // Add entry point

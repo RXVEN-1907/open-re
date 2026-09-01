@@ -1,15 +1,15 @@
 //! Scan Context - Shared context passed to every plugin
 
-use crate::error::{ScannerError, ScannerResult};
+use crate::error::ScannerResult;
 use crate::target::{ScanConfig, Target, TargetMetadata};
-use openre_core::ids::{ScanId, TargetId};
+use base64::Engine;
+use openre_core::ids::ScanId;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
 use url::Url;
 
 /// Shared HTTP client for all plugins
@@ -18,9 +18,9 @@ pub struct SharedHttpClient {
     /// Underlying reqwest client
     client: Client,
     /// Default headers
-    default_headers: HashMap<String, String>,
+    _default_headers: HashMap<String, String>,
     /// Default timeout
-    default_timeout: Duration,
+    _default_timeout: Duration,
     /// Rate limiter
     rate_limiter: Option<Arc<RateLimiter>>,
 }
@@ -107,7 +107,8 @@ impl SharedHttpClient {
                         .insert("Authorization".to_string(), format!("Bearer {}", token));
                 }
                 crate::target::AuthConfig::Basic { username, password } => {
-                    let credentials = base64::encode(format!("{}:{}", username, password));
+                    let credentials = base64::prelude::BASE64_STANDARD
+                        .encode(format!("{}:{}", username, password));
                     default_headers
                         .insert("Authorization".to_string(), format!("Basic {}", credentials));
                 }
@@ -161,7 +162,12 @@ impl SharedHttpClient {
             .as_ref()
             .map(|rl| Arc::new(RateLimiter::new(rl.requests_per_second)));
 
-        Ok(Self { client, default_headers, default_timeout: config.plugin_timeout, rate_limiter })
+        Ok(Self {
+            client,
+            _default_headers: default_headers,
+            _default_timeout: config.plugin_timeout,
+            rate_limiter,
+        })
     }
 
     /// Get the underlying client

@@ -5,7 +5,7 @@
 //! and mutation discovery.
 
 use crate::sdk::{
-    AnalysisContext, Capability, CapabilityRequest, CapabilityResponse, Plugin, PluginId, Result,
+    AnalysisContext, CapabilityRequest, CapabilityResponse, Plugin, PluginId, Result,
 };
 use crate::security::{SecurityPlugin, SecurityPluginConfig, SecurityReference};
 use async_trait::async_trait;

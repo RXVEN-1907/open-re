@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::debug;
 
 use crate::orchestrator::{StageResult, StageStatus};
 
@@ -80,7 +79,7 @@ impl PipelineMetrics {
         let durations = self.stage_durations.read().await;
         let memory = self.stage_memory.read().await;
         let success_rates = self.stage_success_rate.read().await;
-        let functions = self.function_counts.read().await;
+        let _functions = self.function_counts.read().await;
         let instructions = self.instruction_counts.read().await;
 
         PipelineSummary {

@@ -1,11 +1,9 @@
 //! Common types for binary analysis
 
 use chrono::{DateTime, Utc};
-use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// Binary file format
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
