@@ -1,4 +1,5 @@
 use openre_security_ai::safety::SafetyGuard;
+use uuid::Uuid;
 
 #[test]
 fn test_safety_guard_creation() {
@@ -23,16 +24,19 @@ fn test_claim_tagging() {
 #[test]
 fn test_response_grounding_validation() {
     let guard = SafetyGuard::new(true);
-    let response = "This response references finding-123 and finding-456";
-    let available_ids = vec!["finding-123".to_string(), "finding-789".to_string()];
+    let finding_123 = Uuid::new_v4().to_string();
+    let finding_456 = Uuid::new_v4().to_string();
+    let finding_789 = Uuid::new_v4().to_string();
+    let response = format!("This response references {} and {}", finding_123, finding_456);
+    let available_ids = vec![finding_123.clone(), finding_789.clone()];
 
     // This should fail because finding-456 is not in available IDs
-    let result = guard.validate_response_grounding(response, &available_ids);
+    let result = guard.validate_response_grounding(&response, &available_ids);
     assert!(result.is_err());
 
     // This should pass because all referenced IDs are available
-    let response2 = "This response references finding-123 only";
-    let result2 = guard.validate_response_grounding(response2, &available_ids);
+    let response2 = format!("This response references {} only", finding_123);
+    let result2 = guard.validate_response_grounding(&response2, &available_ids);
     assert!(result2.is_ok());
 }
 

@@ -9,9 +9,8 @@ use openre_security_ai::{FindingProvider, ScanMetadata};
 async fn test_mock_finding_provider() {
     let provider = MockFindingProvider::new();
 
-    // Create a scan ID and finding
+    // Create a scan ID
     let scan_id = ScanId::new();
-    let finding_id = FindingId::new();
 
     // Create a mock finding
     let finding = Finding::new(FindingConfig {
@@ -26,6 +25,8 @@ async fn test_mock_finding_provider() {
         plugin_version: "1.0.0".to_string(),
         scan_id,
     });
+
+    let finding_id = finding.id;
 
     // Add finding to provider
     provider.add_finding(scan_id, finding.clone()).await;
