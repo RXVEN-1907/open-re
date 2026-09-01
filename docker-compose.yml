@@ -104,7 +104,6 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.worker
-    container_name: openre-worker
     environment:
       - OPENRE_CONFIG=/app/config.toml
       - RUST_LOG=info

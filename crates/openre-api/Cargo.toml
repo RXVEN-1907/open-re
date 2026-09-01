@@ -8,6 +8,10 @@ description = "API server (HTTP/gRPC) for open-re"
 categories = { workspace = true }
 keywords = { workspace = true }
 
+[[bin]]
+name = "openre-api"
+path = "src/main.rs"
+
 [dependencies]
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
@@ -35,6 +39,7 @@ validator = { workspace = true }
 utoipa = { workspace = true }
 utoipa-swagger-ui = { workspace = true, features = ["axum"] }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 futures = { workspace = true }
 governor = { workspace = true }
 async-stream = "0.3"
