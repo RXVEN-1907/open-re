@@ -237,6 +237,22 @@ impl PromptCompiler {
 
         Ok(result)
     }
+
+    /// Render a custom template string with variables (not from registered templates)
+    pub fn render_template_custom(
+        &self,
+        template: &str,
+        variables: &HashMap<String, String>,
+    ) -> Result<String, AiAnalystError> {
+        // Simple variable substitution
+        let mut result = template.to_string();
+        for (key, value) in variables {
+            let placeholder = format!("{{{{{}}}}}", key);
+            result = result.replace(&placeholder, value);
+        }
+
+        Ok(result)
+    }
 }
 
 impl Default for PromptCompiler {

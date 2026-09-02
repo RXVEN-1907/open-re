@@ -3,17 +3,18 @@
 //! Implements the `HistoryStorage` trait from `openre-core::history` using SQLite/rusqlite.
 
 use openre_core::error::OpenreResult;
-use openre_core::ids::{FindingId, ProjectId, ScanId};
+use openre_core::ids::{FindingId, ProjectId, ScanId, WorkflowId};
 // Types defined in history.rs module itself
 #[allow(unused_imports)]
 use openre_core::history::{
     HistoryError, HistoryStorage, ReportArtifact, RiskMetrics, RiskMetricsSummary,
-    ScanConfigSummary, ScanProgressSummary, ScanSummary, StoredEvidence,
+    ScanConfigSummary, ScanProgressSummary, ScanSummary, StoredEvidence, WorkflowSession,
+    WorkflowStatus,
 };
 use openre_core::reporting::ScanComparison;
 #[allow(unused_imports)]
 use openre_core::{Finding, FindingStats, RiskTrends, TrendDirection};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -222,6 +223,40 @@ impl SqliteHistoryStorage {
         )?;
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_risk_metrics_scan ON risk_metrics(scan_id)",
+            [],
+        )?;
+
+        // Workflow sessions table
+        conn.execute(
+            r#"CREATE TABLE IF NOT EXISTS workflow_sessions (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                target TEXT NOT NULL,
+                scan_id TEXT,
+                stages_json TEXT NOT NULL,
+                current_stage_index INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'pending',
+                stage_results_json TEXT NOT NULL DEFAULT '{}',
+                artifacts_json TEXT NOT NULL DEFAULT '[]',
+                config_json TEXT NOT NULL DEFAULT '{}',
+                error TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP
+            )"#,
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_workflow_sessions_scan ON workflow_sessions(scan_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_workflow_sessions_status ON workflow_sessions(status)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_workflow_sessions_created ON workflow_sessions(created_at DESC)",
             [],
         )?;
 
@@ -511,9 +546,39 @@ impl SqliteHistoryStorage {
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
     }
-}
+
 
 // --- Trait implementation ---
+
+
+    /// Helper function for deserializing workflow sessions from database rows
+    fn deserialize_workflow_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkflowSession> {
+        let stages_json: String = row.get("stages_json")?;
+        let stage_results_json: String = row.get("stage_results_json")?;
+        let artifacts_json: String = row.get("artifacts_json")?;
+        let config_json: String = row.get("config_json")?;
+        let id_str: String = row.get("id")?;
+        let scan_id_str: Option<String> = row.get("scan_id")?;
+
+        Ok(WorkflowSession {
+            id: WorkflowId::from_uuid(uuid::Uuid::parse_str(&id_str).unwrap_or_default()),
+            name: row.get("name")?,
+            target: row.get("target")?,
+            scan_id: scan_id_str
+                .map(|s| ScanId::from_uuid(uuid::Uuid::parse_str(&s).unwrap_or_default())),
+            stages: serde_json::from_str(&stages_json).unwrap_or_default(),
+            current_stage_index: row.get("current_stage_index")?,
+            status: serde_json::from_str(&row.get::<_, String>("status")?).unwrap_or(WorkflowStatus::Pending),
+            stage_results: serde_json::from_str(&stage_results_json).unwrap_or_default(),
+            artifacts: serde_json::from_str(&artifacts_json).unwrap_or_default(),
+            config: serde_json::from_str(&config_json).unwrap_or_default(),
+            error: row.get("error")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+            completed_at: row.get("completed_at")?,
+        })
+    }
+}
 
 #[async_trait::async_trait]
 impl HistoryStorage for SqliteHistoryStorage {
@@ -894,8 +959,106 @@ impl HistoryStorage for SqliteHistoryStorage {
         conn.query_row(
             r#"SELECT id, project_id, scan_id, timestamp, overall_risk_score, risk_level, by_severity_json, by_category_json, avg_risk_score, max_risk_score, critical_count, high_count, medium_count, low_count, info_count, verified_count, false_positive_count, exploit_available_count, exploited_in_wild_count, top_cwes_json, top_owasp_json, remediation_priority_json, trends_json FROM risk_metrics WHERE project_id = ?1 ORDER BY timestamp DESC LIMIT 1"#,
             params![pid_str],
-            Self::deserialize_risk_metrics_row,
+            SqliteHistoryStorage::deserialize_risk_metrics_row,
         ).optional().map_err(|e| HistoryError::Storage(e.to_string()))
+    }
+
+
+
+
+
+    async fn save_workflow_session(&self, session: &WorkflowSession) -> Result<(), HistoryError> {
+        let conn = self.conn().await;
+        let id_str = session.id.to_string();
+        let scan_id = session.scan_id.map(|s| s.to_string());
+        let stages_json = serde_json::to_string(&session.stages).map_err(HistoryError::Serialization)?;
+        let stage_results_json = serde_json::to_string(&session.stage_results).map_err(HistoryError::Serialization)?;
+        let artifacts_json = serde_json::to_string(&session.artifacts).map_err(HistoryError::Serialization)?;
+        let config_json = serde_json::to_string(&session.config).map_err(HistoryError::Serialization)?;
+        let status_json = serde_json::to_string(&session.status).map_err(HistoryError::Serialization)?;
+
+        conn.execute(
+            r#"INSERT OR REPLACE INTO workflow_sessions (
+                id, name, target, scan_id, stages_json, current_stage_index, status,
+                stage_results_json, artifacts_json, config_json, error, created_at, updated_at, completed_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"#,
+            params![
+                id_str, &session.name, &session.target, scan_id, stages_json,
+                session.current_stage_index as i64, status_json,
+                stage_results_json, artifacts_json, config_json, session.error,
+                session.created_at, session.updated_at, session.completed_at
+            ],
+        ).map_err(|e| HistoryError::Storage(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn get_workflow_session(&self, workflow_id: &WorkflowId) -> Result<Option<WorkflowSession>, HistoryError> {
+        let conn = self.conn().await;
+        let id_str = workflow_id.to_string();
+
+        conn.query_row(
+            r#"SELECT id, name, target, scan_id, stages_json, current_stage_index, status,
+                stage_results_json, artifacts_json, config_json, error, created_at, updated_at, completed_at
+               FROM workflow_sessions WHERE id = ?1"#,
+            params![id_str],
+            SqliteHistoryStorage::deserialize_workflow_session,
+        ).optional().map_err(|e| HistoryError::Storage(e.to_string()))
+    }
+
+    async fn list_workflow_sessions(
+        &self,
+        scan_id: Option<ScanId>,
+        status: Option<WorkflowStatus>,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<WorkflowSession>, HistoryError> {
+        let conn = self.conn().await;
+
+        let mut sql = String::from(
+            r#"SELECT id, name, target, scan_id, stages_json, current_stage_index, status,
+                stage_results_json, artifacts_json, config_json, error, created_at, updated_at, completed_at
+               FROM workflow_sessions"#
+        );
+
+        let mut conditions = Vec::new();
+        let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+        if let Some(sid) = scan_id {
+            conditions.push("scan_id = ?".to_string());
+            params_vec.push(Box::new(sid.to_string()));
+        }
+
+        if let Some(s) = status {
+            conditions.push("status = ?".to_string());
+            params_vec.push(Box::new(serde_json::to_string(&s).unwrap_or_default()));
+        }
+
+        if !conditions.is_empty() {
+            sql.push_str(" WHERE ");
+            sql.push_str(&conditions.join(" AND "));
+        }
+
+        sql.push_str(" ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        params_vec.push(Box::new(limit as i64));
+        params_vec.push(Box::new(offset as i64));
+
+        let mut stmt = conn.prepare(&sql).map_err(|e| HistoryError::Storage(e.to_string()))?;
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+
+        let rows = stmt.query_map(params_from_iter(param_refs), SqliteHistoryStorage::deserialize_workflow_session)
+            .map_err(|e| HistoryError::Storage(e.to_string()))?;
+
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    async fn delete_workflow_session(&self, workflow_id: &WorkflowId) -> Result<bool, HistoryError> {
+        let conn = self.conn().await;
+        let id_str = workflow_id.to_string();
+        let deleted = conn
+            .execute("DELETE FROM workflow_sessions WHERE id = ?1", params![id_str])
+            .map_err(|e| HistoryError::Storage(e.to_string()))?;
+        Ok(deleted > 0)
     }
 }
 

@@ -11,6 +11,7 @@ description = "Intelligence layer for open-re security scanner - correlation, CV
 openre-core = { path = "../openre-core" }
 openre-storage = { path = "../openre-storage" }
 openre-scanner = { path = "../openre-scanner" }
+openre-queue = { path = "../openre-queue" }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -31,6 +32,7 @@ regex = "1.0"
 semver = "1.0"
 indexmap = "2.0"
 colored = "2.0"
+petgraph = { version = "0.6", features = ["serde"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util", "macros"] }

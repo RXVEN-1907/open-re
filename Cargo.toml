@@ -17,6 +17,7 @@ members = [
     "crates/openre-scan",
     "crates/sentinel",
     "crates/openre-plugins",
+    "crates/openre-tui",
 ]
 
 exclude = [

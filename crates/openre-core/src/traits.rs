@@ -40,6 +40,34 @@ pub trait AiService: Send + Sync {
     async fn batch_infer(&self, requests: Vec<String>) -> Result<Vec<String>>;
 }
 
+/// Trait for evidence storage and retrieval
+#[async_trait]
+pub trait EvidenceStore: Send + Sync {
+    /// Get evidence for a specific finding
+    async fn get_evidence(
+        &self,
+        finding_id: FindingId,
+    ) -> Result<Option<crate::evidence::FindingEvidence>>;
+
+    /// Get evidence for multiple findings
+    async fn get_evidence_batch(
+        &self,
+        finding_ids: &[FindingId],
+    ) -> Result<Vec<crate::evidence::FindingEvidence>>;
+
+    /// Get all evidence for a scan
+    async fn get_scan_evidence(
+        &self,
+        scan_id: ScanId,
+    ) -> Result<Vec<crate::evidence::FindingEvidence>>;
+
+    /// Store evidence
+    async fn store_evidence(&self, evidence: &crate::evidence::FindingEvidence) -> Result<()>;
+
+    /// Delete evidence for a finding
+    async fn delete_evidence(&self, finding_id: FindingId) -> Result<()>;
+}
+
 /// Trait for file service
 #[async_trait]
 pub trait FileService: Send + Sync {

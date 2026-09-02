@@ -1,6 +1,7 @@
 //! AI service for open-re
 
 pub mod cache;
+pub mod grounded;
 pub mod privacy;
 pub mod prompt_compiler;
 pub mod providers;
@@ -9,6 +10,7 @@ pub mod service;
 pub mod tools;
 
 pub use cache::*;
+pub use grounded::*;
 pub use privacy::*;
 pub use prompt_compiler::*;
 pub use providers::*;

@@ -231,6 +231,15 @@ Calling convention: System V AMD64"#
         Ok(result)
     }
 
+    /// Render a custom template string with variables (not from registered templates)
+    pub fn render_template_custom(
+        &self,
+        template: &str,
+        variables: &HashMap<String, String>,
+    ) -> Result<String> {
+        self.render_template(template, variables)
+    }
+
     /// Get available templates
     pub fn list_templates(&self) -> Vec<&PromptTemplate> {
         self.templates.values().collect()

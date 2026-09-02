@@ -2,11 +2,14 @@
 
 use chrono::{DateTime, Utc};
 use openre_core::ids::{FileId, JobId, ProjectId, UserId};
-use openre_core::traits::JobType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::result::Result as StdResult;
 use std::sync::Arc;
 use std::time::Duration;
+use uuid::Uuid;
+
+pub use openre_core::traits::JobType;
 
 /// Job status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -34,8 +37,8 @@ pub enum StageStatus {
 }
 
 /// Job priority
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, Default)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum Priority {
     High,
     Default,
@@ -51,6 +54,58 @@ impl Priority {
             Priority::Low => "LOW",
         }
     }
+}
+
+impl std::str::FromStr for Priority {
+    type Err = String;
+
+    fn from_str(s: &str) -> StdResult<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "high" => Ok(Priority::High),
+            "default" => Ok(Priority::Default),
+            "low" => Ok(Priority::Low),
+            _ => Err(format!("Invalid priority: {}", s)),
+        }
+    }
+}
+
+impl std::str::FromStr for JobStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> StdResult<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "pending" => Ok(JobStatus::Pending),
+            "queued" => Ok(JobStatus::Queued),
+            "running" => Ok(JobStatus::Running),
+            "completed" => Ok(JobStatus::Completed),
+            "failed" => Ok(JobStatus::Failed),
+            "cancelled" => Ok(JobStatus::Cancelled),
+            "scheduled" => Ok(JobStatus::Scheduled),
+            _ => Err(format!("Invalid job status: {}", s)),
+        }
+    }
+}
+
+/// Log level for job logs
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+/// Log entry for job logging
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogEntry {
+    pub id: Uuid,
+    pub job_id: JobId,
+    pub timestamp: DateTime<Utc>,
+    pub level: LogLevel,
+    pub message: String,
+    pub metadata: HashMap<String, serde_json::Value>,
 }
 
 /// Job retry policy
@@ -111,6 +166,10 @@ pub struct Job {
     pub tags: HashMap<String, String>,
     pub timeout_seconds: Option<u64>,
     pub progress: Option<f32>,
+    /// Job dependencies - job IDs that must complete before this job can run
+    pub dependencies: Vec<JobId>,
+    /// Job logs
+    pub logs: Vec<LogEntry>,
 }
 
 impl Job {
@@ -136,6 +195,8 @@ impl Job {
             tags: HashMap::new(),
             timeout_seconds: None,
             progress: None,
+            dependencies: Vec::new(),
+            logs: Vec::new(),
         }
     }
 
@@ -176,6 +237,28 @@ impl Job {
 
     pub fn with_tag(mut self, key: String, value: String) -> Self {
         self.tags.insert(key, value);
+        self
+    }
+
+    pub fn with_dependencies(mut self, dependencies: Vec<JobId>) -> Self {
+        self.dependencies = dependencies;
+        self
+    }
+
+    pub fn add_dependency(mut self, job_id: JobId) -> Self {
+        self.dependencies.push(job_id);
+        self
+    }
+
+    pub fn add_log(mut self, level: LogLevel, message: String) -> Self {
+        self.logs.push(LogEntry {
+            id: Uuid::new_v4(),
+            job_id: self.id,
+            timestamp: Utc::now(),
+            level,
+            message,
+            metadata: HashMap::new(),
+        });
         self
     }
 }
@@ -242,3 +325,38 @@ pub struct StageProgress {
 }
 
 use openre_core::error::OpenreResult as Result;
+
+/// Job summary for listing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobSummary {
+    pub id: JobId,
+    pub job_type: JobType,
+    pub priority: Priority,
+    pub status: JobStatus,
+    pub project_id: Option<ProjectId>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub progress: Option<f32>,
+}
+
+/// Job filter for listing
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct JobFilter {
+    pub job_type: Option<JobType>,
+    pub status: Option<JobStatus>,
+    pub priority: Option<Priority>,
+    pub project_id: Option<ProjectId>,
+    pub user_id: Option<UserId>,
+    pub since: Option<DateTime<Utc>>,
+    pub until: Option<DateTime<Utc>>,
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+}
+
+/// Log stream for following job logs
+#[derive(Debug, Clone)]
+pub struct LogStream {
+    pub job_id: JobId,
+    pub follow: bool,
+}

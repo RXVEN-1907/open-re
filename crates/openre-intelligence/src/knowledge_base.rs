@@ -381,7 +381,7 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
     }
 
     /// Enrich a single finding with knowledge base information
-    fn enrich_single_finding(
+    pub fn enrich_single_finding(
         &self,
         finding: &mut Finding,
     ) -> IntelligenceResult<Option<KnowledgeBaseEntry>> {
@@ -582,6 +582,11 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
         }
 
         standards
+    }
+
+    /// Get knowledge base entry for a finding (async wrapper)
+    pub async fn get_entry(&self, finding_id: &FindingId) -> Option<KnowledgeBaseEntry> {
+        self.get_knowledge_base_entry(finding_id)
     }
 
     /// Get knowledge base entry for a finding

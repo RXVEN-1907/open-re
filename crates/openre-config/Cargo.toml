@@ -19,3 +19,4 @@ tokio = { workspace = true }
 num_cpus = { workspace = true }
 notify = { workspace = true }
 tracing = { workspace = true }
+dirs = { workspace = true }

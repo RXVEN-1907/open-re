@@ -1,6 +1,6 @@
 //! Error types for the intelligence module
 
-use openre_core::Error;
+use openre_core::{Error, history::HistoryError};
 use thiserror::Error;
 
 /// Intelligence module error types
@@ -42,8 +42,14 @@ pub enum IntelligenceError {
     #[error("Invalid ignore pattern: {0}")]
     InvalidIgnorePattern(String),
 
+    #[error("Verification error: {0}")]
+    VerificationError(String),
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
+
+    #[error("History error: {0}")]
+    History(#[from] HistoryError),
 }
 
 impl IntelligenceError {

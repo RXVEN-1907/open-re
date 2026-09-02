@@ -1,0 +1,88 @@
+[package]
+name = "openre-tui"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "Full-screen interactive TUI for open-re platform"
+categories = ["command-line-utilities", "security", "user-interface"]
+keywords = ["tui", "terminal", "security", "reverse-engineering", "scanner"]
+
+[lib]
+name = "openre_tui"
+path = "src/lib.rs"
+
+[[bin]]
+name = "openre-tui"
+path = "src/main.rs"
+
+[dependencies]
+# Core crates
+openre-core = { path = "../openre-core" }
+openre-config = { path = "../openre-config" }
+openre-queue = { path = "../openre-queue" }
+openre-storage = { path = "../openre-storage", default-features = false, features = ["sqlite"] }
+openre-scan = { path = "../openre-scan", optional = true }
+openre-recon = { path = "../openre-recon", optional = true }
+openre-plugins = { path = "../openre-plugins", optional = true }
+openre-security-ai = { path = "../openre-security-ai", optional = true }
+openre-scanner = { path = "../openre-scanner", optional = true }
+openre-intelligence = { path = "../openre-intelligence", optional = true }
+openre-telemetry = { path = "../openre-telemetry", optional = true }
+
+# TUI
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+
+# Async & utilities
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dashmap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+url = { workspace = true }
+reqwest = { workspace = true, features = ["json", "rustls-tls", "gzip", "brotli", "deflate"] }
+futures = { workspace = true }
+tokio-stream = { workspace = true }
+parking_lot = { workspace = true }
+notify = { workspace = true }
+dirs = { workspace = true }
+base64 = { workspace = true }
+regex = { workspace = true }
+fastrand = { workspace = true }
+
+# Additional dependencies for services integration
+redis = { workspace = true }
+rusqlite = { workspace = true }
+
+# CLI
+clap = { workspace = true, features = ["derive", "env"] }
+clap_complete = { workspace = true }
+colored = { workspace = true }
+
+[features]
+default = ["full"]
+full = ["scan", "recon", "ai", "plugins", "scanner", "telemetry"]
+scan = ["dep:openre-scan"]
+recon = ["dep:openre-recon"]
+ai = ["dep:openre-security-ai"]
+plugins = ["dep:openre-plugins"]
+scanner = ["dep:openre-scanner"]
+intelligence = ["dep:openre-intelligence"]
+telemetry = ["dep:openre-telemetry"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

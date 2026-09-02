@@ -11,8 +11,10 @@ use crate::{
     router::ModelRouter,
     tools::{ToolContext, ToolPermissions, ToolRegistry},
 };
+use async_trait::async_trait;
 use openre_config::AiConfig;
 use openre_core::error::OpenreResult as Result;
+use openre_core::traits::AiService as CoreAiService;
 use openre_storage::{GlobalStore, ObjectStore, ProjectStore};
 use std::sync::Arc;
 use tracing;
@@ -405,5 +407,61 @@ impl AiService {
             }
         }
         results
+    }
+}
+
+/// Mock AI service for testing
+#[cfg(test)]
+pub struct MockAiService;
+
+#[cfg(test)]
+#[async_trait]
+impl CoreAiService for MockAiService {
+    async fn infer(&self, _request: String) -> Result<String> {
+        Ok("Mock response".to_string())
+    }
+
+    async fn batch_infer(&self, requests: Vec<String>) -> Result<Vec<String>> {
+        Ok(requests.into_iter().map(|_| "Mock response".to_string()).collect())
+    }
+}
+
+/// Mock EvidenceStore for testing
+#[cfg(test)]
+pub struct MockEvidenceStore;
+
+#[cfg(test)]
+#[async_trait]
+impl openre_core::traits::EvidenceStore for MockEvidenceStore {
+    async fn get_evidence(
+        &self,
+        _finding_id: openre_core::ids::FindingId,
+    ) -> Result<Option<openre_core::evidence::FindingEvidence>> {
+        Ok(None)
+    }
+
+    async fn get_evidence_batch(
+        &self,
+        _finding_ids: &[openre_core::ids::FindingId],
+    ) -> Result<Vec<openre_core::evidence::FindingEvidence>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_scan_evidence(
+        &self,
+        _scan_id: openre_core::ids::ScanId,
+    ) -> Result<Vec<openre_core::evidence::FindingEvidence>> {
+        Ok(Vec::new())
+    }
+
+    async fn store_evidence(
+        &self,
+        _evidence: &openre_core::evidence::FindingEvidence,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    async fn delete_evidence(&self, _finding_id: openre_core::ids::FindingId) -> Result<()> {
+        Ok(())
     }
 }

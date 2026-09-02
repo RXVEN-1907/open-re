@@ -1,13 +1,13 @@
 //! Integration tests for Phase 6 history storage persistence
 //! Tests the full pipeline: save → retrieve → verify for all entity types
 
-use openre_core::history::HistoryStorage;
+use openre_core::history::{HistoryStorage, ScanConfigSummary, ScanProgressSummary};
 use openre_core::ids::{FindingId, ProjectId, ScanId, TargetId};
 use openre_core::reporting::{ReportConfig, ReportFormat, ReportGenerator};
 // Import types from result.rs via top-level re-export (pub use result::*;)
-use openre_core::{
+use openre_core::result::{
     Category, Confidence, EvidenceType as CoreEvidenceType, Finding, FindingConfig, FindingStats,
-    ScanConfigSummary, ScanProgressSummary, Severity,
+    Severity,
 };
 use std::collections::HashMap;
 use tempfile::tempdir;

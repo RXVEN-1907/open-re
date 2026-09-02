@@ -1,10 +1,9 @@
 //! Config commands
 
 use crate::{print_output, CliError, Context};
-use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
+use clap::Subcommand;
+use dirs;
 use std::path::PathBuf;
-use tabled::{settings::Style, Table};
 
 #[derive(Subcommand)]
 pub enum ConfigCommands {
@@ -68,6 +67,13 @@ pub enum ConfigCommands {
 
     /// Edit configuration in $EDITOR
     Edit,
+
+    /// Initialize configuration file with defaults
+    Init {
+        /// Force overwrite existing config file
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 impl ConfigCommands {
@@ -185,6 +191,34 @@ impl ConfigCommands {
                         "No configuration file found. Create one first with 'openre config set'."
                     );
                 }
+            }
+
+            ConfigCommands::Init { force } => {
+                let config_path = ctx.config.path().map(|p| p.to_path_buf()).unwrap_or_else(|| {
+                    dirs::config_dir()
+                        .unwrap_or_else(|| PathBuf::from("."))
+                        .join("openre")
+                        .join("config.toml")
+                });
+
+                if config_path.exists() && !force {
+                    println!(
+                        "Configuration file already exists at {}. Use --force to overwrite.",
+                        config_path.display()
+                    );
+                    return Ok(());
+                }
+
+                // Create parent directory if it doesn't exist
+                if let Some(parent) = config_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+
+                // Create default config
+                let default_config = crate::config::CliConfig::default();
+                default_config.save_to(&config_path)?;
+
+                println!("Created default configuration at: {}", config_path.display());
             }
         }
 

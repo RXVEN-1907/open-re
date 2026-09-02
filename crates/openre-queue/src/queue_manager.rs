@@ -1,11 +1,12 @@
 //! Queue manager for Redis Streams
 
-use crate::{Job, JobStatus, Priority};
+use crate::{Job, JobRetryPolicy, JobStatus, Priority};
 use openre_config::QueueConfig;
 use openre_core::error::OpenreResult;
 use openre_core::ids::JobId;
 use openre_telemetry::metrics::QueueMetrics as TelemetryQueueMetrics;
 use redis::{AsyncCommands, Client};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -404,6 +405,89 @@ impl QueueManager {
         Ok(None)
     }
 
+    /// Retry a failed job
+    pub async fn retry_job(&self, job_id: JobId) -> OpenreResult<()> {
+        // Get the job from results
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
+        let result: Option<String> = conn.hget("openre:job:results", job_id.to_string()).await?;
+
+        let mut job = if let Some(data) = result {
+            let job: Job = serde_json::from_str(&data)?;
+            job
+        } else {
+            return Err(openre_core::Error::NotFound(format!("Job {} not found", job_id)));
+        };
+
+        // Check if job can be retried
+        if job.status != JobStatus::Failed && job.status != JobStatus::Cancelled {
+            return Err(openre_core::Error::InvalidInput(
+                format!("Job {} is not in a retryable state (status: {:?})", job_id, job.status)
+            ));
+        }
+
+        // Check retry policy
+        let default_retry_policy = JobRetryPolicy::default();
+        let retry_policy = job.retry_policy.as_ref().unwrap_or(&default_retry_policy);
+        if job.retry_count >= retry_policy.max_retries {
+            return Err(openre_core::Error::InvalidInput(
+                format!("Job {} has exceeded max retries ({})", job_id, retry_policy.max_retries)
+            ));
+        }
+
+        // Create new job with incremented retry count
+        let mut new_job = job.clone();
+        new_job.id = JobId::new();
+        new_job.status = JobStatus::Queued;
+        new_job.retry_count = job.retry_count + 1;
+        new_job.queued_at = None;
+        new_job.started_at = None;
+        new_job.completed_at = None;
+        new_job.error = None;
+        new_job.result = None;
+        new_job.worker_id = None;
+
+        // Enqueue the new job
+        self.enqueue(new_job).await?;
+
+        self.metrics.jobs_retried.increment(1);
+        info!("Retried job {} (attempt {})", job_id, job.retry_count + 1);
+
+        Ok(())
+    }
+
+    /// Get job logs from Redis stream
+    pub async fn get_job_logs(&self, job_id: JobId, limit: Option<usize>) -> OpenreResult<Vec<crate::job::LogEntry>> {
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
+
+        let stream_name = format!("openre:logs:{}", job_id);
+        let limit = limit.unwrap_or(1000);
+
+        let entries: Vec<redis::streams::StreamReadReply> = redis::cmd("XREVRANGE")
+            .arg(&stream_name)
+            .arg("+")
+            .arg("-")
+            .arg("COUNT")
+            .arg(limit as isize)
+            .query_async(&mut conn)
+            .await?;
+
+        let mut logs = Vec::new();
+        for reply in entries {
+            for key in reply.keys {
+                for entry in key.ids {
+                    if let Some(data) = entry.map.get("data") {
+                        let log_data: String = redis::from_redis_value(data)?;
+                        let log_entry: crate::job::LogEntry = serde_json::from_str(&log_data)?;
+                        logs.push(log_entry);
+                    }
+                }
+            }
+        }
+
+        logs.reverse();
+        Ok(logs)
+    }
+
     async fn store_job_result(&self, job: &Job) -> OpenreResult<()> {
         let mut conn = self.client.get_multiplexed_async_connection().await?;
         let data = serde_json::to_string(job)?;
@@ -556,7 +640,7 @@ impl Clone for QueueManager {
 }
 
 /// Queue statistics
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct QueueStats {
     pub total_queued: usize,
     pub jobs_queued_by_priority: HashMap<Priority, usize>,

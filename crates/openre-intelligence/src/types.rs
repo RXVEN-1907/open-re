@@ -31,6 +31,185 @@ pub struct EnhancedCorrelation {
     pub mitigation_approach: String,
 }
 
+impl From<openre_core::relationships::FindingRelationship> for EnhancedCorrelation {
+    fn from(rel: openre_core::relationships::FindingRelationship) -> Self {
+        // Map FindingRelationshipType to CorrelationType
+        let correlation_type = match rel.relationship_type {
+            openre_core::relationships::FindingRelationshipType::Enables => {
+                CorrelationType::Enables
+            }
+            openre_core::relationships::FindingRelationshipType::Amplifies => {
+                CorrelationType::Strengthening
+            }
+            openre_core::relationships::FindingRelationshipType::Requires => {
+                CorrelationType::Requires
+            }
+            openre_core::relationships::FindingRelationshipType::SameRootCause => {
+                CorrelationType::SameRootCause
+            }
+            openre_core::relationships::FindingRelationshipType::ChainedExploit => {
+                CorrelationType::ChainedExploit
+            }
+            openre_core::relationships::FindingRelationshipType::Mitigates => {
+                CorrelationType::Mitigates
+            }
+            openre_core::relationships::FindingRelationshipType::Duplicate => {
+                CorrelationType::Duplicate
+            }
+            openre_core::relationships::FindingRelationshipType::SharedComponent => {
+                CorrelationType::SharedComponent
+            }
+            openre_core::relationships::FindingRelationshipType::SharedAttackSurface => {
+                CorrelationType::SharedAttackSurface
+            }
+            openre_core::relationships::FindingRelationshipType::InformationLeakage => {
+                CorrelationType::InformationLeakage
+            }
+            openre_core::relationships::FindingRelationshipType::PrivilegeEscalation => {
+                CorrelationType::PrivilegeEscalation
+            }
+            openre_core::relationships::FindingRelationshipType::LateralMovement => {
+                CorrelationType::LateralMovement
+            }
+            openre_core::relationships::FindingRelationshipType::DataExfiltration => {
+                CorrelationType::DataExfiltration
+            }
+            openre_core::relationships::FindingRelationshipType::Prerequisite => {
+                CorrelationType::Prerequisite
+            }
+            openre_core::relationships::FindingRelationshipType::MutuallyExclusive => {
+                CorrelationType::MutuallyExclusive
+            }
+            openre_core::relationships::FindingRelationshipType::Temporal => {
+                CorrelationType::Temporal
+            }
+            openre_core::relationships::FindingRelationshipType::Spatial => {
+                CorrelationType::Spatial
+            }
+            openre_core::relationships::FindingRelationshipType::Custom => CorrelationType::Custom,
+        };
+
+        EnhancedCorrelation {
+            finding_ids: vec![rel.source_finding, rel.target_finding],
+            correlation_type,
+            confidence: rel.confidence,
+            description: rel.explanation.clone(),
+            evidence: rel.evidence.iter().map(|e| e.description.clone()).collect(),
+            combined_risk: RiskAssessment {
+                individual_scores: vec![],
+                combined_score: 0,
+                explanation: String::new(),
+            },
+            mitigation_approach: String::new(),
+        }
+    }
+}
+
+/// Convert EnhancedCorrelation to FindingRelationship for graph operations
+impl From<EnhancedCorrelation> for openre_core::relationships::FindingRelationship {
+    fn from(ec: EnhancedCorrelation) -> Self {
+        // Map CorrelationType to FindingRelationshipType
+        let relationship_type = match ec.correlation_type {
+            CorrelationType::Enables => {
+                openre_core::relationships::FindingRelationshipType::Enables
+            }
+            CorrelationType::Strengthening => {
+                openre_core::relationships::FindingRelationshipType::Amplifies
+            }
+            CorrelationType::Requires => {
+                openre_core::relationships::FindingRelationshipType::Requires
+            }
+            CorrelationType::SameRootCause => {
+                openre_core::relationships::FindingRelationshipType::SameRootCause
+            }
+            CorrelationType::ChainedExploit => {
+                openre_core::relationships::FindingRelationshipType::ChainedExploit
+            }
+            CorrelationType::Mitigates => {
+                openre_core::relationships::FindingRelationshipType::Mitigates
+            }
+            CorrelationType::Duplicate => {
+                openre_core::relationships::FindingRelationshipType::Duplicate
+            }
+            CorrelationType::SharedComponent => {
+                openre_core::relationships::FindingRelationshipType::SharedComponent
+            }
+            CorrelationType::SharedAttackSurface => {
+                openre_core::relationships::FindingRelationshipType::SharedAttackSurface
+            }
+            CorrelationType::InformationLeakage => {
+                openre_core::relationships::FindingRelationshipType::InformationLeakage
+            }
+            CorrelationType::PrivilegeEscalation => {
+                openre_core::relationships::FindingRelationshipType::PrivilegeEscalation
+            }
+            CorrelationType::LateralMovement => {
+                openre_core::relationships::FindingRelationshipType::LateralMovement
+            }
+            CorrelationType::DataExfiltration => {
+                openre_core::relationships::FindingRelationshipType::DataExfiltration
+            }
+            CorrelationType::Prerequisite => {
+                openre_core::relationships::FindingRelationshipType::Prerequisite
+            }
+            CorrelationType::MutuallyExclusive => {
+                openre_core::relationships::FindingRelationshipType::MutuallyExclusive
+            }
+            CorrelationType::Temporal => {
+                openre_core::relationships::FindingRelationshipType::Temporal
+            }
+            CorrelationType::Spatial => {
+                openre_core::relationships::FindingRelationshipType::Spatial
+            }
+            CorrelationType::CspXssChain => {
+                openre_core::relationships::FindingRelationshipType::Enables
+            }
+            CorrelationType::InfoDisclosureChain => {
+                openre_core::relationships::FindingRelationshipType::ChainedExploit
+            }
+            CorrelationType::Causal => {
+                openre_core::relationships::FindingRelationshipType::ChainedExploit
+            }
+            CorrelationType::Custom => openre_core::relationships::FindingRelationshipType::Custom,
+            _ => openre_core::relationships::FindingRelationshipType::Custom,
+        };
+
+        openre_core::relationships::FindingRelationship {
+            id: openre_core::ids::RelationshipId::new(),
+            source_finding: ec.finding_ids.get(0).copied().unwrap_or_default(),
+            target_finding: ec.finding_ids.get(1).copied().unwrap_or_default(),
+            relationship_type,
+            explanation: ec.description,
+            evidence: ec
+                .evidence
+                .into_iter()
+                .map(|e| openre_core::relationships::RelationshipEvidence {
+                    evidence_type: openre_core::relationships::EvidenceType::AutomatedCorrelation,
+                    description: e,
+                    data: serde_json::Value::Null,
+                    source: openre_core::relationships::EvidenceSource::Scanner,
+                    confidence: 0.5,
+                    related_findings: ec.finding_ids.clone(),
+                    timestamp: chrono::Utc::now(),
+                })
+                .collect(),
+            confidence: ec.confidence,
+            risk_impact: openre_core::relationships::RiskImpact {
+                score_delta: 0,
+                level_change: openre_core::relationships::RiskLevelChange::NoChange,
+                explanation: String::new(),
+                affected_factors: vec![],
+                confidence: 0.5,
+            },
+            supporting_cwes: vec![],
+            supporting_capecs: vec![],
+            supporting_attack_techniques: vec![],
+            discovered_at: chrono::Utc::now(),
+            metadata: std::collections::HashMap::new(),
+        }
+    }
+}
+
 /// Types of correlations between findings
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -58,6 +237,51 @@ pub enum CorrelationType {
 
     /// Causal relationship (one finding enables another)
     Causal,
+
+    /// One finding enables another
+    Enables,
+
+    /// One finding requires another
+    Requires,
+
+    /// Same root cause across multiple findings
+    SameRootCause,
+
+    /// Chained exploit (A leads to B)
+    ChainedExploit,
+
+    /// One finding mitigates another
+    Mitigates,
+
+    /// Duplicate findings
+    Duplicate,
+
+    /// Shared component
+    SharedComponent,
+
+    /// Shared attack surface
+    SharedAttackSurface,
+
+    /// Information leakage
+    InformationLeakage,
+
+    /// Privilege escalation chain
+    PrivilegeEscalation,
+
+    /// Lateral movement chain
+    LateralMovement,
+
+    /// Data exfiltration chain
+    DataExfiltration,
+
+    /// Prerequisite relationship
+    Prerequisite,
+
+    /// Mutually exclusive findings
+    MutuallyExclusive,
+
+    /// Custom correlation type
+    Custom,
 }
 
 /// Combined risk assessment for correlated findings

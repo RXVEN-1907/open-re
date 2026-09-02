@@ -32,7 +32,7 @@ impl ConfigWatcher {
     }
 
     /// Start watching configuration files
-    pub async fn start(&mut self, paths: Vec<PathBuf>) -> Result<()> {
+    pub async fn start(&mut self, paths: Option<Vec<PathBuf>>) -> Result<()> {
         let config = self.config.clone();
         let tx = self.tx.clone();
 
@@ -56,7 +56,16 @@ impl ConfigWatcher {
             NotifyConfig::default(),
         )?;
 
-        for path in paths {
+        let watch_paths = paths.unwrap_or_else(|| {
+            let config_dir = crate::default_config_dir();
+            vec![
+                config_dir.join("config.toml"),
+                config_dir.join("config.local.toml"),
+                config_dir.join("config.local.json"),
+            ]
+        });
+
+        for path in watch_paths {
             if path.exists() {
                 watcher.watch(&path, RecursiveMode::NonRecursive)?;
                 info!("Watching config file: {}", path.display());
@@ -73,12 +82,17 @@ impl ConfigWatcher {
         tx: &broadcast::Sender<Config>,
         _paths: &[PathBuf],
     ) -> Result<()> {
+        let config_path = crate::config::default_config_path();
+        let config_dir = config_path.parent().unwrap().to_path_buf();
+        let local_config_path = config_dir.join("config.local.toml");
+        let local_json_path = config_dir.join("config.local.json");
+
         let figment = Figment::new()
             .merge(Serialized::defaults(Config::default()))
-            .merge(figment::providers::Toml::file("config.toml"))
-            .merge(figment::providers::Toml::file("config.local.toml"))
+            .merge(figment::providers::Toml::file(&config_path))
+            .merge(figment::providers::Toml::file(&local_config_path))
             .merge(Env::prefixed("OPENRE_").split("__"))
-            .merge(figment::providers::Json::file("config.local.json"));
+            .merge(figment::providers::Json::file(&local_json_path));
 
         let new_config: Config =
             figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))?;

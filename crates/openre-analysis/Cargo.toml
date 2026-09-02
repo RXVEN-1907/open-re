@@ -13,7 +13,7 @@ openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-storage = { path = "../openre-storage" }
 # openre-plugins = { path = "../openre-plugins" }  # Temporarily disabled
-openre-ai = { path = "../openre-ai" }
+# openre-ai = { path = "../openre-ai" }  # Temporarily disabled - compilation errors
 openre-queue = { path = "../openre-queue" }
 openre-telemetry = { path = "../openre-telemetry" }
 tokio = { workspace = true }

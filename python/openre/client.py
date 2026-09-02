@@ -7,10 +7,11 @@ This client provides access to all open-re functionality including:
 - AI-powered code analysis
 - Plugin management
 - AI Security Analyst features (explain, remediate, correlate, prioritize, summarize, query, compare)
+- Evidence-Grounded LLM Service (Phase 8)
 """
 
 import os
-from typing import Optional, List, Dict, Any, AsyncIterator
+from typing import Optional, List, Dict, Any, AsyncIterator, Union
 from dataclasses import dataclass
 from datetime import datetime
 import httpx
@@ -23,6 +24,213 @@ class AuthTokens:
     refresh_token: str
     expires_in: int
     token_type: str = "Bearer"
+
+
+# ==================== Grounded LLM Service Models (Phase 8) ====================
+
+class GroundedEvidenceReference(BaseModel):
+    """Evidence reference with ID for grounding validation."""
+    evidence_id: str
+    evidence_type: str
+    description: str
+    content_preview: str
+
+
+class GroundedAttackScenario(BaseModel):
+    """Attack scenario with evidence grounding."""
+    description: str
+    supporting_evidence: List[str]
+    likelihood: str  # Certain, Likely, Possible, Unlikely, Speculative
+
+
+class ExplanationConfidence(BaseModel):
+    """Confidence level for explanations."""
+    level: str  # High, Medium, Low, Uncertain
+    reason: Optional[str] = None
+
+
+class LlmExplanation(BaseModel):
+    """LLM Explanation grounded in evidence."""
+    finding_id: str
+    root_cause: str
+    security_impact: str
+    attack_scenarios: List[GroundedAttackScenario]
+    confidence: ExplanationConfidence
+    false_positive_considerations: List[str]
+    evidence_references: List[GroundedEvidenceReference]
+    model_info: Dict[str, Any]
+
+
+class CorrelationType(str):
+    SharedRootCause = "SharedRootCause"
+    AttackChain = "AttackChain"
+    SharedTechnology = "SharedTechnology"
+    SharedAttackVector = "SharedAttackVector"
+    SharedConfiguration = "SharedConfiguration"
+
+
+class GroundedCorrelationGroup(BaseModel):
+    """A group of correlated findings sharing evidence."""
+    finding_ids: List[str]
+    correlation_type: str
+    relationship: str
+    shared_evidence_ids: List[str]
+    combined_risk: str
+    mitigation_approach: str
+
+
+class LlmCorrelation(BaseModel):
+    """LLM Correlation grounded in shared evidence."""
+    scan_id: str
+    correlations: List[GroundedCorrelationGroup]
+    risk_assessment: str
+    evidence_references: List[GroundedEvidenceReference]
+    model_info: Dict[str, Any]
+
+
+class GroundedRemediationStep(BaseModel):
+    """Remediation step with evidence grounding."""
+    step_number: int
+    description: str
+    rationale: str
+    supporting_evidence: List[str]
+    technology_notes: Optional[str] = None
+
+
+class GroundedCodeExample(BaseModel):
+    """Code example with evidence grounding."""
+    language: str
+    vulnerable: str
+    fixed: str
+    explanation: str
+    vulnerability_evidence: List[str]
+
+
+class GroundedVerificationStep(BaseModel):
+    """Verification step with evidence grounding."""
+    description: str
+    expected_result: str
+    confirmation_evidence: List[str]
+
+
+class TechnologyGuidance(BaseModel):
+    """Technology-specific remediation guidance."""
+    technology: str
+    version: Optional[str] = None
+    config_changes: List[str]
+    framework_mitigation: Optional[str] = None
+    related_evidence: List[str]
+
+
+class RemediationEffort(str):
+    Trivial = "Trivial"
+    Low = "Low"
+    Medium = "Medium"
+    High = "High"
+    VeryHigh = "VeryHigh"
+
+
+class RemediationPriority(str):
+    Immediate = "Immediate"
+    High = "High"
+    Medium = "Medium"
+    Low = "Low"
+    Deferred = "Deferred"
+
+
+class LlmRemediation(BaseModel):
+    """LLM Remediation grounded in evidence + technology context."""
+    finding_id: str
+    summary: str
+    steps: List[GroundedRemediationStep]
+    code_examples: List[GroundedCodeExample]
+    verification_steps: List[GroundedVerificationStep]
+    effort: str
+    priority: str
+    technology_guidance: List[TechnologyGuidance]
+    evidence_references: List[GroundedEvidenceReference]
+    model_info: Dict[str, Any]
+
+
+class GroundedClaim(BaseModel):
+    """A claim with evidence grounding."""
+    claim: str
+    evidence_ids: List[str]
+    confidence: float
+
+
+class UngroundedClaim(BaseModel):
+    """A claim lacking evidence grounding."""
+    claim: str
+    reason: str
+    suggested_evidence: List[str]
+
+
+class GroundingValidationResult(BaseModel):
+    """Result of grounding validation."""
+    fully_grounded: bool
+    grounded_claims: List[GroundedClaim]
+    ungrounded_claims: List[UngroundedClaim]
+    referenced_evidence_ids: List[str]
+    unused_evidence_ids: List[str]
+
+
+class Audience(str):
+    Developer = "Developer"
+    SecurityEngineer = "SecurityEngineer"
+    Manager = "Manager"
+    Executive = "Executive"
+
+
+class SummaryFinding(BaseModel):
+    """Simplified finding for summaries."""
+    finding_id: str
+    title: str
+    severity: str
+    brief: str
+    priority: str
+
+
+class ExecutiveSummary(BaseModel):
+    """Executive summary for different audiences."""
+    scan_id: str
+    audience: str
+    key_findings: List[SummaryFinding]
+    risk_assessment: str
+    recommended_actions: List[str]
+    business_impact: Optional[str] = None
+    technical_details: Optional[List[str]] = None
+    evidence_references: List[GroundedEvidenceReference]
+    model_info: Dict[str, Any]
+
+
+class RiskChange(BaseModel):
+    """Risk change for comparison."""
+    finding_id: str
+    description: str
+    previous_risk: int
+    current_risk: int
+
+
+class ScanComparison(BaseModel):
+    """Scan comparison result."""
+    base_scan_id: str
+    target_scan_id: str
+    new_findings: List[str]
+    fixed_findings: List[str]
+    increased_risk: List[RiskChange]
+    decreased_risk: List[RiskChange]
+    summary: str
+    security_posture_assessment: str
+    evidence_references: List[GroundedEvidenceReference]
+    model_info: Dict[str, Any]
+
+
+class ModelInfo(BaseModel):
+    """Model information for reproducibility."""
+    model: str
+    version: Optional[str] = None
+    timestamp: datetime
 
 
 class OpenREClient:
@@ -546,6 +754,527 @@ class OpenREClient:
                             break
                         yield data
 
+    # ==================== Phase 8: Evidence-Grounded LLM Service ====================
+
+    async def explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> LlmExplanation:
+        """
+        Explain a security finding with evidence grounding.
+
+        Args:
+            finding_id: The ID of the finding to explain
+            require_evidence: If True, validates that all claims reference evidence IDs
+
+        Returns:
+            LlmExplanation with grounded root cause, impact, attack scenarios, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If require_evidence=True and response has ungrounded claims
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/explain",
+            json={"finding_id": finding_id, "require_evidence": require_evidence},
+        )
+        data = response.json()
+
+        explanation = LlmExplanation(**data)
+
+        # Validate evidence grounding if required
+        if require_evidence:
+            self._validate_explanation_grounding(explanation)
+
+        return explanation
+
+    async def stream_explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> AsyncIterator[str]:
+        """Stream explanation of a security finding with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/explain/stream"
+            params = {"finding_id": finding_id, "require_evidence": str(require_evidence).lower()}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> LlmCorrelation:
+        """
+        Correlate findings based on shared evidence.
+
+        Args:
+            finding_ids: List of finding IDs to correlate
+            min_confidence: Minimum confidence threshold for correlations (0.0-1.0)
+
+        Returns:
+            LlmCorrelation with grouped findings sharing evidence, risk assessment, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If correlations reference non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/correlate",
+            json={"finding_ids": finding_ids, "min_confidence": min_confidence},
+        )
+        data = response.json()
+
+        correlation = LlmCorrelation(**data)
+
+        # Validate evidence grounding
+        self._validate_correlation_grounding(correlation)
+
+        return correlation
+
+    async def stream_correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> AsyncIterator[str]:
+        """Stream correlation of findings with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/correlate/stream"
+            params = {"finding_ids": json.dumps(finding_ids), "min_confidence": str(min_confidence)}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> LlmRemediation:
+        """
+        Generate remediation plan grounded in finding evidence + technology context.
+
+        Args:
+            finding_id: The ID of the finding to remediate
+            context: Optional additional context (technology stack, compliance requirements, etc.)
+
+        Returns:
+            LlmRemediation with steps, code examples, verification steps, technology guidance, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If remediation references non-existent evidence IDs
+        """
+        payload = {"finding_id": finding_id}
+        if context:
+            payload["context"] = context
+
+        response = await self._request(
+            "POST",
+            "/api/analyst/remediate",
+            json=payload,
+        )
+        data = response.json()
+
+        remediation = LlmRemediation(**data)
+
+        # Validate evidence grounding
+        self._validate_remediation_grounding(remediation)
+
+        return remediation
+
+    async def stream_suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream generation of remediation plan with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/remediate/stream"
+            params = {"finding_id": finding_id}
+            if context:
+                params["context"] = json.dumps(context)
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> ExecutiveSummary:
+        """
+        Generate executive summary with evidence grounding.
+
+        Args:
+            scan_id: The ID of the scan to summarize
+            max_findings: Maximum number of findings to include (default: 10)
+            audience: Target audience - "developer", "security_engineer", "manager", "executive" (default: "executive")
+
+        Returns:
+            ExecutiveSummary with key findings, risk assessment, recommended actions, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If summary references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/summarize",
+            json={"scan_id": scan_id, "max_findings": max_findings, "audience": audience},
+        )
+        data = response.json()
+
+        summary = ExecutiveSummary(**data)
+
+        # Validate evidence grounding
+        self._validate_summary_grounding(summary)
+
+        return summary
+
+    async def stream_executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> AsyncIterator[str]:
+        """Stream generation of executive summary with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/summarize/stream"
+            params = {"scan_id": scan_id, "max_findings": str(max_findings), "audience": audience}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> ScanComparison:
+        """
+        Compare two scans for changes with evidence grounding.
+
+        Args:
+            baseline_id: The ID of the baseline scan
+            current_id: The ID of the current scan to compare against baseline
+
+        Returns:
+            ScanComparison with new/fixed findings, risk changes, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If comparison references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/compare",
+            json={"baseline_id": baseline_id, "current_id": current_id},
+        )
+        data = response.json()
+
+        comparison = ScanComparison(**data)
+
+        # Validate evidence grounding
+        self._validate_comparison_grounding(comparison)
+
+        return comparison
+
+    async def stream_compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream comparison of two scans with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/compare/stream"
+            params = {"baseline_id": baseline_id, "current_id": current_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    # ==================== Grounding Validation Helpers ====================
+
+    def _validate_explanation_grounding(self, explanation: LlmExplanation) -> None:
+        """Validate that explanation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in explanation.evidence_references}
+
+        # Check root_cause and security_impact have evidence references
+        for field_name, field_value in [
+            ("root_cause", explanation.root_cause),
+            ("security_impact", explanation.security_impact),
+        ]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Explanation {field_name} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check attack scenarios
+        for scenario in explanation.attack_scenarios:
+            for eid in scenario.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Attack scenario references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_correlation_grounding(self, correlation: LlmCorrelation) -> None:
+        """Validate that correlation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in correlation.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(correlation.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Correlation risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check each correlation group
+        for group in correlation.correlations:
+            for eid in group.shared_evidence_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Correlation group references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            # Check relationship and combined_risk
+            for field_value in [group.relationship, group.combined_risk, group.mitigation_approach]:
+                referenced_ids = self._extract_evidence_ids(field_value)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Correlation group field references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_remediation_grounding(self, remediation: LlmRemediation) -> None:
+        """Validate that remediation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in remediation.evidence_references}
+
+        # Check summary
+        referenced_ids = self._extract_evidence_ids(remediation.summary)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Remediation summary references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check steps
+        for step in remediation.steps:
+            for eid in step.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Remediation step {step.step_number} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if step.rationale:
+                referenced_ids = self._extract_evidence_ids(step.rationale)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Remediation step {step.step_number} rationale references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check code examples
+        for example in remediation.code_examples:
+            for eid in example.vulnerability_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Code example references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if example.explanation:
+                referenced_ids = self._extract_evidence_ids(example.explanation)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Code example explanation references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check verification steps
+        for vstep in remediation.verification_steps:
+            for eid in vstep.confirmation_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Verification step references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technology guidance
+        for tech in remediation.technology_guidance:
+            for eid in tech.related_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Technology guidance for {tech.technology} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_summary_grounding(self, summary: ExecutiveSummary) -> None:
+        """Validate that executive summary claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in summary.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(summary.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Summary risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check recommended_actions
+        for action in summary.recommended_actions:
+            referenced_ids = self._extract_evidence_ids(action)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Recommended action references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check business_impact
+        if summary.business_impact:
+            referenced_ids = self._extract_evidence_ids(summary.business_impact)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Business impact references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technical_details
+        if summary.technical_details:
+            for detail in summary.technical_details:
+                referenced_ids = self._extract_evidence_ids(detail)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Technical detail references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_comparison_grounding(self, comparison: ScanComparison) -> None:
+        """Validate that scan comparison claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in comparison.evidence_references}
+
+        # Check summary and security_posture_assessment
+        for field_value in [comparison.summary, comparison.security_posture_assessment]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Comparison field references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check increased_risk
+        for risk in comparison.increased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Increased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check decreased_risk
+        for risk in comparison.decreased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Decreased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _extract_evidence_ids(self, text: str) -> List[str]:
+        """Extract evidence IDs from text in [Evidence: <id>] format."""
+        import re
+        pattern = r"\[Evidence:\s*([^\]]+)\]"
+        matches = re.findall(pattern, text)
+        return [match.strip() for match in matches]
+
     async def generate_remediation(
         self,
         scan_id: str,
@@ -585,6 +1314,527 @@ class OpenREClient:
                         if data.strip() == "[DONE]":
                             break
                         yield data
+
+    # ==================== Phase 8: Evidence-Grounded LLM Service ====================
+
+    async def explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> LlmExplanation:
+        """
+        Explain a security finding with evidence grounding.
+
+        Args:
+            finding_id: The ID of the finding to explain
+            require_evidence: If True, validates that all claims reference evidence IDs
+
+        Returns:
+            LlmExplanation with grounded root cause, impact, attack scenarios, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If require_evidence=True and response has ungrounded claims
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/explain",
+            json={"finding_id": finding_id, "require_evidence": require_evidence},
+        )
+        data = response.json()
+
+        explanation = LlmExplanation(**data)
+
+        # Validate evidence grounding if required
+        if require_evidence:
+            self._validate_explanation_grounding(explanation)
+
+        return explanation
+
+    async def stream_explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> AsyncIterator[str]:
+        """Stream explanation of a security finding with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/explain/stream"
+            params = {"finding_id": finding_id, "require_evidence": str(require_evidence).lower()}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> LlmCorrelation:
+        """
+        Correlate findings based on shared evidence.
+
+        Args:
+            finding_ids: List of finding IDs to correlate
+            min_confidence: Minimum confidence threshold for correlations (0.0-1.0)
+
+        Returns:
+            LlmCorrelation with grouped findings sharing evidence, risk assessment, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If correlations reference non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/correlate",
+            json={"finding_ids": finding_ids, "min_confidence": min_confidence},
+        )
+        data = response.json()
+
+        correlation = LlmCorrelation(**data)
+
+        # Validate evidence grounding
+        self._validate_correlation_grounding(correlation)
+
+        return correlation
+
+    async def stream_correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> AsyncIterator[str]:
+        """Stream correlation of findings with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/correlate/stream"
+            params = {"finding_ids": json.dumps(finding_ids), "min_confidence": str(min_confidence)}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> LlmRemediation:
+        """
+        Generate remediation plan grounded in finding evidence + technology context.
+
+        Args:
+            finding_id: The ID of the finding to remediate
+            context: Optional additional context (technology stack, compliance requirements, etc.)
+
+        Returns:
+            LlmRemediation with steps, code examples, verification steps, technology guidance, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If remediation references non-existent evidence IDs
+        """
+        payload = {"finding_id": finding_id}
+        if context:
+            payload["context"] = context
+
+        response = await self._request(
+            "POST",
+            "/api/analyst/remediate",
+            json=payload,
+        )
+        data = response.json()
+
+        remediation = LlmRemediation(**data)
+
+        # Validate evidence grounding
+        self._validate_remediation_grounding(remediation)
+
+        return remediation
+
+    async def stream_suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream generation of remediation plan with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/remediate/stream"
+            params = {"finding_id": finding_id}
+            if context:
+                params["context"] = json.dumps(context)
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> ExecutiveSummary:
+        """
+        Generate executive summary with evidence grounding.
+
+        Args:
+            scan_id: The ID of the scan to summarize
+            max_findings: Maximum number of findings to include (default: 10)
+            audience: Target audience - "developer", "security_engineer", "manager", "executive" (default: "executive")
+
+        Returns:
+            ExecutiveSummary with key findings, risk assessment, recommended actions, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If summary references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/summarize",
+            json={"scan_id": scan_id, "max_findings": max_findings, "audience": audience},
+        )
+        data = response.json()
+
+        summary = ExecutiveSummary(**data)
+
+        # Validate evidence grounding
+        self._validate_summary_grounding(summary)
+
+        return summary
+
+    async def stream_executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> AsyncIterator[str]:
+        """Stream generation of executive summary with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/summarize/stream"
+            params = {"scan_id": scan_id, "max_findings": str(max_findings), "audience": audience}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> ScanComparison:
+        """
+        Compare two scans for changes with evidence grounding.
+
+        Args:
+            baseline_id: The ID of the baseline scan
+            current_id: The ID of the current scan to compare against baseline
+
+        Returns:
+            ScanComparison with new/fixed findings, risk changes, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If comparison references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/compare",
+            json={"baseline_id": baseline_id, "current_id": current_id},
+        )
+        data = response.json()
+
+        comparison = ScanComparison(**data)
+
+        # Validate evidence grounding
+        self._validate_comparison_grounding(comparison)
+
+        return comparison
+
+    async def stream_compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream comparison of two scans with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/compare/stream"
+            params = {"baseline_id": baseline_id, "current_id": current_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    # ==================== Grounding Validation Helpers ====================
+
+    def _validate_explanation_grounding(self, explanation: LlmExplanation) -> None:
+        """Validate that explanation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in explanation.evidence_references}
+
+        # Check root_cause and security_impact have evidence references
+        for field_name, field_value in [
+            ("root_cause", explanation.root_cause),
+            ("security_impact", explanation.security_impact),
+        ]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Explanation {field_name} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check attack scenarios
+        for scenario in explanation.attack_scenarios:
+            for eid in scenario.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Attack scenario references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_correlation_grounding(self, correlation: LlmCorrelation) -> None:
+        """Validate that correlation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in correlation.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(correlation.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Correlation risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check each correlation group
+        for group in correlation.correlations:
+            for eid in group.shared_evidence_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Correlation group references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            # Check relationship and combined_risk
+            for field_value in [group.relationship, group.combined_risk, group.mitigation_approach]:
+                referenced_ids = self._extract_evidence_ids(field_value)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Correlation group field references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_remediation_grounding(self, remediation: LlmRemediation) -> None:
+        """Validate that remediation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in remediation.evidence_references}
+
+        # Check summary
+        referenced_ids = self._extract_evidence_ids(remediation.summary)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Remediation summary references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check steps
+        for step in remediation.steps:
+            for eid in step.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Remediation step {step.step_number} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if step.rationale:
+                referenced_ids = self._extract_evidence_ids(step.rationale)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Remediation step {step.step_number} rationale references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check code examples
+        for example in remediation.code_examples:
+            for eid in example.vulnerability_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Code example references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if example.explanation:
+                referenced_ids = self._extract_evidence_ids(example.explanation)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Code example explanation references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check verification steps
+        for vstep in remediation.verification_steps:
+            for eid in vstep.confirmation_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Verification step references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technology guidance
+        for tech in remediation.technology_guidance:
+            for eid in tech.related_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Technology guidance for {tech.technology} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_summary_grounding(self, summary: ExecutiveSummary) -> None:
+        """Validate that executive summary claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in summary.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(summary.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Summary risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check recommended_actions
+        for action in summary.recommended_actions:
+            referenced_ids = self._extract_evidence_ids(action)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Recommended action references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check business_impact
+        if summary.business_impact:
+            referenced_ids = self._extract_evidence_ids(summary.business_impact)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Business impact references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technical_details
+        if summary.technical_details:
+            for detail in summary.technical_details:
+                referenced_ids = self._extract_evidence_ids(detail)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Technical detail references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_comparison_grounding(self, comparison: ScanComparison) -> None:
+        """Validate that scan comparison claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in comparison.evidence_references}
+
+        # Check summary and security_posture_assessment
+        for field_value in [comparison.summary, comparison.security_posture_assessment]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Comparison field references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check increased_risk
+        for risk in comparison.increased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Increased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check decreased_risk
+        for risk in comparison.decreased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Decreased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _extract_evidence_ids(self, text: str) -> List[str]:
+        """Extract evidence IDs from text in [Evidence: <id>] format."""
+        import re
+        pattern = r"\[Evidence:\s*([^\]]+)\]"
+        matches = re.findall(pattern, text)
+        return [match.strip() for match in matches]
 
     async def correlate_findings(
         self,
@@ -628,6 +1878,527 @@ class OpenREClient:
                             break
                         yield data
 
+    # ==================== Phase 8: Evidence-Grounded LLM Service ====================
+
+    async def explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> LlmExplanation:
+        """
+        Explain a security finding with evidence grounding.
+
+        Args:
+            finding_id: The ID of the finding to explain
+            require_evidence: If True, validates that all claims reference evidence IDs
+
+        Returns:
+            LlmExplanation with grounded root cause, impact, attack scenarios, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If require_evidence=True and response has ungrounded claims
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/explain",
+            json={"finding_id": finding_id, "require_evidence": require_evidence},
+        )
+        data = response.json()
+
+        explanation = LlmExplanation(**data)
+
+        # Validate evidence grounding if required
+        if require_evidence:
+            self._validate_explanation_grounding(explanation)
+
+        return explanation
+
+    async def stream_explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> AsyncIterator[str]:
+        """Stream explanation of a security finding with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/explain/stream"
+            params = {"finding_id": finding_id, "require_evidence": str(require_evidence).lower()}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> LlmCorrelation:
+        """
+        Correlate findings based on shared evidence.
+
+        Args:
+            finding_ids: List of finding IDs to correlate
+            min_confidence: Minimum confidence threshold for correlations (0.0-1.0)
+
+        Returns:
+            LlmCorrelation with grouped findings sharing evidence, risk assessment, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If correlations reference non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/correlate",
+            json={"finding_ids": finding_ids, "min_confidence": min_confidence},
+        )
+        data = response.json()
+
+        correlation = LlmCorrelation(**data)
+
+        # Validate evidence grounding
+        self._validate_correlation_grounding(correlation)
+
+        return correlation
+
+    async def stream_correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> AsyncIterator[str]:
+        """Stream correlation of findings with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/correlate/stream"
+            params = {"finding_ids": json.dumps(finding_ids), "min_confidence": str(min_confidence)}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> LlmRemediation:
+        """
+        Generate remediation plan grounded in finding evidence + technology context.
+
+        Args:
+            finding_id: The ID of the finding to remediate
+            context: Optional additional context (technology stack, compliance requirements, etc.)
+
+        Returns:
+            LlmRemediation with steps, code examples, verification steps, technology guidance, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If remediation references non-existent evidence IDs
+        """
+        payload = {"finding_id": finding_id}
+        if context:
+            payload["context"] = context
+
+        response = await self._request(
+            "POST",
+            "/api/analyst/remediate",
+            json=payload,
+        )
+        data = response.json()
+
+        remediation = LlmRemediation(**data)
+
+        # Validate evidence grounding
+        self._validate_remediation_grounding(remediation)
+
+        return remediation
+
+    async def stream_suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream generation of remediation plan with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/remediate/stream"
+            params = {"finding_id": finding_id}
+            if context:
+                params["context"] = json.dumps(context)
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> ExecutiveSummary:
+        """
+        Generate executive summary with evidence grounding.
+
+        Args:
+            scan_id: The ID of the scan to summarize
+            max_findings: Maximum number of findings to include (default: 10)
+            audience: Target audience - "developer", "security_engineer", "manager", "executive" (default: "executive")
+
+        Returns:
+            ExecutiveSummary with key findings, risk assessment, recommended actions, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If summary references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/summarize",
+            json={"scan_id": scan_id, "max_findings": max_findings, "audience": audience},
+        )
+        data = response.json()
+
+        summary = ExecutiveSummary(**data)
+
+        # Validate evidence grounding
+        self._validate_summary_grounding(summary)
+
+        return summary
+
+    async def stream_executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> AsyncIterator[str]:
+        """Stream generation of executive summary with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/summarize/stream"
+            params = {"scan_id": scan_id, "max_findings": str(max_findings), "audience": audience}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> ScanComparison:
+        """
+        Compare two scans for changes with evidence grounding.
+
+        Args:
+            baseline_id: The ID of the baseline scan
+            current_id: The ID of the current scan to compare against baseline
+
+        Returns:
+            ScanComparison with new/fixed findings, risk changes, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If comparison references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/compare",
+            json={"baseline_id": baseline_id, "current_id": current_id},
+        )
+        data = response.json()
+
+        comparison = ScanComparison(**data)
+
+        # Validate evidence grounding
+        self._validate_comparison_grounding(comparison)
+
+        return comparison
+
+    async def stream_compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream comparison of two scans with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/compare/stream"
+            params = {"baseline_id": baseline_id, "current_id": current_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    # ==================== Grounding Validation Helpers ====================
+
+    def _validate_explanation_grounding(self, explanation: LlmExplanation) -> None:
+        """Validate that explanation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in explanation.evidence_references}
+
+        # Check root_cause and security_impact have evidence references
+        for field_name, field_value in [
+            ("root_cause", explanation.root_cause),
+            ("security_impact", explanation.security_impact),
+        ]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Explanation {field_name} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check attack scenarios
+        for scenario in explanation.attack_scenarios:
+            for eid in scenario.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Attack scenario references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_correlation_grounding(self, correlation: LlmCorrelation) -> None:
+        """Validate that correlation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in correlation.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(correlation.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Correlation risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check each correlation group
+        for group in correlation.correlations:
+            for eid in group.shared_evidence_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Correlation group references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            # Check relationship and combined_risk
+            for field_value in [group.relationship, group.combined_risk, group.mitigation_approach]:
+                referenced_ids = self._extract_evidence_ids(field_value)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Correlation group field references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_remediation_grounding(self, remediation: LlmRemediation) -> None:
+        """Validate that remediation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in remediation.evidence_references}
+
+        # Check summary
+        referenced_ids = self._extract_evidence_ids(remediation.summary)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Remediation summary references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check steps
+        for step in remediation.steps:
+            for eid in step.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Remediation step {step.step_number} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if step.rationale:
+                referenced_ids = self._extract_evidence_ids(step.rationale)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Remediation step {step.step_number} rationale references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check code examples
+        for example in remediation.code_examples:
+            for eid in example.vulnerability_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Code example references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if example.explanation:
+                referenced_ids = self._extract_evidence_ids(example.explanation)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Code example explanation references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check verification steps
+        for vstep in remediation.verification_steps:
+            for eid in vstep.confirmation_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Verification step references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technology guidance
+        for tech in remediation.technology_guidance:
+            for eid in tech.related_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Technology guidance for {tech.technology} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_summary_grounding(self, summary: ExecutiveSummary) -> None:
+        """Validate that executive summary claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in summary.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(summary.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Summary risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check recommended_actions
+        for action in summary.recommended_actions:
+            referenced_ids = self._extract_evidence_ids(action)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Recommended action references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check business_impact
+        if summary.business_impact:
+            referenced_ids = self._extract_evidence_ids(summary.business_impact)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Business impact references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technical_details
+        if summary.technical_details:
+            for detail in summary.technical_details:
+                referenced_ids = self._extract_evidence_ids(detail)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Technical detail references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_comparison_grounding(self, comparison: ScanComparison) -> None:
+        """Validate that scan comparison claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in comparison.evidence_references}
+
+        # Check summary and security_posture_assessment
+        for field_value in [comparison.summary, comparison.security_posture_assessment]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Comparison field references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check increased_risk
+        for risk in comparison.increased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Increased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check decreased_risk
+        for risk in comparison.decreased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Decreased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _extract_evidence_ids(self, text: str) -> List[str]:
+        """Extract evidence IDs from text in [Evidence: <id>] format."""
+        import re
+        pattern = r"\[Evidence:\s*([^\]]+)\]"
+        matches = re.findall(pattern, text)
+        return [match.strip() for match in matches]
+
     async def prioritize_findings(
         self,
         scan_id: str,
@@ -665,6 +2436,527 @@ class OpenREClient:
                         if data.strip() == "[DONE]":
                             break
                         yield data
+
+    # ==================== Phase 8: Evidence-Grounded LLM Service ====================
+
+    async def explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> LlmExplanation:
+        """
+        Explain a security finding with evidence grounding.
+
+        Args:
+            finding_id: The ID of the finding to explain
+            require_evidence: If True, validates that all claims reference evidence IDs
+
+        Returns:
+            LlmExplanation with grounded root cause, impact, attack scenarios, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If require_evidence=True and response has ungrounded claims
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/explain",
+            json={"finding_id": finding_id, "require_evidence": require_evidence},
+        )
+        data = response.json()
+
+        explanation = LlmExplanation(**data)
+
+        # Validate evidence grounding if required
+        if require_evidence:
+            self._validate_explanation_grounding(explanation)
+
+        return explanation
+
+    async def stream_explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> AsyncIterator[str]:
+        """Stream explanation of a security finding with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/explain/stream"
+            params = {"finding_id": finding_id, "require_evidence": str(require_evidence).lower()}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> LlmCorrelation:
+        """
+        Correlate findings based on shared evidence.
+
+        Args:
+            finding_ids: List of finding IDs to correlate
+            min_confidence: Minimum confidence threshold for correlations (0.0-1.0)
+
+        Returns:
+            LlmCorrelation with grouped findings sharing evidence, risk assessment, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If correlations reference non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/correlate",
+            json={"finding_ids": finding_ids, "min_confidence": min_confidence},
+        )
+        data = response.json()
+
+        correlation = LlmCorrelation(**data)
+
+        # Validate evidence grounding
+        self._validate_correlation_grounding(correlation)
+
+        return correlation
+
+    async def stream_correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> AsyncIterator[str]:
+        """Stream correlation of findings with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/correlate/stream"
+            params = {"finding_ids": json.dumps(finding_ids), "min_confidence": str(min_confidence)}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> LlmRemediation:
+        """
+        Generate remediation plan grounded in finding evidence + technology context.
+
+        Args:
+            finding_id: The ID of the finding to remediate
+            context: Optional additional context (technology stack, compliance requirements, etc.)
+
+        Returns:
+            LlmRemediation with steps, code examples, verification steps, technology guidance, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If remediation references non-existent evidence IDs
+        """
+        payload = {"finding_id": finding_id}
+        if context:
+            payload["context"] = context
+
+        response = await self._request(
+            "POST",
+            "/api/analyst/remediate",
+            json=payload,
+        )
+        data = response.json()
+
+        remediation = LlmRemediation(**data)
+
+        # Validate evidence grounding
+        self._validate_remediation_grounding(remediation)
+
+        return remediation
+
+    async def stream_suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream generation of remediation plan with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/remediate/stream"
+            params = {"finding_id": finding_id}
+            if context:
+                params["context"] = json.dumps(context)
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> ExecutiveSummary:
+        """
+        Generate executive summary with evidence grounding.
+
+        Args:
+            scan_id: The ID of the scan to summarize
+            max_findings: Maximum number of findings to include (default: 10)
+            audience: Target audience - "developer", "security_engineer", "manager", "executive" (default: "executive")
+
+        Returns:
+            ExecutiveSummary with key findings, risk assessment, recommended actions, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If summary references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/summarize",
+            json={"scan_id": scan_id, "max_findings": max_findings, "audience": audience},
+        )
+        data = response.json()
+
+        summary = ExecutiveSummary(**data)
+
+        # Validate evidence grounding
+        self._validate_summary_grounding(summary)
+
+        return summary
+
+    async def stream_executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> AsyncIterator[str]:
+        """Stream generation of executive summary with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/summarize/stream"
+            params = {"scan_id": scan_id, "max_findings": str(max_findings), "audience": audience}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> ScanComparison:
+        """
+        Compare two scans for changes with evidence grounding.
+
+        Args:
+            baseline_id: The ID of the baseline scan
+            current_id: The ID of the current scan to compare against baseline
+
+        Returns:
+            ScanComparison with new/fixed findings, risk changes, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If comparison references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/compare",
+            json={"baseline_id": baseline_id, "current_id": current_id},
+        )
+        data = response.json()
+
+        comparison = ScanComparison(**data)
+
+        # Validate evidence grounding
+        self._validate_comparison_grounding(comparison)
+
+        return comparison
+
+    async def stream_compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream comparison of two scans with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/compare/stream"
+            params = {"baseline_id": baseline_id, "current_id": current_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    # ==================== Grounding Validation Helpers ====================
+
+    def _validate_explanation_grounding(self, explanation: LlmExplanation) -> None:
+        """Validate that explanation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in explanation.evidence_references}
+
+        # Check root_cause and security_impact have evidence references
+        for field_name, field_value in [
+            ("root_cause", explanation.root_cause),
+            ("security_impact", explanation.security_impact),
+        ]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Explanation {field_name} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check attack scenarios
+        for scenario in explanation.attack_scenarios:
+            for eid in scenario.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Attack scenario references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_correlation_grounding(self, correlation: LlmCorrelation) -> None:
+        """Validate that correlation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in correlation.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(correlation.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Correlation risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check each correlation group
+        for group in correlation.correlations:
+            for eid in group.shared_evidence_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Correlation group references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            # Check relationship and combined_risk
+            for field_value in [group.relationship, group.combined_risk, group.mitigation_approach]:
+                referenced_ids = self._extract_evidence_ids(field_value)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Correlation group field references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_remediation_grounding(self, remediation: LlmRemediation) -> None:
+        """Validate that remediation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in remediation.evidence_references}
+
+        # Check summary
+        referenced_ids = self._extract_evidence_ids(remediation.summary)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Remediation summary references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check steps
+        for step in remediation.steps:
+            for eid in step.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Remediation step {step.step_number} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if step.rationale:
+                referenced_ids = self._extract_evidence_ids(step.rationale)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Remediation step {step.step_number} rationale references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check code examples
+        for example in remediation.code_examples:
+            for eid in example.vulnerability_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Code example references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if example.explanation:
+                referenced_ids = self._extract_evidence_ids(example.explanation)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Code example explanation references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check verification steps
+        for vstep in remediation.verification_steps:
+            for eid in vstep.confirmation_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Verification step references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technology guidance
+        for tech in remediation.technology_guidance:
+            for eid in tech.related_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Technology guidance for {tech.technology} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_summary_grounding(self, summary: ExecutiveSummary) -> None:
+        """Validate that executive summary claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in summary.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(summary.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Summary risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check recommended_actions
+        for action in summary.recommended_actions:
+            referenced_ids = self._extract_evidence_ids(action)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Recommended action references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check business_impact
+        if summary.business_impact:
+            referenced_ids = self._extract_evidence_ids(summary.business_impact)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Business impact references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technical_details
+        if summary.technical_details:
+            for detail in summary.technical_details:
+                referenced_ids = self._extract_evidence_ids(detail)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Technical detail references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_comparison_grounding(self, comparison: ScanComparison) -> None:
+        """Validate that scan comparison claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in comparison.evidence_references}
+
+        # Check summary and security_posture_assessment
+        for field_value in [comparison.summary, comparison.security_posture_assessment]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Comparison field references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check increased_risk
+        for risk in comparison.increased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Increased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check decreased_risk
+        for risk in comparison.decreased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Decreased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _extract_evidence_ids(self, text: str) -> List[str]:
+        """Extract evidence IDs from text in [Evidence: <id>] format."""
+        import re
+        pattern = r"\[Evidence:\s*([^\]]+)\]"
+        matches = re.findall(pattern, text)
+        return [match.strip() for match in matches]
 
     async def executive_summary(
         self,
@@ -706,6 +2998,527 @@ class OpenREClient:
                             break
                         yield data
 
+    # ==================== Phase 8: Evidence-Grounded LLM Service ====================
+
+    async def explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> LlmExplanation:
+        """
+        Explain a security finding with evidence grounding.
+
+        Args:
+            finding_id: The ID of the finding to explain
+            require_evidence: If True, validates that all claims reference evidence IDs
+
+        Returns:
+            LlmExplanation with grounded root cause, impact, attack scenarios, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If require_evidence=True and response has ungrounded claims
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/explain",
+            json={"finding_id": finding_id, "require_evidence": require_evidence},
+        )
+        data = response.json()
+
+        explanation = LlmExplanation(**data)
+
+        # Validate evidence grounding if required
+        if require_evidence:
+            self._validate_explanation_grounding(explanation)
+
+        return explanation
+
+    async def stream_explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> AsyncIterator[str]:
+        """Stream explanation of a security finding with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/explain/stream"
+            params = {"finding_id": finding_id, "require_evidence": str(require_evidence).lower()}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> LlmCorrelation:
+        """
+        Correlate findings based on shared evidence.
+
+        Args:
+            finding_ids: List of finding IDs to correlate
+            min_confidence: Minimum confidence threshold for correlations (0.0-1.0)
+
+        Returns:
+            LlmCorrelation with grouped findings sharing evidence, risk assessment, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If correlations reference non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/correlate",
+            json={"finding_ids": finding_ids, "min_confidence": min_confidence},
+        )
+        data = response.json()
+
+        correlation = LlmCorrelation(**data)
+
+        # Validate evidence grounding
+        self._validate_correlation_grounding(correlation)
+
+        return correlation
+
+    async def stream_correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> AsyncIterator[str]:
+        """Stream correlation of findings with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/correlate/stream"
+            params = {"finding_ids": json.dumps(finding_ids), "min_confidence": str(min_confidence)}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> LlmRemediation:
+        """
+        Generate remediation plan grounded in finding evidence + technology context.
+
+        Args:
+            finding_id: The ID of the finding to remediate
+            context: Optional additional context (technology stack, compliance requirements, etc.)
+
+        Returns:
+            LlmRemediation with steps, code examples, verification steps, technology guidance, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If remediation references non-existent evidence IDs
+        """
+        payload = {"finding_id": finding_id}
+        if context:
+            payload["context"] = context
+
+        response = await self._request(
+            "POST",
+            "/api/analyst/remediate",
+            json=payload,
+        )
+        data = response.json()
+
+        remediation = LlmRemediation(**data)
+
+        # Validate evidence grounding
+        self._validate_remediation_grounding(remediation)
+
+        return remediation
+
+    async def stream_suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream generation of remediation plan with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/remediate/stream"
+            params = {"finding_id": finding_id}
+            if context:
+                params["context"] = json.dumps(context)
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> ExecutiveSummary:
+        """
+        Generate executive summary with evidence grounding.
+
+        Args:
+            scan_id: The ID of the scan to summarize
+            max_findings: Maximum number of findings to include (default: 10)
+            audience: Target audience - "developer", "security_engineer", "manager", "executive" (default: "executive")
+
+        Returns:
+            ExecutiveSummary with key findings, risk assessment, recommended actions, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If summary references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/summarize",
+            json={"scan_id": scan_id, "max_findings": max_findings, "audience": audience},
+        )
+        data = response.json()
+
+        summary = ExecutiveSummary(**data)
+
+        # Validate evidence grounding
+        self._validate_summary_grounding(summary)
+
+        return summary
+
+    async def stream_executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> AsyncIterator[str]:
+        """Stream generation of executive summary with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/summarize/stream"
+            params = {"scan_id": scan_id, "max_findings": str(max_findings), "audience": audience}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> ScanComparison:
+        """
+        Compare two scans for changes with evidence grounding.
+
+        Args:
+            baseline_id: The ID of the baseline scan
+            current_id: The ID of the current scan to compare against baseline
+
+        Returns:
+            ScanComparison with new/fixed findings, risk changes, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If comparison references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/compare",
+            json={"baseline_id": baseline_id, "current_id": current_id},
+        )
+        data = response.json()
+
+        comparison = ScanComparison(**data)
+
+        # Validate evidence grounding
+        self._validate_comparison_grounding(comparison)
+
+        return comparison
+
+    async def stream_compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream comparison of two scans with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/compare/stream"
+            params = {"baseline_id": baseline_id, "current_id": current_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    # ==================== Grounding Validation Helpers ====================
+
+    def _validate_explanation_grounding(self, explanation: LlmExplanation) -> None:
+        """Validate that explanation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in explanation.evidence_references}
+
+        # Check root_cause and security_impact have evidence references
+        for field_name, field_value in [
+            ("root_cause", explanation.root_cause),
+            ("security_impact", explanation.security_impact),
+        ]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Explanation {field_name} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check attack scenarios
+        for scenario in explanation.attack_scenarios:
+            for eid in scenario.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Attack scenario references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_correlation_grounding(self, correlation: LlmCorrelation) -> None:
+        """Validate that correlation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in correlation.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(correlation.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Correlation risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check each correlation group
+        for group in correlation.correlations:
+            for eid in group.shared_evidence_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Correlation group references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            # Check relationship and combined_risk
+            for field_value in [group.relationship, group.combined_risk, group.mitigation_approach]:
+                referenced_ids = self._extract_evidence_ids(field_value)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Correlation group field references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_remediation_grounding(self, remediation: LlmRemediation) -> None:
+        """Validate that remediation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in remediation.evidence_references}
+
+        # Check summary
+        referenced_ids = self._extract_evidence_ids(remediation.summary)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Remediation summary references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check steps
+        for step in remediation.steps:
+            for eid in step.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Remediation step {step.step_number} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if step.rationale:
+                referenced_ids = self._extract_evidence_ids(step.rationale)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Remediation step {step.step_number} rationale references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check code examples
+        for example in remediation.code_examples:
+            for eid in example.vulnerability_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Code example references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if example.explanation:
+                referenced_ids = self._extract_evidence_ids(example.explanation)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Code example explanation references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check verification steps
+        for vstep in remediation.verification_steps:
+            for eid in vstep.confirmation_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Verification step references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technology guidance
+        for tech in remediation.technology_guidance:
+            for eid in tech.related_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Technology guidance for {tech.technology} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_summary_grounding(self, summary: ExecutiveSummary) -> None:
+        """Validate that executive summary claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in summary.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(summary.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Summary risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check recommended_actions
+        for action in summary.recommended_actions:
+            referenced_ids = self._extract_evidence_ids(action)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Recommended action references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check business_impact
+        if summary.business_impact:
+            referenced_ids = self._extract_evidence_ids(summary.business_impact)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Business impact references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technical_details
+        if summary.technical_details:
+            for detail in summary.technical_details:
+                referenced_ids = self._extract_evidence_ids(detail)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Technical detail references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_comparison_grounding(self, comparison: ScanComparison) -> None:
+        """Validate that scan comparison claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in comparison.evidence_references}
+
+        # Check summary and security_posture_assessment
+        for field_value in [comparison.summary, comparison.security_posture_assessment]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Comparison field references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check increased_risk
+        for risk in comparison.increased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Increased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check decreased_risk
+        for risk in comparison.decreased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Decreased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _extract_evidence_ids(self, text: str) -> List[str]:
+        """Extract evidence IDs from text in [Evidence: <id>] format."""
+        import re
+        pattern = r"\[Evidence:\s*([^\]]+)\]"
+        matches = re.findall(pattern, text)
+        return [match.strip() for match in matches]
+
     async def query_findings(
         self,
         scan_id: str,
@@ -746,6 +3559,527 @@ class OpenREClient:
                             break
                         yield data
 
+    # ==================== Phase 8: Evidence-Grounded LLM Service ====================
+
+    async def explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> LlmExplanation:
+        """
+        Explain a security finding with evidence grounding.
+
+        Args:
+            finding_id: The ID of the finding to explain
+            require_evidence: If True, validates that all claims reference evidence IDs
+
+        Returns:
+            LlmExplanation with grounded root cause, impact, attack scenarios, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If require_evidence=True and response has ungrounded claims
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/explain",
+            json={"finding_id": finding_id, "require_evidence": require_evidence},
+        )
+        data = response.json()
+
+        explanation = LlmExplanation(**data)
+
+        # Validate evidence grounding if required
+        if require_evidence:
+            self._validate_explanation_grounding(explanation)
+
+        return explanation
+
+    async def stream_explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> AsyncIterator[str]:
+        """Stream explanation of a security finding with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/explain/stream"
+            params = {"finding_id": finding_id, "require_evidence": str(require_evidence).lower()}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> LlmCorrelation:
+        """
+        Correlate findings based on shared evidence.
+
+        Args:
+            finding_ids: List of finding IDs to correlate
+            min_confidence: Minimum confidence threshold for correlations (0.0-1.0)
+
+        Returns:
+            LlmCorrelation with grouped findings sharing evidence, risk assessment, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If correlations reference non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/correlate",
+            json={"finding_ids": finding_ids, "min_confidence": min_confidence},
+        )
+        data = response.json()
+
+        correlation = LlmCorrelation(**data)
+
+        # Validate evidence grounding
+        self._validate_correlation_grounding(correlation)
+
+        return correlation
+
+    async def stream_correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> AsyncIterator[str]:
+        """Stream correlation of findings with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/correlate/stream"
+            params = {"finding_ids": json.dumps(finding_ids), "min_confidence": str(min_confidence)}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> LlmRemediation:
+        """
+        Generate remediation plan grounded in finding evidence + technology context.
+
+        Args:
+            finding_id: The ID of the finding to remediate
+            context: Optional additional context (technology stack, compliance requirements, etc.)
+
+        Returns:
+            LlmRemediation with steps, code examples, verification steps, technology guidance, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If remediation references non-existent evidence IDs
+        """
+        payload = {"finding_id": finding_id}
+        if context:
+            payload["context"] = context
+
+        response = await self._request(
+            "POST",
+            "/api/analyst/remediate",
+            json=payload,
+        )
+        data = response.json()
+
+        remediation = LlmRemediation(**data)
+
+        # Validate evidence grounding
+        self._validate_remediation_grounding(remediation)
+
+        return remediation
+
+    async def stream_suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream generation of remediation plan with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/remediate/stream"
+            params = {"finding_id": finding_id}
+            if context:
+                params["context"] = json.dumps(context)
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> ExecutiveSummary:
+        """
+        Generate executive summary with evidence grounding.
+
+        Args:
+            scan_id: The ID of the scan to summarize
+            max_findings: Maximum number of findings to include (default: 10)
+            audience: Target audience - "developer", "security_engineer", "manager", "executive" (default: "executive")
+
+        Returns:
+            ExecutiveSummary with key findings, risk assessment, recommended actions, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If summary references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/summarize",
+            json={"scan_id": scan_id, "max_findings": max_findings, "audience": audience},
+        )
+        data = response.json()
+
+        summary = ExecutiveSummary(**data)
+
+        # Validate evidence grounding
+        self._validate_summary_grounding(summary)
+
+        return summary
+
+    async def stream_executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> AsyncIterator[str]:
+        """Stream generation of executive summary with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/summarize/stream"
+            params = {"scan_id": scan_id, "max_findings": str(max_findings), "audience": audience}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> ScanComparison:
+        """
+        Compare two scans for changes with evidence grounding.
+
+        Args:
+            baseline_id: The ID of the baseline scan
+            current_id: The ID of the current scan to compare against baseline
+
+        Returns:
+            ScanComparison with new/fixed findings, risk changes, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If comparison references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/compare",
+            json={"baseline_id": baseline_id, "current_id": current_id},
+        )
+        data = response.json()
+
+        comparison = ScanComparison(**data)
+
+        # Validate evidence grounding
+        self._validate_comparison_grounding(comparison)
+
+        return comparison
+
+    async def stream_compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream comparison of two scans with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/compare/stream"
+            params = {"baseline_id": baseline_id, "current_id": current_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    # ==================== Grounding Validation Helpers ====================
+
+    def _validate_explanation_grounding(self, explanation: LlmExplanation) -> None:
+        """Validate that explanation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in explanation.evidence_references}
+
+        # Check root_cause and security_impact have evidence references
+        for field_name, field_value in [
+            ("root_cause", explanation.root_cause),
+            ("security_impact", explanation.security_impact),
+        ]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Explanation {field_name} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check attack scenarios
+        for scenario in explanation.attack_scenarios:
+            for eid in scenario.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Attack scenario references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_correlation_grounding(self, correlation: LlmCorrelation) -> None:
+        """Validate that correlation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in correlation.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(correlation.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Correlation risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check each correlation group
+        for group in correlation.correlations:
+            for eid in group.shared_evidence_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Correlation group references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            # Check relationship and combined_risk
+            for field_value in [group.relationship, group.combined_risk, group.mitigation_approach]:
+                referenced_ids = self._extract_evidence_ids(field_value)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Correlation group field references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_remediation_grounding(self, remediation: LlmRemediation) -> None:
+        """Validate that remediation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in remediation.evidence_references}
+
+        # Check summary
+        referenced_ids = self._extract_evidence_ids(remediation.summary)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Remediation summary references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check steps
+        for step in remediation.steps:
+            for eid in step.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Remediation step {step.step_number} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if step.rationale:
+                referenced_ids = self._extract_evidence_ids(step.rationale)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Remediation step {step.step_number} rationale references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check code examples
+        for example in remediation.code_examples:
+            for eid in example.vulnerability_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Code example references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if example.explanation:
+                referenced_ids = self._extract_evidence_ids(example.explanation)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Code example explanation references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check verification steps
+        for vstep in remediation.verification_steps:
+            for eid in vstep.confirmation_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Verification step references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technology guidance
+        for tech in remediation.technology_guidance:
+            for eid in tech.related_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Technology guidance for {tech.technology} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_summary_grounding(self, summary: ExecutiveSummary) -> None:
+        """Validate that executive summary claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in summary.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(summary.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Summary risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check recommended_actions
+        for action in summary.recommended_actions:
+            referenced_ids = self._extract_evidence_ids(action)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Recommended action references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check business_impact
+        if summary.business_impact:
+            referenced_ids = self._extract_evidence_ids(summary.business_impact)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Business impact references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technical_details
+        if summary.technical_details:
+            for detail in summary.technical_details:
+                referenced_ids = self._extract_evidence_ids(detail)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Technical detail references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_comparison_grounding(self, comparison: ScanComparison) -> None:
+        """Validate that scan comparison claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in comparison.evidence_references}
+
+        # Check summary and security_posture_assessment
+        for field_value in [comparison.summary, comparison.security_posture_assessment]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Comparison field references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check increased_risk
+        for risk in comparison.increased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Increased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check decreased_risk
+        for risk in comparison.decreased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Decreased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _extract_evidence_ids(self, text: str) -> List[str]:
+        """Extract evidence IDs from text in [Evidence: <id>] format."""
+        import re
+        pattern = r"\[Evidence:\s*([^\]]+)\]"
+        matches = re.findall(pattern, text)
+        return [match.strip() for match in matches]
+
     async def compare_scans(
         self,
         base_scan_id: str,
@@ -785,3 +4119,524 @@ class OpenREClient:
                         if data.strip() == "[DONE]":
                             break
                         yield data
+
+    # ==================== Phase 8: Evidence-Grounded LLM Service ====================
+
+    async def explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> LlmExplanation:
+        """
+        Explain a security finding with evidence grounding.
+
+        Args:
+            finding_id: The ID of the finding to explain
+            require_evidence: If True, validates that all claims reference evidence IDs
+
+        Returns:
+            LlmExplanation with grounded root cause, impact, attack scenarios, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If require_evidence=True and response has ungrounded claims
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/explain",
+            json={"finding_id": finding_id, "require_evidence": require_evidence},
+        )
+        data = response.json()
+
+        explanation = LlmExplanation(**data)
+
+        # Validate evidence grounding if required
+        if require_evidence:
+            self._validate_explanation_grounding(explanation)
+
+        return explanation
+
+    async def stream_explain_finding(
+        self,
+        finding_id: str,
+        require_evidence: bool = True,
+    ) -> AsyncIterator[str]:
+        """Stream explanation of a security finding with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/explain/stream"
+            params = {"finding_id": finding_id, "require_evidence": str(require_evidence).lower()}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> LlmCorrelation:
+        """
+        Correlate findings based on shared evidence.
+
+        Args:
+            finding_ids: List of finding IDs to correlate
+            min_confidence: Minimum confidence threshold for correlations (0.0-1.0)
+
+        Returns:
+            LlmCorrelation with grouped findings sharing evidence, risk assessment, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If correlations reference non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/correlate",
+            json={"finding_ids": finding_ids, "min_confidence": min_confidence},
+        )
+        data = response.json()
+
+        correlation = LlmCorrelation(**data)
+
+        # Validate evidence grounding
+        self._validate_correlation_grounding(correlation)
+
+        return correlation
+
+    async def stream_correlate_findings(
+        self,
+        finding_ids: List[str],
+        min_confidence: float = 0.7,
+    ) -> AsyncIterator[str]:
+        """Stream correlation of findings with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/correlate/stream"
+            params = {"finding_ids": json.dumps(finding_ids), "min_confidence": str(min_confidence)}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> LlmRemediation:
+        """
+        Generate remediation plan grounded in finding evidence + technology context.
+
+        Args:
+            finding_id: The ID of the finding to remediate
+            context: Optional additional context (technology stack, compliance requirements, etc.)
+
+        Returns:
+            LlmRemediation with steps, code examples, verification steps, technology guidance, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If remediation references non-existent evidence IDs
+        """
+        payload = {"finding_id": finding_id}
+        if context:
+            payload["context"] = context
+
+        response = await self._request(
+            "POST",
+            "/api/analyst/remediate",
+            json=payload,
+        )
+        data = response.json()
+
+        remediation = LlmRemediation(**data)
+
+        # Validate evidence grounding
+        self._validate_remediation_grounding(remediation)
+
+        return remediation
+
+    async def stream_suggest_remediation(
+        self,
+        finding_id: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream generation of remediation plan with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/remediate/stream"
+            params = {"finding_id": finding_id}
+            if context:
+                params["context"] = json.dumps(context)
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> ExecutiveSummary:
+        """
+        Generate executive summary with evidence grounding.
+
+        Args:
+            scan_id: The ID of the scan to summarize
+            max_findings: Maximum number of findings to include (default: 10)
+            audience: Target audience - "developer", "security_engineer", "manager", "executive" (default: "executive")
+
+        Returns:
+            ExecutiveSummary with key findings, risk assessment, recommended actions, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If summary references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/summarize",
+            json={"scan_id": scan_id, "max_findings": max_findings, "audience": audience},
+        )
+        data = response.json()
+
+        summary = ExecutiveSummary(**data)
+
+        # Validate evidence grounding
+        self._validate_summary_grounding(summary)
+
+        return summary
+
+    async def stream_executive_summary(
+        self,
+        scan_id: str,
+        max_findings: int = 10,
+        audience: str = "executive",
+    ) -> AsyncIterator[str]:
+        """Stream generation of executive summary with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/summarize/stream"
+            params = {"scan_id": scan_id, "max_findings": str(max_findings), "audience": audience}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    async def compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> ScanComparison:
+        """
+        Compare two scans for changes with evidence grounding.
+
+        Args:
+            baseline_id: The ID of the baseline scan
+            current_id: The ID of the current scan to compare against baseline
+
+        Returns:
+            ScanComparison with new/fixed findings, risk changes, and evidence references
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error
+            ValueError: If comparison references non-existent evidence IDs
+        """
+        response = await self._request(
+            "POST",
+            "/api/analyst/compare",
+            json={"baseline_id": baseline_id, "current_id": current_id},
+        )
+        data = response.json()
+
+        comparison = ScanComparison(**data)
+
+        # Validate evidence grounding
+        self._validate_comparison_grounding(comparison)
+
+        return comparison
+
+    async def stream_compare_scans(
+        self,
+        baseline_id: str,
+        current_id: str,
+    ) -> AsyncIterator[str]:
+        """Stream comparison of two scans with evidence grounding."""
+        import json
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            url = f"{self.base_url}/api/analyst/compare/stream"
+            params = {"baseline_id": baseline_id, "current_id": current_id}
+
+            if self.api_key:
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+            elif self._tokens:
+                headers = {"Authorization": f"Bearer {self._tokens.access_token}"}
+            else:
+                headers = {}
+
+            async with client.stream("GET", url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        if data.strip() == "[DONE]":
+                            break
+                        yield data
+
+    # ==================== Grounding Validation Helpers ====================
+
+    def _validate_explanation_grounding(self, explanation: LlmExplanation) -> None:
+        """Validate that explanation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in explanation.evidence_references}
+
+        # Check root_cause and security_impact have evidence references
+        for field_name, field_value in [
+            ("root_cause", explanation.root_cause),
+            ("security_impact", explanation.security_impact),
+        ]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Explanation {field_name} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check attack scenarios
+        for scenario in explanation.attack_scenarios:
+            for eid in scenario.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Attack scenario references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_correlation_grounding(self, correlation: LlmCorrelation) -> None:
+        """Validate that correlation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in correlation.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(correlation.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Correlation risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check each correlation group
+        for group in correlation.correlations:
+            for eid in group.shared_evidence_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Correlation group references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            # Check relationship and combined_risk
+            for field_value in [group.relationship, group.combined_risk, group.mitigation_approach]:
+                referenced_ids = self._extract_evidence_ids(field_value)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Correlation group field references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_remediation_grounding(self, remediation: LlmRemediation) -> None:
+        """Validate that remediation claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in remediation.evidence_references}
+
+        # Check summary
+        referenced_ids = self._extract_evidence_ids(remediation.summary)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Remediation summary references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check steps
+        for step in remediation.steps:
+            for eid in step.supporting_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Remediation step {step.step_number} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if step.rationale:
+                referenced_ids = self._extract_evidence_ids(step.rationale)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Remediation step {step.step_number} rationale references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check code examples
+        for example in remediation.code_examples:
+            for eid in example.vulnerability_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Code example references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+            if example.explanation:
+                referenced_ids = self._extract_evidence_ids(example.explanation)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Code example explanation references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+        # Check verification steps
+        for vstep in remediation.verification_steps:
+            for eid in vstep.confirmation_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Verification step references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technology guidance
+        for tech in remediation.technology_guidance:
+            for eid in tech.related_evidence:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Technology guidance for {tech.technology} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _validate_summary_grounding(self, summary: ExecutiveSummary) -> None:
+        """Validate that executive summary claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in summary.evidence_references}
+
+        # Check risk_assessment
+        referenced_ids = self._extract_evidence_ids(summary.risk_assessment)
+        for eid in referenced_ids:
+            if eid not in all_evidence_ids:
+                raise ValueError(
+                    f"Summary risk_assessment references unknown evidence ID: {eid}. "
+                    f"Available: {list(all_evidence_ids)}"
+                )
+
+        # Check recommended_actions
+        for action in summary.recommended_actions:
+            referenced_ids = self._extract_evidence_ids(action)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Recommended action references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check business_impact
+        if summary.business_impact:
+            referenced_ids = self._extract_evidence_ids(summary.business_impact)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Business impact references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check technical_details
+        if summary.technical_details:
+            for detail in summary.technical_details:
+                referenced_ids = self._extract_evidence_ids(detail)
+                for eid in referenced_ids:
+                    if eid not in all_evidence_ids:
+                        raise ValueError(
+                            f"Technical detail references unknown evidence ID: {eid}. "
+                            f"Available: {list(all_evidence_ids)}"
+                        )
+
+    def _validate_comparison_grounding(self, comparison: ScanComparison) -> None:
+        """Validate that scan comparison claims are grounded in evidence references."""
+        all_evidence_ids = {ref.evidence_id for ref in comparison.evidence_references}
+
+        # Check summary and security_posture_assessment
+        for field_value in [comparison.summary, comparison.security_posture_assessment]:
+            referenced_ids = self._extract_evidence_ids(field_value)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Comparison field references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check increased_risk
+        for risk in comparison.increased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Increased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+        # Check decreased_risk
+        for risk in comparison.decreased_risk:
+            referenced_ids = self._extract_evidence_ids(risk.description)
+            for eid in referenced_ids:
+                if eid not in all_evidence_ids:
+                    raise ValueError(
+                        f"Decreased risk for {risk.finding_id} references unknown evidence ID: {eid}. "
+                        f"Available: {list(all_evidence_ids)}"
+                    )
+
+    def _extract_evidence_ids(self, text: str) -> List[str]:
+        """Extract evidence IDs from text in [Evidence: <id>] format."""
+        import re
+        pattern = r"\[Evidence:\s*([^\]]+)\]"
+        matches = re.findall(pattern, text)
+        return [match.strip() for match in matches]

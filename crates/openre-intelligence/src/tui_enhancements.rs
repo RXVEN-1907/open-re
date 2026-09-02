@@ -3,7 +3,7 @@
 use crate::{error::IntelligenceError, types::*, IntelligenceResult};
 use colored::*;
 use openre_core::ids::FindingId;
-use openre_core::result::{Category, Finding, Severity};
+use openre_core::result::{Category, Confidence, Finding, Severity};
 use std::collections::HashMap;
 use std::io::Write as _;
 use tracing::debug;
@@ -252,14 +252,14 @@ impl TuiEnhancer {
     }
 
     /// Format confidence indicator
-    fn format_confidence_indicator(&self, confidence: crate::ConfidenceLevel) -> String {
+    fn format_confidence_indicator(&self, confidence: Confidence) -> String {
         if self.config.enable_emojis {
             match confidence {
-                crate::ConfidenceLevel::VeryHigh => "🎯 Confidence: Certain".to_string(),
-                crate::ConfidenceLevel::High => "🔥 Confidence: High".to_string(),
-                crate::ConfidenceLevel::Medium => "⚠️  Confidence: Medium".to_string(),
-                crate::ConfidenceLevel::Low => "❓ Confidence: Low".to_string(),
-                crate::ConfidenceLevel::VeryLow => "🤔 Confidence: Unknown".to_string(),
+                Confidence::VeryHigh => "🎯 Confidence: Certain".to_string(),
+                Confidence::High => "🔥 Confidence: High".to_string(),
+                Confidence::Medium => "⚠️  Confidence: Medium".to_string(),
+                Confidence::Low => "❓ Confidence: Low".to_string(),
+                Confidence::VeryLow => "🤔 Confidence: Unknown".to_string(),
             }
         } else {
             format!("Confidence: {:?}", confidence)

@@ -48,7 +48,7 @@ impl ProjectStore {
     }
 
     /// Take the connection from the mutex for use
-    async fn take_conn(&self) -> Result<Connection> {
+    pub async fn take_conn(&self) -> Result<Connection> {
         let mut guard = self.conn.lock().await;
         guard.take().ok_or_else(|| {
             openre_core::Error::Internal(anyhow::anyhow!("Connection already in use"))
@@ -56,9 +56,20 @@ impl ProjectStore {
     }
 
     /// Put the connection back into the mutex
-    async fn put_conn(&self, conn: Connection) {
+    pub async fn put_conn(&self, conn: Connection) {
         let mut guard = self.conn.lock().await;
         *guard = Some(conn);
+    }
+
+    /// Execute a closure with the connection
+    pub async fn with_connection<F, T>(&self, f: F) -> Result<T>
+    where
+        F: FnOnce(&Connection) -> Result<T> + Send,
+        T: Send,
+    {
+        let mut guard = self.conn.lock().await;
+        let conn = guard.as_mut().expect("Connection not available");
+        f(conn)
     }
 
     /// Ensure schema exists

@@ -12,6 +12,16 @@ use std::sync::RwLock;
 
 static CONFIG: Lazy<RwLock<Option<Config>>> = Lazy::new(|| RwLock::new(None));
 
+/// Get the default config directory path (~/.config/openre)
+pub fn default_config_dir() -> PathBuf {
+    dirs::config_dir().unwrap_or_else(|| PathBuf::from(".")).join("openre")
+}
+
+/// Get the default config file path (~/.config/openre/config.toml)
+pub fn default_config_path() -> PathBuf {
+    default_config_dir().join("config.toml")
+}
+
 /// Main configuration structure
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Config {
@@ -25,22 +35,29 @@ pub struct Config {
     pub telemetry: TelemetryConfig,
     pub security: SecurityConfig,
     pub auth: AuthConfig,
+    pub scanner: ScannerConfig,
+    pub tui: TuiConfig,
 }
 
 impl Config {
     /// Load configuration from multiple sources with precedence:
     /// 1. Defaults
-    /// 2. config.toml
-    /// 3. config.local.toml (gitignored)
+    /// 2. ~/.config/openre/config.toml
+    /// 3. ~/.config/openre/config.local.toml (gitignored)
     /// 4. Environment variables (OPENRE_*)
-    /// 5. config.local.json (gitignored)
+    /// 5. ~/.config/openre/config.local.json (gitignored)
     pub fn load() -> Result<Self> {
+        let config_dir = default_config_dir();
+        let config_path = config_dir.join("config.toml");
+        let local_config_path = config_dir.join("config.local.toml");
+        let local_json_path = config_dir.join("config.local.json");
+
         let figment = Figment::new()
             .merge(Serialized::defaults(Self::default()))
-            .merge(Toml::file("config.toml"))
-            .merge(Toml::file("config.local.toml"))
+            .merge(Toml::file(&config_path))
+            .merge(Toml::file(&local_config_path))
             .merge(Env::prefixed("OPENRE_").split("__"))
-            .merge(Json::file("config.local.json"));
+            .merge(Json::file(&local_json_path));
 
         let config: Config =
             figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))?;
@@ -78,6 +95,8 @@ impl Config {
         self.telemetry.validate()?;
         self.security.validate()?;
         self.auth.validate()?;
+        self.scanner.validate()?;
+        self.tui.validate()?;
         Ok(())
     }
 }
@@ -781,6 +800,184 @@ impl Default for AuthConfig {
                 cookie_same_site: "lax".into(),
                 ttl_secs: 86400,
             },
+        }
+    }
+}
+
+/// Scanner configuration
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ScannerConfig {
+    pub timeout_secs: u64,
+    pub max_redirects: usize,
+    pub user_agent: String,
+    pub follow_redirects: bool,
+    pub profiles: ScannerProfilesConfig,
+    pub default_profile: String,
+    pub max_duration_secs: u64,
+    pub rate_limit_rps: f64,
+    pub concurrent_checks: usize,
+    pub tls_verify: bool,
+    pub proxy: Option<String>,
+    pub custom_headers: std::collections::HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ScannerProfilesConfig {
+    pub quick: Vec<String>,
+    pub standard: Vec<String>,
+    pub full: Vec<String>,
+}
+
+impl ScannerConfig {
+    fn validate(&self) -> Result<()> {
+        if self.timeout_secs == 0 {
+            return Err(openre_core::Error::Config("Scanner timeout cannot be 0".into()));
+        }
+        if self.max_duration_secs == 0 {
+            return Err(openre_core::Error::Config("Scanner max duration cannot be 0".into()));
+        }
+        if self.concurrent_checks == 0 {
+            return Err(openre_core::Error::Config("Scanner concurrent checks cannot be 0".into()));
+        }
+        Ok(())
+    }
+}
+
+impl Default for ScannerConfig {
+    fn default() -> Self {
+        Self {
+            timeout_secs: 10,
+            max_redirects: 10,
+            user_agent: "openre-scan/0.1.0".into(),
+            follow_redirects: false,
+            profiles: ScannerProfilesConfig {
+                quick: vec![
+                    "http-headers".into(),
+                    "security-headers".into(),
+                    "cookie-security".into(),
+                    "tls-certificate".into(),
+                    "info-disclosure".into(),
+                    "tech-fingerprint".into(),
+                ],
+                standard: vec![
+                    "http-headers".into(),
+                    "tls-certificate".into(),
+                    "cookie-security".into(),
+                    "security-headers".into(),
+                    "csp".into(),
+                    "cors".into(),
+                    "info-disclosure".into(),
+                    "tech-fingerprint".into(),
+                    "robots-txt".into(),
+                    "sitemap".into(),
+                    "dir-listing".into(),
+                    "sensitive-files".into(),
+                    "forms".into(),
+                    "links".into(),
+                    "scripts".into(),
+                    "meta-tags".into(),
+                ],
+                full: vec![
+                    "http-headers".into(),
+                    "tls-certificate".into(),
+                    "cookie-security".into(),
+                    "security-headers".into(),
+                    "csp".into(),
+                    "cors".into(),
+                    "info-disclosure".into(),
+                    "tech-fingerprint".into(),
+                    "robots-txt".into(),
+                    "sitemap".into(),
+                    "dir-listing".into(),
+                    "sensitive-files".into(),
+                    "forms".into(),
+                    "links".into(),
+                    "scripts".into(),
+                    "meta-tags".into(),
+                    "http-methods".into(),
+                    "ssl-config".into(),
+                ],
+            },
+            default_profile: "standard".into(),
+            max_duration_secs: 300,
+            rate_limit_rps: 10.0,
+            concurrent_checks: 5,
+            tls_verify: true,
+            proxy: None,
+            custom_headers: std::collections::HashMap::new(),
+        }
+    }
+}
+
+/// TUI configuration
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TuiConfig {
+    pub theme: String,
+    pub keybindings: TuiKeybindingsConfig,
+    pub panels: TuiPanelsConfig,
+    pub mouse_enabled: bool,
+    pub refresh_rate_hz: u32,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TuiKeybindingsConfig {
+    pub quit: Vec<String>,
+    pub help: Vec<String>,
+    pub tab_next: Vec<String>,
+    pub tab_prev: Vec<String>,
+    pub scroll_up: Vec<String>,
+    pub scroll_down: Vec<String>,
+    pub scroll_page_up: Vec<String>,
+    pub scroll_page_down: Vec<String>,
+    pub search: Vec<String>,
+    pub filter: Vec<String>,
+    pub refresh: Vec<String>,
+    pub settings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TuiPanelsConfig {
+    pub show_status_bar: bool,
+    pub show_help_bar: bool,
+    pub show_command_bar: bool,
+    pub default_tab: String,
+}
+
+impl TuiConfig {
+    fn validate(&self) -> Result<()> {
+        if self.refresh_rate_hz == 0 {
+            return Err(openre_core::Error::Config("TUI refresh rate cannot be 0".into()));
+        }
+        Ok(())
+    }
+}
+
+impl Default for TuiConfig {
+    fn default() -> Self {
+        Self {
+            theme: "default".into(),
+            keybindings: TuiKeybindingsConfig {
+                quit: vec!["q".into(), "Ctrl+c".into()],
+                help: vec!["?".into(), "F1".into()],
+                tab_next: vec!["Tab".into(), "l".into()],
+                tab_prev: vec!["Shift+Tab".into(), "h".into()],
+                scroll_up: vec!["k".into(), "Up".into()],
+                scroll_down: vec!["j".into(), "Down".into()],
+                scroll_page_up: vec!["Ctrl+u".into(), "PageUp".into()],
+                scroll_page_down: vec!["Ctrl+d".into(), "PageDown".into()],
+                search: vec!["/".into(), "Ctrl+f".into()],
+                filter: vec!["f".into()],
+                refresh: vec!["r".into(), "F5".into()],
+                settings: vec!["s".into(), "F2".into()],
+            },
+            panels: TuiPanelsConfig {
+                show_status_bar: true,
+                show_help_bar: true,
+                show_command_bar: true,
+                default_tab: "dashboard".into(),
+            },
+            mouse_enabled: true,
+            refresh_rate_hz: 30,
         }
     }
 }

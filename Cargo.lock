@@ -1486,22 +1486,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "dirs"
-version = "6.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3e8aa94d75141228480295a7d0e7feb620b1a5ad9f12bc40be62411e38cce4e"
-dependencies = [
- "dirs-sys 0.5.0",
-]
-
-[[package]]
 name = "dirs-sys"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b1d1d91c932ef41c0f2663aa8b0ca0342d444d842c06914aa0a7e352d0bada6"
 dependencies = [
  "libc",
- "redox_users 0.4.6",
+ "redox_users",
  "winapi",
 ]
 
@@ -1513,20 +1504,8 @@ checksum = "520f05a5cbd335fae5a99ff7a6ab8627577660ee5cfd6a94a6a929b52ff0321c"
 dependencies = [
  "libc",
  "option-ext",
- "redox_users 0.4.6",
+ "redox_users",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "dirs-sys"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e01a3366d27ee9890022452ee61b2b63a67e6f13f58900b651ff5665f0bb1fab"
-dependencies = [
- "libc",
- "option-ext",
- "redox_users 0.5.2",
- "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1536,7 +1515,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ebda144c4fe02d1f7ea1a7d9641b6fc6b580adcfa024ae48797ecdeb6825b4d"
 dependencies = [
  "libc",
- "redox_users 0.4.6",
+ "redox_users",
  "winapi",
 ]
 
@@ -1701,6 +1680,12 @@ name = "find-msvc-tools"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d45db016d36b838f563236e9193d0ee6ce38f3f68b6c94e914b4929c96bbb890"
+
+[[package]]
+name = "fixedbitset"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
 
 [[package]]
 name = "flate2"
@@ -3390,7 +3375,6 @@ dependencies = [
  "hex",
  "md-5",
  "object 0.35.0",
- "openre-ai",
  "openre-config",
  "openre-core",
  "openre-queue",
@@ -3431,6 +3415,7 @@ dependencies = [
  "openre-ai",
  "openre-config",
  "openre-core",
+ "openre-plugins",
  "openre-queue",
  "openre-scanner",
  "openre-security-ai",
@@ -3446,6 +3431,7 @@ dependencies = [
  "tower 0.4.13",
  "tower-http 0.5.2",
  "tracing",
+ "tracing-subscriber",
  "utoipa",
  "utoipa-swagger-ui",
  "uuid",
@@ -3464,13 +3450,14 @@ dependencies = [
  "dirs 5.0.1",
  "futures",
  "goblin",
+ "hex",
  "indicatif 0.17.11",
  "object 0.35.0",
- "openre-ai",
  "openre-analysis",
- "openre-api",
  "openre-config",
  "openre-core",
+ "openre-intelligence",
+ "openre-plugins",
  "openre-queue",
  "openre-storage",
  "openre-telemetry",
@@ -3485,6 +3472,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "toml 0.8.23",
+ "tracing",
  "urlencoding",
  "uuid",
  "wasmparser 0.215.0",
@@ -3494,6 +3482,7 @@ dependencies = [
 name = "openre-config"
 version = "0.1.0"
 dependencies = [
+ "dirs 5.0.1",
  "figment",
  "notify",
  "num_cpus",
@@ -3520,6 +3509,7 @@ dependencies = [
  "once_cell",
  "opentelemetry 0.27.1",
  "redis",
+ "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
@@ -3544,8 +3534,10 @@ dependencies = [
  "futures",
  "indexmap 2.14.1",
  "openre-core",
+ "openre-queue",
  "openre-scanner",
  "openre-storage",
+ "petgraph",
  "regex",
  "reqwest",
  "semver",
@@ -3718,6 +3710,7 @@ dependencies = [
  "tabled",
  "thiserror 1.0.69",
  "tokio",
+ "toml 0.8.23",
  "tracing",
  "tracing-subscriber",
  "url",
@@ -3863,6 +3856,50 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "openre-tui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.23.1",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "colored",
+ "crossterm",
+ "dashmap 6.2.1",
+ "dirs 5.0.1",
+ "fastrand 2.5.0",
+ "futures",
+ "notify",
+ "openre-config",
+ "openre-core",
+ "openre-intelligence",
+ "openre-plugins",
+ "openre-queue",
+ "openre-recon",
+ "openre-scan",
+ "openre-scanner",
+ "openre-security-ai",
+ "openre-storage",
+ "openre-telemetry",
+ "parking_lot 0.12.5",
+ "ratatui",
+ "redis",
+ "regex",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-subscriber",
+ "url",
  "uuid",
 ]
 
@@ -4208,6 +4245,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e04d3a0849e241d7dfce834c83b1c5edc8622009e8dd51a12ba1927c32f05496"
 dependencies = [
  "pest",
+]
+
+[[package]]
+name = "petgraph"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
+dependencies = [
+ "fixedbitset",
+ "indexmap 2.14.1",
+ "serde",
 ]
 
 [[package]]
@@ -4786,17 +4834,6 @@ dependencies = [
  "getrandom 0.2.17",
  "libredox",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "redox_users"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4e608c6638b9c18977b00b475ac1f28d14e84b27d8d42f70e0bf1e3dec127ac"
-dependencies = [
- "getrandom 0.2.17",
- "libredox",
- "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -5483,7 +5520,7 @@ version = "3.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32824fab5e16e6c4d86dc1ba84489390419a39f97699852b66480bb87d297ed8"
 dependencies = [
- "dirs 6.0.0",
+ "dirs 5.0.1",
 ]
 
 [[package]]

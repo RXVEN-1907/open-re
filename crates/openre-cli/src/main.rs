@@ -9,16 +9,21 @@ mod output;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use commands::{
-    ai::AiCommands, analysis::AnalysisCommands, analyst::AnalystCommands, auth::AuthCommands,
+    agent::AgentCommand, ai::AiCommands, analysis::AnalysisCommands, analyst::AnalystCommands,
+    attack_paths::AttackPathsCommand, auth::AuthCommands, compare::CompareCommand,
     config::ConfigCommands, file::FileCommands, finding::FindingCommands,
-    function::FunctionCommands, plugin::PluginCommands, project::ProjectCommands,
-    report::ReportCommands, scan::ScanCommands, server::ServerCommands,
+    function::FunctionCommands, investigate::InvestigateCommand, job::JobCommands,
+    knowledge::KnowledgeCommand, map::MapCommand, plugin::PluginCommands, prioritize::PrioritizeCommand,
+    project::ProjectCommands, recheck::RecheckCommand, relationships::RelationshipsCommand,
+    report::ReportCommands, scan::ScanCommands, server::ServerCommands, tui::TuiCommands,
+    verify::VerifyCommand,
 };
 pub use config::CliConfig;
 pub use context::offline::OfflineStore;
 pub use context::Context;
 pub use error::CliError;
 pub use output::{print_output, OutputFormat};
+
 
 use std::path::PathBuf;
 
@@ -119,6 +124,44 @@ enum Commands {
     /// Report generation
     #[command(subcommand)]
     Report(ReportCommands),
+
+    /// Application Map
+    Map(MapCommand),
+
+    /// Finding Relationships
+    Relationships(RelationshipsCommand),
+
+    /// Attack Paths
+    AttackPaths(AttackPathsCommand),
+
+    /// Finding Verification
+    Verify(VerifyCommand),
+
+    /// Scan Comparison
+    Compare(CompareCommand),
+
+    /// Finding Recheck
+    Recheck(RecheckCommand),
+
+    /// Finding Prioritization
+    Prioritize(PrioritizeCommand),
+
+    /// Security Knowledge
+    Knowledge(KnowledgeCommand),
+
+    /// Investigation Workflow
+    Investigate(InvestigateCommand),
+
+    /// Agent Management
+    Agent(AgentCommand),
+
+    /// Job management
+    #[command(subcommand)]
+    Job(JobCommands),
+
+    /// Full-screen interactive TUI
+    #[command(subcommand)]
+    Tui(TuiCommands),
 }
 
 #[tokio::main]
@@ -138,7 +181,7 @@ async fn main() -> Result<(), CliError> {
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build()?;
 
     // Create context with offline support
-    let ctx = Context::new(
+    let mut ctx = Context::new(
         config,
         client,
         cli.server,
@@ -164,5 +207,17 @@ async fn main() -> Result<(), CliError> {
         Commands::Scan(cmd) => cmd.execute(ctx).await,
         Commands::Finding(cmd) => cmd.execute(ctx).await,
         Commands::Report(cmd) => cmd.execute(ctx).await,
+        Commands::Map(cmd) => cmd.execute(ctx).await,
+        Commands::Relationships(cmd) => cmd.execute(ctx).await,
+        Commands::AttackPaths(cmd) => cmd.execute(ctx).await,
+        Commands::Verify(cmd) => cmd.execute(ctx).await,
+        Commands::Compare(cmd) => cmd.execute(ctx).await,
+        Commands::Recheck(cmd) => cmd.execute(ctx).await,
+        Commands::Prioritize(cmd) => cmd.execute(ctx).await,
+        Commands::Knowledge(cmd) => cmd.execute(ctx).await,
+        Commands::Investigate(cmd) => cmd.execute(ctx).await,
+        Commands::Agent(cmd) => cmd.execute(ctx).await,
+        Commands::Job(cmd) => cmd.execute(&mut ctx).await,
+        Commands::Tui(cmd) => cmd.execute(ctx).await,
     }
 }

@@ -62,6 +62,9 @@ pub enum AnalysisCommands {
     /// Find functions
     Functions(FunctionsArgs),
 
+    /// Disassemble a function or entire binary
+    Disassemble(DisassembleArgs),
+
     /// Decompile a function
     Decompile(DecompileArgs),
 
@@ -70,6 +73,9 @@ pub enum AnalysisCommands {
 
     /// Show data flow analysis for a function
     Dataflow(DataflowArgs),
+
+    /// Show type recovery analysis for a function
+    Types(TypesArgs),
 
     /// Run analysis pipeline
     #[command(subcommand)]
@@ -232,6 +238,40 @@ pub struct DecompileArgs {
     /// Function name or address
     #[arg(short, long, value_name = "NAME_OR_ADDR")]
     pub function: String,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "table")]
+    pub output: OutputFormatArg,
+}
+
+#[derive(Parser)]
+pub struct DisassembleArgs {
+    /// Path to binary file
+    #[arg(value_name = "FILE")]
+    pub file: PathBuf,
+
+    /// Function name or address (if not specified, disassembles all functions)
+    #[arg(short, long, value_name = "NAME_OR_ADDR")]
+    pub function: Option<String>,
+
+    /// Show instruction bytes
+    #[arg(long)]
+    pub show_bytes: bool,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "table")]
+    pub output: OutputFormatArg,
+}
+
+#[derive(Parser)]
+pub struct TypesArgs {
+    /// Path to binary file
+    #[arg(value_name = "FILE")]
+    pub file: PathBuf,
+
+    /// Function name or address (if not specified, shows types for all functions)
+    #[arg(short, long, value_name = "NAME_OR_ADDR")]
+    pub function: Option<String>,
 
     /// Output format
     #[arg(short, long, value_enum, default_value = "table")]
@@ -412,6 +452,8 @@ pub enum OutputFormatArg {
     Table,
     Json,
     Sarif,
+    Dot,
+    Mermaid,
 }
 
 impl From<OutputFormatArg> for crate::output::OutputFormat {
@@ -420,6 +462,8 @@ impl From<OutputFormatArg> for crate::output::OutputFormat {
             OutputFormatArg::Table => crate::output::OutputFormat::Table,
             OutputFormatArg::Json => crate::output::OutputFormat::Json,
             OutputFormatArg::Sarif => crate::output::OutputFormat::Json, // SARIF uses JSON format
+            OutputFormatArg::Dot => crate::output::OutputFormat::Json,   // DOT uses custom output
+            OutputFormatArg::Mermaid => crate::output::OutputFormat::Json, // Mermaid uses custom output
         }
     }
 }
@@ -607,9 +651,11 @@ impl AnalysisCommands {
             AnalysisCommands::Sections(args) => Self::cmd_sections(args, ctx).await,
             AnalysisCommands::Segments(args) => Self::cmd_segments(args, ctx).await,
             AnalysisCommands::Functions(args) => Self::cmd_functions(args, ctx).await,
+            AnalysisCommands::Disassemble(args) => Self::cmd_disassemble(args, ctx).await,
             AnalysisCommands::Decompile(args) => Self::cmd_decompile(args, ctx).await,
             AnalysisCommands::Cfg(args) => Self::cmd_cfg(args, ctx).await,
             AnalysisCommands::Dataflow(args) => Self::cmd_dataflow(args, ctx).await,
+            AnalysisCommands::Types(args) => Self::cmd_types(args, ctx).await,
             AnalysisCommands::Pipeline(cmd) => Self::cmd_pipeline(cmd, ctx).await,
         }
     }
@@ -1192,64 +1238,91 @@ impl AnalysisCommands {
         let func_cfg = result.control_flow.functions.into_iter().find(|f| f.address == func_addr);
 
         if let Some(func) = func_cfg {
-            if args.dot {
-                // Output DOT format
-                let mut dot = String::new();
-                dot.push_str("digraph CFG {\n");
-                for bb in &func.basic_blocks {
-                    dot.push_str(&format!(
-                        "  BB_{:x} [label=\"BB @ 0x{:x} ({} ins)\"];\n",
-                        bb.address,
-                        bb.address,
-                        bb.instructions.len()
-                    ));
-                    for succ in &bb.successors {
-                        dot.push_str(&format!("  BB_{:x} -> BB_{:x};\n", bb.address, succ));
+            // Handle different output formats
+            match args.output {
+                OutputFormatArg::Dot | OutputFormatArg::Mermaid
+                    if args.dot || args.output == OutputFormatArg::Mermaid =>
+                {
+                    // Output DOT format
+                    if args.dot || args.output == OutputFormatArg::Dot {
+                        let mut dot = String::new();
+                        dot.push_str("digraph CFG {\n");
+                        for bb in &func.basic_blocks {
+                            dot.push_str(&format!(
+                                "  BB_{:x} [label=\"BB @ 0x{:x} ({} ins)\"];\n",
+                                bb.address,
+                                bb.address,
+                                bb.instructions.len()
+                            ));
+                            for succ in &bb.successors {
+                                dot.push_str(&format!("  BB_{:x} -> BB_{:x};\n", bb.address, succ));
+                            }
+                        }
+                        dot.push_str("}\n");
+                        println!("{}", dot);
+                    } else {
+                        // Output Mermaid format
+                        let mut mermaid = String::new();
+                        mermaid.push_str("graph TD\n");
+                        for bb in &func.basic_blocks {
+                            mermaid.push_str(&format!(
+                                "  BB_{:x}[\"BB @ 0x{:x} ({} ins)\"]\n",
+                                bb.address,
+                                bb.address,
+                                bb.instructions.len()
+                            ));
+                            for succ in &bb.successors {
+                                mermaid.push_str(&format!(
+                                    "  BB_{:x} --> BB_{:x}\n",
+                                    bb.address, succ
+                                ));
+                            }
+                        }
+                        println!("{}", mermaid);
                     }
                 }
-                dot.push_str("}\n");
-                println!("{}", dot);
-            } else {
-                #[derive(Serialize, Deserialize)]
-                struct CfgOutput {
-                    function: String,
-                    address: String,
-                    blocks: Vec<BasicBlockDisplay>,
-                }
+                _ => {
+                    #[derive(Serialize, Deserialize)]
+                    struct CfgOutput {
+                        function: String,
+                        address: String,
+                        blocks: Vec<BasicBlockDisplay>,
+                    }
 
-                let blocks: Vec<BasicBlockDisplay> = func
-                    .basic_blocks
-                    .into_iter()
-                    .map(|bb| BasicBlockDisplay {
-                        address: format!("0x{:x}", bb.address),
-                        size: bb.size.to_string(),
-                        instructions: bb.instructions.len().to_string(),
-                        predecessors: bb
-                            .predecessors
-                            .iter()
-                            .map(|p| format!("0x{:x}", p))
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                        successors: bb
-                            .successors
-                            .iter()
-                            .map(|s| format!("0x{:x}", s))
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                    })
-                    .collect();
+                    let blocks: Vec<BasicBlockDisplay> = func
+                        .basic_blocks
+                        .into_iter()
+                        .map(|bb| BasicBlockDisplay {
+                            address: format!("0x{:x}", bb.address),
+                            size: bb.size.to_string(),
+                            instructions: bb.instructions.len().to_string(),
+                            predecessors: bb
+                                .predecessors
+                                .iter()
+                                .map(|p| format!("0x{:x}", p))
+                                .collect::<Vec<_>>()
+                                .join(", "),
+                            successors: bb
+                                .successors
+                                .iter()
+                                .map(|s| format!("0x{:x}", s))
+                                .collect::<Vec<_>>()
+                                .join(", "),
+                        })
+                        .collect();
 
-                let output = CfgOutput {
-                    function: args.function,
-                    address: format!("0x{:x}", func_addr),
-                    blocks,
-                };
+                    let output = CfgOutput {
+                        function: args.function,
+                        address: format!("0x{:x}", func_addr),
+                        blocks,
+                    };
 
-                if args.output == OutputFormatArg::Sarif {
-                    let sarif = Self::cfg_to_sarif(&output);
-                    println!("{}", serde_json::to_string_pretty(&sarif)?);
-                } else {
-                    print_output(&output, &args.output.into())?;
+                    if args.output == OutputFormatArg::Sarif {
+                        let sarif = Self::cfg_to_sarif(&output);
+                        println!("{}", serde_json::to_string_pretty(&sarif)?);
+                    } else {
+                        print_output(&output, &args.output.into())?;
+                    }
                 }
             }
         } else {
@@ -1346,6 +1419,244 @@ impl AnalysisCommands {
 
         if args.output == OutputFormatArg::Sarif {
             let sarif = Self::dataflow_to_sarif(&output);
+            println!("{}", serde_json::to_string_pretty(&sarif)?);
+        } else {
+            print_output(&output, &args.output.into())?;
+        }
+
+        Ok(())
+    }
+
+    /// Disassemble command
+    async fn cmd_disassemble(args: DisassembleArgs, ctx: Context) -> Result<(), CliError> {
+        let metadata = Self::load_metadata(&args.file, None).await?;
+        let data = std::fs::read(&args.file)?;
+
+        // Run static analysis to get functions and disassembly
+        let analyzer = StaticAnalysisService::new();
+        let result = analyzer.analyze(metadata.file_id, &metadata).await?;
+
+        // Filter to requested function if specified
+        let func_addr = if let Some(func_spec) = &args.function {
+            if func_spec.starts_with("0x") {
+                u64::from_str_radix(&func_spec[2..], 16)
+                    .map_err(|_| CliError::InvalidInput("Invalid function address format".into()))?
+            } else {
+                metadata
+                    .symbols
+                    .iter()
+                    .find(|s| s.name.as_str() == func_spec.as_str())
+                    .map(|s| s.address)
+                    .ok_or_else(|| CliError::InvalidInput("Function not found".into()))?
+            }
+        } else {
+            0 // 0 means all functions
+        };
+
+        #[derive(Serialize, Deserialize, Tabled)]
+        struct InstructionDisplay {
+            #[tabled(rename = "Address")]
+            address: String,
+            #[tabled(rename = "Bytes")]
+            bytes: String,
+            #[tabled(rename = "Mnemonic")]
+            mnemonic: String,
+            #[tabled(rename = "Operands")]
+            operands: String,
+            #[tabled(rename = "Type")]
+            inst_type: String,
+        }
+
+        #[derive(Serialize, Deserialize)]
+        struct DisassembleOutput {
+            function: Option<String>,
+            address: String,
+            instructions: Vec<InstructionDisplay>,
+        }
+
+        let mut all_instructions = Vec::new();
+
+        for func in &result.control_flow.functions {
+            // Skip if specific function requested and this isn't it
+            if func_addr != 0 && func.address != func_addr {
+                continue;
+            }
+
+            for bb in &func.basic_blocks {
+                for inst in &bb.instructions {
+                    let bytes_str =
+                        if args.show_bytes { hex::encode(&inst.bytes) } else { String::new() };
+
+                    all_instructions.push(InstructionDisplay {
+                        address: format!("0x{:x}", inst.address),
+                        bytes: bytes_str,
+                        mnemonic: inst.mnemonic.clone(),
+                        operands: inst.operands.clone(),
+                        inst_type: format!("{:?}", inst.instruction_type),
+                    });
+                }
+            }
+
+            // If we found the specific function, break
+            if func_addr != 0 && func.address == func_addr {
+                break;
+            }
+        }
+
+        let output = DisassembleOutput {
+            function: args.function,
+            address: if func_addr != 0 { format!("0x{:x}", func_addr) } else { "all".to_string() },
+            instructions: all_instructions,
+        };
+
+        // Handle special output formats
+        match args.output {
+            OutputFormatArg::Dot => {
+                // Output DOT format for disassembly (control flow)
+                let mut dot = String::new();
+                dot.push_str("digraph Disassembly {\n");
+                dot.push_str("  rankdir=LR;\n");
+                for func in &result.control_flow.functions {
+                    if func_addr != 0 && func.address != func_addr {
+                        continue;
+                    }
+                    for bb in &func.basic_blocks {
+                        dot.push_str(&format!(
+                            "  BB_{:x} [label=\"BB @ 0x{:x} ({} ins)\", shape=box];\n",
+                            bb.address,
+                            bb.address,
+                            bb.instructions.len()
+                        ));
+                        for succ in &bb.successors {
+                            dot.push_str(&format!("  BB_{:x} -> BB_{:x};\n", bb.address, succ));
+                        }
+                    }
+                }
+                dot.push_str("}\n");
+                println!("{}", dot);
+            }
+            OutputFormatArg::Mermaid => {
+                // Output Mermaid format for disassembly
+                let mut mermaid = String::new();
+                mermaid.push_str("graph LR\n");
+                for func in &result.control_flow.functions {
+                    if func_addr != 0 && func.address != func_addr {
+                        continue;
+                    }
+                    for bb in &func.basic_blocks {
+                        mermaid.push_str(&format!(
+                            "  BB_{:x}[\"BB @ 0x{:x} ({} ins)\"]\n",
+                            bb.address,
+                            bb.address,
+                            bb.instructions.len()
+                        ));
+                        for succ in &bb.successors {
+                            mermaid.push_str(&format!("  BB_{:x} --> BB_{:x}\n", bb.address, succ));
+                        }
+                    }
+                }
+                println!("{}", mermaid);
+            }
+            OutputFormatArg::Sarif => {
+                let sarif = Self::disassemble_to_sarif(&output);
+                println!("{}", serde_json::to_string_pretty(&sarif)?);
+            }
+            _ => {
+                print_output(&output, &args.output.into())?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Types command - show type recovery results
+    async fn cmd_types(args: TypesArgs, ctx: Context) -> Result<(), CliError> {
+        let metadata = Self::load_metadata(&args.file, None).await?;
+        let data = std::fs::read(&args.file)?;
+
+        // Run static analysis to get type information
+        let analyzer = StaticAnalysisService::new();
+        let result = analyzer.analyze(metadata.file_id, &metadata).await?;
+
+        // Filter to requested function if specified
+        let func_addr = if let Some(func_spec) = &args.function {
+            if func_spec.starts_with("0x") {
+                u64::from_str_radix(&func_spec[2..], 16)
+                    .map_err(|_| CliError::InvalidInput("Invalid function address format".into()))?
+            } else {
+                metadata
+                    .symbols
+                    .iter()
+                    .find(|s| s.name.as_str() == func_spec.as_str())
+                    .map(|s| s.address)
+                    .ok_or_else(|| CliError::InvalidInput("Function not found".into()))?
+            }
+        } else {
+            0 // 0 means all functions
+        };
+
+        #[derive(Serialize, Deserialize, Tabled)]
+        struct TypeDisplay {
+            #[tabled(rename = "Function")]
+            function: String,
+            #[tabled(rename = "Address")]
+            address: String,
+            #[tabled(rename = "Variable")]
+            variable: String,
+            #[tabled(rename = "Type")]
+            var_type: String,
+            #[tabled(rename = "Size")]
+            size: String,
+            #[tabled(rename = "Scope")]
+            scope: String,
+        }
+
+        #[derive(Serialize, Deserialize)]
+        struct TypesOutput {
+            function: Option<String>,
+            address: String,
+            types: Vec<TypeDisplay>,
+        }
+
+        let mut all_types = Vec::new();
+
+        for func in &result.control_flow.functions {
+            // Skip if specific function requested and this isn't it
+            if func_addr != 0 && func.address != func_addr {
+                continue;
+            }
+
+            // Get variables from data flow analysis for this function
+            for var in &result.data_flow.variables {
+                // In a real implementation, we'd match variables to functions
+                // For now, show all variables
+                all_types.push(TypeDisplay {
+                    function: func
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| format!("sub_{:x}", func.address)),
+                    address: format!("0x{:x}", func.address),
+                    variable: var.name.clone().unwrap_or_else(|| format!("var_{:x}", var.address)),
+                    var_type: format!("{:?}", var.var_type),
+                    size: var.size.to_string(),
+                    scope: format!("{:?}", var.scope),
+                });
+            }
+
+            // If we found the specific function, break
+            if func_addr != 0 && func.address == func_addr {
+                break;
+            }
+        }
+
+        let output = TypesOutput {
+            function: args.function,
+            address: if func_addr != 0 { format!("0x{:x}", func_addr) } else { "all".to_string() },
+            types: all_types,
+        };
+
+        if args.output == OutputFormatArg::Sarif {
+            let sarif = Self::types_to_sarif(&output);
             println!("{}", serde_json::to_string_pretty(&sarif)?);
         } else {
             print_output(&output, &args.output.into())?;
@@ -1764,6 +2075,38 @@ impl AnalysisCommands {
                     "ruleId": "dataflow",
                     "level": "note",
                     "message": { "text": "Data flow analysis" },
+                    "properties": output
+                }]
+            }]
+        })
+    }
+
+    fn disassemble_to_sarif(output: &impl Serialize) -> serde_json::Value {
+        serde_json::json!({
+            "$schema": "https://schemastore.org/schemas/json/sarif-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [{
+                "tool": { "driver": { "name": "openre-analysis" }},
+                "results": [{
+                    "ruleId": "disassembly",
+                    "level": "note",
+                    "message": { "text": "Disassembly output" },
+                    "properties": output
+                }]
+            }]
+        })
+    }
+
+    fn types_to_sarif(output: &impl Serialize) -> serde_json::Value {
+        serde_json::json!({
+            "$schema": "https://schemastore.org/schemas/json/sarif-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [{
+                "tool": { "driver": { "name": "openre-analysis" }},
+                "results": [{
+                    "ruleId": "types",
+                    "level": "note",
+                    "message": { "text": "Type recovery output" },
                     "properties": output
                 }]
             }]

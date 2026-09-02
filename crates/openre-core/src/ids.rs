@@ -498,5 +498,39 @@ define_id!(TypeId);
 define_id!(ObjectId);
 define_id!(ReportId);
 
+// Application Map IDs
+define_id!(UrlId);
+define_id!(EndpointId);
+define_id!(ParameterId);
+define_id!(FormId);
+define_id!(TechnologyId);
+define_id!(AuthEndpointId);
+define_id!(ResourceId);
+define_id!(RelationshipId);
+
+// Attack Path IDs
+define_id!(AttackPathId);
+define_id!(NodeId);
+define_id!(EntryPointId);
+define_id!(AssetId);
+
+// Evidence IDs
+define_id!(EvidenceId);
+define_id!(VerificationId);
+
+// Remediation IDs
+define_id!(RemediationId);
+define_id!(RecheckId);
+
+// Knowledge IDs
+define_id!(CveId);
+define_id!(CweId);
+define_id!(CapecId);
+define_id!(AttackId);
+
+// Agent and Workflow IDs
+define_id!(AgentId);
+define_id!(WorkflowId);
+
 /// Alias for BasicBlockId for backwards compatibility
 pub type BlockId = BasicBlockId;

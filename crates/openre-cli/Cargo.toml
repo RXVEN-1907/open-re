@@ -18,10 +18,12 @@ openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
 openre-storage = { path = "../openre-storage" }
 openre-queue = { path = "../openre-queue" }
-openre-ai = { path = "../openre-ai" }
+# openre-ai = { path = "../openre-ai" }  # Temporarily disabled - compilation errors
 openre-analysis = { path = "../openre-analysis" }
-# openre-plugins = { path = "../openre-plugins" }  # Temporarily disabled
-openre-api = { path = "../openre-api" }
+openre-intelligence = { path = "../openre-intelligence" }
+openre-plugins = { path = "../openre-plugins" }
+# openre-api = { path = "../openre-api" }  # Temporarily disabled - compilation errors
+# openre-security-ai = { path = "../openre-security-ai" }  # Temporarily disabled - compilation errors
 clap = { workspace = true }
 clap_complete = { workspace = true }
 tokio = { workspace = true }
@@ -34,6 +36,7 @@ chrono = { workspace = true }
 reqwest = { workspace = true }
 indicatif = "0.17"
 colored = "2.0"
+tracing = { workspace = true }
 tabled = { version = "0.16", features = ["derive"] }
 serde_yaml = { workspace = true }
 toml = "0.8"
@@ -46,3 +49,4 @@ wasmparser = { workspace = true }
 object = { workspace = true }
 scroll = { workspace = true }
 rusqlite = { workspace = true }
+hex = "0.4"

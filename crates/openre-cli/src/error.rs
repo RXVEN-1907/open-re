@@ -3,6 +3,7 @@
 use openre_core::Error as CoreError;
 use rusqlite::Error as RusqliteError;
 use thiserror::Error;
+use uuid::Error as UuidError;
 
 /// CLI error
 #[derive(Error, Debug)]
@@ -51,6 +52,27 @@ pub enum CliError {
 
     #[error("Database error: {0}")]
     DatabaseError(#[from] RusqliteError),
+
+    #[error("Other error: {0}")]
+    Other(String),
+}
+
+impl From<String> for CliError {
+    fn from(err: String) -> Self {
+        CliError::Other(err)
+    }
+}
+
+impl From<&str> for CliError {
+    fn from(err: &str) -> Self {
+        CliError::Other(err.to_string())
+    }
+}
+
+impl From<UuidError> for CliError {
+    fn from(err: UuidError) -> Self {
+        CliError::InvalidInput(err.to_string())
+    }
 }
 
 pub type CliResult<T> = Result<T, CliError>;

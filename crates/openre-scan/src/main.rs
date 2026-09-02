@@ -5,8 +5,10 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use openre_config::{Config, ScannerConfig};
 use openre_core::ids::ScanId;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 
@@ -20,7 +22,6 @@ use reqwest::Client;
 use select::document::Document;
 use select::predicate::Name;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use tabled::{Table, Tabled};
 use tracing::Level;
 use tracing_subscriber::{fmt, EnvFilter};
@@ -134,21 +135,25 @@ struct Cli {
     #[arg(short, long, global = true, default_value = "table", value_enum)]
     format: OutputFormat,
 
-    /// Configuration file path
+    /// Configuration file path (default: ~/.config/openre/config.toml)
     #[arg(short, long, global = true)]
     config: Option<PathBuf>,
 
-    /// Request timeout in seconds
-    #[arg(long, global = true, default_value = "10")]
-    timeout: u64,
+    /// Request timeout in seconds (overrides config file)
+    #[arg(long, global = true)]
+    timeout: Option<u64>,
 
-    /// Maximum redirects
-    #[arg(long, global = true, default_value = "10")]
-    max_redirects: usize,
+    /// Maximum redirects (overrides config file)
+    #[arg(long, global = true)]
+    max_redirects: Option<usize>,
 
-    /// User agent
-    #[arg(long, global = true, default_value = "openre-scan/0.1.0")]
-    user_agent: String,
+    /// User agent (overrides config file)
+    #[arg(long, global = true)]
+    user_agent: Option<String>,
+
+    /// Follow redirects (overrides config file)
+    #[arg(long, global = true)]
+    follow_redirects: Option<bool>,
 
     /// Show ASCII banner on startup
     #[arg(long, global = true, default_value = "true")]
@@ -157,6 +162,30 @@ struct Cli {
     /// Disable colored output
     #[arg(long, global = true)]
     no_color: bool,
+
+    /// Scan profile (overrides config file)
+    #[arg(long, global = true)]
+    profile: Option<ScanProfile>,
+
+    /// Maximum scan duration in seconds (overrides config file)
+    #[arg(long, global = true)]
+    max_duration: Option<u64>,
+
+    /// Rate limit requests per second (overrides config file)
+    #[arg(long, global = true)]
+    rate_limit: Option<f64>,
+
+    /// Number of concurrent checks (overrides config file)
+    #[arg(long, global = true)]
+    concurrent: Option<usize>,
+
+    /// Disable TLS verification (overrides config file)
+    #[arg(long, global = true)]
+    no_tls_verify: bool,
+
+    /// Proxy URL (overrides config file)
+    #[arg(long, global = true)]
+    proxy: Option<String>,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -174,12 +203,12 @@ pub enum Commands {
         target: String,
 
         /// Scan profile
-        #[arg(short, long, default_value = "standard", value_enum)]
-        profile: ScanProfile,
+        #[arg(short, long, value_enum)]
+        profile: Option<ScanProfile>,
 
         /// Output format
-        #[arg(short, long, default_value = "table", value_enum)]
-        format: OutputFormat,
+        #[arg(short, long, value_enum)]
+        format: Option<OutputFormat>,
 
         /// Checks to run (comma-separated)
         #[arg(long, value_delimiter = ',')]
@@ -190,8 +219,8 @@ pub enum Commands {
         exclude: Option<Vec<String>>,
 
         /// Maximum scan duration in seconds
-        #[arg(long, default_value = "300")]
-        max_duration: u64,
+        #[arg(long)]
+        max_duration: Option<u64>,
 
         /// Save scan results to file
         #[arg(short, long)]
@@ -203,7 +232,7 @@ pub enum Commands {
 
         /// Follow redirects
         #[arg(long)]
-        follow_redirects: bool,
+        follow_redirects: Option<bool>,
 
         /// Custom headers (key=value)
         #[arg(long, value_delimiter = ',', value_parser = parse_header)]
@@ -238,6 +267,19 @@ fn parse_header(s: &str) -> Result<(String, String), String> {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    // Load unified configuration
+    let mut config = if let Some(config_path) = &cli.config {
+        // Load from specified config file
+        let content = std::fs::read_to_string(config_path)?;
+        toml::from_str::<Config>(&content)?
+    } else {
+        // Load from default locations with precedence
+        Config::load()?
+    };
+
+    // Apply CLI overrides to scanner config
+    apply_cli_overrides(&mut config.scanner, &cli);
+
     // Disable colors if requested
     if cli.no_color {
         colored::control::set_override(false);
@@ -268,21 +310,27 @@ async fn main() -> anyhow::Result<()> {
             follow_redirects,
             header,
         } => {
-            run_scan(ScanConfig {
-                target_str: target,
-                profile,
-                format,
-                checks,
-                exclude,
-                max_duration,
-                output,
-                no_progress,
-                follow_redirects,
-                headers: header,
-                timeout: cli.timeout,
-                max_redirects: cli.max_redirects,
-                user_agent: cli.user_agent,
-            })
+            // Determine output format with precedence: command > global flag > config default
+            let output_format = format.or(Some(cli.format));
+
+            run_scan(
+                ScanConfig {
+                    target_str: target,
+                    profile: profile.or(cli.profile),
+                    format: output_format,
+                    checks,
+                    exclude,
+                    max_duration: max_duration.or(cli.max_duration),
+                    output,
+                    no_progress,
+                    follow_redirects: follow_redirects.or(cli.follow_redirects),
+                    headers: header,
+                    timeout: cli.timeout,
+                    max_redirects: cli.max_redirects,
+                    user_agent: cli.user_agent,
+                },
+                &config.scanner,
+            )
             .await?;
         }
         Commands::Version => {
@@ -298,6 +346,37 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Apply CLI overrides to scanner configuration
+fn apply_cli_overrides(scanner_config: &mut ScannerConfig, cli: &Cli) {
+    if let Some(timeout) = cli.timeout {
+        scanner_config.timeout_secs = timeout;
+    }
+    if let Some(max_redirects) = cli.max_redirects {
+        scanner_config.max_redirects = max_redirects;
+    }
+    if let Some(user_agent) = &cli.user_agent {
+        scanner_config.user_agent = user_agent.clone();
+    }
+    if let Some(follow_redirects) = cli.follow_redirects {
+        scanner_config.follow_redirects = follow_redirects;
+    }
+    if let Some(max_duration) = cli.max_duration {
+        scanner_config.max_duration_secs = max_duration;
+    }
+    if let Some(rate_limit) = cli.rate_limit {
+        scanner_config.rate_limit_rps = rate_limit;
+    }
+    if let Some(concurrent) = cli.concurrent {
+        scanner_config.concurrent_checks = concurrent;
+    }
+    if cli.no_tls_verify {
+        scanner_config.tls_verify = false;
+    }
+    if let Some(proxy) = &cli.proxy {
+        scanner_config.proxy = Some(proxy.clone());
+    }
 }
 
 // Internal scan function for TUI
@@ -337,23 +416,23 @@ pub async fn run_scan_internal(
 #[allow(dead_code)]
 struct ScanConfig {
     target_str: String,
-    profile: ScanProfile,
-    format: OutputFormat,
+    profile: Option<ScanProfile>,
+    format: Option<OutputFormat>,
     checks: Option<Vec<String>>,
     exclude: Option<Vec<String>>,
     #[allow(dead_code)]
-    max_duration: u64,
+    max_duration: Option<u64>,
     output: Option<PathBuf>,
     no_progress: bool,
-    follow_redirects: bool,
+    follow_redirects: Option<bool>,
     headers: Option<Vec<(String, String)>>,
-    timeout: u64,
-    max_redirects: usize,
-    user_agent: String,
+    timeout: Option<u64>,
+    max_redirects: Option<usize>,
+    user_agent: Option<String>,
 }
 
 #[allow(dead_code)]
-async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
+async fn run_scan(config: ScanConfig, scanner_config: &ScannerConfig) -> anyhow::Result<()> {
     // Use MultiProgress for better progress display
     let multi_progress = MultiProgress::new();
 
@@ -364,15 +443,38 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
             format!("https://{}", config.target_str).parse::<Url>()?
         };
 
-    let client = build_client(
-        config.timeout,
-        config.max_redirects,
-        config.follow_redirects,
-        config.user_agent,
+    // Use unified scanner config with CLI overrides
+    let timeout = config.timeout.unwrap_or(scanner_config.timeout_secs);
+    let max_redirects = config.max_redirects.unwrap_or(scanner_config.max_redirects);
+    let follow_redirects = config.follow_redirects.unwrap_or(scanner_config.follow_redirects);
+    let user_agent = config.user_agent.clone().unwrap_or_else(|| scanner_config.user_agent.clone());
+
+    let client = build_client_with_config(
+        timeout,
+        max_redirects,
+        follow_redirects,
+        user_agent,
         config.headers,
+        scanner_config.proxy.clone(),
+        scanner_config.tls_verify,
     )?;
 
-    let all_checks = get_all_checks(&config.profile);
+    // Determine profile from config or scanner config default
+    let profile = config.profile.as_ref().cloned().unwrap_or_else(|| {
+        match scanner_config.default_profile.as_str() {
+            "quick" => ScanProfile::Quick,
+            "full" => ScanProfile::Full,
+            _ => ScanProfile::Standard,
+        }
+    });
+
+    // Resolve output format with precedence: command > global flag > config default > table
+    let output_format = config.format.as_ref().cloned().unwrap_or_else(|| {
+        // This won't be reached since we set it in main, but keep as fallback
+        OutputFormat::Table
+    });
+
+    let all_checks = get_all_checks(&profile);
     let checks_to_run: Vec<Check> = all_checks
         .into_iter()
         .filter(|c| {
@@ -557,7 +659,7 @@ async fn run_scan(config: ScanConfig) -> anyhow::Result<()> {
 
     display_results(
         &all_findings,
-        &config.format,
+        &output_format,
         config.output,
         &target_url,
         duration,
@@ -633,6 +735,27 @@ pub fn build_client(
     user_agent: String,
     headers: Option<Vec<(String, String)>>,
 ) -> anyhow::Result<Client> {
+    build_client_with_config(
+        timeout,
+        max_redirects,
+        follow_redirects,
+        user_agent,
+        headers,
+        None,
+        true,
+    )
+}
+
+/// Build HTTP client with full scanner configuration
+pub fn build_client_with_config(
+    timeout: u64,
+    max_redirects: usize,
+    follow_redirects: bool,
+    user_agent: String,
+    headers: Option<Vec<(String, String)>>,
+    proxy: Option<String>,
+    tls_verify: bool,
+) -> anyhow::Result<Client> {
     let mut builder = Client::builder()
         .timeout(Duration::from_secs(timeout))
         .redirect(if follow_redirects {
@@ -643,7 +766,13 @@ pub fn build_client(
         .user_agent(user_agent)
         .gzip(true)
         .brotli(true)
-        .deflate(true);
+        .deflate(true)
+        .danger_accept_invalid_certs(!tls_verify);
+
+    if let Some(proxy_url) = proxy {
+        let proxy = reqwest::Proxy::all(&proxy_url)?;
+        builder = builder.proxy(proxy);
+    }
 
     if let Some(h) = headers {
         let mut header_map = reqwest::header::HeaderMap::new();

@@ -154,11 +154,12 @@ async fn readiness_check(State(state): State<Arc<AppState>>) -> ApiResult<impl I
 struct ApiDoc;
 
 /// Start the HTTP server
-pub async fn start_server(state: Arc<AppState>, addr: &str) -> Result<(), std::io::Error> {
+pub async fn start_server(state: Arc<AppState>, addr: &str) -> crate::ApiResult<()> {
     let router = create_router(state);
     let listener = TcpListener::bind(addr).await?;
 
     info!("HTTP server listening on {}", addr);
 
-    axum::serve(listener, router).await
+    axum::serve(listener, router).await?;
+    Ok(())
 }

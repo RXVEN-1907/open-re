@@ -52,6 +52,7 @@ rustls-pemfile = { workspace = true }
 webpki-roots = { workspace = true }
 x509-parser = "0.16"
 pem = "1.0"
+toml = { workspace = true }
 
 # TUI (optional)
 ratatui = { workspace = true, optional = true }

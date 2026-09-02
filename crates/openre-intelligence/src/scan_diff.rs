@@ -3,7 +3,7 @@
 use crate::{error::IntelligenceError, types::*, IntelligenceResult};
 use chrono::{DateTime, Utc};
 use openre_core::ids::{FindingId, ScanId};
-use openre_core::result::Finding;
+use openre_core::result::{Confidence, Finding, Severity};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, info, warn};
@@ -164,7 +164,7 @@ impl ScanDiffAnalyzer {
         // Identify critical new findings regardless of threshold
         let critical_new_findings: Vec<&Finding> = new_findings
             .iter()
-            .filter(|f| f.severity == crate::SeverityLevel::Critical.into())
+            .filter(|f| f.severity == Severity::Critical.into())
             .copied()
             .collect();
 
@@ -284,11 +284,11 @@ impl ScanDiffAnalyzer {
 
         // Check each severity level for changes
         for severity in &[
-            crate::SeverityLevel::Critical,
-            crate::SeverityLevel::High,
-            crate::SeverityLevel::Medium,
-            crate::SeverityLevel::Low,
-            crate::SeverityLevel::Info,
+            Severity::Critical,
+            Severity::High,
+            Severity::Medium,
+            Severity::Low,
+            Severity::Info,
         ] {
             let prev_count = *prev_severity_counts.get(&(*severity).into()).unwrap_or(&0);
             let curr_count = *curr_severity_counts.get(&(*severity).into()).unwrap_or(&0);
@@ -441,7 +441,7 @@ impl ScanDiffAnalyzer {
                         .findings
                         .iter()
                         .find(|f| &f.id == *id)
-                        .map(|f| f.severity == crate::SeverityLevel::Critical.into())
+                        .map(|f| f.severity == Severity::Critical.into())
                         .unwrap_or(false)
                 })
                 .copied()
@@ -509,8 +509,8 @@ impl ScanDiffAnalyzer {
                         report.push_str(&format!(
                             "- {} - {:?} → {:?}\n",
                             finding.title,
-                            crate::SeverityLevel::from(change.previous_severity),
-                            crate::SeverityLevel::from(change.current_severity)
+                            Severity::from(change.previous_severity),
+                            Severity::from(change.current_severity)
                         ));
                     }
                 }
@@ -527,8 +527,8 @@ impl ScanDiffAnalyzer {
                         report.push_str(&format!(
                             "- {} - {:?} → {:?}\n",
                             finding.title,
-                            crate::SeverityLevel::from(change.previous_severity),
-                            crate::SeverityLevel::from(change.current_severity)
+                            Severity::from(change.previous_severity),
+                            Severity::from(change.current_severity)
                         ));
                     }
                 }
@@ -791,8 +791,8 @@ mod tests {
 
         let severity_change = &analysis.severity_changes[0];
         assert_eq!(severity_change.change_type, SeverityChangeType::Increased);
-        assert_eq!(severity_change.previous_severity, crate::SeverityLevel::Medium);
-        assert_eq!(severity_change.current_severity, crate::SeverityLevel::High);
+        assert_eq!(severity_change.previous_severity, Severity::Medium);
+        assert_eq!(severity_change.current_severity, Severity::High);
     }
 
     #[test]
@@ -849,8 +849,8 @@ mod tests {
             severity_changes: vec![SeverityChange {
                 finding_id: increased_severity_id,
                 fingerprint: "test-fingerprint".to_string(),
-                previous_severity: crate::SeverityLevel::Medium,
-                current_severity: crate::SeverityLevel::High,
+                previous_severity: Severity::Medium,
+                current_severity: Severity::High,
                 change_magnitude: 1,
                 change_type: SeverityChangeType::Increased,
             }],

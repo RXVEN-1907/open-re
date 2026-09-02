@@ -1,0 +1,346 @@
+{
+  "target": "http://localhost:8080",
+  "target_type": "web",
+  "expected_findings": [
+    {
+      "title": "SQL Injection in Search Endpoint",
+      "category": "Injection",
+      "severity": "Critical",
+      "confidence": "High",
+      "target": "http://localhost:8080/search",
+      "description": "The search parameter 'q' is directly concatenated into SQL query without parameterization",
+      "location": "/search?q=",
+      "parameter": "q",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "f\"SELECT.*{q}\"",
+        "file": "app.py",
+        "line": 78
+      },
+      "cwe": "CWE-89",
+      "owasp": "A03:2021-Injection",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "cvss_score": 9.8
+    },
+    {
+      "title": "SQL Injection in Login Endpoint",
+      "category": "Injection",
+      "severity": "Critical",
+      "confidence": "High",
+      "target": "http://localhost:8080/login",
+      "description": "Username and password parameters are directly concatenated into SQL query",
+      "location": "/login",
+      "parameters": ["username", "password"],
+      "method": "POST",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "f\"SELECT.*{username}.*{password}\"",
+        "file": "app.py",
+        "line": 107
+      },
+      "cwe": "CWE-89",
+      "owasp": "A03:2021-Injection",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "cvss_score": 9.8
+    },
+    {
+      "title": "Stored Cross-Site Scripting (XSS) in Comments",
+      "category": "Xss",
+      "severity": "High",
+      "confidence": "High",
+      "target": "http://localhost:8080/comments/{product_id}",
+      "description": "User-supplied comment content is returned as raw HTML without output encoding",
+      "location": "/comments/{product_id}",
+      "parameter": "content",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "HTMLResponse.*content=.*comments",
+        "file": "app.py",
+        "line": 142
+      },
+      "cwe": "CWE-79",
+      "owasp": "A03:2021-Injection",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+      "cvss_score": 6.1
+    },
+    {
+      "title": "Reflected XSS in Template Endpoint (SSTI)",
+      "category": "Xss",
+      "severity": "Critical",
+      "confidence": "High",
+      "target": "http://localhost:8080/template",
+      "description": "User-controlled template string is rendered with Jinja2, allowing server-side template injection",
+      "location": "/template",
+      "parameter": "template",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "Template\\(template\\)",
+        "file": "app.py",
+        "line": 247
+      },
+      "cwe": "CWE-1336",
+      "owasp": "A03:2021-Injection",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "cvss_score": 9.8
+    },
+    {
+      "title": "Path Traversal in File Read Endpoint",
+      "category": "PathTraversal",
+      "severity": "High",
+      "confidence": "High",
+      "target": "http://localhost:8080/file",
+      "description": "File path parameter is used directly without validation, allowing directory traversal",
+      "location": "/file",
+      "parameter": "path",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "open\\(path, \"r\"\\)",
+        "file": "app.py",
+        "line": 154
+      },
+      "cwe": "CWE-22",
+      "owasp": "A01:2021-Broken Access Control",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "cvss_score": 7.5
+    },
+    {
+      "title": "Information Disclosure in Debug Endpoint",
+      "category": "InformationDisclosure",
+      "severity": "Medium",
+      "confidence": "High",
+      "target": "http://localhost:8080/debug",
+      "description": "Debug endpoint exposes environment variables, headers, cookies, and all active sessions",
+      "location": "/debug",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "os\\.environ",
+        "file": "app.py",
+        "line": 168
+      },
+      "cwe": "CWE-200",
+      "owasp": "A04:2021-Insecure Design",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+      "cvss_score": 5.3
+    },
+    {
+      "title": "Missing Security Headers",
+      "category": "SecurityMisconfiguration",
+      "severity": "Medium",
+      "confidence": "High",
+      "target": "http://localhost:8080/no-headers",
+      "description": "Endpoint lacks security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy",
+      "location": "/no-headers",
+      "method": "GET",
+      "evidence": {
+        "type": "HeaderMissing",
+        "headers": [
+          "content-security-policy",
+          "strict-transport-security",
+          "x-frame-options",
+          "x-content-type-options",
+          "referrer-policy",
+          "permissions-policy"
+        ]
+      },
+      "cwe": "CWE-693",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N",
+      "cvss_score": 4.3
+    },
+    {
+      "title": "Insecure Cookie Configuration",
+      "category": "SecurityMisconfiguration",
+      "severity": "Medium",
+      "confidence": "High",
+      "target": "http://localhost:8080/set-cookie",
+      "description": "Cookies set without Secure, HttpOnly, and SameSite attributes",
+      "location": "/set-cookie",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "httponly=False, secure=False",
+        "file": "app.py",
+        "line": 189
+      },
+      "cwe": "CWE-614",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N",
+      "cvss_score": 4.3
+    },
+    {
+      "title": "Directory Listing Enabled",
+      "category": "InformationDisclosure",
+      "severity": "Low",
+      "confidence": "Medium",
+      "target": "http://localhost:8080/files",
+      "description": "Directory listing endpoint exposes file system structure",
+      "location": "/files",
+      "parameter": "path",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "os\\.listdir\\(abs_path\\)",
+        "file": "app.py",
+        "line": 203
+      },
+      "cwe": "CWE-548",
+      "owasp": "A01:2021-Broken Access Control",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+      "cvss_score": 5.3
+    },
+    {
+      "title": "Missing Rate Limiting on Authentication Endpoint",
+      "category": "SecurityMisconfiguration",
+      "severity": "Medium",
+      "confidence": "High",
+      "target": "http://localhost:8080/api/login",
+      "description": "Authentication endpoint has no rate limiting, allowing brute force attacks",
+      "location": "/api/login",
+      "method": "POST",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "No rate limiting middleware",
+        "file": "app.py",
+        "line": 215
+      },
+      "cwe": "CWE-307",
+      "owasp": "A07:2021-Identification and Authentication Failures",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+      "cvss_score": 3.7
+    },
+    {
+      "title": "CORS Misconfiguration - Allows All Origins",
+      "category": "SecurityMisconfiguration",
+      "severity": "Medium",
+      "confidence": "High",
+      "target": "http://localhost:8080/cors-test",
+      "description": "CORS policy allows all origins with credentials, enabling cross-origin attacks",
+      "location": "/cors-test",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "allow_origins=\\[\"\\*\"\\]",
+        "file": "app.py",
+        "line": 28
+      },
+      "cwe": "CWE-942",
+      "owasp": "A05:2021-Security Misconfiguration",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N",
+      "cvss_score": 4.3
+    },
+    {
+      "title": "Open Redirect Vulnerability",
+      "category": "SecurityMisconfiguration",
+      "severity": "Medium",
+      "confidence": "High",
+      "target": "http://localhost:8080/redirect",
+      "description": "Redirect endpoint accepts arbitrary URLs without validation",
+      "location": "/redirect",
+      "parameter": "url",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "RedirectResponse\\(url=url\\)",
+        "file": "app.py",
+        "line": 277
+      },
+      "cwe": "CWE-601",
+      "owasp": "A01:2021-Broken Access Control",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N",
+      "cvss_score": 4.3
+    },
+    {
+      "title": "Weak Password Policy",
+      "category": "SecurityMisconfiguration",
+      "severity": "Low",
+      "confidence": "Medium",
+      "target": "http://localhost:8080/register",
+      "description": "Registration endpoint does not enforce password complexity requirements",
+      "location": "/register",
+      "method": "POST",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "No password validation",
+        "file": "app.py",
+        "line": 287
+      },
+      "cwe": "CWE-521",
+      "owasp": "A07:2021-Identification and Authentication Failures",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N",
+      "cvss_score": 3.7
+    },
+    {
+      "title": "Detailed Error Messages Exposed",
+      "category": "InformationDisclosure",
+      "severity": "Low",
+      "confidence": "High",
+      "target": "http://localhost:8080/error",
+      "description": "Error endpoint returns detailed error messages including stack traces and internal information",
+      "location": "/error",
+      "parameter": "type",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "raise ValueError\\(\"This is a detailed error",
+        "file": "app.py",
+        "line": 258
+      },
+      "cwe": "CWE-209",
+      "owasp": "A04:2021-Insecure Design",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+      "cvss_score": 5.3
+    },
+    {
+      "title": "Potential XXE Vulnerability",
+      "category": "Injection",
+      "severity": "High",
+      "confidence": "Medium",
+      "target": "http://localhost:8080/xml",
+      "description": "XML parsing endpoint does not disable external entity processing",
+      "location": "/xml",
+      "method": "POST",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "ET\\.fromstring\\(body\\)",
+        "file": "app.py",
+        "line": 270
+      },
+      "cwe": "CWE-611",
+      "owasp": "A03:2021-Injection",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "cvss_score": 9.8
+    },
+    {
+      "title": "Technology Stack Disclosure",
+      "category": "InformationDisclosure",
+      "severity": "Low",
+      "confidence": "High",
+      "target": "http://localhost:8080/api/version",
+      "description": "Version endpoint discloses framework and version information",
+      "location": "/api/version",
+      "method": "GET",
+      "evidence": {
+        "type": "CodePattern",
+        "pattern": "\"framework\": \"FastAPI\"",
+        "file": "app.py",
+        "line": 294
+      },
+      "cwe": "CWE-200",
+      "owasp": "A04:2021-Insecure Design",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+      "cvss_score": 5.3
+    }
+  ],
+  "summary": {
+    "total": 16,
+    "critical": 3,
+    "high": 4,
+    "medium": 6,
+    "low": 3
+  }
+}

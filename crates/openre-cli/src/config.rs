@@ -95,6 +95,17 @@ impl CliConfig {
         Ok(())
     }
 
+    /// Save configuration to a specific path
+    pub fn save_to(&self, path: &Path) -> Result<(), CliError> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let content = toml::to_string_pretty(self)?;
+        fs::write(path, content)?;
+        Ok(())
+    }
+
     /// Save tokens
     pub fn save_tokens(&mut self, access_token: &str, refresh_token: &str) -> Result<(), CliError> {
         self.access_token = Some(access_token.to_string());
