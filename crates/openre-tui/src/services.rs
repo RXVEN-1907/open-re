@@ -80,32 +80,21 @@ impl Services {
 
         // Create workflow manager (requires intelligence feature)
         #[cfg(feature = "intelligence")]
-        let workflow_manager: Option<Arc<openre_intelligence::WorkflowManager>> = if let Some(qm) = &queue_manager {
-            Some(Arc::new(openre_intelligence::WorkflowManager::new(qm.clone()).await?))
-        } else {
-            None
-        };
+        let workflow_manager: Option<Arc<openre_intelligence::WorkflowManager>> = Some(Arc::new(openre_intelligence::WorkflowManager::new()));
         #[cfg(not(feature = "intelligence"))]
         let workflow_manager: Option<Arc<dummy_intelligence::WorkflowManager>> = None;
 
         // Create workflow engine (requires intelligence feature)
         #[cfg(feature = "intelligence")]
-        let workflow_engine: Option<Arc<openre_intelligence::InvestigationWorkflowEngine>> = Some(Arc::new(openre_intelligence::InvestigationWorkflowEngine::new().await?));
+        let workflow_engine: Option<Arc<openre_intelligence::InvestigationWorkflowEngine>> = Some(Arc::new(openre_intelligence::InvestigationWorkflowEngine::new()));
         #[cfg(not(feature = "intelligence"))]
         let workflow_engine: Option<Arc<dummy_intelligence::InvestigationWorkflowEngine>> = None;
 
         // Create knowledge base (requires intelligence feature)
         #[cfg(feature = "intelligence")]
-        let knowledge_base: Option<Arc<openre_intelligence::KnowledgeBase>> = Some(Arc::new(openre_intelligence::KnowledgeBase::new().await?));
+        let knowledge_base: Option<Arc<openre_intelligence::KnowledgeBase>> = Some(Arc::new(openre_intelligence::KnowledgeBase::new()));
         #[cfg(not(feature = "intelligence"))]
         let knowledge_base: Option<Arc<dummy_intelligence::KnowledgeBase>> = None;
-
-        #[cfg(feature = "intelligence")]
-        let workflow_manager = workflow_manager;
-        #[cfg(feature = "intelligence")]
-        let workflow_engine = workflow_engine;
-        #[cfg(feature = "intelligence")]
-        let knowledge_base = knowledge_base;
 
         Ok(Self {
             config,
