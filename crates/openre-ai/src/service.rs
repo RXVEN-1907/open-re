@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use openre_config::AiConfig;
 use openre_core::error::OpenreResult as Result;
 use openre_core::traits::AiService as CoreAiService;
-use openre_storage::{GlobalStore, ObjectStore, ProjectStore};
+use openre_core::{GlobalStore, ObjectStore, ProjectStore};
 use std::sync::Arc;
 use tracing;
 

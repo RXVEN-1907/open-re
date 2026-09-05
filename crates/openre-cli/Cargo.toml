@@ -4,7 +4,7 @@ version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
-description = "CLI for open-re"
+description = "openre: Unified reverse engineering & offensive security CLI"
 categories = { workspace = true }
 keywords = { workspace = true }
 
@@ -15,15 +15,8 @@ path = "src/main.rs"
 [dependencies]
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
-openre-telemetry = { path = "../openre-telemetry" }
-openre-storage = { path = "../openre-storage" }
-openre-queue = { path = "../openre-queue" }
-# openre-ai = { path = "../openre-ai" }  # Temporarily disabled - compilation errors
-openre-analysis = { path = "../openre-analysis" }
-openre-intelligence = { path = "../openre-intelligence" }
-openre-plugins = { path = "../openre-plugins" }
-# openre-api = { path = "../openre-api" }  # Temporarily disabled - compilation errors
-# openre-security-ai = { path = "../openre-security-ai" }  # Temporarily disabled - compilation errors
+openre-scan = { path = "../openre-scan" }
+
 clap = { workspace = true }
 clap_complete = { workspace = true }
 tokio = { workspace = true }
@@ -34,19 +27,24 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }
-indicatif = "0.17"
-colored = "2.0"
+indicatif = { workspace = true }
+colored = { workspace = true }
+console = { workspace = true }
+dialoguer = { workspace = true }
 tracing = { workspace = true }
-tabled = { version = "0.16", features = ["derive"] }
+tracing-subscriber = { workspace = true }
+tabled = { workspace = true }
 serde_yaml = { workspace = true }
-toml = "0.8"
-urlencoding = { workspace = true }
-dirs = "5.0"
+toml = { workspace = true }
+dirs = { workspace = true }
 futures = { workspace = true }
 regex = { workspace = true }
 goblin = { workspace = true }
-wasmparser = { workspace = true }
 object = { workspace = true }
 scroll = { workspace = true }
-rusqlite = { workspace = true }
 hex = "0.4"
+sarif_rust = { version = "0.3", optional = true }
+
+[features]
+default = ["sarif"]
+sarif = ["dep:sarif_rust"]

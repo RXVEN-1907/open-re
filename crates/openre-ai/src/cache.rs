@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use hex;
 
 /// Multi-level cache for AI responses
 pub struct AiCache {
@@ -71,7 +72,7 @@ impl AiCache {
         hasher.update(request.max_tokens.unwrap_or(2048).to_le_bytes());
         hasher.update(request.top_p.unwrap_or(0.95).to_le_bytes());
 
-        format!("{:x}", hasher.finalize())
+        hex::encode(hasher.finalize())
     }
 
     /// Get cached response

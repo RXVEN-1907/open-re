@@ -8,21 +8,13 @@ description = "Lightweight standalone security scanner"
 categories = ["security", "command-line-utilities"]
 keywords = ["security", "scanner", "vulnerability", "cli", "tui"]
 
-[lib]
-name = "openre_scan"
-path = "src/main.rs"
-
 [[bin]]
 name = "openre-scan"
 path = "src/main.rs"
 
 [dependencies]
-# Working core crates
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
-openre-storage = { path = "../openre-storage", default-features = false, features = ["sqlite"] }
-
-# Direct dependencies (avoiding broken crates)
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true }
 colored = { workspace = true }
@@ -36,7 +28,7 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 url = { workspace = true }
-reqwest = { workspace = true, features = ["json", "rustls-tls", "gzip", "brotli", "deflate"] }
+reqwest = { workspace = true }
 dashmap = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -59,9 +51,9 @@ ratatui = { workspace = true, optional = true }
 crossterm = { workspace = true, optional = true }
 
 [features]
-default = ["tui"]  # TUI enabled by default
-tui = ["dep:ratatui", "dep:crossterm"]  # Interactive TUI
-minimal = []  # No TUI - just CLI
+default = ["tui"]
+tui = ["dep:ratatui", "dep:crossterm"]
+minimal = []
 
 [profile.release]
 opt-level = 3

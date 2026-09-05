@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use base64::Engine;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_storage::{GlobalStore, ObjectStore, ProjectStore};
+use openre_core::{GlobalStore, ObjectStore, ProjectStore};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

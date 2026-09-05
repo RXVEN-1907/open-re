@@ -32,14 +32,8 @@ pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("File watcher error: {0}")]
-    Notify(#[from] notify::Error),
-
     #[error("Tracing error: {0}")]
     Tracing(String),
-
-    #[error("Redis error: {0}")]
-    Redis(#[from] redis::RedisError),
 
     #[error("Internal error: {0}")]
     Internal(#[from] anyhow::Error),
@@ -76,9 +70,6 @@ pub enum Error {
 
     #[error("Not implemented: {0}")]
     NotImplemented(String),
-
-    #[error("SQLite error: {0}")]
-    Rusqlite(#[from] rusqlite::Error),
 }
 
 impl Error {
@@ -93,9 +84,7 @@ impl Error {
             Error::Serialization(_) => "SERIALIZATION_ERROR",
             Error::Toml(_) => "TOML_ERROR",
             Error::Io(_) => "IO_ERROR",
-            Error::Notify(_) => "NOTIFY_ERROR",
             Error::Tracing(_) => "TRACING_ERROR",
-            Error::Redis(_) => "REDIS_ERROR",
             Error::Internal(_) => "INTERNAL_ERROR",
             Error::Cancelled => "CANCELLED",
             Error::Timeout(_) => "TIMEOUT",
@@ -108,58 +97,6 @@ impl Error {
             Error::BadRequest(_) => "BAD_REQUEST",
             Error::ServiceUnavailable(_) => "SERVICE_UNAVAILABLE",
             Error::NotImplemented(_) => "NOT_IMPLEMENTED",
-            Error::Rusqlite(_) => "SQLITE_ERROR",
-        }
-    }
-
-    /// Check if this error is retryable
-    pub fn is_retryable(&self) -> bool {
-        matches!(
-            self,
-            Error::Database(_)
-                | Error::Timeout(_)
-                | Error::ServiceUnavailable(_)
-                | Error::Notify(_)
-                | Error::Tracing(_)
-                | Error::Redis(_)
-                | Error::Rusqlite(_)
-                | Error::ConnectionError(_)
-                | Error::ResourceExhausted(_)
-        )
-    }
-
-    /// Check if this error is user-facing (safe to show to users)
-    pub fn is_user_facing(&self) -> bool {
-        !matches!(
-            self,
-            Error::Internal(_)
-                | Error::Database(_)
-                | Error::Serialization(_)
-                | Error::Io(_)
-                | Error::Notify(_)
-                | Error::Tracing(_)
-                | Error::Redis(_)
-                | Error::Rusqlite(_)
-                | Error::ConnectionError(_)
-                | Error::ResourceExhausted(_)
-        )
-    }
-}
-
-/// Error context for structured error reporting
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct ErrorContext {
-    pub code: &'static str,
-    pub retryable: bool,
-    pub user_facing: bool,
-}
-
-impl Error {
-    pub fn context(&self) -> ErrorContext {
-        ErrorContext {
-            code: self.code(),
-            retryable: self.is_retryable(),
-            user_facing: self.is_user_facing(),
         }
     }
 }

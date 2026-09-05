@@ -1,78 +1,66 @@
 //! CLI error types
 
-use openre_core::Error as CoreError;
-use rusqlite::Error as RusqliteError;
 use thiserror::Error;
-use uuid::Error as UuidError;
+use crate::ai_stubs::AiError;
+use crate::analysis_stubs::AnalysisError;
+use crate::intelligence_stubs::IntelligenceError;
+use openre_scan::ScanError;
 
-/// CLI error
 #[derive(Error, Debug)]
 pub enum CliError {
     #[error("Configuration error: {0}")]
-    ConfigError(String),
+    Config(#[from] openre_config::ConfigError),
 
-    #[error("File not found: {0}")]
-    FileNotFound(String),
+    #[error("AI error: {0}")]
+    Ai(#[from] AiError),
 
-    #[error("API error: {0}")]
-    ApiError(String),
+    #[error("Analysis error: {0}")]
+    Analysis(#[from] AnalysisError),
 
-    #[error("Not authenticated")]
-    NotAuthenticated,
+    #[error("Scan error: {0}")]
+    Scan(#[from] ScanError),
 
-    #[error("Invalid input: {0}")]
-    InvalidInput(String),
+    #[error("Intelligence error: {0}")]
+    Intelligence(#[from] IntelligenceError),
 
-    #[error("Serialization error: {0}")]
-    SerializationError(#[from] serde_json::Error),
-
-    #[error("YAML error: {0}")]
-    YamlError(#[from] serde_yaml::Error),
+    #[error("Invalid arguments: {0}")]
+    InvalidArgs(String),
 
     #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 
-    #[error("HTTP error: {0}")]
-    HttpError(#[from] reqwest::Error),
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
 
-    #[error("TOML error: {0}")]
-    TomlError(#[from] toml::ser::Error),
+    #[error("Reqwest error: {0}")]
+    Reqwest(#[from] reqwest::Error),
 
-    #[error("TOML parse error: {0}")]
-    TomlParseError(#[from] toml::de::Error),
+    #[error("UTF-8 error: {0}")]
+    Utf8(#[from] std::str::Utf8Error),
 
-    #[error("Core error: {0}")]
-    CoreError(#[from] CoreError),
+    #[error("UUID error: {0}")]
+    Uuid(#[from] uuid::Error),
 
-    #[error("URL encoding error: {0}")]
-    UrlEncodingError(String),
+    #[error("AI features disabled")]
+    AiDisabled,
 
-    #[error("Offline mode: {0}")]
-    OfflineMode(String),
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
 
-    #[error("Database error: {0}")]
-    DatabaseError(#[from] RusqliteError),
-
-    #[error("Other error: {0}")]
+    #[error("Other: {0}")]
     Other(String),
 }
 
 impl From<String> for CliError {
-    fn from(err: String) -> Self {
-        CliError::Other(err)
+    fn from(s: String) -> Self {
+        CliError::Other(s)
     }
 }
 
 impl From<&str> for CliError {
-    fn from(err: &str) -> Self {
-        CliError::Other(err.to_string())
+    fn from(s: &str) -> Self {
+        CliError::Other(s.to_string())
     }
 }
 
-impl From<UuidError> for CliError {
-    fn from(err: UuidError) -> Self {
-        CliError::InvalidInput(err.to_string())
-    }
-}
-
-pub type CliResult<T> = Result<T, CliError>;
+pub type Result<T> = std::result::Result<T, CliError>;

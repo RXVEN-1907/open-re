@@ -1,27 +1,8 @@
-//! CLI commands
+//! CLI command modules
 
-pub mod agent;
-pub mod ai;
-pub mod analysis;
-pub mod analyst;
-pub mod attack_paths;
-pub mod auth;
-pub mod compare;
-pub mod config;
-pub mod file;
-pub mod finding;
-pub mod function;
-pub mod investigate;
-pub mod knowledge;
-pub mod map;
-pub mod plugin;
-pub mod prioritize;
-pub mod project;
-pub mod recheck;
-pub mod relationships;
-pub mod report;
 pub mod scan;
-pub mod server;
-pub mod tui;
-pub mod verify;
-pub mod job;
+pub mod analyze;
+pub mod ai;
+pub mod exploit;
+pub mod remediate;
+pub mod config;

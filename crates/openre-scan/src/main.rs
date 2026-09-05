@@ -766,7 +766,6 @@ pub fn build_client_with_config(
         .user_agent(user_agent)
         .gzip(true)
         .brotli(true)
-        .deflate(true)
         .danger_accept_invalid_certs(!tls_verify);
 
     if let Some(proxy_url) = proxy {

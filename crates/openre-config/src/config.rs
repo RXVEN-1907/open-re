@@ -65,6 +65,35 @@ impl Config {
         Ok(config)
     }
 
+    /// Load configuration from a specific file
+    pub fn from_file(path: &std::path::Path) -> Result<Self> {
+        let figment = Figment::new()
+            .merge(Serialized::defaults(Self::default()))
+            .merge(Toml::file(path));
+
+        let config: Config =
+            figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        config.validate()?;
+        Ok(config)
+    }
+
+    /// Save configuration to a file
+    pub fn save_to_file(&self, path: &std::path::Path) -> Result<()> {
+        let toml = toml::to_string_pretty(self)
+            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        std::fs::write(path, toml)
+            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Save configuration to default location
+    pub fn save(&self) -> Result<()> {
+        let path = default_config_path();
+        std::fs::create_dir_all(path.parent().unwrap())
+            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        self.save_to_file(&path)
+    }
+
     /// Load and set as global config
     pub fn load_global() -> Result<()> {
         let config = Self::load()?;
@@ -99,9 +128,72 @@ impl Config {
         self.tui.validate()?;
         Ok(())
     }
-}
 
-/// Server configuration
+    /// Get a configuration value by key (dot notation)
+    pub fn get(&self, key: &str) -> Option<serde_json::Value> {
+        let value = serde_json::to_value(self).ok()?;
+        let mut current = &value;
+        for part in key.split('.') {
+            current = current.get(part)?;
+        }
+        Some(current.clone())
+    }
+
+    /// Set a configuration value by key (dot notation)
+    pub fn set(&mut self, key: &str, value_str: &str) -> Result<()> {
+        let mut value = serde_json::to_value(&*self).map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        let parts: Vec<&str> = key.split('.').collect();
+        let mut current = &mut value;
+
+        for (i, part) in parts.iter().enumerate() {
+            if i == parts.len() - 1 {
+                // Last part - set the value
+                let json_value: serde_json::Value = serde_json::from_str(value_str)
+                    .map_err(|e| openre_core::Error::Config(e.to_string()))?;
+                current[part] = json_value;
+            } else {
+                // Navigate deeper
+                current = &mut current[part];
+            }
+        }
+
+        // Convert back to Config
+        let new_config: Config = serde_json::from_value(value)
+            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        *self = new_config;
+        Ok(())
+    }
+
+    /// Get a configuration section as JSON
+    pub fn get_section(&self, section: &str) -> Option<serde_json::Value> {
+        self.get(section)
+    }
+
+    /// Reset configuration to defaults
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+
+    /// Reset a specific section to defaults
+    pub fn reset_section(&mut self, section: &str) {
+        let default = Self::default();
+        match section {
+            "server" => self.server = default.server,
+            "database" => self.database = default.database,
+            "redis" => self.redis = default.redis,
+            "storage" => self.storage = default.storage,
+            "plugins" => self.plugins = default.plugins,
+            "ai" => self.ai = default.ai,
+            "queue" => self.queue = default.queue,
+            "telemetry" => self.telemetry = default.telemetry,
+            "security" => self.security = default.security,
+            "auth" => self.auth = default.auth,
+            "scanner" => self.scanner = default.scanner,
+            "tui" => self.tui = default.tui,
+            _ => {}
+        }
+    }
+}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ServerConfig {
     pub host: String,

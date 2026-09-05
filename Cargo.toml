@@ -3,27 +3,25 @@ resolver = "2"
 members = [
     "crates/openre-core",
     "crates/openre-config",
-    "crates/openre-telemetry",
-    "crates/openre-storage",
-    "crates/openre-queue",
-    "crates/openre-analysis",
-    "crates/openre-ai",
-    "crates/openre-api",
-    "crates/openre-cli",
-    "crates/openre-scanner",
-    "crates/openre-recon",
-    "crates/openre-security-ai",
-    "crates/openre-intelligence",
     "crates/openre-scan",
-    "crates/sentinel",
-    "crates/openre-plugins",
-    "crates/openre-tui",
+    "crates/openre-cli",
 ]
 
 exclude = [
     "frontend",
     "docker",
     "docs",
+    "crates/openre-api",
+    "crates/openre-queue",
+    "crates/openre-storage",
+    "crates/openre-telemetry",
+    "crates/openre-scanner",
+    "crates/openre-recon",
+    "crates/openre-security-ai",
+    "crates/openre-plugins",
+    "crates/openre-plugins-macros",
+    "crates/openre-tui",
+    "crates/sentinel",
 ]
 
 [workspace.package]
@@ -31,13 +29,13 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/RXVEN-1907/open-re"
-description = "openre-scan: Lightweight standalone web security scanner with optional AI analysis"
-categories = ["command-line-utilities", "security"]
-keywords = ["security", "scanner", "vulnerability", "web", "sarif", "cli"]
+description = "openre: Unified reverse engineering & offensive security CLI - binary analysis, web scanning, AI-powered vuln discovery, PoC generation, remediation"
+categories = ["command-line-utilities", "security", "reverse-engineering"]
+keywords = ["security", "reverse-engineering", "vulnerability", "binary-analysis", "ai", "llm", "poc", "remediation"]
 
 [workspace.dependencies]
 # Core
-tokio = { version = "1.53", features = ["full", "tracing"] }
+tokio = { version = "1.53", features = ["full", "tracing", "macros", "rt-multi-thread"] }
 anyhow = "1.0"
 thiserror = "1.0"
 serde = { version = "1.0.229", features = ["derive"] }
@@ -46,12 +44,6 @@ uuid = { version = "1.23", features = ["v4", "serde", "fast-rng"] }
 chrono = { version = "0.4.45", features = ["serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
-tracing-opentelemetry = "0.27"
-opentelemetry = { version = "0.27", features = ["trace"] }
-opentelemetry-otlp = { version = "0.27", features = ["tonic"] }
-opentelemetry-prometheus = "0.27"
-metrics = "0.22"
-metrics-exporter-prometheus = "0.14"
 dashmap = "6.2"
 futures = "0.3"
 tokio-stream = { version = "0.1", features = ["sync"] }
@@ -61,86 +53,70 @@ parking_lot = "0.12"
 bytes = "1.12"
 base64 = "0.23"
 hex = "0.4"
-urlencoding = "2.1"
-rand = "0.9"
-fastrand = "2.4"
+notify = "6.1"
+num_cpus = "1.16"
 regex = "1.13"
 sha2 = "0.11"
 blake3 = "1.8"
-argon2 = "0.5"
-bcrypt = "0.19"
-jsonwebtoken = { version = "9.3" }
-validator = { version = "0.20", features = ["derive"] }
-utoipa = { version = "4.2" }
-utoipa-swagger-ui = "5.0"
-notify = "6.1"
-http = "0.2"
+rand = "0.9"
+fastrand = "2.4"
+
+# HTTP
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multipart", "gzip", "brotli", "cookies"] }
 url = "2.5"
-
-# Web
-axum = { version = "0.7", features = ["ws", "multipart"] }
-axum-extra = { version = "0.9" }
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["cors", "trace", "compression-br", "limit", "timeout"] }
-tonic = { version = "0.10", features = ["tls", "transport"] }
-prost = { version = "0.12", features = ["std"] }
-reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multipart"] }
-governor = { version = "0.6", features = ["std"] }
-
-# Database
-sqlx = { version = "0.6", default-features = false, features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "migrate", "macros"] }
-redis = { version = "0.24", features = ["tokio-comp", "streams", "script", "connection-manager"] }
-r2d2 = "0.8"
-r2d2_sqlite = "0.20"
-rusqlite = { version = "0.31", features = ["bundled", "serde_json", "chrono", "uuid"] }
+http = "0.2"
 
 # Binary parsing
 goblin = { version = "0.7", features = ["std"] }
 object = { version = "0.35", features = ["std"] }
 scroll = "0.13"
-# pe = "0.1"  # Has alignment issues, using goblin for PE parsing instead
 xmas-elf = "0.10"
+wasmparser = "0.215"
 
-# TLS
-rustls = { version = "0.23" }
-rustls-pemfile = "1.0"
-webpki-roots = "0.25"
+# HTML parsing for web scanning
+select = { version = "0.7", features = ["html"] }
+html5ever = "0.26"
+markup5ever = "0.11"
 
-# Storage - commented out for now
-# aws-sdk-s3 = { version = "1.0" }
-# aws-config = { version = "1.0" }
-
-# AI/ML - commented out for now, will be added when implementing AI features
-# ort = { version = "1.7", features = ["load-model", "dynamic"] }
+# Local AI/ML (optional - configure in openre-ai/Cargo.toml)
+# ort = { version = "1.16", features = ["load-model", "dynamic"] }
 # llama-cpp-2 = { version = "0.1", features = ["metal", "cuda", "vulkan", "blas"] }
 # tokenizers = "0.15"
-# candle-core = { version = "0.5", features = ["cuda"] }
-# candle-nn = { version = "0.5", features = ["cuda"] }
-# candle-transformers = { version = "0.5", features = ["cuda"] }
-
-# WASM
-wasmtime = { version = "20.0", features = ["cranelift", "wat"] }
-wasmparser = "0.215"
-ring = { version = "0.17", features = ["std"] }
+# candle-core = "0.5"
+# candle-nn = "0.5"
+# candle-transformers = "0.5"
 
 # Config
 figment = { version = "0.10", features = ["toml", "env", "json", "yaml"] }
 config = { version = "0.15", features = ["toml", "yaml", "ini"] }
 serde_yaml = "0.9"
+toml = "0.8"
+dirs = "5.0"
+
+# Scanner extras
+rustls = "0.23"
+rustls-pemfile = "1.0"
+webpki-roots = "0.25"
+x509-parser = "0.16"
+pem = "1.0"
+cookie = "0.16"
+markup5ever_rcdom = "0.39"
 
 # CLI
 clap = { version = "4.5", features = ["derive", "env", "wrap_help", "help", "usage", "suggestions", "cargo"] }
 clap_complete = "4.5"
 indicatif = "0.18"
 colored = "2.0"
-dirs = "5.0"
-toml = "0.8"
+console = "0.15"
+dialoguer = "0.11"
 
 # TUI
 ratatui = "0.26"
 crossterm = "0.27"
+
+# Output formatting
 tabled = { version = "0.16", features = ["derive"] }
-num_cpus = "1.16"
+sarif_rust = "0.3"
 
 # Testing
 tempfile = "3.8"
@@ -152,21 +128,22 @@ test-case = "3.0"
 criterion = "0.5"
 
 [workspace.lints.rust]
-unused_crate_dependencies = { level = "warn" }
-unused_import_braces = { level = "warn" }
-unused_lifetimes = { level = "warn" }
-unused_qualifications = { level = "warn" }
-variant_size_differences = { level = "warn" }
+unused_crate_dependencies = "allow"
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+variant_size_differences = "warn"
 
 [workspace.lints.clippy]
-rust_2021_idioms = { level = "warn" }
+rust_2021_idioms = "warn"
 
 [profile.release]
 opt-level = 3
-lto = true
+lto = "thin"
 codegen-units = 1
 panic = "abort"
-strip = true
+strip = "debuginfo"
+debug = false
 
 [profile.dev]
 opt-level = 0
@@ -178,3 +155,14 @@ debug = true
 
 [patch.crates-io]
 select = { path = ".patched-crates/select-patched" }
+
+# Features for the unified binary
+[workspace.features]
+default = ["cloud-ai", "binary-analysis", "web-scan", "intelligence", "sarif-output"]
+# local-ai = ["crates/openre-ai/local-ai"]
+cloud-ai = ["crates/openre-ai/cloud-ai"]
+binary-analysis = ["crates/openre-analysis/full"]
+web-scan = ["crates/openre-scan/full"]
+intelligence = ["crates/openre-intelligence/full"]
+sarif-output = ["crates/openre-cli/sarif"]
+minimal = []  # Just core CLI, no AI, no binary analysis, no web scan

@@ -4,18 +4,13 @@ version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
-description = "Analysis pipeline (stages, orchestrator) for open-re"
+description = "Binary analysis pipeline for open-re"
 categories = { workspace = true }
 keywords = { workspace = true }
 
 [dependencies]
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
-openre-storage = { path = "../openre-storage" }
-# openre-plugins = { path = "../openre-plugins" }  # Temporarily disabled
-# openre-ai = { path = "../openre-ai" }  # Temporarily disabled - compilation errors
-openre-queue = { path = "../openre-queue" }
-openre-telemetry = { path = "../openre-telemetry" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
@@ -35,9 +30,12 @@ tokio-util = { version = "0.7" }
 goblin = { workspace = true }
 object = { workspace = true }
 scroll = { workspace = true }
-# pe = { workspace = true }  # Has alignment issues, using goblin for PE parsing instead
 xmas-elf = { workspace = true }
 wasmparser = { workspace = true }
+
+[features]
+default = ["full"]
+full = []
 
 [dev-dependencies]
 wat = "1.0"

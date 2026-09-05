@@ -1,395 +1,234 @@
-//! Scan commands
+//! Web vulnerability scanning commands
 
-use crate::{print_output, CliError, Context};
-use clap::{Parser, Subcommand};
 use colored::Colorize;
-use openre_core::ids::ScanId;
-use serde::{Deserialize, Serialize};
-use tabled::{settings::Style, Table};
-use urlencoding;
+use clap::{Args, Subcommand, ValueEnum};
+use openre_scan::{ScanProfile, ScanTarget, Scanner, ScanResult};
+use crate::{Context, CliError, print_output, OutputFormat};
+use std::path::PathBuf;
+use tabled::{Table, settings::Style};
 
-#[derive(Subcommand)]
-pub enum ScanCommands {
-    /// Create a new scan
-    Create {
-        /// Project name or ID
-        #[arg(short, long)]
-        project: String,
+#[derive(Subcommand, Debug)]
+pub struct ScanCommands {
+    #[command(subcommand)]
+    command: ScanSubcommand,
+}
 
-        /// Target URL to scan
-        #[arg(short, long)]
-        target: String,
+#[derive(Subcommand, Debug)]
+enum ScanSubcommand {
+    /// Quick scan (essential checks only, ~2-3s)
+    Quick(ScanArgs),
+    /// Standard scan (recommended, ~10-15s)
+    Standard(ScanArgs),
+    /// Full scan (all checks, ~30-60s)
+    Full(ScanArgs),
+    /// Custom scan with specific checks
+    Custom(CustomScanArgs),
+}
 
-        /// Scan profile
-        #[arg(short, long, default_value = "standard")]
-        profile: String,
+#[derive(Args, Debug)]
+struct ScanArgs {
+    /// Target URL or domain
+    target: String,
 
-        /// Scan name
-        #[arg(short, long)]
-        name: Option<String>,
+    /// Output file path
+    #[arg(short, long)]
+    output: Option<PathBuf>,
 
-        /// Scan description
-        #[arg(long)]
-        description: Option<String>,
+    /// Custom headers (can be repeated)
+    #[arg(long, value_name = "HEADER")]
+    header: Vec<String>,
 
-        /// Schedule scan (cron expression)
-        #[arg(long)]
-        schedule: Option<String>,
+    /// Request timeout in seconds
+    #[arg(long, default_value = "30")]
+    timeout: u64,
 
-        /// Run immediately after creation
-        #[arg(long, default_value = "true")]
-        run: bool,
-    },
+    /// Follow redirects
+    #[arg(long, default_value = "true")]
+    follow_redirects: bool,
 
-    /// Run a scan
-    Run {
-        #[arg(short, long)]
-        id: String,
+    /// Maximum redirect depth
+    #[arg(long, default_value = "10")]
+    max_redirects: u32,
 
-        /// Run in background
-        #[arg(long)]
-        background: bool,
-    },
+    /// User agent string
+    #[arg(long)]
+    user_agent: Option<String>,
 
-    /// List scans for a project
-    List {
-        /// Project name or ID
-        #[arg(short, long)]
-        project: String,
+    /// Proxy URL (e.g., http://127.0.0.1:8080)
+    #[arg(long)]
+    proxy: Option<String>,
 
-        #[arg(short, long, default_value = "1")]
-        page: u32,
+    /// Rate limit (requests per second)
+    #[arg(long)]
+    rate_limit: Option<f64>,
 
-        #[arg(short, long, default_value = "50")]
-        per_page: u32,
+    /// Exclude specific checks
+    #[arg(long, value_delimiter = ',')]
+    exclude: Vec<String>,
 
-        #[arg(long)]
-        status: Option<String>,
-    },
+    /// Include only specific checks
+    #[arg(long, value_delimiter = ',')]
+    checks: Vec<String>,
+}
 
-    /// Get scan details
-    Show {
-        #[arg(short, long)]
-        id: String,
+#[derive(Args, Debug)]
+struct CustomScanArgs {
+    /// Target URL or domain
+    target: String,
 
-        #[arg(short, long, default_value = "table")]
-        format: String,
-    },
+    /// Scan profile
+    #[arg(long, value_enum, default_value = "standard")]
+    profile: ScanProfileArg,
 
-    /// Delete a scan
-    Delete {
-        #[arg(short, long)]
-        id: String,
+    /// Checks to run (comma-separated)
+    #[arg(long, value_delimiter = ',')]
+    checks: Vec<String>,
 
-        #[arg(long)]
-        force: bool,
-    },
+    /// Checks to exclude (comma-separated)
+    #[arg(long, value_delimiter = ',')]
+    exclude: Vec<String>,
 
-    /// Cancel a running scan
-    Cancel {
-        #[arg(short, long)]
-        id: String,
-    },
+    /// Output file path
+    #[arg(short, long)]
+    output: Option<PathBuf>,
 
-    /// Resume a cancelled/failed scan
-    Resume {
-        #[arg(short, long)]
-        id: String,
-    },
+    /// Custom headers
+    #[arg(long, value_name = "HEADER")]
+    header: Vec<String>,
 
-    /// Get scan status
-    Status {
-        #[arg(short, long)]
-        id: String,
+    /// Request timeout in seconds
+    #[arg(long, default_value = "30")]
+    timeout: u64,
+}
 
-        #[arg(long, default_value = "5")]
-        interval: u64,
-    },
-
-    /// Export scan results
-    Export {
-        #[arg(short, long)]
-        id: String,
-
-        #[arg(short, long, default_value = "json")]
-        format: String,
-
-        #[arg(short, long)]
-        output: Option<String>,
-    },
+#[derive(Debug, Clone, ValueEnum)]
+enum ScanProfileArg {
+    Quick,
+    Standard,
+    Full,
 }
 
 impl ScanCommands {
-    pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
-        match self {
-            ScanCommands::Create { project, target, profile, name, description, schedule, run } => {
-                // First, resolve project ID if name given
-                let project_id = resolve_project_id(&mut ctx, &project).await?;
+    pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
+        match self.command {
+            ScanSubcommand::Quick(args) => run_scan(ctx, ScanProfile::Quick, args).await,
+            ScanSubcommand::Standard(args) => run_scan(ctx, ScanProfile::Standard, args).await,
+            ScanSubcommand::Full(args) => run_scan(ctx, ScanProfile::Full, args).await,
+            ScanSubcommand::Custom(args) => run_custom_scan(ctx, args).await,
+        }
+    }
+}
 
-                let mut payload = serde_json::json!({
-                    "project_id": project_id,
-                    "target": target,
-                    "profile": profile,
-                });
+async fn run_scan(ctx: Context, profile: ScanProfile, args: ScanArgs) -> Result<(), CliError> {
+    let target = ScanTarget::new(&args.target)
+        .with_timeout(args.timeout)
+        .with_follow_redirects(args.follow_redirects)
+        .with_max_redirects(args.max_redirects)
+        .with_headers(args.header)
+        .with_user_agent(args.user_agent)
+        .with_proxy(args.proxy)
+        .with_rate_limit(args.rate_limit)
+        .with_excluded_checks(args.exclude)
+        .with_included_checks(args.checks);
 
-                if let Some(name) = name {
-                    payload["name"] = serde_json::json!(name);
-                }
-                if let Some(description) = description {
-                    payload["description"] = serde_json::json!(description);
-                }
-                if let Some(schedule) = schedule {
-                    payload["schedule"] = serde_json::json!(schedule);
-                }
+    let spinner = ctx.spinner(format!("Scanning {} with {} profile...", args.target, profile));
 
-                let response = ctx.post("/api/scans", &payload).await?;
-                let scan: ScanResponse = response.json().await?;
-                print_output(&scan, &ctx.output_format)?;
-                println!("Scan created successfully!");
+    let mut scanner = Scanner::new(profile)?;
+    let result = scanner.scan(target).await?;
 
-                if run {
-                    // Auto-run the scan
-                    println!("Starting scan...");
-                    let run_response = ctx
-                        .post(&format!("/api/scans/{}/run", scan.id), &serde_json::json!({}))
-                        .await?;
-                    let run_result: ScanRunResponse = run_response.json().await?;
-                    print_output(&run_result, &ctx.output_format)?;
-                }
-            }
+    spinner.finish_and_clear();
 
-            ScanCommands::Run { id, background } => {
-                let response =
-                    ctx.post(&format!("/api/scans/{}/run", id), &serde_json::json!({})).await?;
-                let run_result: ScanRunResponse = response.json().await?;
-                print_output(&run_result, &ctx.output_format)?;
+    output_results(ctx, &result, args.output).await
+}
 
-                if background {
-                    println!("Scan started in background. Use 'openre scan status --id {}' to check progress.", id);
-                } else {
-                    // Poll for completion
-                    println!("Waiting for scan to complete...");
-                    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
-                    loop {
-                        interval.tick().await;
-                        let status_response = ctx.get(&format!("/api/scans/{}/status", id)).await?;
-                        let status: ScanStatusResponse = status_response.json().await?;
+async fn run_custom_scan(ctx: Context, args: CustomScanArgs) -> Result<(), CliError> {
+    let profile = match args.profile {
+        ScanProfileArg::Quick => ScanProfile::Quick,
+        ScanProfileArg::Standard => ScanProfile::Standard,
+        ScanProfileArg::Full => ScanProfile::Full,
+    };
 
-                        print!(
-                            "\rStatus: {} | Progress: {}% | Findings: {}",
-                            status.status, status.progress, status.findings_count
-                        );
-                        use std::io::{self, Write};
-                        io::stdout().flush()?;
+    let target = ScanTarget::new(&args.target)
+        .with_timeout(args.timeout)
+        .with_headers(args.header)
+        .with_included_checks(args.checks)
+        .with_excluded_checks(args.exclude);
 
-                        if matches!(status.status.as_str(), "completed" | "failed" | "cancelled") {
-                            println!();
-                            break;
-                        }
-                    }
-                }
-            }
+    let spinner = ctx.spinner(format!("Scanning {} with custom profile...", args.target));
 
-            ScanCommands::List { project, page, per_page, status } => {
-                let project_id = resolve_project_id(&mut ctx, &project).await?;
+    let mut scanner = Scanner::new(profile)?;
+    let result = scanner.scan(target).await?;
 
-                let mut url = format!(
-                    "/api/scans?project_id={}&page={}&per_page={}",
-                    project_id, page, per_page
-                );
-                if let Some(status) = status {
-                    url.push_str(&format!("&status={}", status));
-                }
+    spinner.finish_and_clear();
 
-                let response = ctx.get(&url).await?;
-                let list: ScanListResponse = response.json().await?;
-                print_output(&list.scans, &ctx.output_format)?;
-                println!(
-                    "Page {} of {} (total: {})",
-                    list.page,
-                    (list.total + list.per_page as u64 - 1) / list.per_page as u64,
-                    list.total
-                );
-            }
+    output_results(ctx, &result, args.output).await
+}
 
-            ScanCommands::Show { id, format } => {
-                let response = ctx.get(&format!("/api/scans/{}", id)).await?;
-                let scan: ScanResponse = response.json().await?;
-                print_output(&scan, &ctx.output_format)?;
-            }
+async fn output_results(ctx: Context, result: &ScanResult, output_path: Option<PathBuf>) -> Result<(), CliError> {
+    // Print summary to console
+    print_scan_summary(result);
 
-            ScanCommands::Delete { id, force } => {
-                if !force {
-                    print!("Are you sure you want to delete scan {}? (y/N): ", id);
-                    use std::io::{self, Write};
-                    io::stdout().flush()?;
-                    let mut input = String::new();
-                    io::stdin().read_line(&mut input)?;
-                    if !input.trim().eq_ignore_ascii_case("y") {
-                        println!("Cancelled.");
-                        return Ok(());
-                    }
-                }
+    // Write to file if requested
+    if let Some(path) = output_path {
+        let format = if path.extension().and_then(|s| s.to_str()) == Some("sarif") {
+            OutputFormat::Sarif
+        } else if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            OutputFormat::Json
+        } else {
+            ctx.format
+        };
 
-                ctx.delete(&format!("/api/scans/{}", id)).await?;
-                println!("Scan deleted successfully!");
-            }
+        print_output(result, format, Some(&path))?;
+        println!("\n{} Results saved to {}", "✓".green().bold(), path.display());
+    }
 
-            ScanCommands::Cancel { id } => {
-                let response =
-                    ctx.post(&format!("/api/scans/{}/cancel", id), &serde_json::json!({})).await?;
-                let result: ScanCancelResponse = response.json().await?;
-                println!("Scan cancelled successfully!");
-                print_output(&result, &ctx.output_format)?;
-            }
+    Ok(())
+}
 
-            ScanCommands::Resume { id } => {
-                let response =
-                    ctx.post(&format!("/api/scans/{}/resume", id), &serde_json::json!({})).await?;
-                let result: ScanRunResponse = response.json().await?;
-                println!("Scan resumed successfully!");
-                print_output(&result, &ctx.output_format)?;
-            }
+fn print_scan_summary(result: &ScanResult) {
+    println!("\n{}", "═".repeat(60).dimmed());
+    println!("{} {}", "📋 Scan Results".bold().cyan(), format!("({})", result.scan_id).dimmed());
+    println!("{}", "═".repeat(60).dimmed());
+    println!("  {} {}", "Target:".bold(), result.target);
+    println!("  {} {}", "Profile:".bold(), result.profile);
+    println!("  {} {:.2}s", "Duration:".bold(), result.duration_ms as f64 / 1000.0);
+    println!("  {} {}", "Checks Run:".bold(), result.checks_run);
+    println!("  {} {}", "Findings:".bold(), result.findings.len());
 
-            ScanCommands::Status { id, interval } => {
-                println!("Monitoring scan {} (press Ctrl+C to stop)...", id);
-                let mut interval =
-                    tokio::time::interval(tokio::time::Duration::from_secs(interval));
-                loop {
-                    interval.tick().await;
-                    let response = ctx.get(&format!("/api/scans/{}/status", id)).await?;
-                    let status: ScanStatusResponse = response.json().await?;
-
-                    print!(
-                        "\r\x1b[2KStatus: {} | Progress: {}% | Checks: {}/{} | Findings: {}",
-                        status.status,
-                        status.progress,
-                        status.checks_completed,
-                        status.checks_total,
-                        status.findings_count
-                    );
-                    use std::io::{self, Write};
-                    io::stdout().flush()?;
-
-                    if matches!(status.status.as_str(), "completed" | "failed" | "cancelled") {
-                        println!("\nScan {}!", status.status);
-                        break;
-                    }
-                }
-            }
-
-            ScanCommands::Export { id, format, output } => {
-                let response =
-                    ctx.get(&format!("/api/scans/{}/export?format={}", id, format)).await?;
-                let export: ScanExportResponse = response.json().await?;
-
-                if let Some(output_path) = output {
-                    tokio::fs::write(&output_path, &export.data).await?;
-                    println!("Export saved to {}", output_path);
-                } else {
-                    println!("{}", export.data);
-                }
+    if !result.findings.is_empty() {
+        println!("\n{}", "Findings by Severity:".bold());
+        let mut counts = std::collections::HashMap::new();
+        for f in &result.findings {
+            *counts.entry(f.severity).or_insert(0) += 1;
+        }
+        for (sev, count) in [("critical", "🔴"), ("high", "🟠"), ("medium", "🟡"), ("low", "🔵"), ("info", "⚪")] {
+            if let Some(c) = counts.get(sev) {
+                println!("  {} {}: {}", sev.to_uppercase().bold(), " ".repeat(8 - sev.len()), c);
             }
         }
+    }
 
-        Ok(())
+    // Show top findings
+    if !result.findings.is_empty() {
+        println!("\n{}", "Top Findings:".bold());
+        let mut table = Table::new(
+            result.findings.iter().take(10).map(|f| ScanFindingRow {
+                severity: format!("{}", f.severity),
+                title: f.title.clone(),
+                check: f.check_name.clone(),
+            }).collect::<Vec<_>>()
+        );
+        table.with(Style::modern());
+        println!("{}", table);
     }
 }
 
-// Helper to resolve project name to ID
-async fn resolve_project_id(ctx: &mut Context, project: &str) -> Result<String, CliError> {
-    // Try to parse as UUID first
-    if uuid::Uuid::parse_str(project).is_ok() {
-        return Ok(project.to_string());
-    }
-
-    // Otherwise, search by name
-    let response =
-        ctx.get(&format!("/api/projects?search={}", urlencoding::encode(project))).await?;
-    let list: ProjectListResponse = response.json().await?;
-
-    if let Some(project) = list.projects.first() {
-        Ok(project.id.to_string())
-    } else {
-        Err(CliError::InvalidInput(format!("Project not found: {}", project)))
-    }
-}
-
-// Response types
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ScanResponse {
-    pub id: ScanId,
-    pub project_id: String,
-    pub name: String,
-    pub target: String,
-    pub profile: String,
-    pub status: String,
-    pub progress: f32,
-    pub findings_count: u64,
-    pub checks_total: u32,
-    pub checks_completed: u32,
-    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ScanListResponse {
-    pub scans: Vec<ScanResponse>,
-    pub total: u64,
-    pub page: u32,
-    pub per_page: u32,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ScanRunResponse {
-    pub scan_id: ScanId,
-    pub status: String,
-    pub message: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ScanStatusResponse {
-    pub scan_id: ScanId,
-    pub status: String,
-    pub progress: f32,
-    pub checks_completed: u32,
-    pub checks_total: u32,
-    pub findings_count: u64,
-    pub current_check: Option<String>,
-    pub estimated_remaining: Option<u64>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ScanCancelResponse {
-    pub scan_id: ScanId,
-    pub status: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ScanExportResponse {
-    pub scan_id: ScanId,
-    pub format: String,
-    pub data: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ProjectListResponse {
-    pub projects: Vec<ProjectResponse>,
-    pub total: u64,
-    pub page: u32,
-    pub per_page: u32,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ProjectResponse {
-    pub id: String,
-    pub name: String,
-    pub description: Option<String>,
-    pub owner_id: String,
-    pub is_public: bool,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
+#[derive(tabled::Tabled)]
+struct ScanFindingRow {
+    #[tabled(rename = "SEV")]
+    severity: String,
+    #[tabled(rename = "TITLE")]
+    title: String,
+    #[tabled(rename = "CHECK")]
+    check: String,
 }

@@ -1,38 +1,39 @@
-//! CLI for open-re
+//! openre - Unified Reverse Engineering & Offensive Security CLI
+//!
+//! A single binary for binary analysis, web scanning, AI-powered vulnerability discovery,
+//! PoC generation, and actionable remediation guidance.
 
-pub mod commands;
+use clap::{Parser, Subcommand, ValueEnum, CommandFactory};
+use clap_complete::{generate, Shell};
+use colored::Colorize;
+use openre_config::Config;
+use std::path::PathBuf;
+
+mod commands;
 mod config;
 mod context;
 mod error;
 mod output;
+mod ai_stubs;
+mod analysis_stubs;
+mod intelligence_stubs;
 
-use clap::{CommandFactory, Parser, Subcommand};
-use clap_complete::{generate, Shell};
 use commands::{
-    agent::AgentCommand, ai::AiCommands, analysis::AnalysisCommands, analyst::AnalystCommands,
-    attack_paths::AttackPathsCommand, auth::AuthCommands, compare::CompareCommand,
-    config::ConfigCommands, file::FileCommands, finding::FindingCommands,
-    function::FunctionCommands, investigate::InvestigateCommand, job::JobCommands,
-    knowledge::KnowledgeCommand, map::MapCommand, plugin::PluginCommands, prioritize::PrioritizeCommand,
-    project::ProjectCommands, recheck::RecheckCommand, relationships::RelationshipsCommand,
-    report::ReportCommands, scan::ScanCommands, server::ServerCommands, tui::TuiCommands,
-    verify::VerifyCommand,
+    ai::AiCommands, analyze::AnalyzeCommands, config::ConfigCommands, exploit::ExploitCommands,
+    remediate::RemediateCommands, scan::ScanCommands,
 };
 pub use config::CliConfig;
-pub use context::offline::OfflineStore;
 pub use context::Context;
 pub use error::CliError;
 pub use output::{print_output, OutputFormat};
 
-
-use std::path::PathBuf;
-
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(
     name = "openre",
     version,
-    about = "open-re: Open-source reverse engineering platform",
-    long_about = "A modern, extensible reverse engineering platform with AI-powered analysis"
+    about = "openre - Reverse engineering & offensive security platform",
+    long_about = "Unified CLI for binary analysis, web scanning, AI-powered vulnerability discovery,\nPoC exploit generation, and actionable remediation guidance.\n\nAll features work locally. Cloud AI is optional. No database or server required.",
+    arg_required_else_help = true
 )]
 struct Cli {
     #[command(subcommand)]
@@ -43,125 +44,89 @@ struct Cli {
     config: Option<PathBuf>,
 
     /// Output format
-    #[arg(short, long, global = true, default_value = "table")]
+    #[arg(short, long, global = true, default_value = "table", value_enum)]
     format: OutputFormat,
-
-    /// API server URL
-    #[arg(long, global = true, default_value = "http://localhost:8080")]
-    server: String,
-
-    /// API key for authentication
-    #[arg(long, global = true, env = "OPENRE_API_KEY")]
-    api_key: Option<String>,
 
     /// Enable verbose output
     #[arg(short, long, global = true)]
     verbose: bool,
 
-    /// Run in offline mode (local operations without API server)
+    /// Run in offline mode (no network requests except explicit targets)
     #[arg(long, global = true)]
     offline: bool,
-
-    /// Local database path for offline mode
-    #[arg(long, global = true, value_name = "PATH")]
-    local_db: Option<PathBuf>,
 
     /// Generate shell completions
     #[arg(long, global = true, value_name = "SHELL")]
     completion: Option<Shell>,
+
+    /// AI provider to use
+    #[arg(long, global = true, value_enum, default_value = "auto")]
+    ai_provider: AiProviderArg,
+
+    /// AI model (for local providers)
+    #[arg(long, global = true)]
+    ai_model: Option<String>,
+
+    /// Disable AI features entirely
+    #[arg(long, global = true)]
+    no_ai: bool,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Clone, ValueEnum)]
+enum AiProviderArg {
+    Auto,
+    Local,
+    Ollama,
+    LlamaCpp,
+    Onnx,
+    OpenAI,
+    Anthropic,
+    Vllm,
+}
+
+impl From<AiProviderArg> for crate::ai_stubs::AiProvider {
+    fn from(p: AiProviderArg) -> Self {
+        match p {
+            AiProviderArg::Auto => crate::ai_stubs::AiProvider::Local, // Default to local
+            AiProviderArg::Local => crate::ai_stubs::AiProvider::Local,
+            AiProviderArg::Ollama => crate::ai_stubs::AiProvider::Ollama,
+            AiProviderArg::LlamaCpp => crate::ai_stubs::AiProvider::LlamaCpp,
+            AiProviderArg::Onnx => crate::ai_stubs::AiProvider::Onnx,
+            AiProviderArg::OpenAI => crate::ai_stubs::AiProvider::OpenAI,
+            AiProviderArg::Anthropic => crate::ai_stubs::AiProvider::Anthropic,
+            AiProviderArg::Vllm => crate::ai_stubs::AiProvider::Vllm,
+        }
+    }
+}
+
+#[derive(Subcommand, Debug)]
 enum Commands {
-    /// Authentication commands
+    /// Scan web applications and APIs for vulnerabilities
     #[command(subcommand)]
-    Auth(AuthCommands),
+    Scan(ScanCommands),
 
-    /// Project management
+    /// Analyze binaries (ELF, PE, Mach-O, WASM)
     #[command(subcommand)]
-    Project(ProjectCommands),
+    Analyze(AnalyzeCommands),
 
-    /// File management
-    #[command(subcommand)]
-    File(FileCommands),
-
-    /// Binary analysis
-    #[command(subcommand)]
-    Analysis(AnalysisCommands),
-
-    /// Function analysis
-    #[command(subcommand)]
-    Function(FunctionCommands),
-
-    /// AI-powered analysis
+    /// AI-powered vulnerability analysis and exploitation
     #[command(subcommand)]
     Ai(AiCommands),
 
-    /// AI Security Analyst
+    /// Generate proof-of-concept exploits for findings
     #[command(subcommand)]
-    Analyst(AnalystCommands),
+    Exploit(ExploitCommands),
 
-    /// Plugin management
+    /// Get actionable remediation guidance
     #[command(subcommand)]
-    Plugin(PluginCommands),
+    Remediate(RemediateCommands),
 
     /// Configuration management
     #[command(subcommand)]
     Config(ConfigCommands),
 
-    /// Server management
-    #[command(subcommand)]
-    Server(ServerCommands),
-
-    /// Scan management
-    #[command(subcommand)]
-    Scan(ScanCommands),
-
-    /// Finding management
-    #[command(subcommand)]
-    Finding(FindingCommands),
-
-    /// Report generation
-    #[command(subcommand)]
-    Report(ReportCommands),
-
-    /// Application Map
-    Map(MapCommand),
-
-    /// Finding Relationships
-    Relationships(RelationshipsCommand),
-
-    /// Attack Paths
-    AttackPaths(AttackPathsCommand),
-
-    /// Finding Verification
-    Verify(VerifyCommand),
-
-    /// Scan Comparison
-    Compare(CompareCommand),
-
-    /// Finding Recheck
-    Recheck(RecheckCommand),
-
-    /// Finding Prioritization
-    Prioritize(PrioritizeCommand),
-
-    /// Security Knowledge
-    Knowledge(KnowledgeCommand),
-
-    /// Investigation Workflow
-    Investigate(InvestigateCommand),
-
-    /// Agent Management
-    Agent(AgentCommand),
-
-    /// Job management
-    #[command(subcommand)]
-    Job(JobCommands),
-
-    /// Full-screen interactive TUI
-    #[command(subcommand)]
-    Tui(TuiCommands),
+    /// Show version and build info
+    Version,
 }
 
 #[tokio::main]
@@ -174,50 +139,58 @@ async fn main() -> Result<(), CliError> {
         return Ok(());
     }
 
+    // Initialize tracing
+    let filter = if cli.verbose { "debug" } else { "info" };
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(false)
+        .init();
+
     // Load configuration
     let config = CliConfig::load(cli.config.as_deref())?;
 
-    // Create HTTP client
-    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)).build()?;
-
-    // Create context with offline support
-    let mut ctx = Context::new(
-        config,
-        client,
-        cli.server,
-        cli.api_key,
-        cli.format,
-        cli.verbose,
-        cli.offline,
-        cli.local_db,
-    )?;
+    // Create context
+    let ai_provider: crate::ai_stubs::AiProvider = cli.ai_provider.into();
+    let ctx = Context::new(config, cli.format, cli.verbose, cli.offline, ai_provider, cli.ai_model, cli.no_ai)?;
 
     // Execute command
-    match cli.command {
-        Commands::Auth(cmd) => cmd.execute(ctx).await,
-        Commands::Project(cmd) => cmd.execute(ctx).await,
-        Commands::File(cmd) => cmd.execute(ctx).await,
-        Commands::Analysis(cmd) => cmd.execute(ctx).await,
-        Commands::Function(cmd) => cmd.execute(ctx).await,
-        Commands::Ai(cmd) => cmd.execute(ctx).await,
-        Commands::Analyst(cmd) => cmd.execute(ctx).await,
-        Commands::Plugin(cmd) => cmd.execute(ctx).await,
-        Commands::Config(cmd) => cmd.execute(ctx).await,
-        Commands::Server(cmd) => cmd.execute(ctx).await,
+    let result = match cli.command {
         Commands::Scan(cmd) => cmd.execute(ctx).await,
-        Commands::Finding(cmd) => cmd.execute(ctx).await,
-        Commands::Report(cmd) => cmd.execute(ctx).await,
-        Commands::Map(cmd) => cmd.execute(ctx).await,
-        Commands::Relationships(cmd) => cmd.execute(ctx).await,
-        Commands::AttackPaths(cmd) => cmd.execute(ctx).await,
-        Commands::Verify(cmd) => cmd.execute(ctx).await,
-        Commands::Compare(cmd) => cmd.execute(ctx).await,
-        Commands::Recheck(cmd) => cmd.execute(ctx).await,
-        Commands::Prioritize(cmd) => cmd.execute(ctx).await,
-        Commands::Knowledge(cmd) => cmd.execute(ctx).await,
-        Commands::Investigate(cmd) => cmd.execute(ctx).await,
-        Commands::Agent(cmd) => cmd.execute(ctx).await,
-        Commands::Job(cmd) => cmd.execute(&mut ctx).await,
-        Commands::Tui(cmd) => cmd.execute(ctx).await,
+        Commands::Analyze(cmd) => cmd.execute(ctx).await,
+        Commands::Ai(cmd) => cmd.execute(ctx).await,
+        Commands::Exploit(cmd) => cmd.execute(ctx).await,
+        Commands::Remediate(cmd) => cmd.execute(ctx).await,
+        Commands::Config(cmd) => cmd.execute(ctx).await,
+        Commands::Version => {
+            print_version();
+            Ok(())
+        }
+    };
+
+    if let Err(e) = &result {
+        eprintln!("{} {}", "Error:".red().bold(), e);
+        std::process::exit(1);
     }
+
+    result
+}
+
+fn print_version() {
+    println!(
+        "{} {}",
+        "openre".bold().cyan(),
+        env!("CARGO_PKG_VERSION").bold()
+    );
+    println!("{}", "Unified reverse engineering & offensive security platform".dimmed());
+    println!();
+    println!("{}", "Features:".bold());
+    println!("  • Binary analysis (ELF, PE, Mach-O, WASM)");
+    println!("  • Web/API vulnerability scanning");
+    println!("  • AI-powered analysis (local: Ollama, llama.cpp, ONNX | cloud: OpenAI, Anthropic)");
+    println!("  • PoC exploit generation");
+    println!("  • Actionable remediation guidance");
+    println!("  • SARIF/JSON/Table output for CI/CD");
+    println!();
+    println!("{}", "No database, no server, no Docker required. Just works.".green());
+    println!("{}", "https://github.com/RXVEN-1907/open-re".dimmed());
 }

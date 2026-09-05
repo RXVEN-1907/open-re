@@ -7,7 +7,7 @@ use openre_core::ids::AgentId;
 use crate::error::IntelligenceError;
 use crate::types::*;
 use openre_core::ids::{FindingId, ScanId, WorkflowId};
-use openre_queue::{Job, JobStatus, Priority, QueueManager};
+use crate::job::{Job, JobStatus, Priority, QueueManager, QueueStats};
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::algo::toposort;
 use serde::{Deserialize, Serialize};
@@ -507,7 +507,7 @@ impl AgentCoordinator {
     }
 
     /// Process a single job
-    async fn process_job(&self, mut job: openre_queue::Job) -> anyhow::Result<()> {
+    async fn process_job(&self, mut job: crate::job::Job) -> anyhow::Result<()> {
         let job_id = job.id.to_string();
 
         // Parse task from job data (clone payload to avoid move)
@@ -522,7 +522,7 @@ impl AgentCoordinator {
 
             if !ready.contains(&task.id) {
                 // Re-queue for later
-                job.status = JobStatus::Queued;
+                job.status = crate::job::JobStatus::Pending;
                 self.queue_manager.enqueue(job).await?;
                 return Ok(());
             }
@@ -639,7 +639,7 @@ pub struct CoordinatorStats {
     pub agents_by_health: HashMap<AgentHealth, usize>,
     pub total_tasks_completed: usize,
     pub total_tasks_failed: usize,
-    pub queue_stats: openre_queue::QueueStats,
+    pub queue_stats: crate::job::QueueStats,
 }
 
 /// Builder for creating agent workflows

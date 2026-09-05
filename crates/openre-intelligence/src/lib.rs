@@ -22,6 +22,7 @@ pub mod correlation;
 pub mod cve_intelligence;
 pub mod dependency_analysis;
 pub mod error;
+pub mod job;
 pub mod knowledge_base;
 pub mod performance;
 pub mod remediation;

@@ -54,7 +54,7 @@ impl ConfigWatcher {
                 }
             },
             NotifyConfig::default(),
-        )?;
+        ).map_err(|e| openre_core::Error::Config(format!("Failed to create config watcher: {}", e)))?;
 
         let watch_paths = paths.unwrap_or_else(|| {
             let config_dir = crate::default_config_dir();
@@ -67,7 +67,8 @@ impl ConfigWatcher {
 
         for path in watch_paths {
             if path.exists() {
-                watcher.watch(&path, RecursiveMode::NonRecursive)?;
+                watcher.watch(&path, RecursiveMode::NonRecursive)
+                    .map_err(|e| openre_core::Error::Config(format!("Failed to watch config file {}: {}", path.display(), e)))?;
                 info!("Watching config file: {}", path.display());
             }
         }
