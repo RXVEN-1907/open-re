@@ -26,7 +26,5 @@ dirs = { workspace = true }
 hex = { workspace = true }
 toml = { workspace = true }
 reqwest = { workspace = true }
-redis = { workspace = true }
-rusqlite = { workspace = true }
 utoipa = { version = "5.5", features = ["macros", "chrono"] }
 utoipa-gen = { version = "5.5" }

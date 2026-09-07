@@ -56,12 +56,6 @@ pub enum Error {
     #[error("Unauthorized: {0}")]
     Unauthorized(String),
 
-    #[error("Redis error: {0}")]
-    Redis(#[from] redis::RedisError),
-
-    #[error("SQLite error: {0}")]
-    Rusqlite(#[from] rusqlite::Error),
-
     #[error("Resource exhausted: {0}")]
     ResourceExhausted(String),
 

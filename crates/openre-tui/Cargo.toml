@@ -20,14 +20,8 @@ path = "src/main.rs"
 # Core crates
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
-openre-queue = { path = "../openre-queue" }
-openre-storage = { path = "../openre-storage", default-features = false, features = ["sqlite"] }
 openre-scan = { path = "../openre-scan", optional = true }
-openre-recon = { path = "../openre-recon", optional = true }
 openre-plugins = { path = "../openre-plugins", optional = true }
-openre-security-ai = { path = "../openre-security-ai", optional = true }
-openre-scanner = { path = "../openre-scanner", optional = true }
-openre-intelligence = { path = "../openre-intelligence", optional = true }
 openre-telemetry = { path = "../openre-telemetry", optional = true }
 
 # TUI
@@ -56,10 +50,6 @@ base64 = { workspace = true }
 regex = { workspace = true }
 fastrand = { workspace = true }
 
-# Additional dependencies for services integration
-redis = { workspace = true }
-rusqlite = { workspace = true }
-
 # CLI
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true }
@@ -67,13 +57,9 @@ colored = { workspace = true }
 
 [features]
 default = ["full"]
-full = ["scan", "recon", "ai", "plugins", "scanner", "telemetry"]
+full = ["scan", "plugins", "telemetry"]
 scan = ["dep:openre-scan"]
-recon = ["dep:openre-recon"]
-ai = ["dep:openre-security-ai"]
 plugins = ["dep:openre-plugins"]
-scanner = ["dep:openre-scanner"]
-intelligence = ["dep:openre-intelligence"]
 telemetry = ["dep:openre-telemetry"]
 
 [profile.release]

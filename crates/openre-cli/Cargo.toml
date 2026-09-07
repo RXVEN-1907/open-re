@@ -18,7 +18,6 @@ openre-config = { path = "../openre-config" }
 openre-analysis = { path = "../openre-analysis", optional = true }
 openre-scan = { path = "../openre-scan", optional = true }
 openre-ai = { path = "../openre-ai", optional = true }
-openre-queue = { path = "../openre-queue", optional = true }
 openre-telemetry = { path = "../openre-telemetry", optional = true }
 
 clap = { version = "4.5", features = ["derive", "env", "wrap_help", "help", "usage", "suggestions", "cargo"] }
@@ -51,10 +50,9 @@ sarif_rust = { version = "0.3", optional = true }
 
 [features]
 default = ["full"]
-full = ["analysis", "scan", "ai", "queue", "sarif"]
+full = ["analysis", "scan", "ai", "sarif"]
 analysis = ["dep:openre-analysis"]
 scan = ["dep:openre-scan"]
 ai = ["dep:openre-ai"]
-queue = ["dep:openre-queue", "dep:openre-telemetry"]
 sarif = ["dep:sarif_rust"]
 minimal = []

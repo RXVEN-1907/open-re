@@ -11,24 +11,16 @@ members = [
     "crates/openre-tui",
     "crates/openre-plugins",
     "crates/openre-plugins-macros",
-    "crates/openre-queue",
-    "crates/openre-storage",
     "crates/openre-telemetry",
-    "crates/openre-scanner",
-    "crates/openre-recon",
-    "crates/openre-security-ai",
     "crates/sentinel",
 ]
-
-# Temporarily excluded due to dependency issues:
-# exclude = ["crates/openre-api"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/RXVEN-1907/open-re"
-description = "open-re: Open-source reverse engineering & offensive security platform"
+description = "openre: Open-source reverse engineering & offensive security platform"
 categories = ["command-line-utilities", "security", "reverse-engineering"]
 keywords = ["security", "scanner", "vulnerability", "web", "binary", "reverse-engineering", "ai", "llm"]
 
@@ -64,7 +56,10 @@ semver = "1.0"
 indexmap = "2.0"
 petgraph = { version = "0.6", features = ["serde"] }
 colored = "2.0"
-urlencoding = "2.1"
+urlencoding = { version = "1.0", features = [] }
+metrics = "0.21"
+metrics-exporter-prometheus = "0.13"
+prometheus = "0.13"
 
 # HTTP
 reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multipart", "gzip", "brotli", "cookies"] }
@@ -125,20 +120,14 @@ llama-cpp-2 = { version = "0.10", features = ["metal", "cuda", "accelerate"] }
 candle-core = { version = "0.8", features = ["cuda", "metal"] }
 tokenizers = "0.19"
 
-# Database
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "json", "migrate", "macros"] }
-redis = { version = "0.24", features = ["tokio-comp", "connection-manager", "streams", "script"] }
-rusqlite = { version = "0.32", features = ["bundled", "modern_sqlite", "serde_json", "chrono", "uuid"] }
-
-# Queue
-lapin = { version = "0.8", features = ["tokio"] }
-cron = "0.9"
-
 # Plugins
 libloading = "0.8"
 wasmtime = { version = "20.0", features = ["component-model", "async"] }
 wasmtime-wasi = { version = "20.0", features = ["preview1"] }
 notify = { version = "6.1", features = ["mio"] }
+utoipa = { version = "5.5", features = ["chrono", "actix_extras", "macros"] }
+utoipa-swagger-ui = { version = "7.0", features = ["axum"] }
+utoipa-gen = { version = "5.5" }
 
 # Testing
 tempfile = "3.8"
@@ -168,32 +157,6 @@ rmp-serde = "1.1"
 # Compression
 flate2 = "1.0"
 zstd = "0.13"
-
-# API
-axum = "0.7"
-axum-extra = { version = "0.9", features = ["cookie"] }
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["fs", "cors", "trace", "normalize-path", "set-header", "add-extension", "propagate-header", "util", "timeout", "trace", "compression-full", "decompression-full"] }
-tonic = { version = "0.12", features = ["tls", "transport", "gzip", "codegen"] }
-prost = "0.12"
-jsonwebtoken = "9.0"
-bcrypt = "0.15"
-utoipa = { version = "5.5", features = ["chrono", "actix_extras", "macros"] }
-utoipa-swagger-ui = { version = "7.0", features = ["axum"] }
-governor = { version = "0.6", features = ["std"] }
-async-stream = "0.3"
-
-# Metrics
-metrics = "0.21"
-metrics-exporter-prometheus = "0.13"
-prometheus = "0.13"
-
-# OpenTelemetry
-tracing-opentelemetry = "0.27"
-opentelemetry = { version = "0.27", features = ["trace", "metrics"] }
-opentelemetry-otlp = { version = "0.27", features = ["tonic"] }
-opentelemetry_sdk = { version = "0.27", features = ["trace", "metrics", "rt-tokio"] }
-opentelemetry-prometheus = "0.27"
 
 # Macros
 proc-macro2 = "1.0"

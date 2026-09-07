@@ -117,20 +117,20 @@ pub fn job_status_icon(status: &crate::state::JobStatus) -> &'static str {
 }
 
 /// Get color for priority
-pub fn priority_color(priority: &openre_queue::Priority, colors: &ThemeColors) -> Color {
+pub fn priority_color(priority: &openre_core::Priority, colors: &ThemeColors) -> Color {
     match priority {
-        openre_queue::Priority::High => colors.error,
-        openre_queue::Priority::Default => colors.info,
-        openre_queue::Priority::Low => colors.muted,
+        openre_core::Priority::High => colors.error,
+        openre_core::Priority::Default => colors.info,
+        openre_core::Priority::Low => colors.muted,
     }
 }
 
 /// Get icon for priority
-pub fn priority_icon(priority: &openre_queue::Priority) -> &'static str {
+pub fn priority_icon(priority: &openre_core::Priority) -> &'static str {
     match priority {
-        openre_queue::Priority::High => "●",
-        openre_queue::Priority::Default => "○",
-        openre_queue::Priority::Low => "○",
+        openre_core::Priority::High => "●",
+        openre_core::Priority::Default => "○",
+        openre_core::Priority::Low => "○",
     }
 }
 
