@@ -1,10 +1,9 @@
 //! Job scheduler for recurring and delayed jobs
 
-use crate::{Job, QueueManager};
+use crate::{Job, QueueManager, metrics::SchedulerMetrics};
 use cron::Schedule;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::JobId;
-use openre_telemetry::metrics::SchedulerMetrics;
 use redis::{AsyncCommands, Client};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -80,7 +79,7 @@ impl Scheduler {
             .await
             .insert(job_id, ScheduledJob { job, run_at, recurring: false });
 
-        self.metrics.jobs_scheduled.increment(1);
+        self.metrics.jobs_scheduled();
 
         info!("Scheduled one-time job {} for {}", job_id, run_at);
 
@@ -123,7 +122,7 @@ impl Scheduler {
         // Track in memory
         self.recurring_jobs.write().await.insert(job_id.clone(), recurring_job);
 
-        self.metrics.jobs_scheduled.increment(1);
+        self.metrics.jobs_scheduled();
 
         info!(
             "Scheduled recurring job '{}' ({}) with cron '{}', next run: {}",
@@ -161,7 +160,7 @@ impl Scheduler {
             let mut conn = self.client.get_multiplexed_async_connection().await?;
             let _: () = conn.zrem("openre:scheduler:once", job_id.to_string()).await?;
             let _: () = conn.hdel("openre:scheduler:once:data", job_id.to_string()).await?;
-            self.metrics.jobs_missed.increment(1);
+            self.metrics.jobs_missed();
         }
 
         Ok(removed)
@@ -175,7 +174,7 @@ impl Scheduler {
         if removed {
             let mut conn = self.client.get_multiplexed_async_connection().await?;
             let _: () = conn.hdel("openre:scheduler:recurring", job_id).await?;
-            self.metrics.jobs_missed.increment(1); // Use jobs_missed for removed jobs
+            self.metrics.jobs_missed(); // Use jobs_missed for removed jobs
         }
 
         Ok(removed)
@@ -257,7 +256,7 @@ impl Scheduler {
                 // Enqueue
                 self.queue_manager.enqueue(job).await?;
 
-                self.metrics.jobs_triggered.increment(1);
+                self.metrics.jobs_triggered();
                 info!("Triggered scheduled job {}", job_id_str);
             }
         }
@@ -284,9 +283,9 @@ impl Scheduler {
                 if let Err(e) = self.queue_manager.enqueue(job_instance).await {
                     error!("Failed to enqueue recurring job {}: {}", id, e);
                     // Use jobs_missed for failed triggers
-                    self.metrics.jobs_missed.increment(1);
+                    self.metrics.jobs_missed();
                 } else {
-                    self.metrics.jobs_triggered.increment(1);
+                    self.metrics.jobs_triggered();
                     info!("Triggered recurring job '{}' ({})", job.name, id);
                 }
 

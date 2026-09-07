@@ -15,15 +15,19 @@ path = "src/main.rs"
 [dependencies]
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
-openre-scan = { path = "../openre-scan" }
+openre-analysis = { path = "../openre-analysis", optional = true }
+openre-scan = { path = "../openre-scan", optional = true }
+openre-ai = { path = "../openre-ai", optional = true }
+openre-queue = { path = "../openre-queue", optional = true }
+openre-telemetry = { path = "../openre-telemetry", optional = true }
 
-clap = { workspace = true }
-clap_complete = { workspace = true }
+clap = { version = "4.5", features = ["derive", "env", "wrap_help", "help", "usage", "suggestions", "cargo"] }
+clap_complete = "4.5"
 tokio = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.150" }
 uuid = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }
@@ -46,5 +50,11 @@ hex = "0.4"
 sarif_rust = { version = "0.3", optional = true }
 
 [features]
-default = ["sarif"]
+default = ["full"]
+full = ["analysis", "scan", "ai", "queue", "sarif"]
+analysis = ["dep:openre-analysis"]
+scan = ["dep:openre-scan"]
+ai = ["dep:openre-ai"]
+queue = ["dep:openre-queue", "dep:openre-telemetry"]
 sarif = ["dep:sarif_rust"]
+minimal = []

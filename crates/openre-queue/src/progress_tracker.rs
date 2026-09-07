@@ -1,9 +1,8 @@
 //! Progress tracking for jobs
 
-use crate::job::{JobProgress, StageProgress};
+use crate::{job::{JobProgress, StageProgress}, metrics::ProgressMetrics};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::JobId;
-use openre_telemetry::metrics::ProgressMetrics;
 use redis::{AsyncCommands, Client};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -58,7 +57,7 @@ impl ProgressTracker {
         self.progress_cache.write().await.insert(job_id, progress.clone());
         self.persist_progress(&progress).await?;
 
-        self.metrics.jobs_tracked.increment(1);
+        self.metrics.jobs_tracked();
 
         Ok(())
     }

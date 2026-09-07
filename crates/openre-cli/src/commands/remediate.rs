@@ -11,13 +11,7 @@ use std::path::PathBuf;
 use tabled::{Table, settings::Style};
 
 #[derive(Subcommand, Debug)]
-pub struct RemediateCommands {
-    #[command(subcommand)]
-    command: RemediateSubcommand,
-}
-
-#[derive(Subcommand, Debug)]
-enum RemediateSubcommand {
+pub enum RemediateCommands {
     /// Get remediation plan for a finding
     Plan(PlanArgs),
     /// Get quick fix for a finding
@@ -122,11 +116,11 @@ enum GroupByArg {
 
 impl RemediateCommands {
     pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
-        match self.command {
-            RemediateSubcommand::Plan(args) => run_plan(ctx, args).await,
-            RemediateSubcommand::QuickFix(args) => run_quick_fix(ctx, args).await,
-            RemediateSubcommand::Report(args) => run_report(ctx, args).await,
-            RemediateSubcommand::Verify(args) => run_verify(ctx, args).await,
+        match self {
+            RemediateCommands::Plan(args) => run_plan(ctx, args).await,
+            RemediateCommands::QuickFix(args) => run_quick_fix(ctx, args).await,
+            RemediateCommands::Report(args) => run_report(ctx, args).await,
+            RemediateCommands::Verify(args) => run_verify(ctx, args).await,
         }
     }
 }
@@ -169,9 +163,9 @@ async fn run_plan(ctx: Context, args: PlanArgs) -> Result<(), CliError> {
         }
     }
 
-    if let Some(refs) = &plan.references {
+    if !plan.references.is_empty() {
         println!("{}", "References:".bold());
-        for r in refs {
+        for r in &plan.references {
             println!("  • {}", r);
         }
     }

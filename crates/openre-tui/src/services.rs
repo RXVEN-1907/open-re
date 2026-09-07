@@ -126,9 +126,7 @@ impl Services {
                                 match QueueManager::new(
                                     config.queue.clone(),
                                     &config.redis,
-                                    Arc::new(openre_telemetry::metrics::QueueMetrics::new(
-                                        &openre_telemetry::MetricsRegistry::default(),
-                                    )),
+                                    Arc::new(openre_queue::metrics::QueueMetrics::new()),
                                 ).await {
                                     Ok(qm) => {
                                         info!("Queue manager initialized");

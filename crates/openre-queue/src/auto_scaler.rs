@@ -1,9 +1,8 @@
 //! Auto-scaler for worker pool
 
-use crate::{QueueManager, QueueStats, WorkerPool};
+use crate::{QueueManager, QueueStats, WorkerPool, metrics::AutoScalerMetrics};
 use openre_config::AutoscalerConfig;
 use openre_core::error::OpenreResult as Result;
-use openre_telemetry::metrics::AutoScalerMetrics;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -76,7 +75,7 @@ impl AutoScaler {
                 // We need mutable access to scale
                 // In a real implementation, we'd use a different pattern
                 // For now, just record the decision
-                self.metrics.scale_events.increment(1);
+                self.metrics.scale_events();
                 *self.last_scale_action.write().await = Some(chrono::Utc::now());
             } else {
                 debug!("Auto-scaler: scaling needed but in cooldown period");
@@ -84,10 +83,10 @@ impl AutoScaler {
         }
 
         // Record metrics
-        self.metrics.current_workers.set(current_workers as f64);
-        self.metrics.desired_workers.set(desired_workers as f64);
-        self.metrics.queue_depth.set(stats.total_queued as f64);
-        self.metrics.jobs_running.set(stats.jobs_running as f64);
+        self.metrics.current_workers(current_workers as f64);
+        self.metrics.desired_workers(desired_workers as f64);
+        self.metrics.queue_depth(stats.total_queued as f64);
+        self.metrics.jobs_running(stats.jobs_running as f64);
 
         Ok(())
     }

@@ -88,9 +88,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, warn};
+use utoipa::ToSchema;
 
 /// Plugin information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PluginInfo {
     /// Unique plugin ID
     pub id: PluginId,
@@ -121,6 +122,7 @@ pub struct PluginInfo {
     /// Plugin status
     pub status: PluginStatus,
     /// Plugin source path
+    #[schema(value_type = String)]
     pub source_path: Option<PathBuf>,
     /// Loaded timestamp
     pub loaded_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -131,7 +133,7 @@ pub struct PluginInfo {
 }
 
 /// Plugin capability
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PluginCapability {
     /// Capability name
     pub name: String,
@@ -148,7 +150,7 @@ pub struct PluginCapability {
 }
 
 /// Plugin dependency
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PluginDependency {
     /// Dependency plugin ID
     pub plugin_id: PluginId,
@@ -161,7 +163,7 @@ pub struct PluginDependency {
 }
 
 /// Plugin status
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PluginStatus {
     /// Plugin is discovered but not loaded
@@ -181,7 +183,7 @@ pub enum PluginStatus {
 }
 
 /// Health status
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HealthStatus {
     /// Health check not performed
@@ -195,7 +197,7 @@ pub enum HealthStatus {
 }
 
 /// Risk level
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RiskLevel {
     /// No risk
@@ -211,7 +213,7 @@ pub enum RiskLevel {
 }
 
 /// Plugin configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PluginConfig {
     /// Plugin ID
     pub plugin_id: PluginId,
@@ -226,7 +228,7 @@ pub struct PluginConfig {
 }
 
 /// Resource limits for plugin execution
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ResourceLimits {
     /// Maximum memory in MB
     pub max_memory_mb: Option<u64>,
@@ -253,7 +255,7 @@ impl Default for ResourceLimits {
 }
 
 /// Plugin execution result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PluginExecutionResult {
     /// Plugin ID
     pub plugin_id: PluginId,

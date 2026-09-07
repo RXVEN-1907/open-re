@@ -220,7 +220,7 @@ pub enum PluginExecutionStatus {
 }
 
 /// Scan log entry
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ScanLogEntry {
     /// Timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,

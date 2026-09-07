@@ -3,15 +3,26 @@
 use crate::binary::common::*;
 use crate::binary::elf::ElfIdentifier;
 use crate::binary::elf::ElfMetadataExtractor;
+use crate::binary::metrics;
 use crate::binary::pe::PeIdentifier;
 use crate::binary::pe::PeMetadataExtractor;
 use crate::binary::traits::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_storage::ObjectStore;
-use openre_telemetry::metrics;
 use std::sync::Arc;
 use tracing::{info, warn};
+
+/// Stub for ObjectStore
+#[derive(Debug, Clone, Default)]
+pub struct ObjectStore;
+
+impl ObjectStore {
+    pub fn new() -> Arc<Self> { Arc::new(Self) }
+
+    pub async fn put(&self, _path: &str, _data: Vec<u8>) -> Result<()> { Ok(()) }
+
+    pub async fn get_object(&self, _file_id: FileId) -> Result<Option<Vec<u8>>> { Ok(None) }
+}
 
 /// Binary upload service
 pub struct BinaryUploadService {
@@ -124,14 +135,8 @@ impl BinaryUploadService {
     /// Get binary metadata by file ID
     pub async fn get_binary_metadata(&self, file_id: FileId) -> Result<Option<BinaryMetadata>> {
         let data = match self.object_store.get_object(file_id).await {
-            Ok(mut reader) => {
-                use tokio::io::AsyncReadExt;
-                let mut buf = Vec::new();
-                match reader.read_to_end(&mut buf).await {
-                    Ok(_) => buf,
-                    Err(e) => return Err(openre_core::Error::Io(e)),
-                }
-            }
+            Ok(Some(data)) => data,
+            Ok(None) => return Ok(None),
             Err(_) => return Ok(None),
         };
 

@@ -2,6 +2,7 @@
 
 use thiserror::Error;
 use goblin::Object;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Binary format
@@ -261,6 +262,7 @@ pub fn detect_format(path: &PathBuf) -> anyhow::Result<BinaryFormat> {
         Ok(Object::Mach(_)) => Ok(BinaryFormat::Macho),
         Ok(Object::Archive(_)) => Ok(BinaryFormat::Auto),
         Ok(Object::Unknown(_)) => Ok(BinaryFormat::Auto),
+        Ok(_) => Ok(BinaryFormat::Auto),
         Err(_) => Ok(BinaryFormat::Auto),
     }
 }

@@ -12,18 +12,22 @@ keywords = { workspace = true }
 name = "openre-api"
 path = "src/main.rs"
 
+[features]
+default = ["ai"]
+ai = ["dep:openre-ai", "dep:openre-security-ai", "dep:openre-scanner", "dep:openre-plugins", "dep:rusqlite"]
+
 [dependencies]
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
 openre-storage = { path = "../openre-storage" }
 openre-queue = { path = "../openre-queue" }
-openre-ai = { path = "../openre-ai" }
-openre-plugins = { path = "../openre-plugins" }
-axum = { workspace = true }
+openre-ai = { path = "../openre-ai", optional = true }
+openre-plugins = { path = "../openre-plugins", optional = true }
+axum = { workspace = true, features = ["multipart", "ws"] }
 axum-extra = { workspace = true, features = ["cookie"] }
 tower = { workspace = true }
-tower-http = { workspace = true }
+tower-http = { workspace = true, features = ["compression-full", "limit", "cors"] }
 tonic = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
@@ -45,6 +49,7 @@ governor = { workspace = true }
 async-stream = "0.3"
 async-trait = { workspace = true }
 redis = { workspace = true }
-openre-scanner = { path = "../openre-scanner" }
-openre-security-ai = { path = "../openre-security-ai" }
+openre-scanner = { path = "../openre-scanner", optional = true }
+openre-security-ai = { path = "../openre-security-ai", optional = true }
 base64 = { workspace = true }
+rusqlite = { workspace = true, optional = true }

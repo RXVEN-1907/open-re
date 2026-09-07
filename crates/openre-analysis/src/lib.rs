@@ -26,3 +26,6 @@ pub use binary::common::{
     SegmentPermissions, StringEncoding, SymbolBinding, SymbolInfo, SymbolType, SymbolVisibility,
     TypeInfo, TypeKind, TypeRecoveryOutput, TypeSource, Variable, VariableStorage, VersionInfo,
 };
+
+// Re-export AiService and NoopAiService from stages (not orchestrator) to avoid conflicts
+pub use stages::{AiService, InferenceRequest, InferenceResponse, NoopAiService, TaskType};

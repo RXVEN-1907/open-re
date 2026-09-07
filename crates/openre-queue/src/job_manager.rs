@@ -9,8 +9,6 @@ use crate::{
 use openre_config::{QueueConfig, RedisConfig};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::JobId;
-use metrics::{Counter, Gauge};
-use openre_telemetry::metrics::MetricsRegistry;
 use dashmap::DashMap;
 use redis::{AsyncCommands, Client};
 use std::collections::HashMap;
@@ -185,29 +183,31 @@ impl JobStorage for RedisJobStorage {
     }
 }
 
-/// Metrics for job manager
+/// Metrics for job manager (using atomic counters for thread safety)
+use std::sync::atomic::{AtomicU64, Ordering};
+
 pub struct JobManagerMetrics {
-    pub jobs_started: Counter,
-    pub jobs_completed: Counter,
-    pub jobs_failed: Counter,
-    pub jobs_cancelled: Counter,
-    pub jobs_retry: Counter,
-    pub jobs_retried: Counter,
-    pub queue_depth: Gauge,
-    pub running_jobs: Gauge,
+    pub jobs_started: AtomicU64,
+    pub jobs_completed: AtomicU64,
+    pub jobs_failed: AtomicU64,
+    pub jobs_cancelled: AtomicU64,
+    pub jobs_retry: AtomicU64,
+    pub jobs_retried: AtomicU64,
+    pub queue_depth: AtomicU64, // stored as bits
+    pub running_jobs: AtomicU64, // stored as bits
 }
 
 impl JobManagerMetrics {
-    pub fn new(registry: &openre_telemetry::MetricsRegistry) -> Self {
+    pub fn new() -> Self {
         Self {
-            jobs_started: registry.counter("jobs_started_total", "Total jobs started"),
-            jobs_completed: registry.counter("jobs_completed_total", "Total jobs completed"),
-            jobs_failed: registry.counter("jobs_failed_total", "Total jobs failed"),
-            jobs_cancelled: registry.counter("jobs_cancelled_total", "Total jobs cancelled"),
-            jobs_retry: registry.counter("jobs_retry_total", "Total jobs retried"),
-            jobs_retried: registry.counter("jobs_retried_total", "Total jobs retried"),
-            queue_depth: registry.gauge("jobs_queue_depth", "Current queue depth"),
-            running_jobs: registry.gauge("jobs_running", "Number of running jobs"),
+            jobs_started: AtomicU64::new(0),
+            jobs_completed: AtomicU64::new(0),
+            jobs_failed: AtomicU64::new(0),
+            jobs_cancelled: AtomicU64::new(0),
+            jobs_retry: AtomicU64::new(0),
+            jobs_retried: AtomicU64::new(0),
+            queue_depth: AtomicU64::new(0),
+            running_jobs: AtomicU64::new(0),
         }
     }
 }
@@ -229,7 +229,6 @@ impl BackgroundJobManager {
         queue_config: QueueConfig,
         redis_config: &RedisConfig,
         config: JobManagerConfig,
-        metrics_registry: &MetricsRegistry,
     ) -> Result<Arc<Self>> {
         // Create Redis client
         let client = Client::open(redis_config.url.as_str())?;
@@ -239,7 +238,7 @@ impl BackgroundJobManager {
         redis::cmd("PING").query_async::<_, ()>(&mut conn).await?;
 
         // Create queue manager
-        let queue_metrics = Arc::new(openre_telemetry::metrics::QueueMetrics::new(metrics_registry));
+        let queue_metrics = Arc::new(crate::metrics::QueueMetrics::new());
         let queue_manager = Arc::new(
             QueueManager::new(queue_config.clone(), redis_config, queue_metrics).await?,
         );
@@ -255,7 +254,7 @@ impl BackgroundJobManager {
 
         let (shutdown_tx, _) = broadcast::channel(1);
 
-        let metrics = Arc::new(JobManagerMetrics::new(metrics_registry));
+        let metrics = Arc::new(JobManagerMetrics::new());
 
         let manager = Arc::new(Self {
             job_queue: queue_manager,
@@ -282,7 +281,6 @@ impl BackgroundJobManager {
             ..Default::default()
         };
         let config = JobManagerConfig::default();
-        let _metrics_registry = MetricsRegistry::default();
 
         // This will fail without Redis, but useful for unit tests with mocks
         let client = Client::open("redis://localhost:6379").unwrap();
@@ -291,8 +289,7 @@ impl BackgroundJobManager {
 
         let (shutdown_tx, _) = broadcast::channel(1);
         let queue_manager = QueueManager::new_for_testing();
-        let _metrics_registry = MetricsRegistry::default();
-        let metrics = Arc::new(JobManagerMetrics::new(&MetricsRegistry::default()));
+        let metrics = Arc::new(JobManagerMetrics::new());
 
         Arc::new(Self {
             job_queue: queue_manager,
@@ -341,7 +338,7 @@ impl BackgroundJobManager {
             metadata: HashMap::new(),
         }).await?;
 
-        self.metrics.jobs_started.increment(1);
+        self.metrics.jobs_started.fetch_add(1, Ordering::Relaxed);
 
         info!("Started job {}", job_id);
         Ok(job_id)
@@ -364,7 +361,7 @@ impl BackgroundJobManager {
                 self.job_storage.update_job(&job).await?;
             }
 
-            self.metrics.jobs_cancelled.increment(1);
+            self.metrics.jobs_cancelled.fetch_add(1, Ordering::Relaxed);
             info!("Cancelled job {}", job_id);
             return Ok(());
         }
@@ -379,7 +376,7 @@ impl BackgroundJobManager {
                     self.job_storage.update_job(&job).await?;
                 }
             }
-            self.metrics.jobs_cancelled.increment(1);
+            self.metrics.jobs_cancelled.fetch_add(1, Ordering::Relaxed);
             info!("Cancelled queued job {}", job_id);
             return Ok(());
         }
@@ -391,7 +388,7 @@ impl BackgroundJobManager {
                     job.status = JobStatus::Cancelled;
                     job.completed_at = Some(chrono::Utc::now());
                     self.job_storage.update_job(&job).await?;
-                    self.metrics.jobs_cancelled.increment(1);
+                    self.metrics.jobs_cancelled.fetch_add(1, Ordering::Relaxed);
                     info!("Cancelled persisted job {}", job_id);
                     return Ok(());
                 }
@@ -460,7 +457,7 @@ impl BackgroundJobManager {
         // Start the new job
         self.start_job(new_job).await?;
 
-        self.metrics.jobs_retried.increment(1);
+        self.metrics.jobs_retried.fetch_add(1, Ordering::Relaxed);
         info!("Retried job {} (attempt {})", job_id, retry_count + 1);
         Ok(())
     }

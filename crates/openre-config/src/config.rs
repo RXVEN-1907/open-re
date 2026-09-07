@@ -1,9 +1,7 @@
 //! Configuration structures for open-re
 
-use figment::{
-    providers::{Env, Format, Json, Serialized, Toml},
-    Figment,
-};
+use figment::providers::{Env, Format, Json, Serialized, Toml};
+use figment::Figment;
 use once_cell::sync::Lazy;
 use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
@@ -223,7 +221,7 @@ impl Default for ServerConfig {
         Self {
             host: "0.0.0.0".into(),
             port: 8080,
-            workers: num_cpus::get(),
+            workers: 4,
             request_timeout_secs: 30,
             body_limit_mb: 100,
             enable_cors: true,
@@ -495,7 +493,7 @@ impl Default for AiConfig {
             allow_remote: false,
             allowed_remote_providers: vec![],
             models_dir: PathBuf::from("./models"),
-            onnx: OnnxConfig { threads: num_cpus::get(), providers: vec!["cpu".into()] },
+            onnx: OnnxConfig { threads: 4, providers: vec!["cpu".into()] },
             llama_cpp: LlamaCppConfig {
                 gpu_layers: 0,
                 context_size: 4096,

@@ -18,13 +18,28 @@ mod ai_stubs;
 mod analysis_stubs;
 mod intelligence_stubs;
 
-use commands::{
-    ai::AiCommands, analyze::AnalyzeCommands, config::ConfigCommands, exploit::ExploitCommands,
-    remediate::RemediateCommands, scan::ScanCommands,
-};
+#[cfg(feature = "scan")]
+use commands::scan::ScanCommands;
+
+#[cfg(feature = "analysis")]
+use commands::analyze::AnalyzeCommands;
+
+#[cfg(feature = "ai")]
+use commands::ai::AiCommands;
+
+#[cfg(feature = "analysis")]
+use commands::exploit::ExploitCommands;
+
+#[cfg(feature = "analysis")]
+use commands::remediate::RemediateCommands;
+
+#[cfg(feature = "queue")]
+use commands::queue::QueueCommands;
+
+use commands::config::ConfigCommands;
 pub use config::CliConfig;
 pub use context::Context;
-pub use error::CliError;
+pub use error::{CliError, Result};
 pub use output::{print_output, OutputFormat};
 
 #[derive(Parser, Debug)]
@@ -102,22 +117,27 @@ impl From<AiProviderArg> for crate::ai_stubs::AiProvider {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Scan web applications and APIs for vulnerabilities
+    #[cfg(feature = "scan")]
     #[command(subcommand)]
     Scan(ScanCommands),
 
     /// Analyze binaries (ELF, PE, Mach-O, WASM)
+    #[cfg(feature = "analysis")]
     #[command(subcommand)]
     Analyze(AnalyzeCommands),
 
     /// AI-powered vulnerability analysis and exploitation
+    #[cfg(feature = "ai")]
     #[command(subcommand)]
     Ai(AiCommands),
 
     /// Generate proof-of-concept exploits for findings
+    #[cfg(feature = "analysis")]
     #[command(subcommand)]
     Exploit(ExploitCommands),
 
     /// Get actionable remediation guidance
+    #[cfg(feature = "analysis")]
     #[command(subcommand)]
     Remediate(RemediateCommands),
 
@@ -125,12 +145,17 @@ enum Commands {
     #[command(subcommand)]
     Config(ConfigCommands),
 
+    /// Job queue management
+    #[cfg(feature = "queue")]
+    #[command(subcommand)]
+    Queue(QueueCommands),
+
     /// Show version and build info
     Version,
 }
 
 #[tokio::main]
-async fn main() -> Result<(), CliError> {
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     // Handle completion generation
@@ -151,15 +176,22 @@ async fn main() -> Result<(), CliError> {
 
     // Create context
     let ai_provider: crate::ai_stubs::AiProvider = cli.ai_provider.into();
-    let ctx = Context::new(config, cli.format, cli.verbose, cli.offline, ai_provider, cli.ai_model, cli.no_ai)?;
+    let ctx = Context::new(config.core().clone(), cli.format, cli.verbose, cli.offline, ai_provider, cli.ai_model, cli.no_ai)?;
 
     // Execute command
     let result = match cli.command {
+        #[cfg(feature = "scan")]
         Commands::Scan(cmd) => cmd.execute(ctx).await,
+        #[cfg(feature = "analysis")]
         Commands::Analyze(cmd) => cmd.execute(ctx).await,
+        #[cfg(feature = "ai")]
         Commands::Ai(cmd) => cmd.execute(ctx).await,
+        #[cfg(feature = "analysis")]
         Commands::Exploit(cmd) => cmd.execute(ctx).await,
+        #[cfg(feature = "analysis")]
         Commands::Remediate(cmd) => cmd.execute(ctx).await,
+        #[cfg(feature = "queue")]
+        Commands::Queue(cmd) => cmd.execute(ctx).await,
         Commands::Config(cmd) => cmd.execute(ctx).await,
         Commands::Version => {
             print_version();

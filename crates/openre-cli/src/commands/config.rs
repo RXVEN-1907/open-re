@@ -8,13 +8,7 @@ use std::path::PathBuf;
 use tabled::{Table, settings::Style};
 
 #[derive(Subcommand, Debug)]
-pub struct ConfigCommands {
-    #[command(subcommand)]
-    command: ConfigSubcommand,
-}
-
-#[derive(Subcommand, Debug)]
-enum ConfigSubcommand {
+pub enum ConfigCommands {
     /// Show current configuration
     Show(ShowArgs),
     /// Set a configuration value
@@ -80,14 +74,14 @@ impl ConfigCommands {
     pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
         let mut config = ctx.config.clone();
 
-        match self.command {
-            ConfigSubcommand::Show(args) => run_show(config, args).await,
-            ConfigSubcommand::Set(args) => run_set(config, args).await,
-            ConfigSubcommand::Get(args) => run_get(config, args).await,
-            ConfigSubcommand::Reset(args) => run_reset(config, args).await,
-            ConfigSubcommand::Path => run_path(config).await,
-            ConfigSubcommand::Edit => run_edit(config).await,
-            ConfigSubcommand::Init(args) => run_init(config, args).await,
+        match self {
+            ConfigCommands::Show(args) => run_show(config, args).await,
+            ConfigCommands::Set(args) => run_set(config, args).await,
+            ConfigCommands::Get(args) => run_get(config, args).await,
+            ConfigCommands::Reset(args) => run_reset(config, args).await,
+            ConfigCommands::Path => run_path(config).await,
+            ConfigCommands::Edit => run_edit(config).await,
+            ConfigCommands::Init(args) => run_init(config, args).await,
         }
     }
 }

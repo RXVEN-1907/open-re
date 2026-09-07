@@ -59,18 +59,8 @@ fn write_json<T: Serialize>(data: &T, path: Option<&Path>) -> crate::Result<()> 
 }
 
 fn write_sarif<T: Serialize>(data: &T, path: Option<&Path>) -> crate::Result<()> {
-    // Try to serialize as SARIF if the type supports it
-    #[cfg(feature = "sarif")]
-    {
-        use sarif::sarif210::Sarif;
-        // This would require the data to be a Sarif type
-        // For now, fall back to JSON
-        write_json(data, path)
-    }
-    #[cfg(not(feature = "sarif"))]
-    {
-        write_json(data, path)
-    }
+    // SARIF output not fully implemented yet, fall back to JSON
+    write_json(data, path)
 }
 
 fn write_yaml<T: Serialize>(data: &T, path: Option<&Path>) -> crate::Result<()> {

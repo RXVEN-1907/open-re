@@ -2,14 +2,26 @@
 
 use crate::binary::common::*;
 use crate::binary::elf::ElfMetadataExtractor;
+use crate::binary::metrics;
 use crate::binary::pe::PeMetadataExtractor;
 use crate::binary::traits::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_storage::ObjectStore;
-use openre_telemetry::metrics;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
+
+/// Stub for ObjectStore
+#[derive(Debug, Clone, Default)]
+pub struct ObjectStore;
+
+impl ObjectStore {
+    pub fn new() -> Arc<Self> { Arc::new(Self) }
+
+    /// Get an object by file ID (stub implementation)
+    pub async fn get_object(&self, _file_id: FileId) -> Result<tokio::io::Empty> {
+        Ok(tokio::io::empty())
+    }
+}
 
 /// Metadata extraction service
 pub struct MetadataExtractionService {

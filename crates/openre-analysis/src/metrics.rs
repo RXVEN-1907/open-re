@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 
 use openre_core::ids::StageId;
-use openre_telemetry::metrics;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -71,8 +70,8 @@ impl PipelineMetrics {
             .or_default()
             .push(result.metrics.instructions_processed);
 
-        // Emit to global metrics
-        metrics::record_stage_completed(&stage_id.to_string(), duration);
+        // Emit to global metrics (disabled - metrics crate not available)
+        // metrics::record_stage_completed(&stage_id.to_string(), duration);
     }
 
     pub async fn get_summary(&self) -> PipelineSummary {

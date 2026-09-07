@@ -5,10 +5,175 @@ use async_trait::async_trait;
 use base64::Engine;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_core::{GlobalStore, ObjectStore, ProjectStore};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+// Local type definitions for AI tools (avoiding openre-storage dependency)
+/// Project store trait for AI tools
+#[async_trait]
+pub trait ProjectStore: Send + Sync {
+    async fn get_function(&self, function_id: FunctionId) -> Result<Option<FunctionInfo>>;
+    async fn get_basic_blocks(&self, function_id: FunctionId) -> Result<Vec<BasicBlockInfo>>;
+    async fn get_instructions(&self, block_id: BlockId) -> Result<Vec<InstructionInfo>>;
+    async fn get_cfg(&self, function_id: FunctionId) -> Result<serde_json::Value>;
+    async fn get_pseudocode(&self, function_id: FunctionId) -> Result<Option<String>>;
+    async fn get_xrefs_to_address(&self, address: u64) -> Result<Vec<XrefInfo>>;
+    async fn get_xrefs_to_function(&self, function_id: FunctionId) -> Result<Vec<XrefInfo>>;
+    async fn get_strings(&self, min_length: usize, encoding: &str, address: Option<u64>) -> Result<Vec<StringInfo>>;
+    async fn get_symbols(&self, symbol_type: &str, name_pattern: Option<&str>) -> Result<Vec<SymbolInfo>>;
+    async fn search(&self, query: &str, search_type: &str, limit: usize) -> Result<Vec<SearchResult>>;
+    async fn add_function_annotation(&self, function_id: FunctionId, annotation_type: &str, content: &str, confidence: f32) -> Result<()>;
+    async fn add_instruction_annotation(&self, instruction_id: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()>;
+    async fn add_variable_annotation(&self, variable_id: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()>;
+    async fn add_address_annotation(&self, address: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()>;
+    async fn execute_query(&self, query: &str, params: &[serde_json::Value]) -> Result<Vec<serde_json::Value>>;
+}
+
+/// Blanket implementation for Arc<dyn ProjectStore>
+#[async_trait]
+impl ProjectStore for Arc<dyn ProjectStore> {
+    async fn get_function(&self, function_id: FunctionId) -> Result<Option<FunctionInfo>> {
+        self.as_ref().get_function(function_id).await
+    }
+    async fn get_basic_blocks(&self, function_id: FunctionId) -> Result<Vec<BasicBlockInfo>> {
+        self.as_ref().get_basic_blocks(function_id).await
+    }
+    async fn get_instructions(&self, block_id: BlockId) -> Result<Vec<InstructionInfo>> {
+        self.as_ref().get_instructions(block_id).await
+    }
+    async fn get_cfg(&self, function_id: FunctionId) -> Result<serde_json::Value> {
+        self.as_ref().get_cfg(function_id).await
+    }
+    async fn get_pseudocode(&self, function_id: FunctionId) -> Result<Option<String>> {
+        self.as_ref().get_pseudocode(function_id).await
+    }
+    async fn get_xrefs_to_address(&self, address: u64) -> Result<Vec<XrefInfo>> {
+        self.as_ref().get_xrefs_to_address(address).await
+    }
+    async fn get_xrefs_to_function(&self, function_id: FunctionId) -> Result<Vec<XrefInfo>> {
+        self.as_ref().get_xrefs_to_function(function_id).await
+    }
+    async fn get_strings(&self, min_length: usize, encoding: &str, address: Option<u64>) -> Result<Vec<StringInfo>> {
+        self.as_ref().get_strings(min_length, encoding, address).await
+    }
+    async fn get_symbols(&self, symbol_type: &str, name_pattern: Option<&str>) -> Result<Vec<SymbolInfo>> {
+        self.as_ref().get_symbols(symbol_type, name_pattern).await
+    }
+    async fn search(&self, query: &str, search_type: &str, limit: usize) -> Result<Vec<SearchResult>> {
+        self.as_ref().search(query, search_type, limit).await
+    }
+    async fn add_function_annotation(&self, function_id: FunctionId, annotation_type: &str, content: &str, confidence: f32) -> Result<()> {
+        self.as_ref().add_function_annotation(function_id, annotation_type, content, confidence).await
+    }
+    async fn add_instruction_annotation(&self, instruction_id: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()> {
+        self.as_ref().add_instruction_annotation(instruction_id, annotation_type, content, confidence).await
+    }
+    async fn add_variable_annotation(&self, variable_id: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()> {
+        self.as_ref().add_variable_annotation(variable_id, annotation_type, content, confidence).await
+    }
+    async fn add_address_annotation(&self, address: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()> {
+        self.as_ref().add_address_annotation(address, annotation_type, content, confidence).await
+    }
+    async fn execute_query(&self, query: &str, params: &[serde_json::Value]) -> Result<Vec<serde_json::Value>> {
+        self.as_ref().execute_query(query, params).await
+    }
+}
+
+/// Function information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FunctionInfo {
+    pub id: FunctionId,
+    pub address: u64,
+    pub name: Option<String>,
+    pub demangled_name: Option<String>,
+    pub size: u32,
+    pub calling_convention: Option<String>,
+    pub return_type: Option<String>,
+    pub is_thunk: bool,
+    pub is_library: bool,
+    pub is_entry: bool,
+    pub cyclomatic_complexity: Option<u32>,
+    pub instruction_count: Option<u32>,
+    pub block_count: Option<u32>,
+}
+
+/// Basic block information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BasicBlockInfo {
+    pub id: BlockId,
+    pub function_id: FunctionId,
+    pub start_address: u64,
+    pub end_address: u64,
+    pub size: u32,
+    pub instruction_count: Option<u32>,
+    pub loop_depth: u32,
+    pub is_entry: bool,
+    pub is_exit: bool,
+    pub instructions: Vec<InstructionInfo>,
+}
+
+/// Instruction information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstructionInfo {
+    pub id: i64,
+    pub block_id: BlockId,
+    pub address: u64,
+    pub bytes: Vec<u8>,
+    pub mnemonic: String,
+    pub operands: Option<String>,
+    pub operand_types: Option<String>,
+    pub groups: Option<String>,
+    pub size: u32,
+    pub stack_change: i32,
+}
+
+/// String information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StringInfo {
+    pub address: u64,
+    pub value: String,
+    pub length: u32,
+    pub encoding: String,
+    pub string_type: String,
+}
+
+/// Symbol information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymbolInfo {
+    pub address: u64,
+    pub name: String,
+    pub symbol_type: String,
+    pub size: u32,
+    pub is_export: bool,
+}
+
+/// Cross-reference information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct XrefInfo {
+    pub from_address: u64,
+    pub to_address: u64,
+    pub is_to: bool,
+    pub xref_type: String,
+}
+
+/// Search result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub address: u64,
+    pub context: String,
+    pub match_type: String,
+}
+
+/// Object store trait for AI tools
+#[async_trait]
+pub trait ObjectStore: Send + Sync {
+    async fn read_file(&self, file_id: FileId, offset: u64, length: u64) -> Result<Vec<u8>>;
+}
+
+/// Global store trait for AI tools
+#[async_trait]
+pub trait GlobalStore: Send + Sync {}
 
 /// Tool trait
 #[async_trait]
@@ -21,9 +186,9 @@ pub trait AiTool: Send + Sync {
 
 /// Tool context
 pub struct ToolContext {
-    pub global_store: Arc<GlobalStore>,
-    pub project_store: Option<Arc<ProjectStore>>,
-    pub object_store: Arc<ObjectStore>,
+    pub global_store: Arc<dyn GlobalStore>,
+    pub project_store: Option<Arc<dyn ProjectStore>>,
+    pub object_store: Arc<dyn ObjectStore>,
     pub current_project: Option<ProjectId>,
     pub current_file: Option<FileId>,
     pub current_function: Option<FunctionId>,
@@ -401,7 +566,7 @@ impl AiTool for GetBasicBlocksTool {
             .parse()
             .map_err(|e| openre_core::Error::InvalidInput(format!("Invalid function ID: {}", e)))?;
 
-        let blocks = project_store.get_basic_blocks(function_id).await?;
+        let blocks: Vec<BasicBlockInfo> = project_store.get_basic_blocks(function_id).await?;
 
         Ok(ToolResult::success(serde_json::to_value(blocks)?))
     }
@@ -490,7 +655,7 @@ impl AiTool for GetCFGTool {
             .parse()
             .map_err(|e| openre_core::Error::InvalidInput(format!("Invalid function ID: {}", e)))?;
 
-        let cfg = project_store.get_cfg(function_id).await?;
+        let cfg: serde_json::Value = project_store.get_cfg(function_id).await?;
 
         Ok(ToolResult::success(serde_json::to_value(cfg)?))
     }
@@ -594,7 +759,7 @@ impl AiTool for GetStringsTool {
         let encoding = args["encoding"].as_str().unwrap_or("ascii");
         let address = args["address"].as_u64();
 
-        let strings = project_store.get_strings(min_length, encoding, address).await?;
+        let strings: Vec<StringInfo> = project_store.get_strings(min_length, encoding, address).await?;
 
         Ok(ToolResult::success(serde_json::to_value(strings)?))
     }
@@ -630,7 +795,7 @@ impl AiTool for GetSymbolsTool {
         let symbol_type = args["symbol_type"].as_str().unwrap_or("all");
         let name_pattern = args["name_pattern"].as_str();
 
-        let symbols = project_store.get_symbols(symbol_type, name_pattern).await?;
+        let symbols: Vec<SymbolInfo> = project_store.get_symbols(symbol_type, name_pattern).await?;
 
         Ok(ToolResult::success(serde_json::to_value(symbols)?))
     }
@@ -671,7 +836,7 @@ impl AiTool for SearchTool {
         let search_type = args["search_type"].as_str().unwrap_or("all");
         let limit = args["limit"].as_u64().unwrap_or(100) as usize;
 
-        let results = project_store.search(query, search_type, limit).await?;
+        let results: Vec<SearchResult> = project_store.search(query, search_type, limit).await?;
 
         Ok(ToolResult::success(serde_json::to_value(results)?))
     }

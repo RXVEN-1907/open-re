@@ -1,9 +1,8 @@
 //! Job cancellation system
 
-use crate::QueueManager;
+use crate::{QueueManager, metrics::CancellationMetrics};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::JobId;
-use openre_telemetry::metrics::CancellationMetrics;
 use redis::{AsyncCommands, Client};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -85,7 +84,7 @@ impl CancellationManager {
             };
 
             self.cancelled_jobs.write().await.insert(job_id, info);
-            self.metrics.cancellations_completed.increment(1);
+            self.metrics.jobs_cancelled();
 
             // Broadcast cancellation
             let _ = self.cancel_tx.send(job_id);
@@ -107,7 +106,7 @@ impl CancellationManager {
             // Signal worker via Redis
             self.signal_worker(job_id).await?;
 
-            self.metrics.cancellations_requested.increment(1);
+            self.metrics.cancellation_requests();
 
             Ok(CancellationResult::Signalled)
         }
@@ -190,7 +189,7 @@ impl CancellationManager {
         // Broadcast
         let _ = self.cancel_tx.send(job_id);
 
-        self.metrics.cancellations_completed.increment(1);
+        self.metrics.jobs_force_cancelled();
 
         warn!("Job {} force cancelled by {}", job_id, requested_by);
 

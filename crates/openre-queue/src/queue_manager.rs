@@ -1,10 +1,9 @@
 //! Queue manager for Redis Streams
 
-use crate::{Job, JobRetryPolicy, JobStatus, Priority};
+use crate::{Job, JobRetryPolicy, JobStatus, Priority, metrics::QueueMetrics};
 use openre_config::QueueConfig;
 use openre_core::error::OpenreResult;
 use openre_core::ids::JobId;
-use openre_telemetry::metrics::QueueMetrics as TelemetryQueueMetrics;
 use redis::{AsyncCommands, Client};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -18,7 +17,7 @@ use tracing::{debug, error, info, warn};
 pub struct QueueManager {
     client: Client,
     config: QueueConfig,
-    metrics: Arc<TelemetryQueueMetrics>,
+    metrics: Arc<QueueMetrics>,
     consumer_groups: Arc<RwLock<HashMap<String, ConsumerGroupInfo>>>,
     pending_jobs: Arc<RwLock<HashMap<JobId, PendingJob>>>,
     semaphore: Arc<Semaphore>,
@@ -44,7 +43,7 @@ impl QueueManager {
     pub async fn new(
         config: QueueConfig,
         redis_config: &openre_config::RedisConfig,
-        metrics: Arc<TelemetryQueueMetrics>,
+        metrics: Arc<QueueMetrics>,
     ) -> OpenreResult<Self> {
         let client = Client::open(redis_config.url.as_str())?;
 
@@ -145,9 +144,7 @@ impl QueueManager {
         let manager = Self {
             client: Client::open("redis://localhost:6379").unwrap(),
             config,
-            metrics: Arc::new(openre_telemetry::metrics::QueueMetrics::new(
-                &openre_telemetry::MetricsRegistry::default(),
-            )),
+            metrics: Arc::new(QueueMetrics::new()),
             consumer_groups: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
             pending_jobs: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
             semaphore,
@@ -172,8 +169,8 @@ impl QueueManager {
         let id: String = conn.xadd(&stream, "*", &[("data", job_data)]).await?;
 
         // Update metrics
-        self.metrics.jobs_queued.increment(1);
-        self.metrics.jobs_by_priority.increment(1);
+        self.metrics.jobs_queued();
+        self.metrics.jobs_by_priority();
 
         info!("Enqueued job {} to stream {} with ID {}", job.id, stream, id);
 
@@ -195,7 +192,7 @@ impl QueueManager {
         let _: () = conn.zadd("openre:scheduled:jobs", job.id.to_string(), score).await?;
         let _: () = conn.hset("openre:scheduled:data", job.id.to_string(), job_data).await?;
 
-        self.metrics.jobs_scheduled.increment(1);
+        self.metrics.jobs_scheduled();
 
         info!("Scheduled job {} for {}", job.id, run_at);
 
@@ -264,8 +261,8 @@ impl QueueManager {
                                 );
 
                                 // Update metrics
-                                self.metrics.jobs_dequeued.increment(1);
-                                self.metrics.jobs_running.increment(1.0);
+                                self.metrics.jobs_dequeued();
+                                self.metrics.jobs_running(1.0);
 
                                 // Acknowledge message
                                 let _: () = conn.xack(&stream, &group, &[entry.id]).await?;
@@ -293,8 +290,8 @@ impl QueueManager {
             // Store result
             self.store_job_result(&pending_job.job).await?;
 
-            self.metrics.jobs_completed.increment(1);
-            self.metrics.jobs_running.decrement(1.0);
+            self.metrics.jobs_completed();
+            self.metrics.jobs_running(-1.0);
 
             info!("Job {} completed successfully", job_id);
         }
@@ -319,7 +316,7 @@ impl QueueManager {
 
                 self.enqueue_scheduled(pending_job.job, scheduled_at).await?;
 
-                self.metrics.jobs_retried.increment(1);
+                self.metrics.jobs_retried();
                 warn!(
                     "Job {} failed, retry {}/{} in {:?}",
                     job_id, pending_job.attempts, self.config.max_retries, delay
@@ -332,8 +329,8 @@ impl QueueManager {
 
                 self.move_to_dlq(&pending_job.job, error).await?;
 
-                self.metrics.jobs_failed.increment(1);
-                self.metrics.jobs_running.decrement(1.0);
+                self.metrics.jobs_failed();
+                self.metrics.jobs_running(-1.0);
 
                 error!("Job {} failed permanently after {} attempts", job_id, pending_job.attempts);
             }
@@ -355,9 +352,9 @@ impl QueueManager {
 
             self.store_job_result(&job).await?;
 
-            self.metrics.jobs_cancelled.increment(1);
+            self.metrics.jobs_cancelled();
             if pending_job.assigned_worker.is_some() {
-                self.metrics.jobs_running.decrement(1.0);
+                self.metrics.jobs_running(-1.0);
             }
 
             info!("Job {} cancelled", job_id);
@@ -449,7 +446,7 @@ impl QueueManager {
         // Enqueue the new job
         self.enqueue(new_job).await?;
 
-        self.metrics.jobs_retried.increment(1);
+        self.metrics.jobs_retried();
         info!("Retried job {} (attempt {})", job_id, job.retry_count + 1);
 
         Ok(())
@@ -513,7 +510,7 @@ impl QueueManager {
         let dlq_data = serde_json::to_string(&dlq_entry)?;
         let _: () = conn.xadd("openre:dlq", "*", &[("data", dlq_data)]).await?;
 
-        self.metrics.jobs_dlq.increment(1);
+        self.metrics.jobs_dlq();
 
         Ok(())
     }
@@ -592,7 +589,7 @@ impl QueueManager {
                 job.retry_count += 1;
                 self.enqueue(job).await?;
 
-                self.metrics.jobs_stale_recovered.increment(1);
+                self.metrics.jobs_stale_recovered();
                 warn!("Recovered stale job {}", job_id);
             }
         }

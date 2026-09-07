@@ -3,6 +3,7 @@
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::{Capability, PluginId, PluginType};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -21,7 +22,7 @@ pub struct SimplePluginMetadata {
 }
 
 /// Plugin manifest (plugin.toml)
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct PluginManifest {
     pub name: String,
     pub version: String,
@@ -36,6 +37,7 @@ pub struct PluginManifest {
     pub resources: ResourceConfig,
     pub ui: Option<UiConfig>,
     pub config: Option<ConfigSchema>,
+    #[schema(value_type = String)]
     pub path: Option<PathBuf>, // Added for runtime use
 }
 
@@ -86,7 +88,7 @@ impl PluginManifest {
 }
 
 /// Remote registry configuration
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct RemoteRegistryConfig {
     pub url: String,
     pub name: String,
@@ -94,7 +96,7 @@ pub struct RemoteRegistryConfig {
     pub priority: i32,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct PluginConfig {
     pub r#type: PluginType,
     pub capabilities: Vec<Capability>,
@@ -103,41 +105,41 @@ pub struct PluginConfig {
     pub entry: EntryConfig,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct EntryConfig {
     pub wasm: Option<String>,
     pub native: HashMap<String, String>, // OS -> path
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct BuildConfig {
     pub target: BuildTarget,
     pub rust_version: String,
     pub features: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum BuildTarget {
     Wasm,
     Native,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct ResourceConfig {
     pub max_memory_mb: u64,
     pub max_fuel: u64,
     pub max_execution_time_secs: u64,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct UiConfig {
     pub views: Vec<ViewExtension>,
     pub panels: Vec<PanelExtension>,
     pub menus: Vec<MenuExtension>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct ViewExtension {
     pub id: String,
     pub label: String,
@@ -146,7 +148,7 @@ pub struct ViewExtension {
     pub when: Option<String>, // Condition expression
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct PanelExtension {
     pub id: String,
     pub label: String,
@@ -154,7 +156,7 @@ pub struct PanelExtension {
     pub component: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum PanelPosition {
     Left,
@@ -163,7 +165,7 @@ pub enum PanelPosition {
     Top,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct MenuExtension {
     pub id: String,
     pub label: String,
@@ -172,7 +174,7 @@ pub struct MenuExtension {
     pub action: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct ConfigSchema {
     pub schema: String, // JSON Schema file path
     pub defaults: HashMap<String, serde_json::Value>,

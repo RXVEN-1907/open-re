@@ -1,8 +1,8 @@
 //! Prompt compiler for open-re AI
 
 use crate::providers::*;
+use crate::tools::ProjectStore;
 use openre_core::error::OpenreResult as Result;
-use openre_core::ProjectStore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -189,7 +189,7 @@ Calling convention: System V AMD64"#
         &self,
         template_name: &str,
         variables: HashMap<String, String>,
-        project_store: &ProjectStore,
+        project_store: &dyn ProjectStore,
         function_id: openre_core::ids::FunctionId,
     ) -> Result<CompiledPrompt> {
         let mut enriched_vars = variables;

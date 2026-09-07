@@ -1,10 +1,9 @@
 //! Worker pool for open-re queue system
 
-use crate::{BoxedJobHandler, QueueManager};
+use crate::{BoxedJobHandler, QueueManager, metrics::WorkerMetrics};
 use openre_config::{QueueConfig, WorkerConfig};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::WorkerId;
-use openre_telemetry::metrics::WorkerMetrics as TelemetryWorkerMetrics;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, Semaphore};
@@ -16,7 +15,7 @@ pub struct WorkerPool {
     queue_manager: Arc<QueueManager>,
     worker_config: WorkerConfig,
     queue_config: QueueConfig,
-    metrics: Arc<TelemetryWorkerMetrics>,
+    metrics: Arc<WorkerMetrics>,
     workers: Vec<WorkerHandle>,
     shutdown_tx: Option<mpsc::Sender<()>>,
 }
@@ -32,7 +31,7 @@ impl WorkerPool {
         queue_manager: Arc<QueueManager>,
         worker_config: WorkerConfig,
         queue_config: QueueConfig,
-        metrics: Arc<TelemetryWorkerMetrics>,
+        metrics: Arc<WorkerMetrics>,
     ) -> Self {
         Self {
             queue_manager,
@@ -103,7 +102,7 @@ impl WorkerPool {
         queue_manager: Arc<QueueManager>,
         _worker_config: WorkerConfig,
         queue_config: QueueConfig,
-        metrics: Arc<TelemetryWorkerMetrics>,
+        metrics: Arc<WorkerMetrics>,
         handlers: Vec<BoxedJobHandler>,
         mut shutdown_rx: mpsc::Receiver<()>,
     ) {
@@ -121,7 +120,7 @@ impl WorkerPool {
                     // Try to dequeue a job
                     match queue_manager.dequeue(&worker_id.to_string(), &priorities).await {
                         Ok(Some(job)) => {
-                            metrics.jobs_processed.increment(1);
+                            metrics.jobs_processed();
                             let start = std::time::Instant::now();
 
                             // Find handler for job type
@@ -129,27 +128,27 @@ impl WorkerPool {
                                 let result = handler.handle(job.clone()).await;
 
                                 let duration = start.elapsed().as_millis() as u64;
-                                metrics.job_duration.record(duration as f64);
+                                metrics.job_duration(duration as f64);
 
                                 match result {
                                     Ok(output) => {
                                         if let Err(e) = queue_manager.complete(job.id, output).await {
                                             error!("Failed to complete job {}: {}", job.id, e);
                                         }
-                                        metrics.jobs_succeeded.increment(1);
+                                        metrics.jobs_succeeded();
                                     }
                                     Err(e) => {
                                         let should_retry = handler.should_retry(&e);
                                         if let Err(e) = queue_manager.fail(job.id, e.to_string(), should_retry).await {
                                             error!("Failed to fail job {}: {}", job.id, e);
                                         }
-                                        metrics.jobs_failed.increment(1);
+                                        metrics.jobs_failed();
                                     }
                                 }
                             } else {
                                 error!("No handler for job type: {}", job.job_type);
                                 let _ = queue_manager.fail(job.id, "No handler found".to_string(), false).await;
-                                metrics.jobs_failed.increment(1);
+                                metrics.jobs_failed();
                             }
                         }
                         Ok(None) => {
@@ -157,7 +156,7 @@ impl WorkerPool {
                         }
                         Err(e) => {
                             error!("Worker {} dequeue error: {}", worker_id, e);
-                            metrics.worker_errors.increment(1);
+                            metrics.worker_errors();
                         }
                     }
                 }

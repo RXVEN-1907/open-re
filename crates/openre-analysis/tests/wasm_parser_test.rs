@@ -3,7 +3,6 @@ use openre_analysis::binary::{
     BinaryFormat, BinaryIdentifier, BinaryMetadataExtractor, WasmIdentifier, WasmMetadataExtractor,
     WasmParser,
 };
-use std::path::PathBuf;
 
 #[test]
 fn test_wasm_identification() {

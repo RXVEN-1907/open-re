@@ -19,6 +19,7 @@ openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
 openre-storage = { path = "../openre-storage", default-features = false }
+utoipa = { workspace = true }
 wasmtime = { workspace = true, optional = true, features = ["component-model", "async"] }
 wasmtime-wasi = { version = "20.0", features = ["preview1"], optional = true }
 wasmparser = { workspace = true, optional = true }

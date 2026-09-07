@@ -1,20 +1,107 @@
-//! Pipeline orchestrator for open-re
+//! Pipeline orchestrator for open-re - standalone version
 
-use crate::{progress::*, stages::*};
+use crate::binary::common::CompilerInfo;
+use crate::progress::{JobProgress, JobStatus, StageProgress, StageStatus as ProgressStageStatus};
+use crate::stages::{
+    AiEnrichmentConfig, AiEnrichmentStage, AiService, ControlFlowStage, DataFlowStage, DecompilationStage,
+    DisassemblyStage, FinalizationStage, IdentificationStage, LoadingStage, NoopAiService,
+    NoopAnalyzer, NoopDecompiler, NoopDisassembler, PipelineStage, TypeRecoveryStage,
+};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-// use openre_plugins::PluginRegistry; // Temporarily disabled
-use openre_queue::QueueManager;
-use openre_storage::ProjectStore;
-use openre_telemetry::TelemetryHandle;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::info;
 
-/// Placeholder for PluginRegistry (temporarily disabled)
+// Local type definitions (stubs)
+#[derive(Debug, Clone, Copy, Default)]
+pub struct IsolatedBinary;
+
+#[derive(Debug, Clone, Default)]
+pub struct ProjectStore;
+
+impl ProjectStore {
+    pub fn new() -> Arc<Self> { Arc::new(Self) }
+    pub async fn write_identification(&self, _output: &openre_core::traits::IdentificationOutput) -> Result<()> { Ok(()) }
+    pub async fn finalize(&self, _project_id: ProjectId) -> Result<()> { Ok(()) }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct PluginRegistry;
+
+#[derive(Debug, Clone, Default)]
+pub struct TelemetryHandle;
+
+impl TelemetryHandle {
+    pub fn new() -> Arc<Self> { Arc::new(Self) }
+    pub fn record_stage_start(&self, _stage: &str) {}
+    pub fn record_stage_end(&self, _stage: &str, _duration: Duration) {}
+    pub fn record_error(&self, _error: &str) {}
+    pub fn span(&self, _name: &str, _stage: StageId) -> SpanGuard {
+        SpanGuard
+    }
+}
+
+#[derive(Debug)]
+pub struct SpanGuard;
+
+impl SpanGuard {
+    pub fn enter(&self) -> SpanGuard {
+        SpanGuard
+    }
+}
+// Missing type stubs
+#[derive(Debug, Clone)]
+pub struct IdentificationOutput {
+    pub format: FileFormat,
+    pub architecture: Architecture,
+    pub compiler_info: Option<CompilerInfo>,
+    pub confidence: f32,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct FunctionInfo;
+#[derive(Debug, Clone, Default)]
+pub struct BasicBlockInfo;
+#[derive(Debug, Clone, Default)]
+pub struct InstructionInfo;
+#[derive(Debug, Clone, Default)]
+pub struct CfgEdgeInfo;
+#[derive(Debug, Clone, Default)]
+pub struct CallEdgeInfo;
+#[derive(Debug, Clone, Default)]
+pub struct LoopInfo;
+#[derive(Debug, Clone, Default)]
+pub struct VariableInfo;
+#[derive(Debug, Clone, Default)]
+pub struct TypeInfo;
+#[derive(Debug, Clone, Default)]
+pub struct AnnotationInfo;
+#[derive(Debug, Clone, Default)]
+pub struct StringInfo;
+#[derive(Debug, Clone, Default)]
+pub struct ConstantInfo;
+#[derive(Debug, Clone, Default)]
+pub struct AnalysisStatistics;
+#[derive(Debug, Clone, Default)]
+pub struct FunctionId;
+
+#[derive(Debug, Clone, Default)]
+pub struct CancellationToken {
+    cancelled: Arc<tokio::sync::RwLock<bool>>,
+}
+
+impl CancellationToken {
+    pub fn new() -> Self { Self { cancelled: Arc::new(tokio::sync::RwLock::new(false)) } }
+    pub async fn cancel(&self) { let mut c = self.cancelled.write().await; *c = true; }
+    pub async fn is_cancelled(&self) -> bool { *self.cancelled.read().await }
+    pub fn check(&self) -> Result<()> {
+        // Note: This is a synchronous check; for async check, use is_cancelled().await
+        let cancelled = self.cancelled.try_read().map(|c| *c).unwrap_or(false);
+        if cancelled { Err(openre_core::Error::Cancelled) } else { Ok(()) }
+    }
+}
 
 /// Pipeline context passed to stages
 #[derive(Clone)]
@@ -26,7 +113,7 @@ pub struct PipelineContext {
     pub ai_service: Arc<dyn AiService>,
     pub previous_results: HashMap<StageId, StageResult>,
     pub cancellation: CancellationToken,
-    pub telemetry: TelemetryHandle,
+    pub telemetry: Arc<TelemetryHandle>,
     pub worker_id: WorkerId,
 }
 
@@ -136,39 +223,21 @@ pub enum AnalysisStatus {
 pub struct Orchestrator {
     stages: Vec<Arc<dyn PipelineStage>>,
     stage_executor: Arc<StageExecutor>,
-    project_store: Arc<ProjectStore>,
-    plugin_registry: Arc<PluginRegistry>,
-    ai_service: Arc<dyn AiService>,
-    queue: Arc<QueueManager>,
-    telemetry: TelemetryHandle,
 }
 
 impl Orchestrator {
     pub fn new(
         stages: Vec<Arc<dyn PipelineStage>>,
         stage_executor: Arc<StageExecutor>,
-        project_store: Arc<ProjectStore>,
-        plugin_registry: Arc<PluginRegistry>,
-        ai_service: Arc<dyn AiService>,
-        queue: Arc<QueueManager>,
-        telemetry: TelemetryHandle,
     ) -> Self {
         Self {
             stages,
             stage_executor,
-            project_store,
-            plugin_registry,
-            ai_service,
-            queue,
-            telemetry,
         }
     }
 
     /// Execute the full analysis pipeline
     pub async fn execute(&self, ctx: PipelineContext) -> Result<AnalysisResult> {
-        let span = self.telemetry.span("pipeline.execute", &ctx.job);
-        let _guard = span.enter();
-
         info!(job_id = %ctx.job.id, "Starting analysis pipeline");
 
         // 1. Build execution DAG
@@ -235,7 +304,7 @@ impl Orchestrator {
             ai_service: ctx.ai_service.clone(),
             previous_results: previous_results.clone(),
             cancellation: ctx.cancellation.clone(),
-            telemetry: ctx.telemetry,
+            telemetry: ctx.telemetry.clone(),
         };
 
         // Execute with timeout and retry
@@ -273,7 +342,6 @@ impl Orchestrator {
         let total = self.stages.len();
         let overall_progress = completed as f32 / total as f32;
 
-        // Map internal stage status to progress status
         fn map_status(status: StageStatus) -> crate::progress::StageStatus {
             match status {
                 StageStatus::Success | StageStatus::PartialSuccess => {
@@ -359,7 +427,6 @@ impl Orchestrator {
         _stage_results: &HashMap<StageId, StageResult>,
     ) -> Result<AnalysisResult> {
         // In a real implementation, this would aggregate results from all stages
-        // For now, return a placeholder
         Ok(AnalysisResult {
             job_id: ctx.job.id,
             status: AnalysisStatus::Success,
@@ -478,7 +545,7 @@ impl StageDag {
 /// Stage executor with timeout and retry
 pub struct StageExecutor {
     config: ExecutorConfig,
-    telemetry: TelemetryHandle,
+    telemetry: Arc<TelemetryHandle>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -492,7 +559,7 @@ pub struct ExecutorConfig {
 }
 
 impl StageExecutor {
-    pub fn new(config: ExecutorConfig, telemetry: TelemetryHandle) -> Self {
+    pub fn new(config: ExecutorConfig, telemetry: Arc<TelemetryHandle>) -> Self {
         Self { config, telemetry }
     }
 
@@ -505,8 +572,8 @@ impl StageExecutor {
         stage: &dyn PipelineStage,
         ctx: StageContext,
     ) -> Result<StageResult> {
-        let span = self.telemetry.span("stage.execute", stage.id());
-        let _guard = span.enter();
+        let _span = self.telemetry.span("stage.execute", stage.id());
+        let _guard = _span.enter();
 
         let _started_at = chrono::Utc::now();
         let mut attempt = 0;
@@ -564,7 +631,7 @@ pub struct StageContext {
     pub ai_service: Arc<dyn AiService>,
     pub previous_results: HashMap<StageId, StageResult>,
     pub cancellation: CancellationToken,
-    pub telemetry: TelemetryHandle,
+    pub telemetry: Arc<TelemetryHandle>,
 }
 
 /// Stage result
@@ -624,62 +691,6 @@ pub struct Artifact {
     pub size: u64,
 }
 
-/// Cancellation token
-#[derive(Clone)]
-pub struct CancellationToken {
-    cancelled: Arc<std::sync::atomic::AtomicBool>,
-}
-
-impl CancellationToken {
-    pub fn new() -> Self {
-        Self { cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)) }
-    }
-
-    pub fn cancel(&self) {
-        self.cancelled.store(true, std::sync::atomic::Ordering::Relaxed);
-    }
-
-    pub fn is_cancelled(&self) -> bool {
-        self.cancelled.load(std::sync::atomic::Ordering::Relaxed)
-    }
-
-    pub fn check(&self) -> Result<()> {
-        if self.is_cancelled() {
-            Err(openre_core::Error::Cancelled)
-        } else {
-            Ok(())
-        }
-    }
-}
-
-// Placeholder types
-#[derive(Debug, Clone, Copy, Default)]
-pub struct IsolatedBinary;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct FunctionInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct BasicBlockInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct InstructionInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct CfgEdgeInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct CallEdgeInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct LoopInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct VariableInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct TypeInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct AnnotationInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct StringInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct ConstantInfo;
-#[derive(Debug, Clone, Copy, Default)]
-pub struct AnalysisStatistics;
-
 /// Job priority
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Priority(pub i32);
@@ -690,33 +701,34 @@ impl Priority {
     pub const HIGH: Priority = Priority(10);
 }
 
-/// Create default 9-stage pipeline stages
-pub fn default_pipeline_stages() -> Vec<Box<dyn PipelineStage>> {
-    let telemetry = openre_telemetry::TelemetryHandle::default();
-    let executor = Arc::new(StageExecutor::new(ExecutorConfig::default(), telemetry.clone()));
+/// Pipeline stage trait
+/// Create default 9-stage pipeline stages (uses stub implementations)
+pub fn default_pipeline_stages() -> Vec<Box<dyn crate::stages::PipelineStage>> {
+    let telemetry = TelemetryHandle::new();
+    let executor_config = ExecutorConfig::default();
 
     vec![
         Box::new(crate::stages::IdentificationStage::new(vec![])),
         Box::new(crate::stages::LoadingStage::new(vec![])),
         Box::new(crate::stages::DisassemblyStage::new(
             Arc::new(crate::stages::NoopDisassembler),
-            executor.clone(),
+            Arc::new(StageExecutor::new(executor_config.clone(), telemetry.clone())),
         )),
         Box::new(crate::stages::ControlFlowStage::new(
             Arc::new(crate::stages::NoopAnalyzer),
-            executor.clone(),
+            Arc::new(StageExecutor::new(executor_config.clone(), telemetry.clone())),
         )),
         Box::new(crate::stages::DataFlowStage::new(
             Arc::new(crate::stages::NoopAnalyzer),
-            executor.clone(),
+            Arc::new(StageExecutor::new(executor_config.clone(), telemetry.clone())),
         )),
         Box::new(crate::stages::TypeRecoveryStage::new(
             Arc::new(crate::stages::NoopAnalyzer),
-            executor.clone(),
+            Arc::new(StageExecutor::new(executor_config.clone(), telemetry.clone())),
         )),
         Box::new(crate::stages::DecompilationStage::new(
             Arc::new(crate::stages::NoopDecompiler),
-            executor.clone(),
+            Arc::new(StageExecutor::new(executor_config.clone(), telemetry.clone())),
         )),
         Box::new(crate::stages::AiEnrichmentStage::new(
             Arc::new(crate::stages::NoopAiService),

@@ -6,10 +6,10 @@ use goblin::{elf::Elf, pe::PE};
 use serde::{Deserialize, Serialize};
 
 use crate::binary::common::*;
+use crate::binary::metrics;
 use crate::binary::traits::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_telemetry::metrics;
 
 /// Static analysis service (high-level)
 pub struct StaticAnalysisService;

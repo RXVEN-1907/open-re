@@ -3,6 +3,7 @@
 pub mod common;
 pub mod elf;
 pub mod macho;
+pub mod metrics;
 pub mod metadata;
 pub mod pe;
 pub mod static_analysis;
@@ -13,6 +14,7 @@ pub mod wasm;
 pub use common::*;
 pub use elf::{ElfIdentifier, ElfMetadataExtractor, ElfParser};
 pub use macho::{MachoIdentifier, MachoMetadataExtractor, MachoParser};
+pub use metrics::*;
 pub use metadata::*;
 pub use pe::{PeIdentifier, PeMetadataExtractor, PeParser};
 pub use static_analysis::*;

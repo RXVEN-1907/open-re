@@ -7,10 +7,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use url::Url;
+use utoipa::ToSchema;
 use validator::Validate;
 
 /// Type of target to scan
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum TargetType {
     /// Local web application (running on localhost)
@@ -84,13 +85,14 @@ impl std::str::FromStr for TargetType {
 }
 
 /// Metadata about a target
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TargetMetadata {
     /// Human-readable name
     pub name: String,
     /// Description of the target
     pub description: Option<String>,
     /// Base URL of the target
+    #[schema(value_type = String)]
     pub base_url: Url,
     /// Additional headers to include in requests
     pub headers: HashMap<String, String>,
@@ -191,7 +193,7 @@ impl TargetMetadata {
 }
 
 /// Authentication configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AuthConfig {
     /// Bearer token authentication
@@ -203,7 +205,7 @@ pub enum AuthConfig {
     /// Cookie-based authentication
     Cookie { name: String, value: String },
     /// OAuth2 authentication
-    OAuth2 { client_id: String, client_secret: String, token_url: Url, scopes: Vec<String> },
+    OAuth2 { client_id: String, client_secret: String, #[schema(value_type = String)] token_url: Url, scopes: Vec<String> },
     /// Custom authentication
     Custom { config: HashMap<String, serde_json::Value> },
 }
@@ -249,7 +251,7 @@ impl AuthConfig {
 }
 
 /// Rate limiting configuration
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
 pub struct RateLimitConfig {
     /// Maximum requests per second
     #[validate(range(min = 1))]
@@ -268,7 +270,7 @@ impl Default for RateLimitConfig {
 }
 
 /// TLS configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TlsConfig {
     /// Verify TLS certificates
     pub verify_certificates: bool,
@@ -295,9 +297,10 @@ impl Default for TlsConfig {
 }
 
 /// Proxy configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ProxyConfig {
     /// Proxy URL
+    #[schema(value_type = String)]
     pub url: Url,
     /// Proxy authentication
     pub auth: Option<ProxyAuth>,
@@ -306,7 +309,7 @@ pub struct ProxyConfig {
 }
 
 /// Proxy authentication
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ProxyAuth {
     /// Username
     pub username: String,

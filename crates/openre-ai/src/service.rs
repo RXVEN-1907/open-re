@@ -9,13 +9,12 @@ use crate::{
         StreamingResponse,
     },
     router::ModelRouter,
-    tools::{ToolContext, ToolPermissions, ToolRegistry},
+    tools::{GlobalStore, ObjectStore, ProjectStore, ToolContext, ToolPermissions, ToolRegistry},
 };
 use async_trait::async_trait;
 use openre_config::AiConfig;
 use openre_core::error::OpenreResult as Result;
 use openre_core::traits::AiService as CoreAiService;
-use openre_core::{GlobalStore, ObjectStore, ProjectStore};
 use std::sync::Arc;
 use tracing;
 
@@ -29,15 +28,15 @@ pub struct AiService {
     privacy: Arc<PrivacyController>,
     #[allow(dead_code)]
     config: AiConfig,
-    global_store: Arc<GlobalStore>,
-    object_store: Arc<ObjectStore>,
+    global_store: Arc<dyn GlobalStore>,
+    object_store: Arc<dyn ObjectStore>,
 }
 
 impl AiService {
     pub async fn new(
         config: AiConfig,
-        global_store: Arc<GlobalStore>,
-        object_store: Arc<ObjectStore>,
+        global_store: Arc<dyn GlobalStore>,
+        object_store: Arc<dyn ObjectStore>,
     ) -> Result<Self> {
         // Initialize provider registry
         let mut provider_registry = ProviderRegistry::new();
@@ -256,7 +255,7 @@ impl AiService {
         &self,
         template_name: &str,
         variables: std::collections::HashMap<String, String>,
-        project_store: Option<Arc<ProjectStore>>,
+        project_store: Option<Arc<dyn ProjectStore>>,
         function_id: Option<openre_core::ids::FunctionId>,
     ) -> Result<CompletionResponse> {
         let compiled = if let (Some(store), Some(fid)) = (project_store, function_id) {
@@ -274,7 +273,7 @@ impl AiService {
         &self,
         template_name: &str,
         variables: std::collections::HashMap<String, String>,
-        project_store: Option<Arc<ProjectStore>>,
+        project_store: Option<Arc<dyn ProjectStore>>,
         function_id: Option<openre_core::ids::FunctionId>,
     ) -> Result<StreamingResponse> {
         let compiled = if let (Some(store), Some(fid)) = (project_store, function_id) {
@@ -291,7 +290,7 @@ impl AiService {
     pub async fn execute_with_tools(
         &self,
         request: CompletionRequest,
-        project_store: Option<Arc<ProjectStore>>,
+        project_store: Option<Arc<dyn ProjectStore>>,
         permissions: ToolPermissions,
     ) -> Result<CompletionResponse> {
         // Add tool definitions to request

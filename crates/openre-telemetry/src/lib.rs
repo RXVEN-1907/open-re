@@ -10,8 +10,6 @@ pub use logging::*;
 pub use metrics::*;
 pub use tracing::*;
 
-// Re-export metrics types explicitly
-pub use metrics::{MetricsCounter, MetricsGauge, MetricsHistogram, MetricsRegistry};
 
 use openre_config::Config;
 use openre_core::error::OpenreResult as Result;

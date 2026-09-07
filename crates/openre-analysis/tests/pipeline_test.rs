@@ -1,8 +1,6 @@
 // crates/openre-analysis/tests/pipeline_test.rs
-use openre_analysis::orchestrator::{default_pipeline_stages, ExecutorConfig};
-use openre_core::ids::{AnalysisId, StageId, StageName};
-use openre_telemetry::TelemetryHandle;
-use std::sync::Arc;
+use openre_analysis::orchestrator::{default_pipeline_stages, TelemetryHandle};
+use openre_core::ids::StageId;
 
 #[tokio::test]
 async fn test_default_pipeline_stages() {

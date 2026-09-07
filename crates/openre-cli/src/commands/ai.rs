@@ -9,13 +9,7 @@ use std::path::PathBuf;
 use tabled::{Table, settings::Style};
 
 #[derive(Subcommand, Debug)]
-pub struct AiCommands {
-    #[command(subcommand)]
-    command: AiSubcommand,
-}
-
-#[derive(Subcommand, Debug)]
-enum AiSubcommand {
+pub enum AiCommands {
     /// Chat with AI assistant
     Chat(ChatArgs),
     /// Analyze a finding with AI
@@ -137,24 +131,24 @@ struct TestArgs {
 }
 
 impl AiCommands {
-    pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
+    pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
         if ctx.no_ai {
             return Err(CliError::InvalidArgs("AI features disabled with --no-ai".into()));
         }
 
-        match self.command {
-            AiSubcommand::Chat(args) => run_chat(ctx, args).await,
-            AiSubcommand::Analyze(args) => run_analyze(ctx, args).await,
-            AiSubcommand::Explain(args) => run_explain(ctx, args).await,
-            AiSubcommand::Remediate(args) => run_remediate(ctx, args).await,
-            AiSubcommand::Correlate(args) => run_correlate(ctx, args).await,
-            AiSubcommand::Providers => run_providers(ctx).await,
-            AiSubcommand::Test(args) => run_test(ctx, args).await,
+        match self {
+            AiCommands::Chat(args) => run_chat(&mut ctx, args).await,
+            AiCommands::Analyze(args) => run_analyze(&mut ctx, args).await,
+            AiCommands::Explain(args) => run_explain(&mut ctx, args).await,
+            AiCommands::Remediate(args) => run_remediate(&mut ctx, args).await,
+            AiCommands::Correlate(args) => run_correlate(&mut ctx, args).await,
+            AiCommands::Providers => run_providers(&mut ctx).await,
+            AiCommands::Test(args) => run_test(&mut ctx, args).await,
         }
     }
 }
 
-async fn run_chat(ctx: Context, args: ChatArgs) -> Result<(), CliError> {
+async fn run_chat(ctx: &mut Context, args: ChatArgs) -> Result<(), CliError> {
     let client = ctx.ai_client()?;
 
     if let Some(msg) = args.message {
@@ -187,7 +181,7 @@ async fn run_chat(ctx: Context, args: ChatArgs) -> Result<(), CliError> {
     Ok(())
 }
 
-async fn run_analyze(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
+async fn run_analyze(ctx: &mut Context, args: AnalyzeArgs) -> Result<(), CliError> {
     let client = ctx.ai_client()?;
     let finding = load_finding(&args.finding)?;
 
@@ -204,7 +198,7 @@ async fn run_analyze(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
     Ok(())
 }
 
-async fn run_explain(ctx: Context, args: ExplainArgs) -> Result<(), CliError> {
+async fn run_explain(ctx: &mut Context, args: ExplainArgs) -> Result<(), CliError> {
     let client = ctx.ai_client()?;
     let finding = load_finding(&args.finding)?;
 
@@ -216,7 +210,7 @@ async fn run_explain(ctx: Context, args: ExplainArgs) -> Result<(), CliError> {
     Ok(())
 }
 
-async fn run_remediate(ctx: Context, args: RemediateArgs) -> Result<(), CliError> {
+async fn run_remediate(ctx: &mut Context, args: RemediateArgs) -> Result<(), CliError> {
     let client = ctx.ai_client()?;
     let finding = load_finding(&args.finding)?;
 
@@ -228,7 +222,7 @@ async fn run_remediate(ctx: Context, args: RemediateArgs) -> Result<(), CliError
     Ok(())
 }
 
-async fn run_correlate(ctx: Context, args: CorrelateArgs) -> Result<(), CliError> {
+async fn run_correlate(ctx: &mut Context, args: CorrelateArgs) -> Result<(), CliError> {
     let client = ctx.ai_client()?;
     let engine = CorrelationEngine::new();
 
@@ -260,7 +254,7 @@ async fn run_correlate(ctx: Context, args: CorrelateArgs) -> Result<(), CliError
     Ok(())
 }
 
-async fn run_providers(ctx: Context) -> Result<(), CliError> {
+async fn run_providers(ctx: &mut Context) -> Result<(), CliError> {
     let client = ctx.ai_client()?;
     let providers = client.list_providers().await?;
 
@@ -275,7 +269,7 @@ async fn run_providers(ctx: Context) -> Result<(), CliError> {
     Ok(())
 }
 
-async fn run_test(ctx: Context, args: TestArgs) -> Result<(), CliError> {
+async fn run_test(ctx: &mut Context, args: TestArgs) -> Result<(), CliError> {
     let client = ctx.ai_client()?;
 
     let spinner = ctx.spinner("Testing AI connection...");

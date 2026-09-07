@@ -8,13 +8,7 @@ use std::path::PathBuf;
 use tabled::{Table, settings::Style};
 
 #[derive(Subcommand, Debug)]
-pub struct AnalyzeCommands {
-    #[command(subcommand)]
-    command: AnalyzeSubcommand,
-}
-
-#[derive(Subcommand, Debug)]
-enum AnalyzeSubcommand {
+pub enum AnalyzeCommands {
     /// Parse and identify binary format
     Info(AnalyzeArgs),
     /// List symbols
@@ -187,33 +181,93 @@ enum PipelineStageArg {
 
 impl AnalyzeCommands {
     pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
-        match self.command {
-            AnalyzeSubcommand::Info(args) => run_analyze(ctx, args, |a| a.info()).await,
-            AnalyzeSubcommand::Symbols(args) => run_analyze(ctx, args, |a| a.symbols()).await,
-            AnalyzeSubcommand::Imports(args) => run_analyze(ctx, args, |a| a.imports()).await,
-            AnalyzeSubcommand::Exports(args) => run_analyze(ctx, args, |a| a.exports()).await,
-            AnalyzeSubcommand::Strings(args) => run_strings(ctx, args).await,
-            AnalyzeSubcommand::Sections(args) => run_analyze(ctx, args, |a| a.sections()).await,
-            AnalyzeSubcommand::Segments(args) => run_analyze(ctx, args, |a| a.segments()).await,
-            AnalyzeSubcommand::Functions(args) => run_functions(ctx, args).await,
-            AnalyzeSubcommand::Disasm(args) => run_disasm(ctx, args).await,
-            AnalyzeSubcommand::Decompile(args) => run_decompile(ctx, args).await,
-            AnalyzeSubcommand::Pipeline(args) => run_pipeline(ctx, args).await,
+        match self {
+            AnalyzeCommands::Info(args) => run_info(ctx, args).await,
+            AnalyzeCommands::Symbols(args) => run_symbols(ctx, args).await,
+            AnalyzeCommands::Imports(args) => run_imports(ctx, args).await,
+            AnalyzeCommands::Exports(args) => run_exports(ctx, args).await,
+            AnalyzeCommands::Strings(args) => run_strings(ctx, args).await,
+            AnalyzeCommands::Sections(args) => run_sections(ctx, args).await,
+            AnalyzeCommands::Segments(args) => run_segments(ctx, args).await,
+            AnalyzeCommands::Functions(args) => run_functions(ctx, args).await,
+            AnalyzeCommands::Disasm(args) => run_disasm(ctx, args).await,
+            AnalyzeCommands::Decompile(args) => run_decompile(ctx, args).await,
+            AnalyzeCommands::Pipeline(args) => run_pipeline(ctx, args).await,
         }
     }
 }
 
-async fn run_analyze<F, Fut, T>(ctx: Context, args: AnalyzeArgs, op: F) -> Result<(), CliError>
-where
-    F: FnOnce(&BinaryAnalyzer) -> Fut,
-    Fut: std::future::Future<Output = Result<T, anyhow::Error>>,
-    T: serde::Serialize,
-{
+async fn run_info(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
     let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
-    let result = op(&analyzer).await?;
+    let result = analyzer.info().await?;
+
+    spinner.finish_and_clear();
+
+    print_output(&result, ctx.format, args.output.as_deref())?;
+    Ok(())
+}
+
+async fn run_symbols(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
+    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
+
+    let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
+    let result = analyzer.symbols().await?;
+
+    spinner.finish_and_clear();
+
+    print_output(&result, ctx.format, args.output.as_deref())?;
+    Ok(())
+}
+
+async fn run_imports(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
+    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
+
+    let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
+    let result = analyzer.imports().await?;
+
+    spinner.finish_and_clear();
+
+    print_output(&result, ctx.format, args.output.as_deref())?;
+    Ok(())
+}
+
+async fn run_exports(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
+    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
+
+    let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
+    let result = analyzer.exports().await?;
+
+    spinner.finish_and_clear();
+
+    print_output(&result, ctx.format, args.output.as_deref())?;
+    Ok(())
+}
+
+async fn run_sections(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
+    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
+
+    let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
+    let result = analyzer.sections().await?;
+
+    spinner.finish_and_clear();
+
+    print_output(&result, ctx.format, args.output.as_deref())?;
+    Ok(())
+}
+
+async fn run_segments(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
+    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
+
+    let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
+    let result = analyzer.segments().await?;
 
     spinner.finish_and_clear();
 
@@ -248,7 +302,7 @@ async fn run_functions(ctx: Context, args: FunctionsArgs) -> Result<(), CliError
             functions.iter().map(|f| FunctionRow {
                 name: f.name.clone(),
                 address: format!("0x{:x}", f.address),
-                size: f.size,
+                size: f.size as usize,
                 complexity: f.complexity.map(|c| c.to_string()).unwrap_or_else(|| "-".to_string()),
             }).collect::<Vec<_>>()
         );
@@ -268,8 +322,10 @@ async fn run_disasm(ctx: Context, args: DisasmArgs) -> Result<(), CliError> {
     let disasm = if let Some(func) = args.function {
         analyzer.disasm_function(&func, args.count, args.bytes).await?
     } else if let (Some(start), Some(end)) = (args.start, args.end) {
-        let start_addr = u64::from_str_radix(&start.trim_start_matches("0x"), 16)?;
-        let end_addr = u64::from_str_radix(&end.trim_start_matches("0x"), 16)?;
+        let start_addr = u64::from_str_radix(&start.trim_start_matches("0x"), 16)
+            .map_err(|e| CliError::InvalidArgs(format!("Invalid start address: {}", e)))?;
+        let end_addr = u64::from_str_radix(&end.trim_start_matches("0x"), 16)
+            .map_err(|e| CliError::InvalidArgs(format!("Invalid end address: {}", e)))?;
         analyzer.disasm_range(start_addr, end_addr, args.bytes).await?
     } else {
         return Err(CliError::InvalidArgs("Specify --function or --start/--end".into()));
@@ -281,7 +337,9 @@ async fn run_disasm(ctx: Context, args: DisasmArgs) -> Result<(), CliError> {
         for insn in &disasm.instructions {
             println!("{:>16}  {}", format!("0x{:x}", insn.address).dimmed(), insn.mnemonic);
             if args.bytes {
-                println!("{:>16}  {}", "".dimmed(), insn.bytes.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" "));
+                if let Some(bytes) = &insn.bytes {
+                    println!("{:>16}  {}", "".dimmed(), bytes.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" "));
+                }
             }
         }
     } else {
@@ -309,7 +367,7 @@ async fn run_decompile(ctx: Context, args: DecompileArgs) -> Result<(), CliError
 
 async fn run_pipeline(ctx: Context, args: PipelineArgs) -> Result<(), CliError> {
     let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
-    let stages: Vec<_> = args.stages.iter().map(|s| s.into()).collect();
+    let stages: Vec<_> = args.stages.iter().cloned().map(|s| s.into()).collect();
 
     let spinner = ctx.spinner(format!("Running analysis pipeline on {}...", args.file.display()));
 

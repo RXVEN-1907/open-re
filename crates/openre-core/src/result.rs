@@ -4,9 +4,10 @@ use crate::ids::{FindingId, ScanId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 /// Severity levels for findings
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     /// Informational - no direct security impact
@@ -73,7 +74,7 @@ impl std::str::FromStr for Severity {
 }
 
 /// Confidence levels for findings
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Confidence {
     /// Very low confidence - speculative
@@ -140,7 +141,7 @@ impl std::str::FromStr for Confidence {
 }
 
 /// Finding categories
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Category {
     /// Injection vulnerabilities
@@ -244,7 +245,7 @@ impl std::str::FromStr for Category {
 }
 
 /// Evidence supporting a finding
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Evidence {
     /// Type of evidence
     pub evidence_type: EvidenceType,
@@ -293,7 +294,7 @@ impl Evidence {
 }
 
 /// HTTP request evidence details
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct HttpRequestEvidence {
     /// HTTP method
     pub method: String,
@@ -314,7 +315,7 @@ pub struct HttpRequestEvidence {
 }
 
 /// HTTP response evidence details
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct HttpResponseEvidence {
     /// HTTP status code
     pub status_code: u16,
@@ -331,7 +332,7 @@ pub struct HttpResponseEvidence {
 }
 
 /// TLS information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TlsInfo {
     /// TLS version
     pub version: String,
@@ -342,7 +343,7 @@ pub struct TlsInfo {
 }
 
 /// Certificate information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CertificateInfo {
     /// Subject
     pub subject: String,
@@ -359,7 +360,7 @@ pub struct CertificateInfo {
 }
 
 /// Timing evidence
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TimingEvidence {
     /// Total request duration in milliseconds
     pub total_ms: u64,
@@ -376,7 +377,7 @@ pub struct TimingEvidence {
 }
 
 /// Payload evidence
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PayloadEvidence {
     /// The payload that was used
     pub payload: String,
@@ -393,7 +394,7 @@ pub struct PayloadEvidence {
 }
 
 /// Reproduction steps
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ReproductionSteps {
     /// Step-by-step instructions
     pub steps: Vec<String>,
@@ -410,7 +411,7 @@ pub struct ReproductionSteps {
 }
 
 /// Reproduction difficulty
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ReproductionDifficulty {
     /// Trivial to reproduce
@@ -426,7 +427,7 @@ pub enum ReproductionDifficulty {
 }
 
 /// Type of evidence
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceType {
     /// HTTP request that triggered the finding
@@ -460,7 +461,7 @@ impl std::fmt::Display for EvidenceType {
 }
 
 /// Reference to external resources
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Reference {
     /// Reference type
     pub reference_type: ReferenceType,
@@ -473,7 +474,7 @@ pub struct Reference {
 }
 
 /// Type of reference
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReferenceType {
     /// CVE identifier
@@ -495,7 +496,7 @@ pub enum ReferenceType {
 }
 
 /// Standardized finding model - all plugins must return findings using this schema
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Finding {
     /// Unique finding ID
     pub id: FindingId,
@@ -560,7 +561,7 @@ pub struct Finding {
 }
 
 /// Remediation guidance
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RemediationGuidance {
     /// Summary of remediation
     pub summary: String,
@@ -577,7 +578,7 @@ pub struct RemediationGuidance {
 }
 
 /// Code example for remediation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CodeExample {
     /// Language
     pub language: String,
@@ -590,7 +591,7 @@ pub struct CodeExample {
 }
 
 /// Remediation effort
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RemediationEffort {
     /// Trivial fix (configuration change, etc.)
@@ -606,7 +607,7 @@ pub enum RemediationEffort {
 }
 
 /// Remediation priority
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RemediationPriority {
     /// Immediate - critical risk
@@ -622,7 +623,7 @@ pub enum RemediationPriority {
 }
 
 /// Exploitability assessment
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ExploitabilityAssessment {
     /// Exploitability score (0-10)
     pub score: f32,
@@ -645,7 +646,7 @@ pub struct ExploitabilityAssessment {
 }
 
 /// Attack vector
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AttackVector {
     /// Network exploitable
@@ -659,7 +660,7 @@ pub enum AttackVector {
 }
 
 /// Attack complexity
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AttackComplexity {
     /// Low complexity
@@ -669,7 +670,7 @@ pub enum AttackComplexity {
 }
 
 /// Privileges required
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PrivilegesRequired {
     /// No privileges required
@@ -681,7 +682,7 @@ pub enum PrivilegesRequired {
 }
 
 /// User interaction
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum UserInteraction {
     /// No user interaction required
@@ -691,7 +692,7 @@ pub enum UserInteraction {
 }
 
 /// Scope
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Scope {
     /// Unchanged scope
@@ -701,7 +702,7 @@ pub enum Scope {
 }
 
 /// Business impact assessment
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BusinessImpactAssessment {
     /// Impact score (0-10)
     pub score: f32,
@@ -718,7 +719,7 @@ pub struct BusinessImpactAssessment {
 }
 
 /// Impact level
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ImpactLevel {
     /// No impact
@@ -730,7 +731,7 @@ pub enum ImpactLevel {
 }
 
 /// Asset criticality
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum AssetCriticality {
     /// Non-critical asset
@@ -769,7 +770,7 @@ pub struct FindingConfig {
 }
 
 /// Regulatory impact
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RegulatoryImpact {
     /// Regulations affected
     pub regulations: Vec<String>,
@@ -1037,7 +1038,7 @@ pub struct FindingFilter {
 }
 
 /// Finding sort options
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FindingSort {
     /// Sort by severity (highest first)
@@ -1057,7 +1058,7 @@ pub enum FindingSort {
 }
 
 /// Finding statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct FindingStats {
     /// Total findings
     pub total: usize,

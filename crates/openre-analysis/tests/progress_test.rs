@@ -1,10 +1,6 @@
 // crates/openre-analysis/tests/progress_test.rs
-use openre_analysis::progress::{
-    JobProgress, JobStatus, ProgressTracker, StageProgress, StageStatus,
-};
+use openre_analysis::progress::{JobProgress, JobStatus, ProgressTracker};
 use openre_core::ids::{JobId, StageId, WorkerId};
-use std::sync::Arc;
-use tokio::sync::broadcast;
 
 #[tokio::test]
 async fn test_progress_tracker_basic() {

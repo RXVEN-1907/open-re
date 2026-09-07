@@ -26,7 +26,9 @@ use std::{io, sync::Arc, time::Duration};
 use tokio::sync::{mpsc, Mutex};
 
 #[cfg(feature = "tui")]
-use crate::{Check, OutputFormat, ScanProfile, Severity};
+use crate::{Check, Finding, OutputFormat, ScanProfile, build_client, get_all_checks};
+#[cfg(feature = "tui")]
+use openre_core::result::Severity;
 #[cfg(feature = "tui")]
 use url::Url;
 
@@ -50,7 +52,7 @@ enum ScanMsg {
 pub struct TuiScanResult {
     pub target: String,
     pub profile: ScanProfile,
-    pub findings: Vec<crate::Finding>,
+    pub findings: Vec<Finding>,
     pub duration: Duration,
     pub checks_run: usize,
     pub status: ScanStatus,
@@ -336,9 +338,9 @@ impl App {
         &mut self.findings_table_state
     }
 
-    fn get_filtered_findings(&self) -> Vec<&crate::Finding> {
+    fn get_filtered_findings(&self) -> Vec<&Finding> {
         if let Some(results) = &self.scan_results {
-            let mut findings: Vec<&crate::Finding> = results.findings.iter().collect();
+            let mut findings: Vec<&Finding> = results.findings.iter().collect();
 
             // Apply severity filter
             if let Some(sev) = self.severity_filter {
@@ -433,9 +435,9 @@ async fn run_scan_with_progress(
         format!("https://{}", target).parse::<Url>()?
     };
 
-    let client = crate::build_client(10, 10, false, "openre-scan/0.1.0".to_string(), None)?;
+    let client = build_client(10, 10, false, "openre-scan/0.1.0".to_string(), None)?;
 
-    let all_checks = crate::get_all_checks(&profile);
+    let all_checks = get_all_checks(&profile);
     let checks_to_run: Vec<Check> = all_checks
         .into_iter()
         .filter(|c| c.name() != "sensitive-files") // Skip slow check by default
@@ -1583,7 +1585,7 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 }
 
 #[cfg(feature = "tui")]
-fn count_severities(findings: &[crate::Finding]) -> std::collections::HashMap<Severity, usize> {
+fn count_severities(findings: &[Finding]) -> std::collections::HashMap<Severity, usize> {
     let mut counts = std::collections::HashMap::new();
     for f in findings {
         *counts.entry(f.severity).or_insert(0) += 1;

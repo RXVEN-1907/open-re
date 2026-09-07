@@ -5,11 +5,24 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
-use openre_queue::QueueManager;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 use tracing::debug;
+
+/// Simple queue manager stub
+#[derive(Debug, Clone, Default)]
+pub struct QueueManager;
+
+impl QueueManager {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self)
+    }
+
+    pub fn new_for_testing() -> Arc<Self> {
+        Arc::new(Self)
+    }
+}
 
 /// Job progress for real-time updates
 #[derive(Debug, Clone, Serialize, Deserialize)]

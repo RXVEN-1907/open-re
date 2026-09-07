@@ -2,7 +2,7 @@
 
 use openre_config::{Config as CoreConfig, default_config_path};
 use crate::{CliError, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub struct CliConfig {
     core: CoreConfig,

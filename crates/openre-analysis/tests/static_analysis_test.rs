@@ -1,13 +1,8 @@
 // crates/openre-analysis/tests/static_analysis_test.rs
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use openre_analysis::binary::common::{
-    Architecture, BinaryFormat, BinaryIdentification, BinaryMetadata, Bitness, CallEdge, CallType,
-    CfgEdge, CfgEdgeType, CompilerInfo, Endianness, ExportInfo, ExtractedString, FileHashes,
-    ImportInfo, ImportedFunction, LoopInfo, LoopType, Operand, OperandKind, OperandType,
-    OperatingSystem, RelroLevel, ResourceInfo, SectionCharacteristics, SectionFlags, SectionInfo,
-    SecurityFeatures, SegmentInfo, SegmentPermissions, StringEncoding, SymbolBinding, SymbolInfo,
-    SymbolType, SymbolVisibility, TypeInfo, TypeKind, TypeSource, Variable, VariableStorage,
-    VersionInfo,
+    Architecture, BinaryFormat, BinaryIdentification, BinaryMetadata, Bitness, Endianness,
+    OperatingSystem, SecurityFeatures, FileHashes,
 };
 use openre_analysis::binary::{
     BinaryMetadataExtractor, ElfMetadataExtractor, MachoMetadataExtractor, PeMetadataExtractor,
@@ -16,7 +11,6 @@ use openre_analysis::binary::{
 use openre_analysis::{StaticAnalysisResult, StaticAnalysisService};
 use openre_core::ids::FileId;
 use std::fs;
-use std::path::PathBuf;
 use tempfile::TempDir;
 
 fn create_test_metadata() -> BinaryMetadata {

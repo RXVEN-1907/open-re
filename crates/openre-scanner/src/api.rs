@@ -33,7 +33,7 @@ pub struct CreateScanRequest {
     #[validate(length(min = 1, max = 255))]
     pub name: String,
     pub description: Option<String>,
-    pub target_id: TargetId,
+        pub target_id: TargetId,
     pub plugins: Option<Vec<String>>,
     pub exclude_plugins: Option<Vec<String>>,
     pub max_duration: Option<u64>,
@@ -124,7 +124,7 @@ pub struct FindingQueryParams {
     pub category: Option<Vec<String>>,
     pub target: Option<String>,
     pub plugin_source: Option<String>,
-    pub scan_id: Option<ScanId>,
+        pub scan_id: Option<ScanId>,
     pub verified: Option<bool>,
     pub false_positive: Option<bool>,
     pub tags: Option<Vec<String>>,
@@ -140,10 +140,10 @@ pub struct FindingQueryParams {
 /// Scan response
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ScanResponse {
-    pub id: ScanId,
+        pub id: ScanId,
     pub name: String,
     pub description: Option<String>,
-    pub target_id: TargetId,
+        pub target_id: TargetId,
     pub status: ScanStatus,
     pub progress: ScanProgress,
     pub findings_count: usize,
@@ -175,7 +175,7 @@ impl From<ScanSession> for ScanResponse {
 /// Target response
 #[derive(Debug, Serialize, ToSchema)]
 pub struct TargetResponse {
-    pub id: TargetId,
+        pub id: TargetId,
     pub target_type: TargetType,
     pub name: String,
     pub description: Option<String>,
@@ -203,7 +203,7 @@ impl From<Target> for TargetResponse {
 /// Finding response
 #[derive(Debug, Serialize, ToSchema)]
 pub struct FindingResponse {
-    pub id: FindingId,
+        pub id: FindingId,
     pub title: String,
     pub description: String,
     pub severity: String,

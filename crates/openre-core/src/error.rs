@@ -47,56 +47,24 @@ pub enum Error {
     #[error("Connection error: {0}")]
     ConnectionError(String),
 
-    #[error("Resource exhausted: {0}")]
-    ResourceExhausted(String),
-
-    #[error("Unauthorized: {0}")]
-    Unauthorized(String),
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
 
     #[error("Forbidden: {0}")]
     Forbidden(String),
 
-    #[error("Conflict: {0}")]
-    Conflict(String),
+    #[error("Unauthorized: {0}")]
+    Unauthorized(String),
 
-    #[error("Rate limited: retry after {retry_after_secs}s")]
-    RateLimited { retry_after_secs: u64 },
+    #[error("Redis error: {0}")]
+    Redis(#[from] redis::RedisError),
 
-    #[error("Bad request: {0}")]
-    BadRequest(String),
+    #[error("SQLite error: {0}")]
+    Rusqlite(#[from] rusqlite::Error),
 
-    #[error("Service unavailable: {0}")]
-    ServiceUnavailable(String),
+    #[error("Resource exhausted: {0}")]
+    ResourceExhausted(String),
 
-    #[error("Not implemented: {0}")]
-    NotImplemented(String),
-}
-
-impl Error {
-    /// Get the error code for this error
-    pub fn code(&self) -> &'static str {
-        match self {
-            Error::NotFound(_) => "NOT_FOUND",
-            Error::Validation(_) => "VALIDATION_ERROR",
-            Error::Config(_) => "CONFIG_ERROR",
-            Error::InvalidInput(_) => "INVALID_INPUT",
-            Error::Database(_) => "DATABASE_ERROR",
-            Error::Serialization(_) => "SERIALIZATION_ERROR",
-            Error::Toml(_) => "TOML_ERROR",
-            Error::Io(_) => "IO_ERROR",
-            Error::Tracing(_) => "TRACING_ERROR",
-            Error::Internal(_) => "INTERNAL_ERROR",
-            Error::Cancelled => "CANCELLED",
-            Error::Timeout(_) => "TIMEOUT",
-            Error::ConnectionError(_) => "CONNECTION_ERROR",
-            Error::ResourceExhausted(_) => "RESOURCE_EXHAUSTED",
-            Error::Unauthorized(_) => "UNAUTHORIZED",
-            Error::Forbidden(_) => "FORBIDDEN",
-            Error::Conflict(_) => "CONFLICT",
-            Error::RateLimited { .. } => "RATE_LIMITED",
-            Error::BadRequest(_) => "BAD_REQUEST",
-            Error::ServiceUnavailable(_) => "SERVICE_UNAVAILABLE",
-            Error::NotImplemented(_) => "NOT_IMPLEMENTED",
-        }
-    }
+    #[error("Rate limited: {0}")]
+    RateLimited(String),
 }

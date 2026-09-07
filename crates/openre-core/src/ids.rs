@@ -3,12 +3,14 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 macro_rules! define_id {
     ($name:ident) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
         #[serde(transparent)]
+        #[schema(value_type = String)]
         pub struct $name(pub Uuid);
 
         impl $name {
@@ -194,7 +196,7 @@ impl FromStr for StageName {
 }
 
 /// Plugin types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum PluginType {
     Identifier,
@@ -256,7 +258,7 @@ impl FromStr for PluginType {
 }
 
 /// Plugin capabilities
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Capability {
     ReadBinary,
