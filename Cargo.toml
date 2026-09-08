@@ -13,6 +13,7 @@ members = [
     "crates/openre-plugins-macros",
     "crates/openre-telemetry",
     "crates/sentinel",
+    "crates/openre-disasm",
 ]
 
 [workspace.package]
