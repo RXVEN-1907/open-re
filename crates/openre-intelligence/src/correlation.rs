@@ -1000,13 +1000,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_csp_xss_correlation() {
-        let mut config = CorrelationConfig::default();
-        config.enable_directory_git = false;
-        config.enable_strengthening_weakening = false;
-        config.enable_root_cause = false;
-        config.enable_cwe_capec_inference = false;
-        config.enable_temporal = false;
-        config.enable_spatial = false;
+        let config = CorrelationConfig {
+            enable_directory_git: false,
+            enable_strengthening_weakening: false,
+            enable_root_cause: false,
+            enable_cwe_capec_inference: false,
+            enable_temporal: false,
+            enable_spatial: false,
+            ..CorrelationConfig::default()
+        };
         let engine = CorrelationEngine::with_config(config);
 
         let csp_finding = create_test_finding(
@@ -1042,13 +1044,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_directory_git_correlation() {
-        let mut config = CorrelationConfig::default();
-        config.enable_csp_xss = false;
-        config.enable_strengthening_weakening = false;
-        config.enable_root_cause = false;
-        config.enable_cwe_capec_inference = false;
-        config.enable_temporal = false;
-        config.enable_spatial = false;
+        let config = CorrelationConfig {
+            enable_csp_xss: false,
+            enable_strengthening_weakening: false,
+            enable_root_cause: false,
+            enable_cwe_capec_inference: false,
+            enable_temporal: false,
+            enable_spatial: false,
+            ..CorrelationConfig::default()
+        };
         let engine = CorrelationEngine::with_config(config);
 
         let dir_finding = create_test_finding(
@@ -1084,13 +1088,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_strengthening_correlation() {
-        let mut config = CorrelationConfig::default();
-        config.enable_csp_xss = false;
-        config.enable_directory_git = false;
-        config.enable_root_cause = false;
-        config.enable_cwe_capec_inference = false;
-        config.enable_temporal = false;
-        config.enable_spatial = false;
+        let config = CorrelationConfig {
+            enable_csp_xss: false,
+            enable_directory_git: false,
+            enable_root_cause: false,
+            enable_cwe_capec_inference: false,
+            enable_temporal: false,
+            enable_spatial: false,
+            ..CorrelationConfig::default()
+        };
         let engine = CorrelationEngine::with_config(config);
 
         let finding1 = create_test_finding(

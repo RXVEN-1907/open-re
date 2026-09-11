@@ -686,7 +686,7 @@ impl DependencyAnalyzer {
         let outdated_deps = dependencies.iter().filter(|d| d.is_outdated).count();
         let vulnerable_deps = dependencies.iter().filter(|d| !d.vulnerabilities.is_empty()).count();
 
-        report.push_str(&format!("## Summary\n"));
+        report.push_str("## Summary\n");
         report.push_str(&format!("- Total dependencies: {}\n", total_deps));
         report.push_str(&format!(
             "- Outdated dependencies: {} ({:.1}%)\n",
