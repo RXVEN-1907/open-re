@@ -4,9 +4,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use openre_core::ids::FileId;
 use std::path::Path;
-use wasmparser::{
-    Export as WasmExport, ExternalKind, Import as WasmImport, Parser, Payload, TypeRef,
-};
+use wasmparser::{ExternalKind, Import as WasmImport, Parser, Payload, TypeRef};
 
 use crate::binary::common::*;
 use crate::binary::traits::*;
@@ -48,32 +46,28 @@ impl WasmParser {
                 }
                 Ok(Payload::TypeSection(types)) => for _ in types {},
                 Ok(Payload::FunctionSection(functions)) => {
-                    for func in functions {
-                        if let Ok(ty_idx) = func {
-                            function_names.push(format!("func_{}", ty_idx));
-                        }
+                    for ty_idx in functions.into_iter().flatten() {
+                        function_names.push(format!("func_{}", ty_idx));
                     }
                 }
                 Ok(Payload::ExportSection(exports_reader)) => {
-                    for export in exports_reader {
-                        if let Ok(WasmExport { name, kind, index }) = export {
-                            if kind == ExternalKind::Func {
-                                export_names.push((name.to_string(), index));
-                            }
-                            info.exports
-                                .push(Export { name: name.to_string(), address: index as u64 });
+                    for export in exports_reader.into_iter().flatten() {
+                        if export.kind == ExternalKind::Func {
+                            export_names.push((export.name.to_string(), export.index));
                         }
+                        info.exports.push(Export {
+                            name: export.name.to_string(),
+                            address: export.index as u64,
+                        });
                     }
                 }
                 Ok(Payload::ImportSection(imports_reader)) => {
-                    for import in imports_reader {
-                        if let Ok(WasmImport { module, name, ty }) = import {
-                            if let TypeRef::Func(_ty_index) = ty {
-                                info.imports.push(Import {
-                                    name: name.to_string(),
-                                    library: Some(module.to_string()),
-                                });
-                            }
+                    for import in imports_reader.into_iter().flatten() {
+                        if let WasmImport { module, name, ty: TypeRef::Func(_ty_index) } = import {
+                            info.imports.push(Import {
+                                name: name.to_string(),
+                                library: Some(module.to_string()),
+                            });
                         }
                     }
                 }
@@ -87,20 +81,18 @@ impl WasmParser {
                     });
                 }
                 Ok(Payload::DataSection(data_reader)) => {
-                    for data in data_reader {
-                        if let Ok(data) = data {
-                            info.sections.push(Section {
-                                name: format!("data_{}", data.range.start),
-                                address: data.range.start as u64,
-                                size: data.data.len() as u64,
-                                flags: SectionFlags {
-                                    readable: true,
-                                    writable: true,
-                                    executable: false,
-                                },
-                                data: Some(data.data.to_vec()),
-                            });
-                        }
+                    for data in data_reader.into_iter().flatten() {
+                        info.sections.push(Section {
+                            name: format!("data_{}", data.range.start),
+                            address: data.range.start as u64,
+                            size: data.data.len() as u64,
+                            flags: SectionFlags {
+                                readable: true,
+                                writable: true,
+                                executable: false,
+                            },
+                            data: Some(data.data.to_vec()),
+                        });
                     }
                 }
                 Ok(Payload::CustomSection(custom)) => {
@@ -231,40 +223,34 @@ impl BinaryMetadataExtractor for WasmMetadataExtractor {
             match payload {
                 Ok(Payload::TypeSection(_)) => {}
                 Ok(Payload::FunctionSection(functions)) => {
-                    for func in functions {
-                        if let Ok(ty_idx) = func {
-                            function_names.push(format!("func_{}", ty_idx));
-                        }
+                    for ty_idx in functions.into_iter().flatten() {
+                        function_names.push(format!("func_{}", ty_idx));
                     }
                 }
                 Ok(Payload::ExportSection(exports_reader)) => {
-                    for export in exports_reader {
-                        if let Ok(WasmExport { name, kind, index }) = export {
-                            if kind == ExternalKind::Func {
-                                export_names.push((name.to_string(), index));
-                            }
-                            exports.push(ExportInfo {
-                                name: name.to_string(),
-                                address: index as u64,
-                                ordinal: index as u16,
-                                forwarder: None,
-                            });
+                    for export in exports_reader.into_iter().flatten() {
+                        if export.kind == ExternalKind::Func {
+                            export_names.push((export.name.to_string(), export.index));
                         }
+                        exports.push(ExportInfo {
+                            name: export.name.to_string(),
+                            address: export.index as u64,
+                            ordinal: export.index as u16,
+                            forwarder: None,
+                        });
                     }
                 }
                 Ok(Payload::ImportSection(imports_reader)) => {
-                    for import in imports_reader {
-                        if let Ok(WasmImport { module, name, ty }) = import {
-                            if let TypeRef::Func(ty_index) = ty {
-                                imports.push(ImportInfo {
-                                    library: module.to_string(),
-                                    functions: vec![ImportedFunction {
-                                        name: name.to_string(),
-                                        address: None,
-                                        ordinal: Some(ty_index as u16),
-                                    }],
-                                });
-                            }
+                    for import in imports_reader.into_iter().flatten() {
+                        if let WasmImport { module, name, ty: TypeRef::Func(ty_index) } = import {
+                            imports.push(ImportInfo {
+                                library: module.to_string(),
+                                functions: vec![ImportedFunction {
+                                    name: name.to_string(),
+                                    address: None,
+                                    ordinal: Some(ty_index as u16),
+                                }],
+                            });
                         }
                     }
                 }
@@ -288,27 +274,25 @@ impl BinaryMetadataExtractor for WasmMetadataExtractor {
                     });
                 }
                 Ok(Payload::DataSection(data_reader)) => {
-                    for data in data_reader {
-                        if let Ok(data) = data {
-                            let entropy = calculate_entropy(&data.data);
-                            sections.push(SectionInfo {
-                                name: format!("data_{}", data.range.start),
-                                virtual_address: data.range.start as u64,
-                                virtual_size: data.data.len() as u64,
-                                raw_offset: data.range.start as u64,
-                                raw_size: data.data.len() as u64,
-                                characteristics: SectionCharacteristics {
-                                    readable: true,
-                                    writable: true,
-                                    executable: false,
-                                    shared: false,
-                                    discardable: false,
-                                    not_cached: false,
-                                    not_paged: false,
-                                },
-                                entropy,
-                            });
-                        }
+                    for data in data_reader.into_iter().flatten() {
+                        let entropy = calculate_entropy(data.data);
+                        sections.push(SectionInfo {
+                            name: format!("data_{}", data.range.start),
+                            virtual_address: data.range.start as u64,
+                            virtual_size: data.data.len() as u64,
+                            raw_offset: data.range.start as u64,
+                            raw_size: data.data.len() as u64,
+                            characteristics: SectionCharacteristics {
+                                readable: true,
+                                writable: true,
+                                executable: false,
+                                shared: false,
+                                discardable: false,
+                                not_cached: false,
+                                not_paged: false,
+                            },
+                            entropy,
+                        });
                     }
                 }
                 Ok(Payload::CustomSection(custom)) => {
@@ -438,6 +422,7 @@ fn calculate_entropy(data: &[u8]) -> f64 {
 }
 
 /// Calculate file hashes
+#[allow(unused_imports)]
 fn calculate_hashes(data: &[u8]) -> FileHashes {
     use md5::{Digest, Md5};
     use sha1::{Digest as Sha1Digest, Sha1};

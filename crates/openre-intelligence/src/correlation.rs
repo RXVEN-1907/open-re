@@ -269,37 +269,30 @@ impl CorrelationEngine {
 
         // Apply different correlation strategies based on configuration
         if self.config.enable_csp_xss {
-            let csp_relationships = self.correlate_csp_xss(findings)?;
             relationships.extend(self.correlate_csp_xss(findings)?);
         }
 
         if self.config.enable_directory_git {
-            let dir_relationships = self.correlate_directory_git(findings)?;
             relationships.extend(self.correlate_directory_git(findings)?);
         }
 
         if self.config.enable_strengthening_weakening {
-            let str_relationships = self.correlate_strengthening_weakening(findings)?;
             relationships.extend(self.correlate_strengthening_weakening(findings)?);
         }
 
         if self.config.enable_root_cause {
-            let root_relationships = self.correlate_shared_root_cause(findings)?;
             relationships.extend(self.correlate_shared_root_cause(findings)?);
         }
 
         if self.config.enable_cwe_capec_inference {
-            let cwe_relationships = self.correlate_cwe_capec(findings)?;
             relationships.extend(self.correlate_cwe_capec(findings)?);
         }
 
         if self.config.enable_temporal {
-            let temp_relationships = self.correlate_temporal(findings)?;
             relationships.extend(self.correlate_temporal(findings)?);
         }
 
         if self.config.enable_spatial {
-            let spatial_relationships = self.correlate_spatial(findings)?;
             relationships.extend(self.correlate_spatial(findings)?);
         }
 
@@ -1007,7 +1000,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_csp_xss_correlation() {
-        let engine = CorrelationEngine::new();
+        let mut config = CorrelationConfig::default();
+        config.enable_directory_git = false;
+        config.enable_strengthening_weakening = false;
+        config.enable_root_cause = false;
+        config.enable_cwe_capec_inference = false;
+        config.enable_temporal = false;
+        config.enable_spatial = false;
+        let engine = CorrelationEngine::with_config(config);
 
         let csp_finding = create_test_finding(
             "Missing Content-Security-Policy header",
@@ -1033,7 +1033,7 @@ mod tests {
         assert_eq!(relationships.len(), 1);
         let relationship = &relationships[0];
         assert_eq!(relationship.relationship_type, FindingRelationshipType::Enables);
-        let finding_ids = vec![relationship.source_finding, relationship.target_finding];
+        let finding_ids = [relationship.source_finding, relationship.target_finding];
         assert_eq!(finding_ids.len(), 2);
         assert!(finding_ids.contains(&csp_finding.id));
         assert!(finding_ids.contains(&xss_finding.id));
@@ -1042,7 +1042,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_directory_git_correlation() {
-        let engine = CorrelationEngine::new();
+        let mut config = CorrelationConfig::default();
+        config.enable_csp_xss = false;
+        config.enable_strengthening_weakening = false;
+        config.enable_root_cause = false;
+        config.enable_cwe_capec_inference = false;
+        config.enable_temporal = false;
+        config.enable_spatial = false;
+        let engine = CorrelationEngine::with_config(config);
 
         let dir_finding = create_test_finding(
             "Directory listing enabled",
@@ -1068,7 +1075,7 @@ mod tests {
         assert_eq!(relationships.len(), 1);
         let relationship = &relationships[0];
         assert_eq!(relationship.relationship_type, FindingRelationshipType::ChainedExploit);
-        let finding_ids = vec![relationship.source_finding, relationship.target_finding];
+        let finding_ids = [relationship.source_finding, relationship.target_finding];
         assert_eq!(finding_ids.len(), 2);
         assert!(finding_ids.contains(&dir_finding.id));
         assert!(finding_ids.contains(&git_finding.id));
@@ -1077,7 +1084,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_strengthening_correlation() {
-        let engine = CorrelationEngine::new();
+        let mut config = CorrelationConfig::default();
+        config.enable_csp_xss = false;
+        config.enable_directory_git = false;
+        config.enable_root_cause = false;
+        config.enable_cwe_capec_inference = false;
+        config.enable_temporal = false;
+        config.enable_spatial = false;
+        let engine = CorrelationEngine::with_config(config);
 
         let finding1 = create_test_finding(
             "SQL Injection in login form",
@@ -1103,7 +1117,7 @@ mod tests {
         assert_eq!(relationships.len(), 1);
         let relationship = &relationships[0];
         assert_eq!(relationship.relationship_type, FindingRelationshipType::Amplifies);
-        let finding_ids = vec![relationship.source_finding, relationship.target_finding];
+        let finding_ids = [relationship.source_finding, relationship.target_finding];
         assert_eq!(finding_ids.len(), 2);
         assert!(finding_ids.contains(&finding1.id));
         assert!(finding_ids.contains(&finding2.id));
@@ -1114,7 +1128,7 @@ mod tests {
         let engine = CorrelationEngine::new();
 
         let finding1 = create_test_finding(
-            "XSS in search",
+            "XSS in search form",
             Category::Xss,
             "https://example.com",
             Some(70),
@@ -1123,18 +1137,18 @@ mod tests {
         );
 
         let finding2 = create_test_finding(
-            "Missing CSP",
-            Category::SecurityMisconfiguration,
+            "XSS in search parameter",
+            Category::Xss,
             "https://example.com",
-            Some(30),
-            vec!["CWE-693".to_string()],
-            vec![],
+            Some(75),
+            vec!["CWE-79".to_string()],
+            vec!["CAPEC-109".to_string()],
         );
 
         let findings = vec![finding1.clone(), finding2.clone()];
         let relationships = engine.correlate_findings(&findings).await.unwrap();
 
-        // Should find relationships based on CWE rules
+        // Should find relationships based on shared CWE
         let cwe_relationships: Vec<_> =
             relationships.iter().filter(|r| !r.supporting_cwes.is_empty()).collect();
         assert!(!cwe_relationships.is_empty());

@@ -1,5 +1,5 @@
 // crates/openre-analysis/tests/pipeline_test.rs
-use openre_analysis::orchestrator::{default_pipeline_stages, TelemetryHandle};
+use openre_analysis::orchestrator::default_pipeline_stages;
 use openre_core::ids::StageId;
 
 #[tokio::test]

@@ -1,6 +1,8 @@
 //! Extension traits for openre-core types
 
-use openre_core::result::{Evidence, EvidenceType, Finding, FindingConfig, RemediationEffort, RemediationGuidance, RemediationPriority};
+use openre_core::result::{
+    Evidence, EvidenceType, Finding, RemediationEffort, RemediationGuidance, RemediationPriority,
+};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -75,13 +77,6 @@ impl RemediationGuidanceExt for RemediationGuidance {
         effort: RemediationEffort,
         priority: RemediationPriority,
     ) -> Self {
-        Self {
-            summary,
-            steps,
-            code_examples: Vec::new(),
-            references: Vec::new(),
-            effort,
-            priority,
-        }
+        Self { summary, steps, code_examples: Vec::new(), references: Vec::new(), effort, priority }
     }
 }

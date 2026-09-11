@@ -1,15 +1,19 @@
 //! Agent coordinator for managing agent execution
 
+use crate::agents::agent_trait::{
+    AgentContext, AiService, CancellationToken, ScanStorage, SecurityAgent, SharedState,
+};
 use crate::agents::context::*;
-use crate::agents::agent_trait::{AgentContext, AiService, CancellationToken, ScanStorage, SecurityAgent, SharedState};
-use crate::agents::types::{AgentCapability, AgentHealth, AgentMetadata, AgentResult, AgentStatus, AgentType};
-use openre_core::ids::AgentId;
+use crate::agents::types::{
+    AgentCapability, AgentHealth, AgentMetadata, AgentResult, AgentStatus, AgentType,
+};
 use crate::error::IntelligenceError;
-use crate::types::*;
-use openre_core::ids::{FindingId, ScanId, WorkflowId};
 use crate::job::{Job, JobStatus, Priority, QueueManager, QueueStats};
-use petgraph::graph::{DiGraph, NodeIndex};
+use crate::types::*;
+use openre_core::ids::AgentId;
+use openre_core::ids::{FindingId, ScanId, WorkflowId};
 use petgraph::algo::toposort;
+use petgraph::graph::{DiGraph, NodeIndex};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
@@ -75,10 +79,7 @@ pub struct AgentDependencyGraph {
 impl AgentDependencyGraph {
     /// Create a new dependency graph
     pub fn new() -> Self {
-        Self {
-            graph: DiGraph::new(),
-            node_indices: HashMap::new(),
-        }
+        Self { graph: DiGraph::new(), node_indices: HashMap::new() }
     }
 
     /// Add a task
@@ -100,8 +101,11 @@ impl AgentDependencyGraph {
 
     /// Get topological order of tasks
     pub fn topological_order(&self) -> Result<Vec<String>, IntelligenceError> {
-        let order = toposort(&self.graph, None)
-            .map_err(|_| IntelligenceError::WorkflowFeatureDisabled("Cycle detected in dependency graph".to_string()))?;
+        let order = toposort(&self.graph, None).map_err(|_| {
+            IntelligenceError::WorkflowFeatureDisabled(
+                "Cycle detected in dependency graph".to_string(),
+            )
+        })?;
         Ok(order.into_iter().map(|idx| self.graph[idx].clone()).collect())
     }
 
@@ -169,7 +173,12 @@ impl Default for CoordinatorConfig {
 
 /// Registered agent info
 struct RegisteredAgent {
-    agent: Arc<dyn SecurityAgent<Input = crate::agents::agent_trait::DynamicAgentInput, Output = crate::agents::agent_trait::DynamicAgentOutput>>,
+    agent: Arc<
+        dyn SecurityAgent<
+            Input = crate::agents::agent_trait::DynamicAgentInput,
+            Output = crate::agents::agent_trait::DynamicAgentOutput,
+        >,
+    >,
     metadata: AgentMetadata,
     semaphore: Arc<Semaphore>,
 }
@@ -219,20 +228,22 @@ impl AgentCoordinator {
     /// Register an agent
     pub async fn register_agent(
         &self,
-        agent: Arc<dyn SecurityAgent<Input = crate::agents::agent_trait::DynamicAgentInput, Output = crate::agents::agent_trait::DynamicAgentOutput>>,
+        agent: Arc<
+            dyn SecurityAgent<
+                Input = crate::agents::agent_trait::DynamicAgentInput,
+                Output = crate::agents::agent_trait::DynamicAgentOutput,
+            >,
+        >,
     ) -> anyhow::Result<AgentId> {
         let agent_id = agent.agent_id();
         let agent_type = agent.agent_type();
         let name = agent.name().to_string();
-        let capabilities = agent.capabilities();
+        let _capabilities = agent.capabilities();
 
         let metadata = AgentMetadata::new(agent_id, name, agent_type);
 
-        let registered = RegisteredAgent {
-            agent,
-            metadata,
-            semaphore: Arc::new(Semaphore::new(1)),
-        };
+        let registered =
+            RegisteredAgent { agent, metadata, semaphore: Arc::new(Semaphore::new(1)) };
 
         let mut agents = self.registered_agents.write().await;
         agents.insert(agent_id, registered);
@@ -276,9 +287,7 @@ impl AgentCoordinator {
         by_type
             .get(&agent_type)
             .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| agents.get(id).map(|r| r.metadata.clone()))
-                    .collect()
+                ids.iter().filter_map(|id| agents.get(id).map(|r| r.metadata.clone())).collect()
             })
             .unwrap_or_default()
     }
@@ -297,16 +306,16 @@ impl AgentCoordinator {
 
             // Check for cycles
             if graph.has_cycles() {
-                return Err(anyhow::anyhow!("Adding task would create a cycle in dependency graph"));
+                return Err(anyhow::anyhow!(
+                    "Adding task would create a cycle in dependency graph"
+                ));
             }
         }
 
         // Enqueue to Redis queue
-        let mut job = Job::new(
-            crate::job::JobType::Workflow,
-            task.input
-        );
-        job.id = task_id.parse::<openre_core::ids::JobId>()
+        let mut job = Job::new(crate::job::JobType::Workflow, task.input);
+        job.id = task_id
+            .parse::<openre_core::ids::JobId>()
             .unwrap_or_else(|_| openre_core::ids::JobId::new());
         job.priority = task.priority;
         job.status = JobStatus::Pending;
@@ -339,7 +348,11 @@ impl AgentCoordinator {
     }
 
     /// Wait for task completion
-    pub async fn wait_for_task(&self, task_id: &str, timeout: Duration) -> anyhow::Result<AgentTaskResult> {
+    pub async fn wait_for_task(
+        &self,
+        task_id: &str,
+        timeout: Duration,
+    ) -> anyhow::Result<AgentTaskResult> {
         let start = std::time::Instant::now();
         loop {
             if let Some(result) = self.get_task_result(task_id).await {
@@ -353,7 +366,11 @@ impl AgentCoordinator {
     }
 
     /// Wait for multiple tasks
-    pub async fn wait_for_tasks(&self, task_ids: &[String], timeout: Duration) -> anyhow::Result<Vec<AgentTaskResult>> {
+    pub async fn wait_for_tasks(
+        &self,
+        task_ids: &[String],
+        timeout: Duration,
+    ) -> anyhow::Result<Vec<AgentTaskResult>> {
         let mut results = Vec::new();
         for task_id in task_ids {
             results.push(self.wait_for_task(task_id, timeout).await?);
@@ -372,13 +389,17 @@ impl AgentCoordinator {
 
         let agent = {
             let agents = self.registered_agents.read().await;
-            agents.get(&agent_id)
+            agents
+                .get(&agent_id)
                 .ok_or_else(|| anyhow::anyhow!("Agent not found: {}", agent_id))?
-                .agent.clone()
+                .agent
+                .clone()
         };
 
         let started_at = chrono::Utc::now();
-        let timeout = Duration::from_secs(task.timeout_seconds.unwrap_or(self.config.default_timeout_seconds));
+        let timeout = Duration::from_secs(
+            task.timeout_seconds.unwrap_or(self.config.default_timeout_seconds),
+        );
 
         // Create agent context
         let ctx = AgentContext::new(
@@ -445,8 +466,12 @@ impl AgentCoordinator {
             for id in ids {
                 if let Some(registered) = agents.get(id) {
                     // Check if agent is healthy and not busy
-                    if registered.metadata.status == AgentStatus::Idle || registered.metadata.status == AgentStatus::Running {
-                        if let AgentHealth::Healthy | AgentHealth::Degraded = registered.metadata.health {
+                    if registered.metadata.status == AgentStatus::Idle
+                        || registered.metadata.status == AgentStatus::Running
+                    {
+                        if let AgentHealth::Healthy | AgentHealth::Degraded =
+                            registered.metadata.health
+                        {
                             return Ok(*id);
                         }
                     }
@@ -491,7 +516,7 @@ impl AgentCoordinator {
 
     /// Process a single job
     async fn process_job(&self, mut job: crate::job::Job) -> anyhow::Result<()> {
-        let job_id = job.id.to_string();
+        let _job_id = job.id.to_string();
 
         // Parse task from job data (clone payload to avoid move)
         let payload = job.payload.clone();
@@ -500,7 +525,8 @@ impl AgentCoordinator {
         // Check dependencies
         {
             let graph = self.dependency_graph.read().await;
-            let completed: HashSet<String> = self.task_results.read().await.keys().cloned().collect();
+            let completed: HashSet<String> =
+                self.task_results.read().await.keys().cloned().collect();
             let ready = graph.get_ready_tasks(&completed);
 
             if !ready.contains(&task.id) {
@@ -518,7 +544,13 @@ impl AgentCoordinator {
         if result.success {
             self.queue_manager.complete(job.id, serde_json::to_value(&result)?).await?;
         } else {
-            self.queue_manager.fail(job.id, result.error.clone().unwrap_or_else(|| "Unknown error".to_string()), result.error.is_some()).await?;
+            self.queue_manager
+                .fail(
+                    job.id,
+                    result.error.clone().unwrap_or_else(|| "Unknown error".to_string()),
+                    result.error.is_some(),
+                )
+                .await?;
         }
 
         Ok(())
@@ -526,7 +558,8 @@ impl AgentCoordinator {
 
     /// Health check loop
     async fn health_check_loop(&self) {
-        let mut interval = tokio::time::interval(Duration::from_secs(self.config.health_check_interval_seconds));
+        let mut interval =
+            tokio::time::interval(Duration::from_secs(self.config.health_check_interval_seconds));
 
         loop {
             interval.tick().await;
@@ -634,10 +667,7 @@ pub struct AgentWorkflowBuilder {
 impl AgentWorkflowBuilder {
     /// Create a new workflow builder
     pub fn new() -> Self {
-        Self {
-            tasks: Vec::new(),
-            next_id: 0,
-        }
+        Self { tasks: Vec::new(), next_id: 0 }
     }
 
     /// Add a task
@@ -708,12 +738,8 @@ impl AgentWorkflowBuilder {
 
     /// Add a verification task
     pub fn add_verification(&mut self, target: String, dependencies: Vec<String>) -> String {
-        let input = VerificationInput {
-            findings: Vec::new(),
-            methods: None,
-            safe_only: true,
-            target,
-        };
+        let input =
+            VerificationInput { findings: Vec::new(), methods: None, safe_only: true, target };
         self.add_task(AgentType::Verification, serde_json::to_value(input).unwrap(), dependencies)
     }
 
@@ -729,7 +755,12 @@ impl AgentWorkflowBuilder {
     }
 
     /// Add a reporting task
-    pub fn add_reporting(&mut self, scan_id: ScanId, format: String, dependencies: Vec<String>) -> String {
+    pub fn add_reporting(
+        &mut self,
+        scan_id: ScanId,
+        format: String,
+        dependencies: Vec<String>,
+    ) -> String {
         let input = ReportingInput {
             scan_id,
             findings: Vec::new(),
@@ -748,7 +779,9 @@ impl AgentWorkflowBuilder {
         let finding = openre_core::result::Finding {
             id: openre_core::ids::FindingId::new(),
             title: "Placeholder finding for research".to_string(),
-            description: "This finding will be replaced with actual finding during workflow execution".to_string(),
+            description:
+                "This finding will be replaced with actual finding during workflow execution"
+                    .to_string(),
             severity: openre_core::result::Severity::Info,
             confidence: openre_core::result::Confidence::Low,
             category: openre_core::result::Category::InformationDisclosure,
@@ -779,7 +812,12 @@ impl AgentWorkflowBuilder {
         };
         let input = ResearchInput {
             finding,
-            research_types: vec!["cve".to_string(), "cwe".to_string(), "capec".to_string(), "mitre".to_string()],
+            research_types: vec![
+                "cve".to_string(),
+                "cwe".to_string(),
+                "capec".to_string(),
+                "mitre".to_string(),
+            ],
             technologies: Vec::new(),
         };
         self.add_task(AgentType::Research, serde_json::to_value(input).unwrap(), dependencies)
@@ -798,10 +836,7 @@ impl Default for AgentWorkflowBuilder {
 }
 
 /// Create a standard investigation workflow
-pub fn create_investigation_workflow(
-    target: String,
-    scan_id: ScanId,
-) -> Vec<AgentTask> {
+pub fn create_investigation_workflow(target: String, scan_id: ScanId) -> Vec<AgentTask> {
     let mut builder = AgentWorkflowBuilder::new();
 
     let recon_id = builder.add_recon(target.clone(), vec![]);

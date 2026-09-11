@@ -15,7 +15,9 @@ use tokio::io::AsyncReadExt;
 pub struct ObjectStore;
 
 impl ObjectStore {
-    pub fn new() -> Arc<Self> { Arc::new(Self) }
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self)
+    }
 
     /// Get an object by file ID (stub implementation)
     pub async fn get_object(&self, _file_id: FileId) -> Result<tokio::io::Empty> {

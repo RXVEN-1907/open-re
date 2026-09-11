@@ -10,7 +10,7 @@ fn test_wasm_identification() {
     let temp = tempfile::NamedTempFile::new().unwrap();
     std::fs::write(&temp, &wasm_bytes).unwrap();
 
-    let identifier = WasmIdentifier::default();
+    let identifier = WasmIdentifier;
     let result = tokio_test::block_on(identifier.identify(&wasm_bytes)).unwrap();
 
     assert_eq!(result.format, BinaryFormat::Wasm);
@@ -21,7 +21,7 @@ fn test_wasm_identification() {
 fn test_wasm_metadata_extraction() {
     let wasm_bytes =
         wat::parse_str(r#"(module (func (export "test") (param i32) (result i32)))"#).unwrap();
-    let extractor = WasmMetadataExtractor::default();
+    let extractor = WasmMetadataExtractor;
     let metadata = tokio_test::block_on(extractor.extract_metadata(&wasm_bytes)).unwrap();
 
     assert_eq!(metadata.identification.format, BinaryFormat::Wasm);

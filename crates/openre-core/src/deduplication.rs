@@ -123,7 +123,7 @@ pub struct CorrelationResult {
     /// Correlation chains (sequences of related findings)
     pub chains: Vec<CorrelationChain>,
     /// Attack paths discovered
-    pub attack_paths: Vec<AttackPath>,
+    pub attack_paths: Vec<CorrelationAttackPath>,
 }
 
 /// Correlation between two findings
@@ -194,9 +194,9 @@ pub enum ChainType {
 
 /// Attack path discovered through correlation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AttackPath {
+pub struct CorrelationAttackPath {
     /// Steps in the attack path
-    pub steps: Vec<AttackStep>,
+    pub steps: Vec<CorrelationAttackStep>,
     /// Overall risk score
     pub risk_score: u8,
     /// Likelihood
@@ -211,7 +211,7 @@ pub struct AttackPath {
 
 /// Step in an attack path
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AttackStep {
+pub struct CorrelationAttackStep {
     /// Step number
     pub step: usize,
     /// Finding ID
@@ -859,7 +859,7 @@ impl CorrelationEngine {
         &self,
         findings: &[Finding],
         chains: &[CorrelationChain],
-    ) -> Vec<AttackPath> {
+    ) -> Vec<CorrelationAttackPath> {
         let mut attack_paths = Vec::new();
 
         for chain in chains {
@@ -874,7 +874,7 @@ impl CorrelationEngine {
                 let (likelihood, impact) = self.assess_attack_path(&steps, findings);
                 let mitre_techniques = self.extract_mitre_techniques(&steps, findings);
 
-                attack_paths.push(AttackPath {
+                attack_paths.push(CorrelationAttackPath {
                     steps,
                     risk_score,
                     likelihood,
@@ -889,12 +889,16 @@ impl CorrelationEngine {
     }
 
     /// Build attack steps from chain
-    fn build_attack_steps(&self, chain: &[FindingId], findings: &[Finding]) -> Vec<AttackStep> {
+    fn build_attack_steps(
+        &self,
+        chain: &[FindingId],
+        findings: &[Finding],
+    ) -> Vec<CorrelationAttackStep> {
         chain
             .iter()
             .enumerate()
             .filter_map(|(idx, id)| {
-                findings.iter().find(|f| f.id == *id).map(|f| AttackStep {
+                findings.iter().find(|f| f.id == *id).map(|f| CorrelationAttackStep {
                     step: idx + 1,
                     finding_id: *id,
                     technique: f.category.to_string(),
@@ -946,7 +950,11 @@ impl CorrelationEngine {
     }
 
     /// Calculate attack path risk
-    fn calculate_attack_path_risk(&self, steps: &[AttackStep], findings: &[Finding]) -> u8 {
+    fn calculate_attack_path_risk(
+        &self,
+        steps: &[CorrelationAttackStep],
+        findings: &[Finding],
+    ) -> u8 {
         let mut max_score = 0u8;
         for step in steps {
             if let Some(finding) = findings.iter().find(|f| f.id == step.finding_id) {
@@ -961,7 +969,7 @@ impl CorrelationEngine {
     /// Assess attack path likelihood and impact
     fn assess_attack_path(
         &self,
-        steps: &[AttackStep],
+        steps: &[CorrelationAttackStep],
         findings: &[Finding],
     ) -> (Likelihood, ImpactLevel) {
         let mut max_exploitability: f32 = 0.0;
@@ -992,7 +1000,11 @@ impl CorrelationEngine {
     }
 
     /// Extract MITRE ATT&CK techniques from attack path
-    fn extract_mitre_techniques(&self, steps: &[AttackStep], findings: &[Finding]) -> Vec<String> {
+    fn extract_mitre_techniques(
+        &self,
+        steps: &[CorrelationAttackStep],
+        findings: &[Finding],
+    ) -> Vec<String> {
         let mut techniques = Vec::new();
         for step in steps {
             if let Some(finding) = findings.iter().find(|f| f.id == step.finding_id) {

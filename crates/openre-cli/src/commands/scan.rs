@@ -1,13 +1,13 @@
 //! Web vulnerability scanning commands
 
-use colored::Colorize;
+use crate::{print_output, CliError, Context, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
-use openre_scan::{ScanProfile, ScanTarget, Scanner, ScanResult};
+use colored::Colorize;
 use openre_core::result::Severity;
-use crate::{Context, CliError, print_output, OutputFormat};
+use openre_scan::{ScanProfile, ScanResult, ScanTarget, Scanner};
 use std::path::PathBuf;
 use std::str::FromStr;
-use tabled::{Table, settings::Style};
+use tabled::{settings::Style, Table};
 
 #[derive(Subcommand, Debug)]
 pub enum ScanCommands {
@@ -116,10 +116,9 @@ impl ScanCommands {
 }
 
 async fn run_scan(ctx: Context, profile: ScanProfile, args: ScanArgs) -> Result<(), CliError> {
-    let mut target = ScanTarget::new(&args.target).map_err(|e| CliError::InvalidArgs(e.to_string()))?;
-    target = target
-        .with_timeout(args.timeout)
-        .with_max_redirects(args.max_redirects);
+    let mut target =
+        ScanTarget::new(&args.target).map_err(|e| CliError::InvalidArgs(e.to_string()))?;
+    target = target.with_timeout(args.timeout).with_max_redirects(args.max_redirects);
 
     // Parse headers
     let mut headers = Vec::new();
@@ -162,7 +161,8 @@ async fn run_custom_scan(ctx: Context, args: CustomScanArgs) -> Result<(), CliEr
         ScanProfileArg::Full => ScanProfile::Full,
     };
 
-    let mut target = ScanTarget::new(&args.target).map_err(|e| CliError::InvalidArgs(e.to_string()))?;
+    let mut target =
+        ScanTarget::new(&args.target).map_err(|e| CliError::InvalidArgs(e.to_string()))?;
     target = target.with_timeout(args.timeout);
 
     // Parse headers
@@ -186,7 +186,11 @@ async fn run_custom_scan(ctx: Context, args: CustomScanArgs) -> Result<(), CliEr
     output_results(ctx, &result, args.output).await
 }
 
-async fn output_results(ctx: Context, result: &ScanResult, output_path: Option<PathBuf>) -> Result<(), CliError> {
+async fn output_results(
+    ctx: Context,
+    result: &ScanResult,
+    output_path: Option<PathBuf>,
+) -> Result<(), CliError> {
     // Print summary to console
     print_scan_summary(result);
 
@@ -223,7 +227,9 @@ fn print_scan_summary(result: &ScanResult) {
         for f in &result.findings {
             *counts.entry(f.severity).or_insert(0) += 1;
         }
-        for (sev, count) in [("critical", "🔴"), ("high", "🟠"), ("medium", "🟡"), ("low", "🔵"), ("info", "⚪")] {
+        for (sev, count) in
+            [("critical", "🔴"), ("high", "🟠"), ("medium", "🟡"), ("low", "🔵"), ("info", "⚪")]
+        {
             if let Some(c) = counts.get(&Severity::from_str(sev).unwrap_or(Severity::Info)) {
                 println!("  {} {}: {}", sev.to_uppercase().bold(), " ".repeat(8 - sev.len()), c);
             }
@@ -234,11 +240,16 @@ fn print_scan_summary(result: &ScanResult) {
     if !result.findings.is_empty() {
         println!("\n{}", "Top Findings:".bold());
         let mut table = Table::new(
-            result.findings.iter().take(10).map(|f| ScanFindingRow {
-                severity: format!("{:?}", f.severity),
-                title: f.title.clone(),
-                check: f.plugin_source.clone(),
-            }).collect::<Vec<_>>()
+            result
+                .findings
+                .iter()
+                .take(10)
+                .map(|f| ScanFindingRow {
+                    severity: format!("{:?}", f.severity),
+                    title: f.title.clone(),
+                    check: f.plugin_source.clone(),
+                })
+                .collect::<Vec<_>>(),
         );
         table.with(Style::modern());
         println!("{}", table);

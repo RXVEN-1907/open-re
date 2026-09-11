@@ -98,7 +98,7 @@ impl PluginLifecycleManager {
             .ok_or_else(|| anyhow::anyhow!("Plugin not found after install"))?;
 
         let state = PluginState {
-            id: plugin_id.clone(),
+            id: *plugin_id,
             manifest: entry.manifest,
             config,
             runtime: None,
@@ -107,7 +107,7 @@ impl PluginLifecycleManager {
             stopped_at: None,
         };
 
-        self.states.write().await.insert(plugin_id.clone(), state);
+        self.states.write().await.insert(*plugin_id, state);
         self.save_states().await?;
         Ok(())
     }
@@ -154,7 +154,7 @@ impl PluginLifecycleManager {
     ) -> Result<()> {
         let mut states = self.states.write().await;
         if let Some(state) = states.get_mut(plugin_id) {
-            if state.manifest.plugin.capabilities.iter().any(|c| *c == capability) {
+            if state.manifest.plugin.capabilities.contains(&capability) {
                 state.config.granted_capabilities.add(capability);
                 state.config.updated_at = Some(chrono::Utc::now());
                 self.save_states().await?;

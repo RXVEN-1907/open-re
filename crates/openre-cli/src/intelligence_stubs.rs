@@ -1,10 +1,10 @@
 //! Stub types for intelligence features (replacing openre-intelligence)
 
-use thiserror::Error;
 use chrono::{DateTime, Utc};
 use openre_core::ids::{FindingId, ScanId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use thiserror::Error;
 use uuid::Uuid;
 
 /// Intelligence error
@@ -171,7 +171,11 @@ impl RemediationEngine {
         Ok(RemediationPlan::default())
     }
 
-    pub async fn quick_fix(&self, _finding: &Finding, _language: Option<Language>) -> anyhow::Result<QuickFix> {
+    pub async fn quick_fix(
+        &self,
+        _finding: &Finding,
+        _language: Option<Language>,
+    ) -> anyhow::Result<QuickFix> {
         Ok(QuickFix::default())
     }
 
@@ -183,11 +187,12 @@ impl RemediationEngine {
         Ok(RemediationReport::default())
     }
 
-    pub async fn verify(&self, _finding: &Finding, _target: &str) -> anyhow::Result<VerificationResult> {
-        Ok(VerificationResult {
-            remediated: false,
-            evidence: "Not implemented".to_string(),
-        })
+    pub async fn verify(
+        &self,
+        _finding: &Finding,
+        _target: &str,
+    ) -> anyhow::Result<VerificationResult> {
+        Ok(VerificationResult { remediated: false, evidence: "Not implemented".to_string() })
     }
 }
 

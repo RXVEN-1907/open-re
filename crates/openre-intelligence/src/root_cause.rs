@@ -1,10 +1,9 @@
 //! Root Cause Analysis - Identify underlying issues rather than individual findings
 
-use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use crate::{types::*, IntelligenceResult};
 use openre_core::ids::FindingId;
 use openre_core::result::{Category, Finding, Severity};
-use std::collections::{HashMap, HashSet};
-use tracing::{debug, info, warn};
+use std::collections::HashMap;
 
 /// Configuration for root cause analysis
 #[derive(Debug, Clone)]
@@ -46,6 +45,12 @@ pub struct RootCauseAnalyzer {
     config: RootCauseConfig,
 }
 
+impl Default for RootCauseAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RootCauseAnalyzer {
     /// Create a new root cause analyzer with default configuration
     pub fn new() -> Self {
@@ -83,7 +88,7 @@ impl RootCauseAnalyzer {
     /// Analyze root causes for a specific target
     fn analyze_target_root_causes(
         &self,
-        target: &str,
+        _target: &str,
         findings: &[&Finding],
     ) -> IntelligenceResult<Vec<RootCauseAnalysis>> {
         let mut root_causes = Vec::new();

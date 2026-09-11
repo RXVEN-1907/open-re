@@ -3,26 +3,20 @@
 //! This module provides verification of remediation efforts by comparing
 //! baseline and current scans to confirm fixes.
 
-use crate::{error::IntelligenceError, IntelligenceResult};
-use openre_core::evidence::{
-    FindingVerifier, VerificationStatus, VerificationStatus as EvidenceVerificationStatus,
-};
+use crate::{IntelligenceError, IntelligenceResult};
 use openre_core::ids::{FindingId, RecheckId, RemediationId, ScanId};
-use openre_core::relationships::FindingRelationshipGraph;
 use openre_core::remediation::{
-    AuthChanges, EndpointChanges, EnhancedScanDiff, FindingChanges, RecheckFrequency,
-    RecheckStatus, RemediationResult, RemediationSeverityStats, RemediationStatus,
-    RemediationStatusType, RemediationSummary, RemediationVerifierConfig, RiskTrend,
-    ScheduledRecheck, TechnologyChanges, VerificationResult as RemediationVerificationResult,
-    VerificationStatus as RemediationVerificationStatus,
+    RecheckFrequency, RecheckStatus, RemediationResult, RemediationStatus, RemediationStatusType,
+    RemediationSummary, RemediationVerifierConfig, ScheduledRecheck,
+    VerificationResult as RemediationVerificationResult,
 };
 use openre_core::result::Finding;
 use reqwest::Client;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::warn;
 
 /// Remediation verifier for confirming fixes
 pub struct RemediationVerifier {
@@ -104,8 +98,6 @@ impl RemediationVerifier {
                 // Finding still exists - check if severity changed
                 if current.severity < baseline_finding.severity {
                     (RemediationStatusType::PartiallyFixed, self.extract_evidence(current), None)
-                } else if current.severity == baseline_finding.severity {
-                    (RemediationStatusType::NotFixed, self.extract_evidence(current), None)
                 } else {
                     (RemediationStatusType::NotFixed, self.extract_evidence(current), None)
                 }
@@ -452,7 +444,7 @@ impl RemediationVerifier {
     }
 
     /// Get latest scan ID for target
-    async fn get_latest_scan_id(&self, target: &str) -> Option<ScanId> {
+    async fn get_latest_scan_id(&self, _target: &str) -> Option<ScanId> {
         // This would query storage for latest scan
         None
     }
@@ -460,7 +452,7 @@ impl RemediationVerifier {
     /// Get latest findings for target
     async fn get_latest_findings_for_target(
         &self,
-        target: &str,
+        _target: &str,
     ) -> IntelligenceResult<Vec<Finding>> {
         // This would query storage for latest scan findings
         Ok(Vec::new())
@@ -500,8 +492,8 @@ impl RemediationVerifier {
         let regression_rate = if total > 0 { regressed as f32 / total as f32 } else { 0.0 };
 
         // Group by severity
-        let mut by_severity = HashMap::new();
-        for status in &remediation_statuses {
+        let by_severity = HashMap::new();
+        for _status in &remediation_statuses {
             // Would need to get finding severity from storage
         }
 
@@ -527,6 +519,12 @@ impl RemediationVerifier {
     ) -> IntelligenceResult<Vec<RemediationStatus>> {
         // Would query storage
         Ok(Vec::new())
+    }
+}
+
+impl Default for MockScanStorage {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -590,7 +588,7 @@ impl ScanStorage for MockScanStorage {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use openre_core::ids::{FindingId, RecheckId, RemediationId, ScanId};
+    use openre_core::ids::{FindingId, RecheckId, ScanId};
     use openre_core::remediation::{RecheckFrequency, RecheckStatus, RemediationStatusType};
     use openre_core::result::{Category, Confidence, Finding, Severity};
     use uuid::Uuid;

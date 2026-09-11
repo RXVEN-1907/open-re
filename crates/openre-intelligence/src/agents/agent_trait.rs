@@ -2,9 +2,9 @@
 
 use crate::agents::context::ReportingInput;
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
-use openre_core::ids::AgentId;
 use crate::ScanData;
 use async_trait::async_trait;
+use openre_core::ids::AgentId;
 use openre_core::ids::WorkflowId;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -48,16 +48,27 @@ pub trait AiService: Send + Sync {
 #[async_trait]
 pub trait ScanStorage: Send + Sync {
     /// Get scan by ID
-    async fn get_scan(&self, scan_id: openre_core::ids::ScanId) -> anyhow::Result<Option<ScanData>>;
+    async fn get_scan(&self, scan_id: openre_core::ids::ScanId)
+        -> anyhow::Result<Option<ScanData>>;
 
     /// Get findings for a scan
-    async fn get_findings(&self, scan_id: openre_core::ids::ScanId) -> anyhow::Result<Vec<openre_core::result::Finding>>;
+    async fn get_findings(
+        &self,
+        scan_id: openre_core::ids::ScanId,
+    ) -> anyhow::Result<Vec<openre_core::result::Finding>>;
 
     /// Store findings
-    async fn store_findings(&self, scan_id: openre_core::ids::ScanId, findings: Vec<openre_core::result::Finding>) -> anyhow::Result<()>;
+    async fn store_findings(
+        &self,
+        scan_id: openre_core::ids::ScanId,
+        findings: Vec<openre_core::result::Finding>,
+    ) -> anyhow::Result<()>;
 
     /// Get workflow session
-    async fn get_workflow_session(&self, workflow_id: WorkflowId) -> anyhow::Result<Option<WorkflowSession>>;
+    async fn get_workflow_session(
+        &self,
+        workflow_id: WorkflowId,
+    ) -> anyhow::Result<Option<WorkflowSession>>;
 
     /// Save workflow session
     async fn save_workflow_session(&self, session: &WorkflowSession) -> anyhow::Result<()>;
@@ -88,10 +99,7 @@ impl CancellationToken {
     /// Create a new cancellation token
     pub fn new() -> Self {
         let (tx, rx) = tokio::sync::watch::channel(false);
-        Self {
-            inner: Arc::new(tx),
-            receiver: Arc::new(rx),
-        }
+        Self { inner: Arc::new(tx), receiver: Arc::new(rx) }
     }
 
     /// Check if cancelled
@@ -264,7 +272,11 @@ pub trait SecurityAgent: Send + Sync {
     fn name(&self) -> &str;
 
     /// Execute the agent
-    async fn execute(&self, input: Self::Input, ctx: AgentContext) -> anyhow::Result<AgentResult<Self::Output>>;
+    async fn execute(
+        &self,
+        input: Self::Input,
+        ctx: AgentContext,
+    ) -> anyhow::Result<AgentResult<Self::Output>>;
 
     /// Health check
     async fn health_check(&self) -> AgentHealth;
@@ -275,12 +287,18 @@ pub trait SecurityAgent: Send + Sync {
     }
 
     /// Generate a suggestion for a finding
-    fn generate_suggestion(&self, _finding: &openre_core::result::Finding) -> anyhow::Result<String> {
+    fn generate_suggestion(
+        &self,
+        _finding: &openre_core::result::Finding,
+    ) -> anyhow::Result<String> {
         Ok("No suggestion available".to_string())
     }
 
     /// Count findings by severity
-    fn count_by_severity(&self, findings: &[openre_core::result::Finding]) -> std::collections::HashMap<String, usize> {
+    fn count_by_severity(
+        &self,
+        findings: &[openre_core::result::Finding],
+    ) -> std::collections::HashMap<String, usize> {
         let mut counts = std::collections::HashMap::new();
         for finding in findings {
             *counts.entry(format!("{:?}", finding.severity)).or_insert(0) += 1;
@@ -322,23 +340,13 @@ impl BaseAgent {
     pub fn new(name: String, agent_type: AgentType) -> Self {
         let id = AgentId::new();
         let capabilities = agent_type.default_capabilities();
-        Self {
-            id,
-            name,
-            agent_type,
-            capabilities,
-        }
+        Self { id, name, agent_type, capabilities }
     }
 
     /// Create a new base agent with custom ID
     pub fn with_id(id: AgentId, name: String, agent_type: AgentType) -> Self {
         let capabilities = agent_type.default_capabilities();
-        Self {
-            id,
-            name,
-            agent_type,
-            capabilities,
-        }
+        Self { id, name, agent_type, capabilities }
     }
 
     /// Create a new base agent with custom capabilities
@@ -348,12 +356,7 @@ impl BaseAgent {
         agent_type: AgentType,
         capabilities: Vec<AgentCapability>,
     ) -> Self {
-        Self {
-            id,
-            name,
-            agent_type,
-            capabilities,
-        }
+        Self { id, name, agent_type, capabilities }
     }
 }
 

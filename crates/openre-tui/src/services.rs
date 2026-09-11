@@ -1,20 +1,22 @@
 //! Service connections for the TUI - connects to real backend services
 
 use crate::state::{
-    ProjectInfo, JobStatus, ScanStatus, LogLevel, ReportType, REViewMode, WorkflowViewMode,
-    AIViewMode, PluginViewMode, ReportViewMode, FindingsGroupBy, ProjectSortBy, REProject,
-    FunctionSummary, DisplayFinding, Workflow, WorkflowExecution, AIAnalysis, ChatMessage,
-    ChatRole, PluginInfo, LogEntry, ReportInfo, QueueStats, ActiveScanInfo, FindingDetail,
-    EvidenceDetail, RemediationDetail,
+    AIAnalysis, AIViewMode, ActiveScanInfo, ChatMessage, ChatRole, DisplayFinding, EvidenceDetail,
+    FindingDetail, FindingsGroupBy, FunctionSummary, JobStatus, LogEntry, LogLevel, PluginInfo,
+    PluginViewMode, ProjectInfo, ProjectSortBy, QueueStats, REProject, REViewMode,
+    RemediationDetail, ReportInfo, ReportType, ReportViewMode, ScanStatus, Workflow,
+    WorkflowExecution, WorkflowViewMode,
 };
 use openre_config::Config;
-use openre_core::ids::{ProjectId, ScanId, JobId, FileId};
-use openre_core::result::{Finding, Severity, Category, Confidence};
-use openre_queue::{Job, JobStatus as QueueJobStatus, Priority, QueueManager, QueueStats as QueueQueueStats};
-use openre_storage::{ProjectStore, global::GlobalStore};
-use openre_scanner::{ScanManager, ScanSession, ScanProgress};
+use openre_core::ids::{FileId, JobId, ProjectId, ScanId};
+use openre_core::result::{Category, Confidence, Finding, Severity};
 #[cfg(feature = "intelligence")]
-use openre_intelligence::{WorkflowManager, InvestigationWorkflowEngine, KnowledgeBase};
+use openre_intelligence::{InvestigationWorkflowEngine, KnowledgeBase, WorkflowManager};
+use openre_queue::{
+    Job, JobStatus as QueueJobStatus, Priority, QueueManager, QueueStats as QueueQueueStats,
+};
+use openre_scanner::{ScanManager, ScanProgress, ScanSession};
+use openre_storage::{global::GlobalStore, ProjectStore};
 #[cfg(not(feature = "intelligence"))]
 mod dummy_intelligence {
     pub struct WorkflowManager;
@@ -22,7 +24,7 @@ mod dummy_intelligence {
     pub struct KnowledgeBase;
 }
 #[cfg(not(feature = "intelligence"))]
-use dummy_intelligence::{WorkflowManager, InvestigationWorkflowEngine, KnowledgeBase};
+use dummy_intelligence::{InvestigationWorkflowEngine, KnowledgeBase, WorkflowManager};
 use redis::Client as RedisClient;
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -61,8 +63,7 @@ impl std::fmt::Debug for Services {
                 .field("workflow_engine", &self.workflow_engine.is_some())
                 .field("knowledge_base", &self.knowledge_base.is_some());
         }
-        ds.field("project_stores", &format_args!("HashMap<ProjectId, Arc<ProjectStore>>"))
-            .finish()
+        ds.field("project_stores", &format_args!("HashMap<ProjectId, Arc<ProjectStore>>")).finish()
     }
 }
 
@@ -80,19 +81,22 @@ impl Services {
 
         // Create workflow manager (requires intelligence feature)
         #[cfg(feature = "intelligence")]
-        let workflow_manager: Option<Arc<openre_intelligence::WorkflowManager>> = Some(Arc::new(openre_intelligence::WorkflowManager::new()));
+        let workflow_manager: Option<Arc<openre_intelligence::WorkflowManager>> =
+            Some(Arc::new(openre_intelligence::WorkflowManager::new()));
         #[cfg(not(feature = "intelligence"))]
         let workflow_manager: Option<Arc<dummy_intelligence::WorkflowManager>> = None;
 
         // Create workflow engine (requires intelligence feature)
         #[cfg(feature = "intelligence")]
-        let workflow_engine: Option<Arc<openre_intelligence::InvestigationWorkflowEngine>> = Some(Arc::new(openre_intelligence::InvestigationWorkflowEngine::new()));
+        let workflow_engine: Option<Arc<openre_intelligence::InvestigationWorkflowEngine>> =
+            Some(Arc::new(openre_intelligence::InvestigationWorkflowEngine::new()));
         #[cfg(not(feature = "intelligence"))]
         let workflow_engine: Option<Arc<dummy_intelligence::InvestigationWorkflowEngine>> = None;
 
         // Create knowledge base (requires intelligence feature)
         #[cfg(feature = "intelligence")]
-        let knowledge_base: Option<Arc<openre_intelligence::KnowledgeBase>> = Some(Arc::new(openre_intelligence::KnowledgeBase::new()));
+        let knowledge_base: Option<Arc<openre_intelligence::KnowledgeBase>> =
+            Some(Arc::new(openre_intelligence::KnowledgeBase::new()));
         #[cfg(not(feature = "intelligence"))]
         let knowledge_base: Option<Arc<dummy_intelligence::KnowledgeBase>> = None;
 
@@ -127,7 +131,9 @@ impl Services {
                                     config.queue.clone(),
                                     &config.redis,
                                     Arc::new(openre_queue::metrics::QueueMetrics::new()),
-                                ).await {
+                                )
+                                .await
+                                {
                                     Ok(qm) => {
                                         info!("Queue manager initialized");
                                         (Some(client), Some(Arc::new(qm)))
@@ -179,7 +185,10 @@ impl Services {
     }
 
     /// Get or create project store for a project
-    pub async fn get_project_store(&self, project_id: ProjectId) -> anyhow::Result<Arc<ProjectStore>> {
+    pub async fn get_project_store(
+        &self,
+        project_id: ProjectId,
+    ) -> anyhow::Result<Arc<ProjectStore>> {
         let mut stores = self.project_stores.write().await;
         if let Some(store) = stores.get(&project_id) {
             return Ok(store.clone());
@@ -238,17 +247,23 @@ impl Services {
                     let path = entry.path();
                     if path.extension().and_then(|s| s.to_str()) == Some("db") {
                         if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                            let project_id = ProjectId::from_uuid(uuid::Uuid::parse_str(stem).unwrap_or_default());
+                            let project_id = ProjectId::from_uuid(
+                                uuid::Uuid::parse_str(stem).unwrap_or_default(),
+                            );
                             // Try to load basic info from the project database
                             if let Ok(store) = ProjectStore::new(project_id, &base_path) {
                                 if store.ensure_schema().await.is_ok() {
                                     // Get basic stats
                                     if let Ok(conn) = store.take_conn().await {
                                         let file_count: i64 = conn
-                                            .query_row("SELECT COUNT(*) FROM functions", [], |r| r.get(0))
+                                            .query_row("SELECT COUNT(*) FROM functions", [], |r| {
+                                                r.get(0)
+                                            })
                                             .unwrap_or(0);
                                         let string_count: i64 = conn
-                                            .query_row("SELECT COUNT(*) FROM strings", [], |r| r.get(0))
+                                            .query_row("SELECT COUNT(*) FROM strings", [], |r| {
+                                                r.get(0)
+                                            })
                                             .unwrap_or(0);
                                         let import_count: i64 = conn
                                             .query_row("SELECT COUNT(*) FROM annotations WHERE annotation_type = 'import'", [], |r| r.get(0))
@@ -367,10 +382,18 @@ impl Services {
                         .query_row("SELECT COUNT(*) FROM strings", [], |r| r.get(0))
                         .unwrap_or(0);
                     let import_count: i64 = conn
-                        .query_row("SELECT COUNT(*) FROM annotations WHERE annotation_type = 'import'", [], |r| r.get(0))
+                        .query_row(
+                            "SELECT COUNT(*) FROM annotations WHERE annotation_type = 'import'",
+                            [],
+                            |r| r.get(0),
+                        )
                         .unwrap_or(0);
                     let export_count: i64 = conn
-                        .query_row("SELECT COUNT(*) FROM annotations WHERE annotation_type = 'export'", [], |r| r.get(0))
+                        .query_row(
+                            "SELECT COUNT(*) FROM annotations WHERE annotation_type = 'export'",
+                            [],
+                            |r| r.get(0),
+                        )
                         .unwrap_or(0);
                     store.put_conn(conn).await;
 
@@ -396,7 +419,10 @@ impl Services {
     }
 
     /// Get functions for an RE project
-    pub async fn get_functions(&self, project_id: ProjectId) -> anyhow::Result<Vec<FunctionSummary>> {
+    pub async fn get_functions(
+        &self,
+        project_id: ProjectId,
+    ) -> anyhow::Result<Vec<FunctionSummary>> {
         if let Ok(store) = self.get_project_store(project_id).await {
             if let Ok(conn) = store.take_conn().await {
                 let mut stmt = conn.prepare(
@@ -507,7 +533,10 @@ pub struct DataFetcher {
 }
 
 impl DataFetcher {
-    pub fn new(services: Arc<Services>, event_tx: tokio::sync::broadcast::Sender<crate::events::Event>) -> Self {
+    pub fn new(
+        services: Arc<Services>,
+        event_tx: tokio::sync::broadcast::Sender<crate::events::Event>,
+    ) -> Self {
         Self { services, event_tx }
     }
 

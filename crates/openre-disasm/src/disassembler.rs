@@ -1,10 +1,9 @@
 //! Disassembler core functionality
 
 use crate::architecture::{Architecture, Endianness, Syntax};
-use crate::capstone_wrapper::{CapstoneWrapper, Insn, InsnGroup, RegId};
+use crate::capstone_wrapper::{CapstoneWrapper, Insn, InsnGroup};
 use crate::error::{DisasmError, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Configuration for disassembly
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,12 +92,7 @@ pub enum Operand {
     /// Immediate value
     Imm(i64),
     /// Memory operand
-    Mem {
-        base: Option<String>,
-        index: Option<String>,
-        scale: i32,
-        disp: i64,
-    },
+    Mem { base: Option<String>, index: Option<String>, scale: i32, disp: i64 },
     /// Floating point immediate
     Fp(f64),
 }
@@ -163,11 +157,7 @@ pub struct Disassembler {
 impl Disassembler {
     /// Create a new disassembler with the given configuration
     pub fn new(config: DisassemblyConfig) -> Result<Self> {
-        let wrapper = CapstoneWrapper::new(
-            config.architecture,
-            config.endianness,
-            config.syntax,
-        )?;
+        let wrapper = CapstoneWrapper::new(config.architecture, config.endianness, config.syntax)?;
         Ok(Self { config, wrapper })
     }
 
@@ -187,7 +177,8 @@ impl Disassembler {
                 reason: "Range exceeds code buffer".to_string(),
             });
         }
-        let insns = self.wrapper.disassemble(&code[offset..offset + size], start, (size / 4).max(1))?;
+        let insns =
+            self.wrapper.disassemble(&code[offset..offset + size], start, (size / 4).max(1))?;
         Ok(insns.into_iter().map(|i| self.convert_instruction(i)).collect())
     }
 
@@ -226,7 +217,6 @@ impl Disassembler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::architecture::{Architecture, Endianness, Syntax};
 
     #[test]
     fn test_disassembler_x86_64() {

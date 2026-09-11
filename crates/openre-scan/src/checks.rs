@@ -1,8 +1,11 @@
 //! Security check implementations
 
 use crate::client::Client;
-use crate::extensions::{EvidenceExt, FindingExt, RemediationGuidanceExt};
-use crate::output::{Finding, FindingConfig, Severity, Confidence, Category, Evidence, EvidenceType, RemediationGuidance, RemediationEffort, RemediationPriority, ScanId};
+use crate::extensions::{EvidenceExt, RemediationGuidanceExt};
+use crate::output::{
+    Category, Confidence, Evidence, EvidenceType, Finding, FindingConfig, RemediationEffort,
+    RemediationGuidance, RemediationPriority, ScanId, Severity,
+};
 use anyhow::Result;
 use regex::Regex;
 use select::document::Document;
@@ -604,10 +607,7 @@ async fn check_cors(client: &Client, target: &Url) -> Result<Vec<Finding>> {
     Ok(findings)
 }
 
-async fn check_information_disclosure(
-    client: &Client,
-    target: &Url,
-) -> Result<Vec<Finding>> {
+async fn check_information_disclosure(client: &Client, target: &Url) -> Result<Vec<Finding>> {
     let mut findings = Vec::new();
     let response = client.get(target.as_str()).send().await?;
     let headers = response.headers();
@@ -662,10 +662,7 @@ async fn check_information_disclosure(
     Ok(findings)
 }
 
-async fn check_technology_fingerprint(
-    client: &Client,
-    target: &Url,
-) -> Result<Vec<Finding>> {
+async fn check_technology_fingerprint(client: &Client, target: &Url) -> Result<Vec<Finding>> {
     let mut findings = Vec::new();
     let response = client.get(target.as_str()).send().await?;
     let headers = response.headers().clone();

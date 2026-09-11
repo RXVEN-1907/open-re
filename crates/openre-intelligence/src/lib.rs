@@ -39,24 +39,66 @@ mod comprehensive_test;
 
 // Re-export main components
 pub use agents::{
-    AgentCapability, AgentCoordinator, AgentContext, AgentHealth, AgentMetadata,
-    AgentResult, AgentStatus, AgentTask, AgentTaskResult, AgentType, AgentWorkflowBuilder,
-    AiService, BaseAgent, CancellationToken, CoordinatorConfig, CoordinatorStats,
-    CorrelationAgent, RemediationAgent, ReconAgent, ReportingAgent, ResearchAgent,
-    ScanStorage, SecurityAgent, TelemetryHandle, VerificationAgent, WebAnalysisAgent,
-    WorkflowSession, create_investigation_workflow,
-    // Context types (re-exported from context)
-    ReconInput, ReconOutput, DiscoveredUrl, DiscoveredEndpoint, DetectedTechnology,
-    AuthEndpoint, DiscoveredForm, FormField, EndpointParameter,
-    WebAnalysisInput, WebAnalysisOutput, ClientSideIssue,
-    ApiAnalysisInput, ApiAnalysisOutput, ApiEndpoint, SchemaIssue,
-    CorrelationInput, CorrelationOutput,
-    VerificationInput, VerificationOutput,
-    RemediationInput, RemediationOutput, RemediationSuggestion,
-    ReportingInput, ReportingOutput, ReportMetadata,
-    ResearchInput, ResearchOutput,
+    create_investigation_workflow,
+    AgentCapability,
+    AgentContext,
+    AgentCoordinator,
+    AgentHealth,
     // Traits
-    AgentInput, AgentOutput,
+    AgentInput,
+    AgentMetadata,
+    AgentOutput,
+    AgentResult,
+    AgentStatus,
+    AgentTask,
+    AgentTaskResult,
+    AgentType,
+    AgentWorkflowBuilder,
+    AiService,
+    ApiAnalysisInput,
+    ApiAnalysisOutput,
+    ApiEndpoint,
+    AuthEndpoint,
+    BaseAgent,
+    CancellationToken,
+    ClientSideIssue,
+    CoordinatorConfig,
+    CoordinatorStats,
+    CorrelationAgent,
+    CorrelationInput,
+    CorrelationOutput,
+    DetectedTechnology,
+    DiscoveredEndpoint,
+    DiscoveredForm,
+    DiscoveredUrl,
+    EndpointParameter,
+    FormField,
+    ReconAgent,
+    // Context types (re-exported from context)
+    ReconInput,
+    ReconOutput,
+    RemediationAgent,
+    RemediationInput,
+    RemediationOutput,
+    RemediationSuggestion,
+    ReportMetadata,
+    ReportingAgent,
+    ReportingInput,
+    ReportingOutput,
+    ResearchAgent,
+    ResearchInput,
+    ResearchOutput,
+    ScanStorage,
+    SchemaIssue,
+    SecurityAgent,
+    TelemetryHandle,
+    VerificationAgent,
+    VerificationInput,
+    VerificationOutput,
+    WebAnalysisAgent,
+    WebAnalysisInput,
+    WebAnalysisOutput,
+    WorkflowSession,
 };
 pub use attack_path::{
     map_findings_to_attack_techniques, AttackPathAnalyzer, AttackPathBuilder, AttackPathStatistics,
@@ -66,26 +108,25 @@ pub use cve_intelligence::{CveIntelligence, CveProvider};
 pub use dependency_analysis::DependencyAnalyzer;
 pub use error::IntelligenceError;
 pub use knowledge_base::KnowledgeBase;
+pub use openre_core::history::{
+    AnalyzeConfig, CorrelateConfig, DiscoverConfig, InvestigationStageConfig, PrioritizeConfig,
+    StageResult, StageStatus, VerifyConfig, WorkflowArtifact, WorkflowReportConfig, WorkflowStatus,
+};
 pub use performance::PerformanceOptimizer;
 pub use remediation::RemediationVerifier;
 pub use root_cause::RootCauseAnalyzer;
+pub use scan_diff::ScanData;
 pub use scan_diff::ScanDiffAnalyzer;
 pub use tui_enhancements::TuiEnhancer;
-pub use scan_diff::ScanData;
+pub use types::{CorrelationType, EnhancedCorrelation, RiskAssessment};
 pub use verification::VerificationEngine;
 pub use workflow::WorkflowManager;
-pub use types::{CorrelationType, EnhancedCorrelation, RiskAssessment};
 pub use workflow_engine::{
-    InvestigationStage, InvestigationStageHandler, InvestigationWorkflow,
-    InvestigationWorkflowEngine, WorkflowEngineConfig, WorkflowProgress,
-    WorkflowStage, PrioritizedFinding, VerificationResult,
-    InvestigationReport, InvestigationContext, RiskScorer, ScannerAgent,
-    DiscoverStageHandler, AnalyzeStageHandler, CorrelateStageHandler,
-    VerifyStageHandler, PrioritizeStageHandler, ReportStageHandler,
-};
-pub use openre_core::history::{
-    InvestigationStageConfig, StageResult, StageStatus, WorkflowArtifact, WorkflowStatus,
-    DiscoverConfig, AnalyzeConfig, CorrelateConfig, VerifyConfig, PrioritizeConfig, WorkflowReportConfig,
+    AnalyzeStageHandler, CorrelateStageHandler, DiscoverStageHandler, InvestigationContext,
+    InvestigationReport, InvestigationStage, InvestigationStageHandler, InvestigationWorkflow,
+    InvestigationWorkflowEngine, PrioritizeStageHandler, PrioritizedFinding, ReportStageHandler,
+    RiskScorer, ScannerAgent, VerificationResult, VerifyStageHandler, WorkflowEngineConfig,
+    WorkflowProgress, WorkflowStage,
 };
 
 /// Intelligence module result type

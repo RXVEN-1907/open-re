@@ -1,12 +1,15 @@
 //! AI-powered analysis commands
 
-use colored::Colorize;
-use clap::{Args, Subcommand, ValueEnum};
-use crate::ai_stubs::{AiProvider, AiClient, AnalysisRequest, AnalysisType, ExplainDetail, Audience, FixType, ConnectionTestResult, ProviderInfo};
+use crate::ai_stubs::{
+    AiClient, AiProvider, AnalysisRequest, AnalysisType, Audience, ConnectionTestResult,
+    ExplainDetail, FixType, ProviderInfo,
+};
 use crate::intelligence_stubs::{CorrelationEngine, Finding};
-use crate::{Context, CliError, print_output, OutputFormat};
+use crate::{print_output, CliError, Context, OutputFormat};
+use clap::{Args, Subcommand, ValueEnum};
+use colored::Colorize;
 use std::path::PathBuf;
-use tabled::{Table, settings::Style};
+use tabled::{settings::Style, Table};
 
 #[derive(Subcommand, Debug)]
 pub enum AiCommands {
@@ -153,7 +156,8 @@ async fn run_chat(ctx: &mut Context, args: ChatArgs) -> Result<(), CliError> {
 
     if let Some(msg) = args.message {
         // Single message mode
-        let response = client.chat(&msg, args.system.as_deref(), args.temperature, args.max_tokens).await?;
+        let response =
+            client.chat(&msg, args.system.as_deref(), args.temperature, args.max_tokens).await?;
         println!("{}", response);
     } else {
         // Interactive chat mode
@@ -171,7 +175,9 @@ async fn run_chat(ctx: &mut Context, args: ChatArgs) -> Result<(), CliError> {
             }
 
             let spinner = ctx.spinner("Thinking...");
-            let response = client.chat(&input, args.system.as_deref(), args.temperature, args.max_tokens).await?;
+            let response = client
+                .chat(&input, args.system.as_deref(), args.temperature, args.max_tokens)
+                .await?;
             spinner.finish_and_clear();
 
             println!("{} {}", "AI".bold().green(), response);
@@ -215,7 +221,8 @@ async fn run_remediate(ctx: &mut Context, args: RemediateArgs) -> Result<(), Cli
     let finding = load_finding(&args.finding)?;
 
     let spinner = ctx.spinner("Generating remediation guidance...");
-    let remediation = client.remediate(&finding, args.fix_type.into(), args.language.as_deref()).await?;
+    let remediation =
+        client.remediate(&finding, args.fix_type.into(), args.language.as_deref()).await?;
     spinner.finish_and_clear();
 
     println!("\n{}", remediation);
@@ -238,13 +245,16 @@ async fn run_correlate(ctx: &mut Context, args: CorrelateArgs) -> Result<(), Cli
 
     if args.format == OutputFormat::Table {
         let mut table = Table::new(
-            correlations.iter().map(|c| CorrelationRow {
-                finding_a: c.finding_a.title.clone(),
-                finding_b: c.finding_b.title.clone(),
-                correlation_type: format!("{:?}", c.correlation_type),
-                confidence: format!("{:.0}%", c.confidence * 100.0),
-                description: c.description.clone(),
-            }).collect::<Vec<_>>()
+            correlations
+                .iter()
+                .map(|c| CorrelationRow {
+                    finding_a: c.finding_a.title.clone(),
+                    finding_b: c.finding_b.title.clone(),
+                    correlation_type: format!("{:?}", c.correlation_type),
+                    confidence: format!("{:.0}%", c.confidence * 100.0),
+                    description: c.description.clone(),
+                })
+                .collect::<Vec<_>>(),
         );
         table.with(Style::modern());
         println!("{}", table);
@@ -292,7 +302,9 @@ fn load_finding(path: &str) -> Result<Finding, CliError> {
         let content = std::fs::read_to_string(path)?;
         Ok(serde_json::from_str(&content)?)
     } else {
-        Err(CliError::InvalidArgs("Finding ID lookup not implemented. Use JSON file for now.".into()))
+        Err(CliError::InvalidArgs(
+            "Finding ID lookup not implemented. Use JSON file for now.".into(),
+        ))
     }
 }
 
@@ -331,7 +343,6 @@ struct CorrelationRow {
     description: String,
 }
 
-
 impl From<ExplainDetailArg> for crate::ai_stubs::ExplainDetail {
     fn from(d: ExplainDetailArg) -> Self {
         match d {
@@ -363,4 +374,3 @@ impl From<FixTypeArg> for crate::ai_stubs::FixType {
         }
     }
 }
-

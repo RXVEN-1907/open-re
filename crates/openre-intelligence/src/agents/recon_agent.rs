@@ -1,12 +1,11 @@
 //! Recon agent implementation
 
-use crate::agents::context::*;
 use crate::agents::agent_trait::{AgentContext, AgentInput, AgentOutput, SecurityAgent};
+use crate::agents::context::*;
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
-use openre_core::ids::AgentId;
 use crate::error::IntelligenceError;
 use async_trait::async_trait;
-use openre_core::ids::ScanId;
+use openre_core::ids::AgentId;
 use openre_core::result::Finding;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -25,10 +24,8 @@ pub struct ReconAgent {
 impl ReconAgent {
     /// Create a new recon agent
     pub fn new(http_client: Arc<Client>) -> Self {
-        let base = crate::agents::agent_trait::BaseAgent::new(
-            "recon-agent".to_string(),
-            AgentType::Recon,
-        );
+        let base =
+            crate::agents::agent_trait::BaseAgent::new("recon-agent".to_string(), AgentType::Recon);
         Self { base, http_client }
     }
 
@@ -43,7 +40,12 @@ impl ReconAgent {
     }
 
     /// Discover URLs from a target
-    async fn discover_urls(&self, target: &str, max_depth: usize, ctx: &AgentContext) -> anyhow::Result<Vec<DiscoveredUrl>> {
+    async fn discover_urls(
+        &self,
+        target: &str,
+        max_depth: usize,
+        ctx: &AgentContext,
+    ) -> anyhow::Result<Vec<DiscoveredUrl>> {
         let mut urls = Vec::new();
         let mut visited = HashMap::new();
         let mut to_visit = VecDeque::new();
@@ -74,8 +76,13 @@ impl ReconAgent {
                         url: url.clone(),
                         method: "GET".to_string(),
                         status_code: Some(response.status().as_u16()),
-                        discovered_via: if depth == 0 { "initial".to_string() } else { "crawl".to_string() },
-                        response_headers: response.headers()
+                        discovered_via: if depth == 0 {
+                            "initial".to_string()
+                        } else {
+                            "crawl".to_string()
+                        },
+                        response_headers: response
+                            .headers()
                             .iter()
                             .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
                             .collect(),
@@ -110,11 +117,7 @@ impl ReconAgent {
 
     /// Fetch a URL
     async fn fetch_url(&self, url: &str, timeout: Duration) -> anyhow::Result<reqwest::Response> {
-        let response = self.http_client
-            .get(url)
-            .timeout(timeout)
-            .send()
-            .await?;
+        let response = self.http_client.get(url).timeout(timeout).send().await?;
         Ok(response)
     }
 
@@ -168,58 +171,142 @@ impl ReconAgent {
 
                 // Server header
                 if header_lower == "server" {
-                    self.add_technology(&mut technologies, "Web Server", &value_lower, 0.8, vec!["server header"]);
+                    self.add_technology(
+                        &mut technologies,
+                        "Web Server",
+                        &value_lower,
+                        0.8,
+                        vec!["server header"],
+                    );
                 }
 
                 // X-Powered-By
                 if header_lower == "x-powered-by" {
-                    self.add_technology(&mut technologies, "Framework", &value_lower, 0.9, vec!["x-powered-by header"]);
+                    self.add_technology(
+                        &mut technologies,
+                        "Framework",
+                        &value_lower,
+                        0.9,
+                        vec!["x-powered-by header"],
+                    );
                 }
 
                 // Cookies
                 if header_lower == "set-cookie" {
                     if value_lower.contains("php") {
-                        self.add_technology(&mut technologies, "PHP", "detected via cookie", 0.7, vec!["cookie"]);
+                        self.add_technology(
+                            &mut technologies,
+                            "PHP",
+                            "detected via cookie",
+                            0.7,
+                            vec!["cookie"],
+                        );
                     }
                     if value_lower.contains("laravel") {
-                        self.add_technology(&mut technologies, "Laravel", "detected via cookie", 0.8, vec!["cookie"]);
+                        self.add_technology(
+                            &mut technologies,
+                            "Laravel",
+                            "detected via cookie",
+                            0.8,
+                            vec!["cookie"],
+                        );
                     }
                     if value_lower.contains("django") {
-                        self.add_technology(&mut technologies, "Django", "detected via cookie", 0.8, vec!["cookie"]);
+                        self.add_technology(
+                            &mut technologies,
+                            "Django",
+                            "detected via cookie",
+                            0.8,
+                            vec!["cookie"],
+                        );
                     }
                     if value_lower.contains("express") || value_lower.contains("connect.sid") {
-                        self.add_technology(&mut technologies, "Express.js", "detected via cookie", 0.7, vec!["cookie"]);
+                        self.add_technology(
+                            &mut technologies,
+                            "Express.js",
+                            "detected via cookie",
+                            0.7,
+                            vec!["cookie"],
+                        );
                     }
                 }
 
                 // Security headers
                 if header_lower == "x-frame-options" {
-                    self.add_technology(&mut technologies, "Security Headers", "X-Frame-Options present", 0.5, vec!["security header"]);
+                    self.add_technology(
+                        &mut technologies,
+                        "Security Headers",
+                        "X-Frame-Options present",
+                        0.5,
+                        vec!["security header"],
+                    );
                 }
                 if header_lower == "content-security-policy" {
-                    self.add_technology(&mut technologies, "Security Headers", "CSP present", 0.5, vec!["security header"]);
+                    self.add_technology(
+                        &mut technologies,
+                        "Security Headers",
+                        "CSP present",
+                        0.5,
+                        vec!["security header"],
+                    );
                 }
             }
 
             // Check URL path for technology indicators
             let url_lower = url.url.to_lowercase();
             if url_lower.contains(".php") {
-                self.add_technology(&mut technologies, "PHP", "detected via URL", 0.6, vec!["url path"]);
+                self.add_technology(
+                    &mut technologies,
+                    "PHP",
+                    "detected via URL",
+                    0.6,
+                    vec!["url path"],
+                );
             }
             if url_lower.contains(".asp") || url_lower.contains(".aspx") {
-                self.add_technology(&mut technologies, "ASP.NET", "detected via URL", 0.7, vec!["url path"]);
+                self.add_technology(
+                    &mut technologies,
+                    "ASP.NET",
+                    "detected via URL",
+                    0.7,
+                    vec!["url path"],
+                );
             }
             if url_lower.contains(".jsp") {
-                self.add_technology(&mut technologies, "JSP", "detected via URL", 0.7, vec!["url path"]);
+                self.add_technology(
+                    &mut technologies,
+                    "JSP",
+                    "detected via URL",
+                    0.7,
+                    vec!["url path"],
+                );
             }
             if url_lower.contains("wp-admin") || url_lower.contains("wp-content") {
-                self.add_technology(&mut technologies, "WordPress", "detected via URL", 0.9, vec!["url path"]);
+                self.add_technology(
+                    &mut technologies,
+                    "WordPress",
+                    "detected via URL",
+                    0.9,
+                    vec!["url path"],
+                );
             }
             if url_lower.contains("/api/") {
-                self.add_technology(&mut technologies, "REST API", "detected via URL", 0.6, vec!["url path"]);
+                self.add_technology(
+                    &mut technologies,
+                    "REST API",
+                    "detected via URL",
+                    0.6,
+                    vec!["url path"],
+                );
             }
             if url_lower.contains("/graphql") {
-                self.add_technology(&mut technologies, "GraphQL", "detected via URL", 0.8, vec!["url path"]);
+                self.add_technology(
+                    &mut technologies,
+                    "GraphQL",
+                    "detected via URL",
+                    0.8,
+                    vec!["url path"],
+                );
             }
         }
 
@@ -235,16 +322,19 @@ impl ReconAgent {
         evidence: Vec<&str>,
     ) {
         let key = name.to_lowercase();
-        technologies.entry(key.clone()).and_modify(|t| {
-            t.confidence = t.confidence.max(confidence);
-            t.evidence.extend(evidence.iter().map(|s| s.to_string()));
-        }).or_insert_with(|| DetectedTechnology {
-            name: name.to_string(),
-            version: Some(version.to_string()),
-            confidence,
-            categories: vec![],
-            evidence: evidence.iter().map(|s| s.to_string()).collect(),
-        });
+        technologies
+            .entry(key.clone())
+            .and_modify(|t| {
+                t.confidence = t.confidence.max(confidence);
+                t.evidence.extend(evidence.iter().map(|s| s.to_string()));
+            })
+            .or_insert_with(|| DetectedTechnology {
+                name: name.to_string(),
+                version: Some(version.to_string()),
+                confidence,
+                categories: vec![],
+                evidence: evidence.iter().map(|s| s.to_string()).collect(),
+            });
     }
 
     /// Discover endpoints from URLs
@@ -289,7 +379,10 @@ impl ReconAgent {
 
         for url in urls {
             let url_lower = url.url.to_lowercase();
-            if url_lower.contains("login") || url_lower.contains("signin") || url_lower.contains("auth") {
+            if url_lower.contains("login")
+                || url_lower.contains("signin")
+                || url_lower.contains("auth")
+            {
                 auth_endpoints.push(AuthEndpoint {
                     url: url.url.clone(),
                     auth_type: "form".to_string(),
@@ -307,7 +400,9 @@ impl ReconAgent {
                     registration: Some(url.url.clone()),
                 });
             }
-            if url_lower.contains("password") && (url_lower.contains("reset") || url_lower.contains("forgot")) {
+            if url_lower.contains("password")
+                && (url_lower.contains("reset") || url_lower.contains("forgot"))
+            {
                 auth_endpoints.push(AuthEndpoint {
                     url: url.url.clone(),
                     auth_type: "password_reset".to_string(),
@@ -322,7 +417,7 @@ impl ReconAgent {
     }
 
     /// Discover forms from URLs (simplified)
-    fn discover_forms(&self, urls: &[DiscoveredUrl]) -> Vec<DiscoveredForm> {
+    fn discover_forms(&self, _urls: &[DiscoveredUrl]) -> Vec<DiscoveredForm> {
         // In a real implementation, this would parse HTML for forms
         // For now, return empty
         Vec::new()
@@ -350,7 +445,11 @@ impl SecurityAgent for ReconAgent {
         self.base.name()
     }
 
-    async fn execute(&self, input: Self::Input, ctx: AgentContext) -> anyhow::Result<AgentResult<Self::Output>> {
+    async fn execute(
+        &self,
+        input: Self::Input,
+        ctx: AgentContext,
+    ) -> anyhow::Result<AgentResult<Self::Output>> {
         let started_at = std::time::Instant::now();
         info!("Recon agent starting for target: {}", input.target);
 
@@ -371,13 +470,7 @@ impl SecurityAgent for ReconAgent {
 
         let duration_ms = started_at.elapsed().as_millis() as u64;
 
-        let output = ReconOutput {
-            urls,
-            endpoints,
-            technologies,
-            auth_endpoints,
-            forms,
-        };
+        let output = ReconOutput { urls, endpoints, technologies, auth_endpoints, forms };
 
         Ok(AgentResult::success(output, duration_ms))
     }

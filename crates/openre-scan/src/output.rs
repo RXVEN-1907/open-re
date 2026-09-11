@@ -1,5 +1,7 @@
 //! Output formatting
 
+use anyhow::Result;
+use chrono::Utc;
 use clap::ValueEnum;
 use colored::Colorize;
 pub use openre_core::ids::ScanId;
@@ -7,8 +9,6 @@ pub use openre_core::result::{
     Category, Confidence, Evidence, EvidenceType, Finding, FindingConfig, RemediationEffort,
     RemediationGuidance, RemediationPriority, Severity,
 };
-use anyhow::Result;
-use chrono::Utc;
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -16,17 +16,12 @@ use std::time::Duration;
 use tabled::{Table, Tabled};
 use url::Url;
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy, ValueEnum, Default)]
 pub enum OutputFormat {
+    #[default]
     Table,
     Json,
     Sarif,
-}
-
-impl Default for OutputFormat {
-    fn default() -> Self {
-        OutputFormat::Table
-    }
 }
 
 pub fn print_severity_summary(findings: &[Finding]) {
@@ -36,13 +31,8 @@ pub fn print_severity_summary(findings: &[Finding]) {
     }
 
     println!("{}", "📊 Findings by Severity:".bold().bright_blue());
-    for sev in [
-        Severity::Critical,
-        Severity::High,
-        Severity::Medium,
-        Severity::Low,
-        Severity::Info,
-    ] {
+    for sev in [Severity::Critical, Severity::High, Severity::Medium, Severity::Low, Severity::Info]
+    {
         if let Some(count) = counts.get(&sev) {
             let (icon, color) = match sev {
                 Severity::Critical => ("🔴", "red"),
@@ -105,13 +95,8 @@ pub fn print_table_results(
     }
 
     println!("\n{}", "📊 Summary by Severity".bold());
-    for sev in [
-        Severity::Critical,
-        Severity::High,
-        Severity::Medium,
-        Severity::Low,
-        Severity::Info,
-    ] {
+    for sev in [Severity::Critical, Severity::High, Severity::Medium, Severity::Low, Severity::Info]
+    {
         if let Some(count) = severity_counts.get(&sev) {
             let color = match sev {
                 Severity::Critical => "red",

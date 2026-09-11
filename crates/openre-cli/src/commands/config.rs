@@ -1,11 +1,11 @@
 //! Configuration management commands
 
-use colored::Colorize;
+use crate::{print_output, CliError, Context, OutputFormat};
 use clap::{Args, Subcommand};
-use openre_config::{Config, default_config_path};
-use crate::{Context, CliError, print_output, OutputFormat};
+use colored::Colorize;
+use openre_config::{default_config_path, Config};
 use std::path::PathBuf;
-use tabled::{Table, settings::Style};
+use tabled::{settings::Style, Table};
 
 #[derive(Subcommand, Debug)]
 pub enum ConfigCommands {
@@ -61,7 +61,6 @@ struct ResetArgs {
     #[arg(long)]
     yes: bool,
 }
-
 
 #[derive(Args, Debug)]
 struct InitArgs {
@@ -149,13 +148,13 @@ async fn run_path(_config: Config) -> Result<(), CliError> {
 async fn run_edit(_config: Config) -> Result<(), CliError> {
     let path = openre_config::default_config_path();
     if !path.exists() {
-        return Err(CliError::Config("No config file exists. Run 'openre config init' first.".into()));
+        return Err(CliError::Config(
+            "No config file exists. Run 'openre config init' first.".into(),
+        ));
     }
 
     let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
-    let status = std::process::Command::new(&editor)
-        .arg(&path)
-        .status()?;
+    let status = std::process::Command::new(&editor).arg(&path).status()?;
 
     if status.success() {
         println!("{} Config edited", "✓".green().bold());
@@ -208,10 +207,9 @@ fn print_section(config: &Config, section: &str) -> Result<(), CliError> {
     if let Some(value) = config.get_section(section) {
         if let Some(obj) = value.as_object() {
             let mut table = Table::new(
-                obj.iter().map(|(k, v)| ConfigRow {
-                    key: k.clone(),
-                    value: format_value(v),
-                }).collect::<Vec<_>>()
+                obj.iter()
+                    .map(|(k, v)| ConfigRow { key: k.clone(), value: format_value(v) })
+                    .collect::<Vec<_>>(),
             );
             table.with(Style::modern());
             println!("{}", table);

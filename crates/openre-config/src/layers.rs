@@ -6,26 +6,21 @@ use figment::{
     Figment,
 };
 use openre_core::error::OpenreResult as Result;
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::{broadcast, RwLock};
-use toml;
 use tracing::info;
 
 /// Configuration watcher for hot-reload (stub - disabled without notify crate)
+#[allow(dead_code)]
 pub struct ConfigWatcher {
     config: Arc<RwLock<Config>>,
-    tx: broadcast::Sender<Config>,
-    _rx: broadcast::Receiver<Config>,
 }
 
 impl ConfigWatcher {
     /// Create a new config watcher
     pub fn new(config: Config) -> Self {
-        let (tx, rx) = broadcast::channel(16);
-        Self { config: Arc::new(RwLock::new(config)), tx, _rx: rx }
+        Self { config: Arc::new(RwLock::new(config)) }
     }
 
     /// Start watching configuration files (disabled without notify crate)
@@ -35,6 +30,7 @@ impl ConfigWatcher {
     }
 
     /// Reload configuration from files
+    #[allow(dead_code)]
     async fn reload_config(
         config: &Arc<RwLock<Config>>,
         tx: &broadcast::Sender<Config>,

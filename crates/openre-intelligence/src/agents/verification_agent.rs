@@ -1,11 +1,11 @@
 //! Verification agent implementation
 
+use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
 use crate::agents::context::*;
-use crate::agents::agent_trait::{AgentContext, SecurityAgent, BaseAgent};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
-use openre_core::ids::AgentId;
 use crate::verification::VerificationEngine;
 use async_trait::async_trait;
+use openre_core::ids::AgentId;
 use openre_core::ids::FindingId;
 use openre_core::result::Finding;
 use std::sync::Arc;
@@ -45,7 +45,11 @@ impl SecurityAgent for VerificationAgent {
         self.base.name()
     }
 
-    async fn execute(&self, input: Self::Input, _ctx: AgentContext) -> anyhow::Result<AgentResult<Self::Output>> {
+    async fn execute(
+        &self,
+        input: Self::Input,
+        _ctx: AgentContext,
+    ) -> anyhow::Result<AgentResult<Self::Output>> {
         let started_at = std::time::Instant::now();
 
         let mut results = Vec::new();
@@ -58,7 +62,9 @@ impl SecurityAgent for VerificationAgent {
                         openre_core::evidence::VerificationStatus::Confirmed => "confirmed",
                         openre_core::evidence::VerificationStatus::Likely => "likely",
                         openre_core::evidence::VerificationStatus::Unconfirmed => "unconfirmed",
-                        openre_core::evidence::VerificationStatus::NotReproducible => "not_reproducible",
+                        openre_core::evidence::VerificationStatus::NotReproducible => {
+                            "not_reproducible"
+                        }
                         openre_core::evidence::VerificationStatus::Error => "error",
                         openre_core::evidence::VerificationStatus::Skipped => "skipped",
                     };
@@ -95,10 +101,7 @@ impl SecurityAgent for VerificationAgent {
             errors: results.iter().filter(|r| r.status == "error").count(),
         };
 
-        let output = VerificationOutput {
-            results,
-            summary,
-        };
+        let output = VerificationOutput { results, summary };
 
         let duration_ms = started_at.elapsed().as_millis() as u64;
         Ok(AgentResult::success(output, duration_ms))

@@ -86,7 +86,8 @@ fn write_csv<T: Serialize>(data: &T, path: Option<&Path>) -> crate::Result<()> {
 
                 for item in arr {
                     if let Some(obj) = item.as_object() {
-                        let row: Vec<String> = headers.iter()
+                        let row: Vec<String> = headers
+                            .iter()
                             .map(|h| obj.get(h).map(|v| v.to_string()).unwrap_or_default())
                             .collect();
                         out.push_str(&row.join(","));

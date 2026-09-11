@@ -110,7 +110,7 @@ impl PluginRegistry {
             PluginId::from_str(&manifest.name).map_err(|_| anyhow::anyhow!("Invalid plugin ID"))?;
 
         // Copy to local registry
-        let install_path = self.config.local_path.join("installed").join(&plugin_id.to_string());
+        let install_path = self.config.local_path.join("installed").join(plugin_id.to_string());
         tokio::fs::create_dir_all(&install_path).await?;
 
         // Copy plugin files
@@ -127,7 +127,7 @@ impl PluginRegistry {
         };
 
         self.save_entry(&entry).await?;
-        self.entries.write().await.insert(plugin_id.clone(), entry);
+        self.entries.write().await.insert(plugin_id, entry);
 
         Ok(plugin_id)
     }

@@ -1,10 +1,5 @@
 //! Architecture definitions for multi-architecture support
 
-use crate::error::{DisasmError, Result};
-use capstone::Arch as CapstoneArch;
-use capstone::Endian as CapstoneEndian;
-use capstone::Mode as CapstoneMode;
-use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -81,7 +76,12 @@ impl Architecture {
 
     pub fn default_endian(&self) -> Endianness {
         match self {
-            Architecture::Mips | Architecture::Mips64 | Architecture::Sparc | Architecture::Sparc64 | Architecture::PowerPc | Architecture::PowerPc64 => Endianness::Big,
+            Architecture::Mips
+            | Architecture::Mips64
+            | Architecture::Sparc
+            | Architecture::Sparc64
+            | Architecture::PowerPc
+            | Architecture::PowerPc64 => Endianness::Big,
             _ => Endianness::Little,
         }
     }
@@ -89,30 +89,26 @@ impl Architecture {
     pub fn register_names(&self) -> &'static [&'static str] {
         match self {
             Architecture::X86_64 => &[
-                "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
-                "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
-                "rip", "rflags", "cs", "ss", "ds", "es", "fs", "gs",
+                "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "r8", "r9", "r10", "r11",
+                "r12", "r13", "r14", "r15", "rip", "rflags", "cs", "ss", "ds", "es", "fs", "gs",
             ],
             Architecture::X86 => &[
-                "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp",
-                "eip", "eflags", "cs", "ss", "ds", "es", "fs", "gs",
+                "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp", "eip", "eflags", "cs",
+                "ss", "ds", "es", "fs", "gs",
             ],
             Architecture::AArch64 => &[
-                "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7",
-                "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15",
-                "x16", "x17", "x18", "x19", "x20", "x21", "x22", "x23",
-                "x24", "x25", "x26", "x27", "x28", "x29", "x30", "sp", "pc",
+                "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12",
+                "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20", "x21", "x22", "x23", "x24",
+                "x25", "x26", "x27", "x28", "x29", "x30", "sp", "pc",
             ],
             Architecture::Arm => &[
-                "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
-                "r8", "r9", "r10", "r11", "r12", "sp", "lr", "pc", "cpsr",
+                "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12",
+                "sp", "lr", "pc", "cpsr",
             ],
             Architecture::RiscV64 => &[
-                "x0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
-                "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
-                "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7",
-                "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6",
-                "pc",
+                "x0", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "s0", "s1", "a0", "a1", "a2", "a3",
+                "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10",
+                "s11", "t3", "t4", "t5", "t6", "pc",
             ],
             _ => &[],
         }
@@ -205,15 +201,23 @@ impl RegisterSet {
     pub fn for_architecture(arch: Architecture) -> Self {
         let mut registers = HashMap::new();
         for name in arch.register_names() {
-            registers.insert(name.to_string(), RegisterInfo {
-                name: name.to_string(),
-                size: match arch {
-                    Architecture::X86_64 | Architecture::AArch64 | Architecture::RiscV64 | Architecture::PowerPc64 | Architecture::Sparc64 | Architecture::Mips64 => 64,
-                    _ => 32,
+            registers.insert(
+                name.to_string(),
+                RegisterInfo {
+                    name: name.to_string(),
+                    size: match arch {
+                        Architecture::X86_64
+                        | Architecture::AArch64
+                        | Architecture::RiscV64
+                        | Architecture::PowerPc64
+                        | Architecture::Sparc64
+                        | Architecture::Mips64 => 64,
+                        _ => 32,
+                    },
+                    alias: None,
+                    sub_registers: vec![],
                 },
-                alias: None,
-                sub_registers: vec![],
-            });
+            );
         }
         Self {
             registers,

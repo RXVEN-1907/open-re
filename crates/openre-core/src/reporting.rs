@@ -1,5 +1,6 @@
 //! Reporting engine for generating security reports in multiple formats
 
+use crate::app_map::TargetInfo;
 use crate::ids::{ProjectId, ScanId};
 use crate::result::*;
 use chrono::{DateTime, Utc};
@@ -154,23 +155,6 @@ pub struct ReportMetadata {
     pub format: ReportFormat,
     /// Configuration used
     pub config: ReportConfig,
-}
-
-/// Target information for report
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TargetInfo {
-    /// Target identifier
-    pub id: String,
-    /// Target name
-    pub name: String,
-    /// Target URL
-    pub url: String,
-    /// Target type
-    pub target_type: String,
-    /// Scan count
-    pub scan_count: usize,
-    /// Finding count
-    pub finding_count: usize,
 }
 
 /// Date range

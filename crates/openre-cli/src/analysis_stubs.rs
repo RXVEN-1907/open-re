@@ -1,9 +1,9 @@
 //! Stub binary analysis types (replacing openre-analysis)
 
-use thiserror::Error;
 use goblin::Object;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use thiserror::Error;
 
 /// Binary format
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,10 +55,7 @@ pub struct BinaryAnalyzer {
 
 impl BinaryAnalyzer {
     pub async fn open(path: &PathBuf, format: BinaryFormat) -> anyhow::Result<Self> {
-        Ok(Self {
-            format,
-            path: path.clone(),
-        })
+        Ok(Self { format, path: path.clone() })
     }
 
     pub async fn info(&self) -> anyhow::Result<BinaryInfo> {
@@ -99,29 +96,40 @@ impl BinaryAnalyzer {
         Ok(vec![])
     }
 
-    pub async fn functions(&self, _filter: Option<&str>, _details: bool) -> anyhow::Result<Vec<Function>> {
+    pub async fn functions(
+        &self,
+        _filter: Option<&str>,
+        _details: bool,
+    ) -> anyhow::Result<Vec<Function>> {
         Ok(vec![])
     }
 
-    pub async fn disasm_function(&self, _name: &str, _count: usize, _bytes: bool) -> anyhow::Result<Disassembly> {
-        Ok(Disassembly {
-            function: _name.to_string(),
-            instructions: vec![],
-        })
+    pub async fn disasm_function(
+        &self,
+        _name: &str,
+        _count: usize,
+        _bytes: bool,
+    ) -> anyhow::Result<Disassembly> {
+        Ok(Disassembly { function: _name.to_string(), instructions: vec![] })
     }
 
-    pub async fn disasm_range(&self, _start: u64, _end: u64, _bytes: bool) -> anyhow::Result<Disassembly> {
-        Ok(Disassembly {
-            function: "range".to_string(),
-            instructions: vec![],
-        })
+    pub async fn disasm_range(
+        &self,
+        _start: u64,
+        _end: u64,
+        _bytes: bool,
+    ) -> anyhow::Result<Disassembly> {
+        Ok(Disassembly { function: "range".to_string(), instructions: vec![] })
     }
 
     pub async fn decompile(&self, _function: &str) -> anyhow::Result<String> {
         Ok("// Decompilation not implemented - requires openre-analysis crate".to_string())
     }
 
-    pub async fn run_pipeline(&self, _stages: Vec<PipelineStage>) -> anyhow::Result<PipelineResult> {
+    pub async fn run_pipeline(
+        &self,
+        _stages: Vec<PipelineStage>,
+    ) -> anyhow::Result<PipelineResult> {
         Ok(PipelineResult {
             stages: vec![],
             summary: "Pipeline not implemented - requires openre-analysis crate".to_string(),

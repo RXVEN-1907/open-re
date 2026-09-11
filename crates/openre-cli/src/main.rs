@@ -3,20 +3,30 @@
 //! A single binary for binary analysis, web scanning, AI-powered vulnerability discovery,
 //! PoC generation, and actionable remediation guidance.
 
-use clap::{Parser, Subcommand, ValueEnum, CommandFactory};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
 use openre_config::Config;
 use std::path::PathBuf;
 
+mod ai_stubs;
+mod analysis_stubs;
 mod commands;
 mod config;
 mod context;
 mod error;
-mod output;
-mod ai_stubs;
-mod analysis_stubs;
 mod intelligence_stubs;
+mod output;
+
+#[cfg(feature = "analysis")]
+mod analysis {
+    pub use openre_analysis::*;
+}
+
+#[cfg(not(feature = "analysis"))]
+mod analysis {
+    pub use crate::analysis_stubs::*;
+}
 
 #[cfg(feature = "scan")]
 use commands::scan::ScanCommands;
@@ -166,17 +176,22 @@ async fn main() -> Result<()> {
 
     // Initialize tracing
     let filter = if cli.verbose { "debug" } else { "info" };
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_target(false)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(filter).with_target(false).init();
 
     // Load configuration
     let config = CliConfig::load(cli.config.as_deref())?;
 
     // Create context
     let ai_provider: crate::ai_stubs::AiProvider = cli.ai_provider.into();
-    let ctx = Context::new(config.core().clone(), cli.format, cli.verbose, cli.offline, ai_provider, cli.ai_model, cli.no_ai)?;
+    let ctx = Context::new(
+        config.core().clone(),
+        cli.format,
+        cli.verbose,
+        cli.offline,
+        ai_provider,
+        cli.ai_model,
+        cli.no_ai,
+    )?;
 
     // Execute command
     let result = match cli.command {
@@ -208,11 +223,7 @@ async fn main() -> Result<()> {
 }
 
 fn print_version() {
-    println!(
-        "{} {}",
-        "openre".bold().cyan(),
-        env!("CARGO_PKG_VERSION").bold()
-    );
+    println!("{} {}", "openre".bold().cyan(), env!("CARGO_PKG_VERSION").bold());
     println!("{}", "Unified reverse engineering & offensive security platform".dimmed());
     println!();
     println!("{}", "Features:".bold());

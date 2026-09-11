@@ -26,7 +26,7 @@ use std::{io, sync::Arc, time::Duration};
 use tokio::sync::{mpsc, Mutex};
 
 #[cfg(feature = "tui")]
-use crate::{Check, Finding, OutputFormat, ScanProfile, build_client, get_all_checks};
+use crate::{build_client, get_all_checks, Check, Finding, OutputFormat, ScanProfile};
 #[cfg(feature = "tui")]
 use openre_core::result::Severity;
 #[cfg(feature = "tui")]
@@ -370,8 +370,8 @@ impl App {
         }
 
         let target = self.target_input.trim().to_string();
-        let profile = self.profile.clone();
-        let format = self.output_format.clone();
+        let profile = self.profile;
+        let format = self.output_format;
 
         self.status =
             ScanStatus::Running { current: "Initializing...".to_string(), progress: 0, total: 0 };

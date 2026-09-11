@@ -1,6 +1,7 @@
 //! AI response cache for open-re
 
 use crate::providers::*;
+use hex;
 use openre_config::CacheConfig;
 use openre_core::error::OpenreResult as Result;
 use serde::{Deserialize, Serialize};
@@ -9,7 +10,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use hex;
 
 /// Multi-level cache for AI responses
 pub struct AiCache {

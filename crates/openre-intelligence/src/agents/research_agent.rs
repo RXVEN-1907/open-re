@@ -1,12 +1,12 @@
 //! Research agent implementation
 
+use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
 use crate::agents::context::*;
-use crate::agents::agent_trait::{AgentContext, SecurityAgent, BaseAgent};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
-use openre_core::ids::AgentId;
 use crate::cve_intelligence::CveIntelligence;
 use crate::knowledge_base::KnowledgeBase;
 use async_trait::async_trait;
+use openre_core::ids::AgentId;
 use openre_core::result::Finding;
 use std::sync::Arc;
 
@@ -46,14 +46,18 @@ impl SecurityAgent for ResearchAgent {
         self.base.name()
     }
 
-    async fn execute(&self, input: Self::Input, _ctx: AgentContext) -> anyhow::Result<AgentResult<Self::Output>> {
+    async fn execute(
+        &self,
+        input: Self::Input,
+        _ctx: AgentContext,
+    ) -> anyhow::Result<AgentResult<Self::Output>> {
         let started_at = std::time::Instant::now();
 
         let mut cve_matches = Vec::new();
         let mut cwe_mappings = Vec::new();
         let mut capec_mappings = Vec::new();
         let mut mitre_mappings = Vec::new();
-        let mut exploits = Vec::new();
+        let exploits = Vec::new();
 
         // Look up CVEs based on finding and technologies
         for tech in &input.technologies {
@@ -65,7 +69,11 @@ impl SecurityAgent for ResearchAgent {
                             cvss_score: cve.cvss_score,
                             cvss_vector: cve.cvss_vector,
                             description: cve.description,
-                            affected_versions: cve.affected_versions.iter().map(|v| v.to_string()).collect(),
+                            affected_versions: cve
+                                .affected_versions
+                                .iter()
+                                .map(|v| v.to_string())
+                                .collect(),
                             fixed_versions: cve.fixed_versions,
                             exploit_available: false,
                             exploit_maturity: None,
@@ -106,13 +114,8 @@ impl SecurityAgent for ResearchAgent {
             }
         }
 
-        let output = ResearchOutput {
-            cve_matches,
-            cwe_mappings,
-            capec_mappings,
-            mitre_mappings,
-            exploits,
-        };
+        let output =
+            ResearchOutput { cve_matches, cwe_mappings, capec_mappings, mitre_mappings, exploits };
 
         let duration_ms = started_at.elapsed().as_millis() as u64;
         Ok(AgentResult::success(output, duration_ms))

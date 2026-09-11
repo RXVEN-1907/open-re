@@ -71,6 +71,7 @@ pub enum JobStatus {
 }
 
 /// Progress tracker for real-time updates
+#[allow(dead_code)]
 pub struct ProgressTracker {
     queue: Arc<QueueManager>,
     cache: Arc<RwLock<HashMap<JobId, JobProgress>>>,

@@ -2,10 +2,10 @@
 
 use crate::disassembler::Instruction;
 use crate::error::{DisasmError, Result};
+use petgraph::algo::kosaraju_scc;
 use petgraph::graph::{DiGraph, NodeIndex};
-use petgraph::algo::{dominators, kosaraju_scc};
-use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Basic block in a control flow graph
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -73,11 +73,7 @@ pub struct CfgBuilder {
 
 impl CfgBuilder {
     pub fn new(entry_address: u64) -> Self {
-        Self {
-            instructions: Vec::new(),
-            entry_address,
-            end_address: None,
-        }
+        Self { instructions: Vec::new(), entry_address, end_address: None }
     }
 
     pub fn with_end_address(mut self, end_address: u64) -> Self {
@@ -135,11 +131,11 @@ impl CfgBuilder {
 
         // Add edges
         for i in 0..node_indices.len() - 1 {
-            graph.add_edge(node_indices[i], node_indices[i + 1], CfgEdge {
-                from: i,
-                to: i + 1,
-                edge_type: CfgEdgeType::Fallthrough,
-            });
+            graph.add_edge(
+                node_indices[i],
+                node_indices[i + 1],
+                CfgEdge { from: i, to: i + 1, edge_type: CfgEdgeType::Fallthrough },
+            );
         }
 
         let entry = Some(0);
@@ -152,7 +148,8 @@ impl CfgBuilder {
 /// Compute dominator tree for a CFG
 pub fn compute_dominators(cfg: &ControlFlowGraph) -> Result<DominatorTree> {
     let graph = &cfg.graph;
-    let entry = cfg.entry.ok_or_else(|| DisasmError::CfgConstruction("No entry node".to_string()))?;
+    let entry =
+        cfg.entry.ok_or_else(|| DisasmError::CfgConstruction("No entry node".to_string()))?;
     let entry_idx = NodeIndex::new(entry);
 
     let doms = petgraph::algo::dominators::simple_fast(graph, entry_idx);
@@ -175,18 +172,20 @@ pub fn compute_dominators(cfg: &ControlFlowGraph) -> Result<DominatorTree> {
         let mut frontier = Vec::new();
 
         // Get all dominators of this node (including itself)
-        let node_doms: std::collections::HashSet<NodeIndex> = if let Some(iter) = doms.dominators(node) {
-            iter.collect()
-        } else {
-            std::collections::HashSet::new()
-        };
-
-        for succ in graph.neighbors(node) {
-            let succ_doms: std::collections::HashSet<NodeIndex> = if let Some(iter) = doms.dominators(succ) {
+        let node_doms: std::collections::HashSet<NodeIndex> =
+            if let Some(iter) = doms.dominators(node) {
                 iter.collect()
             } else {
                 std::collections::HashSet::new()
             };
+
+        for succ in graph.neighbors(node) {
+            let succ_doms: std::collections::HashSet<NodeIndex> =
+                if let Some(iter) = doms.dominators(succ) {
+                    iter.collect()
+                } else {
+                    std::collections::HashSet::new()
+                };
 
             if !node_doms.contains(&succ) || !succ_doms.iter().all(|d| node_doms.contains(d)) {
                 frontier.push(succ.index());

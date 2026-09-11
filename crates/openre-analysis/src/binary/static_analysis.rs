@@ -146,6 +146,12 @@ impl StaticAnalysisService {
     }
 }
 
+impl Default for StaticAnalysisService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Static analyzer implementation (implements the StaticAnalyzer trait)
 pub struct StaticAnalyzerImpl;
 
@@ -322,7 +328,7 @@ impl StaticAnalyzerImpl {
                             && elf.entry < section.sh_addr + section.sh_size
                         {
                             functions.push(FunctionInfo {
-                                address: elf.entry as u64,
+                                address: elf.entry,
                                 size: section.sh_size,
                                 name: Some("_start".to_string()),
                                 is_thunk: false,
@@ -343,10 +349,7 @@ impl StaticAnalyzerImpl {
 
     /// Find functions in PE binary using disassembly
     fn find_pe_functions(&self, pe: &PE, _data: &[u8]) -> AnyResult<Vec<FunctionInfo>> {
-        let mut functions = Vec::new();
-
-        // Add entry point
-        functions.push(FunctionInfo {
+        let functions = vec![FunctionInfo {
             address: pe.entry as u64 + pe.image_base as u64,
             size: 0,
             name: Some("entry".to_string()),
@@ -356,7 +359,7 @@ impl StaticAnalyzerImpl {
             calls: Vec::new(),
             called_by: Vec::new(),
             complexity: 1,
-        });
+        }];
 
         Ok(functions)
     }

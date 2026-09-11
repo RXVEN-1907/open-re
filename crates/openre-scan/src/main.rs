@@ -5,9 +5,7 @@
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use openre_config::{Config, ScannerConfig};
-use openre_scan::{
-    run_scan, ScanConfig, ScanProfile, OutputFormat,
-};
+use openre_scan::{run_scan, OutputFormat, ScanConfig, ScanProfile};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::Duration;

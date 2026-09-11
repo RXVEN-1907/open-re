@@ -1,10 +1,9 @@
 //! Scanner API types for openre-scan library
 
-use openre_core::result::Finding;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use url::Url;
 use thiserror::Error;
+use url::Url;
 
 mod url_serde {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -123,7 +122,12 @@ pub struct ScanResult {
 }
 
 impl ScanResult {
-    pub fn new(target: String, profile: crate::profiles::ScanProfile, findings: Vec<openre_core::result::Finding>, duration_ms: u64) -> Self {
+    pub fn new(
+        target: String,
+        profile: crate::profiles::ScanProfile,
+        findings: Vec<openre_core::result::Finding>,
+        duration_ms: u64,
+    ) -> Self {
         let mut severity_counts = HashMap::new();
         for f in &findings {
             *severity_counts.entry(f.severity.to_string()).or_insert(0) += 1;
@@ -179,7 +183,8 @@ impl Scanner {
             target.timeout,
             target.max_redirects,
             target.user_agent.clone().unwrap_or_default(),
-        ).await?;
+        )
+        .await?;
 
         Ok(ScanResult::new(
             target.url.to_string(),

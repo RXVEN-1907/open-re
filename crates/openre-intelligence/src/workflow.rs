@@ -1,14 +1,14 @@
 //! Workflow Features - Finding acknowledgment, false positive marking, ignore rules
 
 use crate::{error::IntelligenceError, types::*, IntelligenceResult};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
+#[allow(unused_imports)]
 use openre_core::ids::{FindingId, ScanId};
-use openre_core::result::{Finding, Severity};
+use openre_core::result::Finding;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 /// Configuration for workflow features
 #[derive(Debug, Clone)]
@@ -72,7 +72,15 @@ impl WorkflowManager {
             ignore_patterns: Vec::new(),
         }
     }
+}
 
+impl Default for WorkflowManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WorkflowManager {
     /// Acknowledge a finding
     pub fn acknowledge_finding(
         &mut self,
@@ -212,7 +220,7 @@ impl WorkflowManager {
 
                 // Check severity threshold
                 if let Some(threshold) = rule.severity_threshold {
-                    if finding.severity < threshold.into() {
+                    if finding.severity < threshold {
                         continue; // Below threshold, skip rule
                     }
                 }
@@ -376,7 +384,7 @@ impl WorkflowManager {
         let mut report = String::new();
         report.push_str("# Workflow Status Report\n\n");
 
-        report.push_str(&format!("## Summary\n"));
+        report.push_str("## Summary\n");
         report
             .push_str(&format!("- Acknowledged findings: {}\n", self.acknowledged_findings.len()));
         report.push_str(&format!("- False positive findings: {}\n", self.false_positives.len()));
@@ -483,7 +491,7 @@ impl WorkflowManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openre_core::ids::FindingId;
+    use openre_core::ids::{FindingId, ScanId};
     use openre_core::result::{Category, Confidence, Finding, Severity};
     use std::collections::HashMap;
 
@@ -613,9 +621,9 @@ mod tests {
         let mut manager = WorkflowManager::new();
 
         // Create test findings
-        let mut finding1 = create_test_finding("SQL Injection", Severity::High);
+        let finding1 = create_test_finding("SQL Injection", Severity::High);
         let finding2 = create_test_finding("XSS", Severity::Medium);
-        let mut finding3 = create_test_finding("Path Traversal", Severity::Critical);
+        let finding3 = create_test_finding("Path Traversal", Severity::Critical);
 
         // Acknowledge one finding
         manager.acknowledge_finding(finding1.id, "user1", Some("Reviewed")).unwrap();

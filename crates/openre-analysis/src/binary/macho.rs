@@ -58,18 +58,16 @@ impl MachoParser {
 
         // Parse symbols
         if let Some(symbols) = &macho.symbols {
-            for symbol in symbols.iter() {
-                if let Ok((name, nlist)) = symbol {
-                    if !name.is_empty() {
-                        info.symbols.push(Symbol {
-                            name: name.to_string(),
-                            address: nlist.n_value,
-                            size: 0,
-                            symbol_type: crate::SymbolType::Unknown,
-                            binding: crate::SymbolBinding::Global,
-                            section_index: nlist.n_sect as u32,
-                        });
-                    }
+            for (name, nlist) in symbols.iter().flatten() {
+                if !name.is_empty() {
+                    info.symbols.push(Symbol {
+                        name: name.to_string(),
+                        address: nlist.n_value,
+                        size: 0,
+                        symbol_type: crate::SymbolType::Unknown,
+                        binding: crate::SymbolBinding::Global,
+                        section_index: nlist.n_sect as u32,
+                    });
                 }
             }
         }
@@ -255,19 +253,17 @@ impl BinaryMetadataExtractor for MachoMetadataExtractor {
 
         // Parse symbols
         if let Some(symtab) = &macho.symbols {
-            for symbol in symtab.iter() {
-                if let Ok((name, nlist)) = symbol {
-                    if !name.is_empty() {
-                        symbols.push(SymbolInfo {
-                            name: name.to_string(),
-                            address: nlist.n_value,
-                            size: 0,
-                            symbol_type: SymbolType::Unknown,
-                            binding: SymbolBinding::Global,
-                            visibility: SymbolVisibility::Default,
-                            section_index: Some(nlist.n_sect as u32),
-                        });
-                    }
+            for (name, nlist) in symtab.iter().flatten() {
+                if !name.is_empty() {
+                    symbols.push(SymbolInfo {
+                        name: name.to_string(),
+                        address: nlist.n_value,
+                        size: 0,
+                        symbol_type: SymbolType::Unknown,
+                        binding: SymbolBinding::Global,
+                        visibility: SymbolVisibility::Default,
+                        section_index: Some(nlist.n_sect as u32),
+                    });
                 }
             }
         }
@@ -388,6 +384,7 @@ fn calculate_entropy(data: &[u8]) -> f64 {
 }
 
 /// Calculate file hashes
+#[allow(unused_imports)]
 fn calculate_hashes(data: &[u8]) -> FileHashes {
     use md5::{Digest, Md5};
     use sha1::{Digest as Sha1Digest, Sha1};

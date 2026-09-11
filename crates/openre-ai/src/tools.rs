@@ -20,14 +20,56 @@ pub trait ProjectStore: Send + Sync {
     async fn get_pseudocode(&self, function_id: FunctionId) -> Result<Option<String>>;
     async fn get_xrefs_to_address(&self, address: u64) -> Result<Vec<XrefInfo>>;
     async fn get_xrefs_to_function(&self, function_id: FunctionId) -> Result<Vec<XrefInfo>>;
-    async fn get_strings(&self, min_length: usize, encoding: &str, address: Option<u64>) -> Result<Vec<StringInfo>>;
-    async fn get_symbols(&self, symbol_type: &str, name_pattern: Option<&str>) -> Result<Vec<SymbolInfo>>;
-    async fn search(&self, query: &str, search_type: &str, limit: usize) -> Result<Vec<SearchResult>>;
-    async fn add_function_annotation(&self, function_id: FunctionId, annotation_type: &str, content: &str, confidence: f32) -> Result<()>;
-    async fn add_instruction_annotation(&self, instruction_id: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()>;
-    async fn add_variable_annotation(&self, variable_id: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()>;
-    async fn add_address_annotation(&self, address: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()>;
-    async fn execute_query(&self, query: &str, params: &[serde_json::Value]) -> Result<Vec<serde_json::Value>>;
+    async fn get_strings(
+        &self,
+        min_length: usize,
+        encoding: &str,
+        address: Option<u64>,
+    ) -> Result<Vec<StringInfo>>;
+    async fn get_symbols(
+        &self,
+        symbol_type: &str,
+        name_pattern: Option<&str>,
+    ) -> Result<Vec<SymbolInfo>>;
+    async fn search(
+        &self,
+        query: &str,
+        search_type: &str,
+        limit: usize,
+    ) -> Result<Vec<SearchResult>>;
+    async fn add_function_annotation(
+        &self,
+        function_id: FunctionId,
+        annotation_type: &str,
+        content: &str,
+        confidence: f32,
+    ) -> Result<()>;
+    async fn add_instruction_annotation(
+        &self,
+        instruction_id: u64,
+        annotation_type: &str,
+        content: &str,
+        confidence: f32,
+    ) -> Result<()>;
+    async fn add_variable_annotation(
+        &self,
+        variable_id: u64,
+        annotation_type: &str,
+        content: &str,
+        confidence: f32,
+    ) -> Result<()>;
+    async fn add_address_annotation(
+        &self,
+        address: u64,
+        annotation_type: &str,
+        content: &str,
+        confidence: f32,
+    ) -> Result<()>;
+    async fn execute_query(
+        &self,
+        query: &str,
+        params: &[serde_json::Value],
+    ) -> Result<Vec<serde_json::Value>>;
 }
 
 /// Blanket implementation for Arc<dyn ProjectStore>
@@ -54,28 +96,76 @@ impl ProjectStore for Arc<dyn ProjectStore> {
     async fn get_xrefs_to_function(&self, function_id: FunctionId) -> Result<Vec<XrefInfo>> {
         self.as_ref().get_xrefs_to_function(function_id).await
     }
-    async fn get_strings(&self, min_length: usize, encoding: &str, address: Option<u64>) -> Result<Vec<StringInfo>> {
+    async fn get_strings(
+        &self,
+        min_length: usize,
+        encoding: &str,
+        address: Option<u64>,
+    ) -> Result<Vec<StringInfo>> {
         self.as_ref().get_strings(min_length, encoding, address).await
     }
-    async fn get_symbols(&self, symbol_type: &str, name_pattern: Option<&str>) -> Result<Vec<SymbolInfo>> {
+    async fn get_symbols(
+        &self,
+        symbol_type: &str,
+        name_pattern: Option<&str>,
+    ) -> Result<Vec<SymbolInfo>> {
         self.as_ref().get_symbols(symbol_type, name_pattern).await
     }
-    async fn search(&self, query: &str, search_type: &str, limit: usize) -> Result<Vec<SearchResult>> {
+    async fn search(
+        &self,
+        query: &str,
+        search_type: &str,
+        limit: usize,
+    ) -> Result<Vec<SearchResult>> {
         self.as_ref().search(query, search_type, limit).await
     }
-    async fn add_function_annotation(&self, function_id: FunctionId, annotation_type: &str, content: &str, confidence: f32) -> Result<()> {
-        self.as_ref().add_function_annotation(function_id, annotation_type, content, confidence).await
+    async fn add_function_annotation(
+        &self,
+        function_id: FunctionId,
+        annotation_type: &str,
+        content: &str,
+        confidence: f32,
+    ) -> Result<()> {
+        self.as_ref()
+            .add_function_annotation(function_id, annotation_type, content, confidence)
+            .await
     }
-    async fn add_instruction_annotation(&self, instruction_id: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()> {
-        self.as_ref().add_instruction_annotation(instruction_id, annotation_type, content, confidence).await
+    async fn add_instruction_annotation(
+        &self,
+        instruction_id: u64,
+        annotation_type: &str,
+        content: &str,
+        confidence: f32,
+    ) -> Result<()> {
+        self.as_ref()
+            .add_instruction_annotation(instruction_id, annotation_type, content, confidence)
+            .await
     }
-    async fn add_variable_annotation(&self, variable_id: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()> {
-        self.as_ref().add_variable_annotation(variable_id, annotation_type, content, confidence).await
+    async fn add_variable_annotation(
+        &self,
+        variable_id: u64,
+        annotation_type: &str,
+        content: &str,
+        confidence: f32,
+    ) -> Result<()> {
+        self.as_ref()
+            .add_variable_annotation(variable_id, annotation_type, content, confidence)
+            .await
     }
-    async fn add_address_annotation(&self, address: u64, annotation_type: &str, content: &str, confidence: f32) -> Result<()> {
+    async fn add_address_annotation(
+        &self,
+        address: u64,
+        annotation_type: &str,
+        content: &str,
+        confidence: f32,
+    ) -> Result<()> {
         self.as_ref().add_address_annotation(address, annotation_type, content, confidence).await
     }
-    async fn execute_query(&self, query: &str, params: &[serde_json::Value]) -> Result<Vec<serde_json::Value>> {
+    async fn execute_query(
+        &self,
+        query: &str,
+        params: &[serde_json::Value],
+    ) -> Result<Vec<serde_json::Value>> {
         self.as_ref().execute_query(query, params).await
     }
 }
@@ -759,7 +849,8 @@ impl AiTool for GetStringsTool {
         let encoding = args["encoding"].as_str().unwrap_or("ascii");
         let address = args["address"].as_u64();
 
-        let strings: Vec<StringInfo> = project_store.get_strings(min_length, encoding, address).await?;
+        let strings: Vec<StringInfo> =
+            project_store.get_strings(min_length, encoding, address).await?;
 
         Ok(ToolResult::success(serde_json::to_value(strings)?))
     }

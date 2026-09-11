@@ -5,7 +5,7 @@ use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use tracing::{debug, info, warn};
+use tracing::warn;
 
 /// Configuration for dependency analysis
 #[derive(Debug, Clone)]
@@ -310,7 +310,7 @@ impl DependencyAnalyzer {
     /// Parse Cargo.lock (Rust)
     async fn parse_cargo_lock(&self, content: &str) -> IntelligenceResult<Vec<DependencyInfo>> {
         // Simple parsing approach - in reality would use toml crate
-        let mut dependencies = Vec::new();
+        let dependencies = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
 
         let mut in_package_section = false;
@@ -330,9 +330,9 @@ impl DependencyAnalyzer {
                 }
 
                 if trimmed.starts_with("name = ") {
-                    let name = trimmed[8..trimmed.len() - 1].to_string(); // Extract quoted string
-                                                                          // Would need to find the version line in the same package section
-                                                                          // This is simplified for demonstration
+                    let _name = trimmed[8..trimmed.len() - 1].to_string(); // Extract quoted string
+                                                                           // Would need to find the version line in the same package section
+                                                                           // This is simplified for demonstration
                 }
             }
         }
@@ -473,8 +473,8 @@ impl DependencyAnalyzer {
         struct PackageJson {
             #[serde(default)]
             dependencies: HashMap<String, String>,
-            #[serde(default)]
-            devDependencies: HashMap<String, String>,
+            #[serde(default, rename = "devDependencies")]
+            dev_dependencies: HashMap<String, String>,
         }
 
         let package_json: PackageJson = serde_json::from_str(content)
@@ -483,7 +483,7 @@ impl DependencyAnalyzer {
         let mut dependencies = Vec::new();
         let mut all_deps = Vec::new();
         all_deps.extend(package_json.dependencies);
-        all_deps.extend(package_json.devDependencies);
+        all_deps.extend(package_json.dev_dependencies);
 
         for (name, version_spec) in all_deps {
             // Version specs may be ranges like "^4.18.2" or "~2.0.1"
@@ -808,7 +808,7 @@ impl RegistryClient for MockRegistryClient {
         package_name: &str,
         version: &str,
     ) -> IntelligenceResult<Vec<DependencyVulnerability>> {
-        if let Some((latest_version, vulnerabilities)) = self.package_data.get(package_name) {
+        if let Some((_latest_version, vulnerabilities)) = self.package_data.get(package_name) {
             // Check if the version is vulnerable
             let mut applicable_vulns = Vec::new();
 
@@ -837,7 +837,6 @@ impl RegistryClient for MockRegistryClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use tempfile::NamedTempFile;
 
     #[tokio::test]
@@ -878,7 +877,7 @@ numpy>=1.20.0
 
         analyzer.add_registry_client("npm", Box::new(MockRegistryClient::new("npm")));
 
-        let content = r#"{
+        let _content = r#"{
             "name": "test-app",
             "lockfileVersion": 2,
             "requires": true,

@@ -10,7 +10,6 @@ pub use logging::*;
 pub use metrics::*;
 pub use tracing::*;
 
-
 use openre_config::Config;
 use openre_core::error::OpenreResult as Result;
 

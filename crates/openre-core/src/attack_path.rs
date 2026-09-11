@@ -1,11 +1,16 @@
 //! Attack Path types for representing exploitation paths through an application
 
-use crate::ids::{AssetId, AttackPathId, EntryPointId, EvidenceId, FindingId, NodeId};
+use crate::ids::{AssetId, AttackPathId, EntryPointId, EvidenceId, FindingId};
 use crate::relationships::FindingRelationshipType;
-use crate::result::{Confidence, Severity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+pub use crate::app_map::DetectionMethod;
+pub use crate::ids::NodeId;
+pub use crate::result::{
+    AttackComplexity, AttackVector, PrivilegesRequired, Scope, UserInteraction,
+};
 
 /// Attack path representing a chain of exploitable findings
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,50 +152,6 @@ pub struct ExploitabilityInfo {
     pub exploited_in_wild: bool,
     /// EPSS score if available
     pub epss_score: Option<f32>,
-}
-
-/// Attack vector (CVSS)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AttackVector {
-    Network,
-    Adjacent,
-    Local,
-    Physical,
-}
-
-/// Attack complexity (CVSS)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AttackComplexity {
-    Low,
-    Medium,
-    High,
-}
-
-/// Privileges required (CVSS)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PrivilegesRequired {
-    None,
-    Low,
-    High,
-}
-
-/// User interaction (CVSS)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum UserInteraction {
-    None,
-    Required,
-}
-
-/// Scope (CVSS)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Scope {
-    Unchanged,
-    Changed,
 }
 
 /// Privilege level for attack path steps
@@ -464,21 +425,6 @@ pub enum AttackStage {
     CommandAndControl,
     ActionsOnObjectives,
     Unknown,
-}
-
-/// Detection methods
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DetectionMethod {
-    LogAnalysis,
-    NetworkTrafficAnalysis,
-    EndpointMonitoring,
-    UserBehaviorAnalytics,
-    ThreatIntelligence,
-    DeceptionTechnology,
-    FileIntegrityMonitoring,
-    ApiMonitoring,
-    Custom,
 }
 
 /// False positive likelihood
@@ -792,7 +738,7 @@ impl AttackPath {
                 .collect();
 
             for next in next_nodes {
-                if !path.iter().any(|id| *id == next.id) {
+                if !path.contains(&next.id) {
                     self.dfs_paths(next, path, paths);
                 }
             }
@@ -970,7 +916,7 @@ impl AttackPathCollection {
     }
 
     pub fn sort_by_risk(&mut self) {
-        self.paths.sort_by(|a, b| b.overall_risk.score.cmp(&a.overall_risk.score));
+        self.paths.sort_by_key(|b| std::cmp::Reverse(b.overall_risk.score));
     }
 }
 
@@ -984,7 +930,7 @@ impl Default for AttackPathCollection {
 mod tests {
     use super::*;
     use crate::app_map::HttpMethod;
-    use crate::ids::{AssetId, AttackPathId, EntryPointId, EvidenceId, FindingId, NodeId};
+    use crate::ids::{AssetId, EntryPointId, FindingId, NodeId};
 
     #[test]
     fn test_attack_path_creation() {

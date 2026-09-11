@@ -92,7 +92,11 @@ impl App {
             fetcher
         });
 
-        let state = Arc::new(RwLock::new(AppState::new(event_tx.clone(), action_tx.clone(), services.clone())));
+        let state = Arc::new(RwLock::new(AppState::new(
+            event_tx.clone(),
+            action_tx.clone(),
+            services.clone(),
+        )));
 
         // Load initial data
         let mut panels = get_all_panels();
@@ -194,7 +198,8 @@ impl App {
                 let _ = event_tx.send(Event::ShutdownRequested);
             }
             // Project actions
-            Action::CreateProject { name, path } => {
+            Action::CreateProject { name, path } =>
+            {
                 #[cfg(feature = "intelligence")]
                 if let Some(svc) = &state_guard.services {
                     if let Ok(project_id) = svc.create_project(name.clone(), path.clone()).await {
@@ -219,13 +224,17 @@ impl App {
                     }
                 }
             }
-            Action::DeleteProject(id) => {
+            Action::DeleteProject(id) =>
+            {
                 #[cfg(feature = "intelligence")]
                 if let Some(svc) = &state_guard.services {
                     if svc.delete_project(id).await.is_ok() {
                         state_guard.projects_state.projects.retain(|p| p.id != id);
-                        if state_guard.projects_state.selected_index >= state_guard.projects_state.projects.len() {
-                            state_guard.projects_state.selected_index = state_guard.projects_state.projects.len().saturating_sub(1);
+                        if state_guard.projects_state.selected_index
+                            >= state_guard.projects_state.projects.len()
+                        {
+                            state_guard.projects_state.selected_index =
+                                state_guard.projects_state.projects.len().saturating_sub(1);
                         }
                         let _ = event_tx.send(Event::ProjectDeleted(id));
                         state_guard.add_notification(Notification {
@@ -240,7 +249,9 @@ impl App {
                 }
             }
             Action::SelectProject(id) => {
-                if let Some(idx) = state_guard.projects_state.projects.iter().position(|p| p.id == id) {
+                if let Some(idx) =
+                    state_guard.projects_state.projects.iter().position(|p| p.id == id)
+                {
                     state_guard.projects_state.selected_index = idx;
                     let _ = event_tx.send(Event::ProjectSelected(id));
                 }
@@ -258,7 +269,8 @@ impl App {
                 if let Some(svc) = &state_guard.services {
                     if let Some(qm) = &svc.queue_manager {
                         if qm.cancel(id).await.unwrap_or(false) {
-                            let _ = event_tx.send(Event::JobStatusChanged(id, JobStatus::Cancelled));
+                            let _ =
+                                event_tx.send(Event::JobStatusChanged(id, JobStatus::Cancelled));
                             state_guard.add_notification(Notification {
                                 id: uuid::Uuid::new_v4().to_string(),
                                 level: crate::state::NotificationLevel::Info,
@@ -304,7 +316,9 @@ impl App {
             Action::StartScan { target, profile, project_id } => {
                 #[cfg(feature = "intelligence")]
                 if let Some(svc) = &state_guard.services {
-                    if let Ok(scan_id) = svc.start_scan(target.clone(), profile.clone(), project_id).await {
+                    if let Ok(scan_id) =
+                        svc.start_scan(target.clone(), profile.clone(), project_id).await
+                    {
                         state_guard.scans_state.active_scan = Some(crate::state::ActiveScanInfo {
                             scan_id,
                             target: target.clone(),
@@ -342,7 +356,8 @@ impl App {
                     let _ = event_tx.send(Event::ScanSelected(id));
                 }
             }
-            Action::RefreshScans => {
+            Action::RefreshScans =>
+            {
                 #[cfg(feature = "intelligence")]
                 if let Some(svc) = &state_guard.services {
                     if let Ok(scans) = svc.get_scans().await {
@@ -430,19 +445,39 @@ impl App {
                 if let Some(finding) = state_guard.findings_state.findings.get(idx) {
                     state_guard.findings_state.detail_view = Some(crate::state::FindingDetail {
                         finding: finding.clone(),
-                        evidence: finding.finding.evidence.iter().map(|e| crate::state::EvidenceDetail {
-                            evidence_type: format!("{:?}", e.evidence_type),
-                            description: e.description.clone(),
-                            data: e.data.clone(),
-                            location: e.location.clone(),
-                        }).collect(),
-                        remediation: finding.finding.remediation.as_ref().map(|r| crate::state::RemediationDetail {
-                            summary: r.summary.clone(),
-                            steps: r.steps.clone(),
-                            code_examples: r.code_examples.iter().map(|ce| format!("{}: {} -> {}", ce.language, ce.vulnerable, ce.fixed)).collect(),
-                            references: r.references.iter().map(|ref_| format!("{}: {}", ref_.title, ref_.url)).collect(),
-                            effort: format!("{:?}", r.effort),
-                            priority: format!("{:?}", r.priority),
+                        evidence: finding
+                            .finding
+                            .evidence
+                            .iter()
+                            .map(|e| crate::state::EvidenceDetail {
+                                evidence_type: format!("{:?}", e.evidence_type),
+                                description: e.description.clone(),
+                                data: e.data.clone(),
+                                location: e.location.clone(),
+                            })
+                            .collect(),
+                        remediation: finding.finding.remediation.as_ref().map(|r| {
+                            crate::state::RemediationDetail {
+                                summary: r.summary.clone(),
+                                steps: r.steps.clone(),
+                                code_examples: r
+                                    .code_examples
+                                    .iter()
+                                    .map(|ce| {
+                                        format!(
+                                            "{}: {} -> {}",
+                                            ce.language, ce.vulnerable, ce.fixed
+                                        )
+                                    })
+                                    .collect(),
+                                references: r
+                                    .references
+                                    .iter()
+                                    .map(|ref_| format!("{}: {}", ref_.title, ref_.url))
+                                    .collect(),
+                                effort: format!("{:?}", r.effort),
+                                priority: format!("{:?}", r.priority),
+                            }
                         }),
                         related_findings: vec![],
                     });
@@ -518,18 +553,23 @@ impl App {
             }
             // Plugin actions
             Action::EnablePlugin(name) => {
-                if let Some(plugin) = state_guard.plugins_state.plugins.iter_mut().find(|p| p.name == name) {
+                if let Some(plugin) =
+                    state_guard.plugins_state.plugins.iter_mut().find(|p| p.name == name)
+                {
                     plugin.enabled = true;
                     let _ = event_tx.send(Event::PluginEnabled(name));
                 }
             }
             Action::DisablePlugin(name) => {
-                if let Some(plugin) = state_guard.plugins_state.plugins.iter_mut().find(|p| p.name == name) {
+                if let Some(plugin) =
+                    state_guard.plugins_state.plugins.iter_mut().find(|p| p.name == name)
+                {
                     plugin.enabled = false;
                     let _ = event_tx.send(Event::PluginDisabled(name));
                 }
             }
-            Action::RefreshPlugins => {
+            Action::RefreshPlugins =>
+            {
                 #[cfg(feature = "intelligence")]
                 if let Some(svc) = &state_guard.services {
                     if let Ok(plugins) = svc.get_plugins().await {
@@ -569,7 +609,9 @@ impl App {
             Action::GenerateReport { report_type, scan_ids, project_ids } => {
                 #[cfg(feature = "intelligence")]
                 if let Some(svc) = &state_guard.services {
-                    if let Ok(report_id) = svc.generate_report(report_type, scan_ids, project_ids).await {
+                    if let Ok(report_id) =
+                        svc.generate_report(report_type, scan_ids, project_ids).await
+                    {
                         state_guard.add_notification(Notification {
                             id: uuid::Uuid::new_v4().to_string(),
                             level: crate::state::NotificationLevel::Info,
@@ -590,7 +632,8 @@ impl App {
                     }
                 }
             }
-            Action::RefreshReports => {
+            Action::RefreshReports =>
+            {
                 #[cfg(feature = "intelligence")]
                 if let Some(svc) = &state_guard.services {
                     if let Ok(reports) = svc.get_reports().await {
@@ -1003,7 +1046,9 @@ impl App {
 
             // Process actions from the action channel
             while let Some(action) = self.action_rx.as_mut().and_then(|rx| rx.try_recv().ok()) {
-                if let Err(e) = Self::process_action(action, &self.state, &self.event_bus.sender()).await {
+                if let Err(e) =
+                    Self::process_action(action, &self.state, &self.event_bus.sender()).await
+                {
                     error!("Action processing error: {}", e);
                 }
             }
@@ -1138,7 +1183,8 @@ impl App {
                     profile: "".to_string(),
                     status: ScanStatus::Completed,
                     findings_count: result.findings.len(),
-                    started_at: chrono::Utc::now() - chrono::Duration::milliseconds(result.duration_ms as i64),
+                    started_at: chrono::Utc::now()
+                        - chrono::Duration::milliseconds(result.duration_ms as i64),
                     completed_at: Some(chrono::Utc::now()),
                     duration_ms: Some(result.duration_ms),
                 });

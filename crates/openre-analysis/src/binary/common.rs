@@ -94,9 +94,10 @@ pub struct SecurityFeatures {
     pub cfi: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum RelroLevel {
+    #[default]
     None,
     Partial,
     Full,
@@ -157,12 +158,6 @@ pub struct Import {
 pub struct Export {
     pub name: String,
     pub address: u64,
-}
-
-impl Default for RelroLevel {
-    fn default() -> Self {
-        RelroLevel::None
-    }
 }
 
 /// Binary identification result

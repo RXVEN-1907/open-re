@@ -10,7 +10,7 @@ keywords = { workspace = true }
 
 [dependencies]
 openre-core = { path = "../openre-core" }
-capstone = { version = "0.13", features = ["full", "std"] }
+capstone = { version = "0.14", features = ["full", "std"] }
 goblin = { workspace = true }
 object = { workspace = true }
 scroll = { workspace = true }

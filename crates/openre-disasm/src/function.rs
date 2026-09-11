@@ -125,6 +125,7 @@ pub struct StackArgument {
 }
 
 /// Function detector using various heuristics
+#[allow(dead_code)]
 pub struct FunctionDetector {
     /// Disassembler for instruction analysis
     disassembler: Disassembler,
@@ -137,16 +138,9 @@ pub struct FunctionDetector {
 impl FunctionDetector {
     /// Create a new function detector
     pub fn new(architecture: Architecture) -> Result<Self> {
-        let config = DisassemblyConfig {
-            architecture,
-            ..Default::default()
-        };
+        let config = DisassemblyConfig { architecture, ..Default::default() };
         let disassembler = Disassembler::new(config)?;
-        Ok(Self {
-            disassembler,
-            architecture,
-            known_signatures: HashMap::new(),
-        })
+        Ok(Self { disassembler, architecture, known_signatures: HashMap::new() })
     }
 
     /// Detect functions in a code section
@@ -194,23 +188,27 @@ impl FunctionDetector {
 
             // Check for common prologue instructions
             let mnemonic = insn.mnemonic.to_lowercase();
-            matches!(mnemonic.as_str(),
-                "push" | "mov" | "sub" | "enter" | "endbr" | "nop"
-            )
+            matches!(mnemonic.as_str(), "push" | "mov" | "sub" | "enter" | "endbr" | "nop")
         } else {
             false
         }
     }
 
     /// Analyze a function starting at the given address
-    fn analyze_function(&mut self, code: &[u8], start_addr: u64, base_address: u64) -> Result<Function> {
+    fn analyze_function(
+        &mut self,
+        code: &[u8],
+        start_addr: u64,
+        _base_address: u64,
+    ) -> Result<Function> {
         let instructions = self.disassemble_function(code, start_addr)?;
 
         if instructions.is_empty() {
             return Err(DisasmError::FunctionDetection("No instructions found".to_string()));
         }
 
-        let end_address = instructions.last().map(|i| i.address + i.size as u64).unwrap_or(start_addr);
+        let end_address =
+            instructions.last().map(|i| i.address + i.size as u64).unwrap_or(start_addr);
 
         // Build CFG
         let cfg = crate::cfg::CfgBuilder::new(start_addr)
@@ -219,7 +217,8 @@ impl FunctionDetector {
             .build()?;
 
         // Detect calling convention
-        let calling_convention = crate::architecture::RegisterSet::calling_convention(self.architecture);
+        let calling_convention =
+            crate::architecture::RegisterSet::calling_convention(self.architecture);
 
         // Analyze stack frame
         let stack_frame = self.analyze_stack_frame(&instructions);
@@ -249,7 +248,9 @@ impl FunctionDetector {
         let mut seen_addresses = std::collections::HashSet::new();
 
         loop {
-            if self.disassembler.config.max_instructions > 0 && instructions.len() >= self.disassembler.config.max_instructions {
+            if self.disassembler.config.max_instructions > 0
+                && instructions.len() >= self.disassembler.config.max_instructions
+            {
                 break;
             }
 
@@ -259,7 +260,8 @@ impl FunctionDetector {
             }
 
             // Find the code slice for current address
-            let offset = (current_addr.saturating_sub(self.disassembler.config.base_address)) as usize;
+            let offset =
+                (current_addr.saturating_sub(self.disassembler.config.base_address)) as usize;
             if offset >= code.len() {
                 break;
             }
@@ -273,7 +275,9 @@ impl FunctionDetector {
                     current_addr = next_addr;
 
                     // Check for function end (ret instruction)
-                    if instructions.last().map_or(false, |i| i.groups.contains(&crate::capstone_wrapper::InsnGroup::Ret)) {
+                    if instructions.last().is_some_and(|i| {
+                        i.groups.contains(&crate::capstone_wrapper::InsnGroup::Ret)
+                    }) {
                         break;
                     }
                 }
@@ -307,7 +311,8 @@ impl FunctionDetector {
         let mut sp_adjustment = 0i64;
         let mut base_pointer = None;
 
-        for insn in instructions.iter().take(20) { // Only check first 20 instructions (prologue)
+        for insn in instructions.iter().take(20) {
+            // Only check first 20 instructions (prologue)
             let mnemonic = insn.mnemonic.to_lowercase();
 
             // Check for stack pointer modification
@@ -327,15 +332,24 @@ impl FunctionDetector {
 
             // Check for base pointer setup
             if mnemonic == "mov" && insn.operands.len() == 2 {
-                if let (crate::disassembler::Operand::Reg(dst), crate::disassembler::Operand::Reg(src)) = (&insn.operands[0], &insn.operands[1]) {
-                    if (dst == "rbp" || dst == "ebp" || dst == "fp") && (src == "rsp" || src == "esp" || src == "sp") {
+                if let (
+                    crate::disassembler::Operand::Reg(dst),
+                    crate::disassembler::Operand::Reg(src),
+                ) = (&insn.operands[0], &insn.operands[1])
+                {
+                    if (dst == "rbp" || dst == "ebp" || dst == "fp")
+                        && (src == "rsp" || src == "esp" || src == "sp")
+                    {
                         base_pointer = Some(dst.clone());
                     }
                 }
             }
 
             // Stop at first non-prologue instruction
-            if !matches!(mnemonic.as_str(), "push" | "mov" | "sub" | "add" | "enter" | "endbr" | "nop") {
+            if !matches!(
+                mnemonic.as_str(),
+                "push" | "mov" | "sub" | "add" | "enter" | "endbr" | "nop"
+            ) {
                 break;
             }
         }
@@ -355,7 +369,11 @@ impl FunctionDetector {
     }
 
     /// Detect function signature from instructions and calling convention
-    fn detect_signature(&self, instructions: &[Instruction], convention: &CallingConvention) -> Option<FunctionSignature> {
+    fn detect_signature(
+        &self,
+        instructions: &[Instruction],
+        convention: &CallingConvention,
+    ) -> Option<FunctionSignature> {
         let arg_regs = crate::architecture::RegisterSet::argument_registers(*convention);
         let mut parameters = Vec::new();
 
@@ -409,10 +427,12 @@ mod tests {
 
     #[test]
     fn test_calling_convention_args() {
-        let args = crate::architecture::RegisterSet::argument_registers(CallingConvention::SystemVAmd64);
+        let args =
+            crate::architecture::RegisterSet::argument_registers(CallingConvention::SystemVAmd64);
         assert_eq!(args, vec!["rdi", "rsi", "rdx", "rcx", "r8", "r9"]);
 
-        let args = crate::architecture::RegisterSet::argument_registers(CallingConvention::MicrosoftX64);
+        let args =
+            crate::architecture::RegisterSet::argument_registers(CallingConvention::MicrosoftX64);
         assert_eq!(args, vec!["rcx", "rdx", "r8", "r9"]);
     }
 }

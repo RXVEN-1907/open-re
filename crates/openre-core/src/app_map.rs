@@ -7,7 +7,6 @@ use crate::ids::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use url::Url;
 
 /// Core Application Map structure representing a web application's attack surface
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -313,12 +312,18 @@ pub enum AuthRequirement {
 pub enum SensitivityLevel {
     /// Public information
     Public,
+    /// Internal use only
+    Internal,
+    /// Confidential information
+    Confidential,
+    /// Restricted access
+    Restricted,
+    /// Top secret / highly classified
+    TopSecret,
     /// Authenticated user access
     Authenticated,
     /// Admin access
     Admin,
-    /// Internal/internal-only
-    Internal,
     /// Highly sensitive (PII, secrets, etc.)
     Critical,
 }

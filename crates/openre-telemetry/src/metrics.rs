@@ -1,6 +1,6 @@
 //! Metrics collection for open-re
 
-use metrics::{increment_counter, gauge, histogram};
+use metrics::{gauge, histogram, increment_counter};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use openre_config::MetricsConfig;
 use openre_core::error::OpenreResult as Result;
@@ -33,7 +33,7 @@ impl Drop for MetricsGuard {
 }
 
 /// Increment HTTP request counter
-pub fn record_http_request(method: &str, status: u16, duration: std::time::Duration) {
+pub fn record_http_request(_method: &str, _status: u16, duration: std::time::Duration) {
     increment_counter!("http_requests_total");
     histogram!("http_request_duration_seconds", duration.as_secs_f64());
 }
@@ -66,16 +66,16 @@ pub fn record_job_cancelled() {
 }
 
 /// Record stage metrics
-pub fn record_stage_started(stage: &str) {
+pub fn record_stage_started(_stage: &str) {
     increment_counter!("stage_executions_total");
 }
 
-pub fn record_stage_completed(stage: &str, duration: std::time::Duration) {
+pub fn record_stage_completed(_stage: &str, duration: std::time::Duration) {
     increment_counter!("stage_executions_total");
     histogram!("stage_duration_seconds", duration.as_secs_f64());
 }
 
-pub fn record_stage_failed(stage: &str, duration: std::time::Duration) {
+pub fn record_stage_failed(_stage: &str, duration: std::time::Duration) {
     increment_counter!("stage_executions_total");
     histogram!("stage_duration_seconds", duration.as_secs_f64());
 }
@@ -110,7 +110,7 @@ pub fn record_worker_cpu(percent: f32) {
 }
 
 /// Record queue metrics
-pub fn record_queue_depth(priority: &str, depth: usize) {
+pub fn record_queue_depth(_priority: &str, depth: usize) {
     gauge!("queue_depth", depth as f64);
 }
 
@@ -120,8 +120,8 @@ pub fn record_dlq_size(size: usize) {
 
 /// Record AI metrics
 pub fn record_ai_request(
-    task: &str,
-    provider: &str,
+    _task: &str,
+    _provider: &str,
     duration: std::time::Duration,
     tokens: u32,
     cached: bool,

@@ -3,16 +3,12 @@
 use crate::{error::IntelligenceError, IntelligenceResult};
 use openre_core::app_map::HttpMethod;
 use openre_core::attack_path::{
-    AttackComplexity, AttackNodeType, AttackPath, AttackPathEdge, AttackPathNode, AttackStage,
-    AttackTechnique, AttackVector, BusinessImpact, DetectionMethod, DetectionOpportunity,
-    EntryPoint, EvidenceRef, ExploitabilityInfo, FalsePositiveLikelihood, ImpactAssessment,
-    ImpactDetail, ImpactLevel, MitigationEffectiveness, MitigationPriority,
-    MitigationRecommendation, Prerequisite, PrerequisiteType, PrivilegeLevel, PrivilegesRequired,
-    RemediationEffort, RiskLevel, RiskScore, RiskScoreBreakdown, Scope, UserInteraction,
+    AttackComplexity, AttackNodeType, AttackPath, AttackPathEdge, AttackPathNode, AttackTechnique,
+    AttackVector, BusinessImpact, EntryPoint, EvidenceRef, ExploitabilityInfo, ImpactAssessment,
+    ImpactDetail, ImpactLevel, PrivilegeLevel, PrivilegesRequired, RiskLevel, Scope,
+    UserInteraction,
 };
-use openre_core::ids::{
-    AssetId, AttackPathId, EntryPointId, EvidenceId, FindingId, NodeId, RelationshipId,
-};
+use openre_core::ids::{AttackPathId, EntryPointId, EvidenceId, FindingId, NodeId, ScanId};
 use openre_core::relationships::{
     EvidenceSource, EvidenceType as RelationshipEvidenceType, FindingRelationship,
     FindingRelationshipGraph, FindingRelationshipType, RelationshipEvidence, RiskImpact,
@@ -358,7 +354,7 @@ impl AttackPathBuilder {
     }
 
     /// Deduplicate similar attack paths
-    fn deduplicate_paths(&self, mut paths: Vec<AttackPath>) -> Vec<AttackPath> {
+    fn deduplicate_paths(&self, paths: Vec<AttackPath>) -> Vec<AttackPath> {
         let mut unique = Vec::new();
         let mut seen = HashSet::new();
 
@@ -512,10 +508,10 @@ mod tests {
     use openre_core::attack_path::{
         AttackPath, AttackPathNode, RiskLevel, RiskScore, RiskScoreBreakdown,
     };
-    use openre_core::ids::{FindingId, NodeId, RelationshipId, ScanId};
+    use openre_core::ids::NodeId;
     use openre_core::relationships::{
-        EvidenceSource, FindingRelationship, FindingRelationshipGraph, FindingRelationshipType,
-        RelationshipEvidence, RiskImpact, RiskLevelChange,
+        FindingRelationship, FindingRelationshipGraph, FindingRelationshipType, RiskImpact,
+        RiskLevelChange,
     };
     use openre_core::result::{Category, Confidence, Finding, Severity};
     use uuid::Uuid;
@@ -526,7 +522,20 @@ mod tests {
         severity: Severity,
         target: &str,
         risk_score: Option<u8>,
+        make_public: bool,
     ) -> Finding {
+        let mut evidence = Vec::new();
+        if make_public {
+            evidence.push(openre_core::result::Evidence::new(
+                openre_core::result::EvidenceType::HttpRequest,
+                "Test evidence".to_string(),
+            ));
+            // Set location to make it appear public
+            if let Some(ev) = evidence.last_mut() {
+                ev.location = Some("/".to_string());
+            }
+        }
+
         Finding {
             id: FindingId::new(),
             title: title.to_string(),
@@ -536,7 +545,7 @@ mod tests {
             category,
             target: target.to_string(),
             target_type: "web".to_string(),
-            evidence: Vec::new(),
+            evidence,
             references: Vec::new(),
             plugin_source: "test".to_string(),
             plugin_version: "1.0".to_string(),
@@ -569,6 +578,7 @@ mod tests {
             Severity::Low,
             "https://example.com",
             Some(20),
+            true, // Make this finding public to serve as entry point
         );
 
         let finding2 = create_test_finding(
@@ -577,6 +587,7 @@ mod tests {
             Severity::Critical,
             "https://example.com/api",
             Some(90),
+            false,
         );
 
         let finding3 = create_test_finding(
@@ -585,6 +596,7 @@ mod tests {
             Severity::High,
             "https://example.com/admin",
             Some(80),
+            false,
         );
 
         let mut relationships = FindingRelationshipGraph::new();
@@ -644,7 +656,7 @@ mod tests {
         // Should have at least one path from entry to impact
         let path = &paths[0];
         assert!(path.nodes.len() >= 2);
-        assert!(path.edges.len() >= 1);
+        assert!(!path.edges.is_empty());
     }
 
     fn create_test_attack_path(score: u8, level: RiskLevel, choke_points: Vec<bool>) -> AttackPath {
@@ -767,6 +779,7 @@ mod tests {
                 Severity::Critical,
                 "https://example.com",
                 Some(90),
+                false,
             ),
             create_test_finding(
                 "XSS",
@@ -774,6 +787,7 @@ mod tests {
                 Severity::High,
                 "https://example.com",
                 Some(70),
+                false,
             ),
         ];
 

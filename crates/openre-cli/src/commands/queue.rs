@@ -1,15 +1,15 @@
 //! Job queue management commands
 
-use colored::Colorize;
+use crate::{print_output, CliError, Context, OutputFormat, Result};
 use clap::{Args, Subcommand, ValueEnum};
-use openre_core::traits::JobType;
+use colored::Colorize;
+use openre_config::{Config, QueueConfig, RedisConfig};
 use openre_core::ids::JobId;
-use openre_queue::{Job, JobStatus, Priority, QueueManager};
+use openre_core::traits::JobType;
 use openre_queue::queue_manager::QueueStats;
-use openre_config::{Config, RedisConfig, QueueConfig};
-use crate::{Context, CliError, print_output, OutputFormat, Result};
+use openre_queue::{Job, JobStatus, Priority, QueueManager};
 use std::path::PathBuf;
-use tabled::{Table, settings::Style};
+use tabled::{settings::Style, Table};
 use tracing::{info, warn};
 
 #[derive(Subcommand, Debug)]
@@ -266,7 +266,8 @@ impl QueueCommands {
 
 async fn create_queue_manager(ctx: &Context) -> Result<QueueManager> {
     // Get Redis config from context/config
-    let config = Config::load().map_err(|e| CliError::Internal(format!("Failed to load config: {}", e)))?;
+    let config =
+        Config::load().map_err(|e| CliError::Internal(format!("Failed to load config: {}", e)))?;
     let redis_config = config.redis;
 
     let queue_config = QueueConfig::default();
@@ -280,8 +281,7 @@ async fn create_queue_manager(ctx: &Context) -> Result<QueueManager> {
 async fn submit_job(queue_manager: QueueManager, ctx: Context, args: SubmitArgs) -> Result<()> {
     let payload: serde_json::Value = if args.payload.starts_with('@') {
         let path = &args.payload[1..];
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| CliError::Io(e))?;
+        let content = std::fs::read_to_string(path).map_err(|e| CliError::Io(e))?;
         serde_json::from_str(&content)
             .map_err(|e| CliError::Internal(format!("Invalid JSON in payload file: {}", e)))?
     } else {
@@ -289,9 +289,8 @@ async fn submit_job(queue_manager: QueueManager, ctx: Context, args: SubmitArgs)
             .map_err(|e| CliError::Internal(format!("Invalid JSON payload: {}", e)))?
     };
 
-    let mut job = Job::new(args.job_type.into())
-        .with_payload(payload)
-        .with_priority(args.priority.into());
+    let mut job =
+        Job::new(args.job_type.into()).with_payload(payload).with_priority(args.priority.into());
 
     if let Some(max_attempts) = args.max_attempts.checked_sub(1) {
         job.retry_policy = Some(openre_queue::JobRetryPolicy {
@@ -305,18 +304,23 @@ async fn submit_job(queue_manager: QueueManager, ctx: Context, args: SubmitArgs)
     }
 
     if let Some(project_id) = args.project_id {
-        job.project_id = Some(project_id.parse()
-            .map_err(|e| CliError::Internal(format!("Invalid project ID: {}", e)))?);
+        job.project_id = Some(
+            project_id
+                .parse()
+                .map_err(|e| CliError::Internal(format!("Invalid project ID: {}", e)))?,
+        );
     }
 
     if let Some(file_id) = args.file_id {
-        job.file_id = Some(file_id.parse()
-            .map_err(|e| CliError::Internal(format!("Invalid file ID: {}", e)))?);
+        job.file_id = Some(
+            file_id.parse().map_err(|e| CliError::Internal(format!("Invalid file ID: {}", e)))?,
+        );
     }
 
     if let Some(user_id) = args.user_id {
-        job.user_id = Some(user_id.parse()
-            .map_err(|e| CliError::Internal(format!("Invalid user ID: {}", e)))?);
+        job.user_id = Some(
+            user_id.parse().map_err(|e| CliError::Internal(format!("Invalid user ID: {}", e)))?,
+        );
     }
 
     if let Some(timeout) = args.timeout {
@@ -335,11 +339,15 @@ async fn submit_job(queue_manager: QueueManager, ctx: Context, args: SubmitArgs)
             .with_timezone(&chrono::Utc);
         job.scheduled_at = Some(run_at);
         job.status = JobStatus::Scheduled;
-        let job_id = queue_manager.enqueue_scheduled(job, run_at).await
+        let job_id = queue_manager
+            .enqueue_scheduled(job, run_at)
+            .await
             .map_err(|e| CliError::Internal(format!("Failed to schedule job: {}", e)))?;
         println!("{} Job scheduled with ID: {}", "✓".green().bold(), job_id);
     } else {
-        let job_id = queue_manager.enqueue(job).await
+        let job_id = queue_manager
+            .enqueue(job)
+            .await
             .map_err(|e| CliError::Internal(format!("Failed to submit job: {}", e)))?;
         println!("{} Job submitted with ID: {}", "✓".green().bold(), job_id);
     }
@@ -348,28 +356,35 @@ async fn submit_job(queue_manager: QueueManager, ctx: Context, args: SubmitArgs)
 }
 
 async fn get_job_status(queue_manager: QueueManager, ctx: Context, args: StatusArgs) -> Result<()> {
-    let job_id = args.job_id.parse()
-        .map_err(|e| CliError::Internal(format!("Invalid job ID: {}", e)))?;
+    let job_id =
+        args.job_id.parse().map_err(|e| CliError::Internal(format!("Invalid job ID: {}", e)))?;
 
-    let status = queue_manager.get_job_status(job_id).await
+    let status = queue_manager
+        .get_job_status(job_id)
+        .await
         .map_err(|e| CliError::Internal(format!("Failed to get job status: {}", e)))?;
 
     match status {
         Some(s) => {
-            let row = JobStatusRow {
-                job_id: job_id.to_string(),
-                status: format!("{:?}", s),
-            };
+            let row = JobStatusRow { job_id: job_id.to_string(), status: format!("{:?}", s) };
             match args.format.into() {
                 OutputFormat::Table => {
                     let mut table = Table::new(vec![row]);
                     println!("{}", table.with(Style::modern()));
                 }
                 OutputFormat::Json => {
-                    print_output(&serde_json::json!({"job_id": job_id.to_string(), "status": format!("{:?}", s)}), OutputFormat::Json, None)?;
+                    print_output(
+                        &serde_json::json!({"job_id": job_id.to_string(), "status": format!("{:?}", s)}),
+                        OutputFormat::Json,
+                        None,
+                    )?;
                 }
                 OutputFormat::Yaml => {
-                    print_output(&serde_json::json!({"job_id": job_id.to_string(), "status": format!("{:?}", s)}), OutputFormat::Yaml, None)?;
+                    print_output(
+                        &serde_json::json!({"job_id": job_id.to_string(), "status": format!("{:?}", s)}),
+                        OutputFormat::Yaml,
+                        None,
+                    )?;
                 }
                 _ => {
                     println!("Job {}: {:?}", job_id, s);
@@ -385,10 +400,12 @@ async fn get_job_status(queue_manager: QueueManager, ctx: Context, args: StatusA
 }
 
 async fn cancel_job(queue_manager: QueueManager, ctx: Context, args: CancelArgs) -> Result<()> {
-    let job_id = args.job_id.parse()
-        .map_err(|e| CliError::Internal(format!("Invalid job ID: {}", e)))?;
+    let job_id =
+        args.job_id.parse().map_err(|e| CliError::Internal(format!("Invalid job ID: {}", e)))?;
 
-    let cancelled = queue_manager.cancel(job_id).await
+    let cancelled = queue_manager
+        .cancel(job_id)
+        .await
         .map_err(|e| CliError::Internal(format!("Failed to cancel job: {}", e)))?;
 
     if cancelled {
@@ -401,10 +418,12 @@ async fn cancel_job(queue_manager: QueueManager, ctx: Context, args: CancelArgs)
 }
 
 async fn retry_job(queue_manager: QueueManager, ctx: Context, args: RetryArgs) -> Result<()> {
-    let job_id = args.job_id.parse()
-        .map_err(|e| CliError::Internal(format!("Invalid job ID: {}", e)))?;
+    let job_id =
+        args.job_id.parse().map_err(|e| CliError::Internal(format!("Invalid job ID: {}", e)))?;
 
-    queue_manager.retry_job(job_id).await
+    queue_manager
+        .retry_job(job_id)
+        .await
         .map_err(|e| CliError::Internal(format!("Failed to retry job: {}", e)))?;
 
     println!("{} Job {} re-queued for retry", "✓".green().bold(), job_id);
@@ -413,10 +432,12 @@ async fn retry_job(queue_manager: QueueManager, ctx: Context, args: RetryArgs) -
 }
 
 async fn get_job_logs(queue_manager: QueueManager, ctx: Context, args: LogsArgs) -> Result<()> {
-    let job_id = args.job_id.parse()
-        .map_err(|e| CliError::Internal(format!("Invalid job ID: {}", e)))?;
+    let job_id =
+        args.job_id.parse().map_err(|e| CliError::Internal(format!("Invalid job ID: {}", e)))?;
 
-    let logs = queue_manager.get_job_logs(job_id, Some(args.limit)).await
+    let logs = queue_manager
+        .get_job_logs(job_id, Some(args.limit))
+        .await
         .map_err(|e| CliError::Internal(format!("Failed to get job logs: {}", e)))?;
 
     if logs.is_empty() {
@@ -426,11 +447,14 @@ async fn get_job_logs(queue_manager: QueueManager, ctx: Context, args: LogsArgs)
 
     match args.format.into() {
         OutputFormat::Table => {
-            let rows: Vec<LogRow> = logs.into_iter().map(|log| LogRow {
-                timestamp: log.timestamp.format("%Y-%m-%d %H:%M:%S%.3f").to_string(),
-                level: format!("{:?}", log.level),
-                message: log.message,
-            }).collect();
+            let rows: Vec<LogRow> = logs
+                .into_iter()
+                .map(|log| LogRow {
+                    timestamp: log.timestamp.format("%Y-%m-%d %H:%M:%S%.3f").to_string(),
+                    level: format!("{:?}", log.level),
+                    message: log.message,
+                })
+                .collect();
 
             let mut table = Table::new(rows);
             println!("{}", table.with(Style::modern()));
@@ -443,7 +467,12 @@ async fn get_job_logs(queue_manager: QueueManager, ctx: Context, args: LogsArgs)
         }
         _ => {
             for log in logs {
-                println!("[{}] {:?}: {}", log.timestamp.format("%H:%M:%S%.3f"), log.level, log.message);
+                println!(
+                    "[{}] {:?}: {}",
+                    log.timestamp.format("%H:%M:%S%.3f"),
+                    log.level,
+                    log.message
+                );
             }
         }
     }
@@ -451,8 +480,14 @@ async fn get_job_logs(queue_manager: QueueManager, ctx: Context, args: LogsArgs)
     Ok(())
 }
 
-async fn show_queue_stats(queue_manager: QueueManager, ctx: Context, args: StatsArgs) -> Result<()> {
-    let stats = queue_manager.get_stats().await
+async fn show_queue_stats(
+    queue_manager: QueueManager,
+    ctx: Context,
+    args: StatsArgs,
+) -> Result<()> {
+    let stats = queue_manager
+        .get_stats()
+        .await
         .map_err(|e| CliError::Internal(format!("Failed to get queue stats: {}", e)))?;
 
     match args.format.into() {
@@ -468,7 +503,12 @@ async fn show_queue_stats(queue_manager: QueueManager, ctx: Context, args: Stats
             if !stats.jobs_queued_by_priority.is_empty() {
                 println!("\n{}", "By Priority:".bold());
                 for (priority, count) in &stats.jobs_queued_by_priority {
-                    println!("  {} {}: {}", priority.as_str().bold(), " ".repeat(8 - priority.as_str().len()), count);
+                    println!(
+                        "  {} {}: {}",
+                        priority.as_str().bold(),
+                        " ".repeat(8 - priority.as_str().len()),
+                        count
+                    );
                 }
             }
         }
@@ -487,7 +527,9 @@ async fn show_queue_stats(queue_manager: QueueManager, ctx: Context, args: Stats
 async fn list_jobs(queue_manager: QueueManager, ctx: Context, args: ListArgs) -> Result<()> {
     // For now, we'll get stats and show a summary
     // In a full implementation, we'd query the job results store
-    let stats = queue_manager.get_stats().await
+    let stats = queue_manager
+        .get_stats()
+        .await
         .map_err(|e| CliError::Internal(format!("Failed to get queue stats: {}", e)))?;
 
     println!("\n{}", "═".repeat(60).dimmed());
@@ -501,11 +543,19 @@ async fn list_jobs(queue_manager: QueueManager, ctx: Context, args: ListArgs) ->
     if !stats.jobs_queued_by_priority.is_empty() {
         println!("\n{}", "By Priority:".bold());
         for (priority, count) in &stats.jobs_queued_by_priority {
-            println!("  {} {}: {}", priority.as_str().bold(), " ".repeat(8 - priority.as_str().len()), count);
+            println!(
+                "  {} {}: {}",
+                priority.as_str().bold(),
+                " ".repeat(8 - priority.as_str().len()),
+                count
+            );
         }
     }
 
-    println!("\n{} Use 'openre queue status <JOB_ID>' for details on a specific job.", "💡".dimmed());
+    println!(
+        "\n{} Use 'openre queue status <JOB_ID>' for details on a specific job.",
+        "💡".dimmed()
+    );
 
     Ok(())
 }

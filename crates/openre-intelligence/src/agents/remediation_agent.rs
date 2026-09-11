@@ -1,7 +1,7 @@
 //! Remediation agent implementation
 
+use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
 use crate::agents::context::*;
-use crate::agents::agent_trait::{AgentContext, SecurityAgent, BaseAgent};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
 use crate::remediation::RemediationVerifier;
 use async_trait::async_trait;
@@ -45,7 +45,11 @@ impl SecurityAgent for RemediationAgent {
         self.base.name()
     }
 
-    async fn execute(&self, input: Self::Input, _ctx: AgentContext) -> anyhow::Result<AgentResult<Self::Output>> {
+    async fn execute(
+        &self,
+        input: Self::Input,
+        _ctx: AgentContext,
+    ) -> anyhow::Result<AgentResult<Self::Output>> {
         let started_at = std::time::Instant::now();
 
         let mut suggestions = Vec::new();
@@ -125,10 +129,7 @@ impl SecurityAgent for RemediationAgent {
             });
         }
 
-        let output = RemediationOutput {
-            suggestions,
-            verification,
-        };
+        let output = RemediationOutput { suggestions, verification };
 
         let duration_ms = started_at.elapsed().as_millis() as u64;
         Ok(AgentResult::success(output, duration_ms))

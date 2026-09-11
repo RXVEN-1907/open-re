@@ -17,11 +17,17 @@ use tracing::{info, warn};
 pub struct ObjectStore;
 
 impl ObjectStore {
-    pub fn new() -> Arc<Self> { Arc::new(Self) }
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self)
+    }
 
-    pub async fn put(&self, _path: &str, _data: Vec<u8>) -> Result<()> { Ok(()) }
+    pub async fn put(&self, _path: &str, _data: Vec<u8>) -> Result<()> {
+        Ok(())
+    }
 
-    pub async fn get_object(&self, _file_id: FileId) -> Result<Option<Vec<u8>>> { Ok(None) }
+    pub async fn get_object(&self, _file_id: FileId) -> Result<Option<Vec<u8>>> {
+        Ok(None)
+    }
 }
 
 /// Binary upload service
@@ -162,6 +168,7 @@ impl BinaryUploadService {
 }
 
 /// Calculate file hashes
+#[allow(unused_imports)]
 fn calculate_hashes(data: &[u8]) -> FileHashes {
     use md5::{Digest, Md5};
     use sha1::{Digest as Sha1Digest, Sha1};

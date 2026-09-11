@@ -176,7 +176,7 @@ impl From<EnhancedCorrelation> for openre_core::relationships::FindingRelationsh
 
         openre_core::relationships::FindingRelationship {
             id: openre_core::ids::RelationshipId::new(),
-            source_finding: ec.finding_ids.get(0).copied().unwrap_or_default(),
+            source_finding: ec.finding_ids.first().copied().unwrap_or_default(),
             target_finding: ec.finding_ids.get(1).copied().unwrap_or_default(),
             relationship_type,
             explanation: ec.description,

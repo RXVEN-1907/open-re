@@ -1,8 +1,8 @@
 //! Stub AI types (replacing openre-ai)
 
-use thiserror::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use thiserror::Error;
 
 /// AI provider type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
@@ -97,11 +97,21 @@ impl AiClient {
         })
     }
 
-    pub async fn explain(&self, _finding: &crate::intelligence_stubs::Finding, _detail: ExplainDetail, _audience: Audience) -> anyhow::Result<String> {
+    pub async fn explain(
+        &self,
+        _finding: &crate::intelligence_stubs::Finding,
+        _detail: ExplainDetail,
+        _audience: Audience,
+    ) -> anyhow::Result<String> {
         Ok("AI explanation not implemented - requires openre-ai crate".to_string())
     }
 
-    pub async fn remediate(&self, _finding: &crate::intelligence_stubs::Finding, _fix_type: FixType, _language: Option<&str>) -> anyhow::Result<String> {
+    pub async fn remediate(
+        &self,
+        _finding: &crate::intelligence_stubs::Finding,
+        _fix_type: FixType,
+        _language: Option<&str>,
+    ) -> anyhow::Result<String> {
         Ok("AI remediation not implemented - requires openre-ai crate".to_string())
     }
 
@@ -128,7 +138,11 @@ impl AiClient {
         ])
     }
 
-    pub async fn test_connection(&self, _provider: Option<AiProvider>, _model: Option<&str>) -> anyhow::Result<ConnectionTestResult> {
+    pub async fn test_connection(
+        &self,
+        _provider: Option<AiProvider>,
+        _model: Option<&str>,
+    ) -> anyhow::Result<ConnectionTestResult> {
         Ok(ConnectionTestResult {
             success: false,
             provider: format!("{:?}", self.provider),

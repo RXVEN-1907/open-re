@@ -7,7 +7,9 @@ use std::collections::HashMap;
 use utoipa::ToSchema;
 
 /// Severity levels for findings
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     /// Informational - no direct security impact
@@ -74,7 +76,9 @@ impl std::str::FromStr for Severity {
 }
 
 /// Confidence levels for findings
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum Confidence {
     /// Very low confidence - speculative
@@ -607,7 +611,9 @@ pub enum RemediationEffort {
 }
 
 /// Remediation priority
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum RemediationPriority {
     /// Immediate - critical risk
@@ -665,6 +671,8 @@ pub enum AttackVector {
 pub enum AttackComplexity {
     /// Low complexity
     Low,
+    /// Medium complexity
+    Medium,
     /// High complexity
     High,
 }

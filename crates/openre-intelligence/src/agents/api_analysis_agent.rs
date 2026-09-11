@@ -1,10 +1,10 @@
 //! API Analysis agent implementation
 
+use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
 use crate::agents::context::*;
-use crate::agents::agent_trait::{AgentContext, SecurityAgent, BaseAgent};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
-use openre_core::ids::AgentId;
 use async_trait::async_trait;
+use openre_core::ids::AgentId;
 use openre_core::result::Finding;
 use std::sync::Arc;
 
@@ -42,7 +42,11 @@ impl SecurityAgent for ApiAnalysisAgent {
         self.base.name()
     }
 
-    async fn execute(&self, input: Self::Input, _ctx: AgentContext) -> anyhow::Result<AgentResult<Self::Output>> {
+    async fn execute(
+        &self,
+        _input: Self::Input,
+        _ctx: AgentContext,
+    ) -> anyhow::Result<AgentResult<Self::Output>> {
         let started_at = std::time::Instant::now();
 
         // In a real implementation, this would:

@@ -1,11 +1,13 @@
 //! Binary analysis commands
 
-use colored::Colorize;
+use crate::analysis_stubs::{
+    BinaryAnalyzer, BinaryFormat, BinaryInfo, Disassembly, Function, PipelineResult, PipelineStage,
+};
+use crate::{print_output, CliError, Context, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
-use crate::analysis_stubs::{BinaryAnalyzer, BinaryFormat, PipelineStage, BinaryInfo, Function, Disassembly, PipelineResult};
-use crate::{Context, CliError, print_output, OutputFormat};
+use colored::Colorize;
 use std::path::PathBuf;
-use tabled::{Table, settings::Style};
+use tabled::{settings::Style, Table};
 
 #[derive(Subcommand, Debug)]
 pub enum AnalyzeCommands {
@@ -40,7 +42,7 @@ struct AnalyzeArgs {
 
     /// Force binary format (auto-detected if not specified)
     #[arg(long, value_enum)]
-    format: Option<BinaryFormatArg>,
+    binary_format: Option<BinaryFormatArg>,
 
     /// Output file path
     #[arg(short, long)]
@@ -58,7 +60,7 @@ struct StringsArgs {
 
     /// Force binary format
     #[arg(long, value_enum)]
-    format: Option<BinaryFormatArg>,
+    binary_format: Option<BinaryFormatArg>,
 
     /// Output file path
     #[arg(short, long)]
@@ -80,7 +82,7 @@ struct FunctionsArgs {
 
     /// Force binary format
     #[arg(long, value_enum)]
-    format: Option<BinaryFormatArg>,
+    binary_format: Option<BinaryFormatArg>,
 
     /// Output file path
     #[arg(short, long)]
@@ -114,7 +116,7 @@ struct DisasmArgs {
 
     /// Force binary format
     #[arg(long, value_enum)]
-    format: Option<BinaryFormatArg>,
+    binary_format: Option<BinaryFormatArg>,
 
     /// Output file path
     #[arg(short, long)]
@@ -132,7 +134,7 @@ struct DecompileArgs {
 
     /// Force binary format
     #[arg(long, value_enum)]
-    format: Option<BinaryFormatArg>,
+    binary_format: Option<BinaryFormatArg>,
 
     /// Output file path
     #[arg(short, long)]
@@ -150,7 +152,7 @@ struct PipelineArgs {
 
     /// Force binary format
     #[arg(long, value_enum)]
-    format: Option<BinaryFormatArg>,
+    binary_format: Option<BinaryFormatArg>,
 
     /// Output file path
     #[arg(short, long)]
@@ -198,7 +200,8 @@ impl AnalyzeCommands {
 }
 
 async fn run_info(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
@@ -211,7 +214,8 @@ async fn run_info(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
 }
 
 async fn run_symbols(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
@@ -224,7 +228,8 @@ async fn run_symbols(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
 }
 
 async fn run_imports(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
@@ -237,7 +242,8 @@ async fn run_imports(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
 }
 
 async fn run_exports(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
@@ -250,7 +256,8 @@ async fn run_exports(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
 }
 
 async fn run_sections(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
@@ -263,7 +270,8 @@ async fn run_sections(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
 }
 
 async fn run_segments(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Analyzing {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
@@ -276,7 +284,8 @@ async fn run_segments(ctx: Context, args: AnalyzeArgs) -> Result<(), CliError> {
 }
 
 async fn run_strings(ctx: Context, args: StringsArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Extracting strings from {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
@@ -289,22 +298,30 @@ async fn run_strings(ctx: Context, args: StringsArgs) -> Result<(), CliError> {
 }
 
 async fn run_functions(ctx: Context, args: FunctionsArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Listing functions in {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
-    let functions: Vec<crate::analysis_stubs::Function> = analyzer.functions(args.filter.as_deref(), args.details).await?;
+    let functions: Vec<crate::analysis_stubs::Function> =
+        analyzer.functions(args.filter.as_deref(), args.details).await?;
 
     spinner.finish_and_clear();
 
     if ctx.format == OutputFormat::Table && !functions.is_empty() {
         let mut table = Table::new(
-            functions.iter().map(|f| FunctionRow {
-                name: f.name.clone(),
-                address: format!("0x{:x}", f.address),
-                size: f.size as usize,
-                complexity: f.complexity.map(|c| c.to_string()).unwrap_or_else(|| "-".to_string()),
-            }).collect::<Vec<_>>()
+            functions
+                .iter()
+                .map(|f| FunctionRow {
+                    name: f.name.clone(),
+                    address: format!("0x{:x}", f.address),
+                    size: f.size as usize,
+                    complexity: f
+                        .complexity
+                        .map(|c| c.to_string())
+                        .unwrap_or_else(|| "-".to_string()),
+                })
+                .collect::<Vec<_>>(),
         );
         table.with(Style::modern());
         println!("{}", table);
@@ -315,7 +332,8 @@ async fn run_functions(ctx: Context, args: FunctionsArgs) -> Result<(), CliError
 }
 
 async fn run_disasm(ctx: Context, args: DisasmArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Disassembling {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
@@ -338,7 +356,11 @@ async fn run_disasm(ctx: Context, args: DisasmArgs) -> Result<(), CliError> {
             println!("{:>16}  {}", format!("0x{:x}", insn.address).dimmed(), insn.mnemonic);
             if args.bytes {
                 if let Some(bytes) = &insn.bytes {
-                    println!("{:>16}  {}", "".dimmed(), bytes.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" "));
+                    println!(
+                        "{:>16}  {}",
+                        "".dimmed(),
+                        bytes.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ")
+                    );
                 }
             }
         }
@@ -349,7 +371,8 @@ async fn run_disasm(ctx: Context, args: DisasmArgs) -> Result<(), CliError> {
 }
 
 async fn run_decompile(ctx: Context, args: DecompileArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let spinner = ctx.spinner(format!("Decompiling function in {}...", args.file.display()));
 
     let analyzer = BinaryAnalyzer::open(&args.file, format).await?;
@@ -366,7 +389,8 @@ async fn run_decompile(ctx: Context, args: DecompileArgs) -> Result<(), CliError
 }
 
 async fn run_pipeline(ctx: Context, args: PipelineArgs) -> Result<(), CliError> {
-    let format = args.format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
+    let format =
+        args.binary_format.map(|f| f.into()).unwrap_or(crate::analysis_stubs::BinaryFormat::Auto);
     let stages: Vec<_> = args.stages.iter().cloned().map(|s| s.into()).collect();
 
     let spinner = ctx.spinner(format!("Running analysis pipeline on {}...", args.file.display()));

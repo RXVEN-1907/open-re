@@ -3,18 +3,13 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ScanProfile {
     Quick,
+    #[default]
     Standard,
     Full,
-}
-
-impl Default for ScanProfile {
-    fn default() -> Self {
-        ScanProfile::Standard
-    }
 }
 
 impl std::fmt::Display for ScanProfile {

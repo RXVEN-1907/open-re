@@ -1,12 +1,10 @@
 //! TUI Enhancements - Developer experience improvements for the terminal interface
 
-use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use crate::types::*;
 use colored::*;
-use openre_core::ids::FindingId;
 use openre_core::result::{Category, Confidence, Finding, Severity};
 use std::collections::HashMap;
 use std::io::Write as _;
-use tracing::debug;
 
 /// Configuration for TUI enhancements
 #[derive(Debug, Clone)]
@@ -50,6 +48,12 @@ impl Default for TuiConfig {
 /// TUI enhancement manager for improved developer experience
 pub struct TuiEnhancer {
     config: TuiConfig,
+}
+
+impl Default for TuiEnhancer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TuiEnhancer {
@@ -535,7 +539,7 @@ impl TuiEnhancer {
 
         output.push_str("🏷️  Top Categories:\n");
         let mut sorted_categories: Vec<(&Category, usize)> = category_counts.into_iter().collect();
-        sorted_categories.sort_by(|a, b| b.1.cmp(&a.1));
+        sorted_categories.sort_by_key(|b| std::cmp::Reverse(b.1));
 
         for (category, count) in sorted_categories.iter().take(5) {
             output.push_str(&format!("   {:?}: {}\n", category, count));

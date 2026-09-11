@@ -7,35 +7,25 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Job priority levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Priority {
     Low = 0,
+    #[default]
     Default = 1,
     High = 2,
     Critical = 3,
 }
 
-impl Default for Priority {
-    fn default() -> Self {
-        Priority::Default
-    }
-}
-
 /// Job status
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum JobStatus {
+    #[default]
     Pending,
     Running,
     Completed,
     Failed,
     Cancelled,
     Retrying,
-}
-
-impl Default for JobStatus {
-    fn default() -> Self {
-        JobStatus::Pending
-    }
 }
 
 /// Job type

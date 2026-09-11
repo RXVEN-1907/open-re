@@ -1,11 +1,10 @@
 //! Reporting agent implementation
 
+use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
 use crate::agents::context::*;
-use crate::agents::agent_trait::{AgentContext, SecurityAgent, BaseAgent};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
-use openre_core::ids::AgentId;
 use async_trait::async_trait;
-use openre_core::ids::{FindingId, ScanId};
+use openre_core::ids::AgentId;
 use openre_core::result::Finding;
 use std::collections::HashMap;
 
@@ -43,7 +42,11 @@ impl SecurityAgent for ReportingAgent {
         self.base.name()
     }
 
-    async fn execute(&self, input: Self::Input, _ctx: AgentContext) -> anyhow::Result<AgentResult<Self::Output>> {
+    async fn execute(
+        &self,
+        input: Self::Input,
+        _ctx: AgentContext,
+    ) -> anyhow::Result<AgentResult<Self::Output>> {
         let started_at = std::time::Instant::now();
 
         let report = match input.format.as_str() {
@@ -61,11 +64,7 @@ impl SecurityAgent for ReportingAgent {
             report_type: input.report_type.clone(),
         };
 
-        let output = ReportingOutput {
-            report,
-            format: input.format,
-            metadata,
-        };
+        let output = ReportingOutput { report, format: input.format, metadata };
 
         let duration_ms = started_at.elapsed().as_millis() as u64;
         Ok(AgentResult::success(output, duration_ms))
@@ -102,7 +101,10 @@ impl SecurityAgent for ReportingAgent {
         html.push_str(&format!("<p>Total Findings: {}</p>", input.findings.len()));
         html.push_str("<h2>Findings</h2><ul>");
         for finding in &input.findings {
-            html.push_str(&format!("<li><strong>{:?}</strong>: {} - {}</li>", finding.severity, finding.title, finding.description));
+            html.push_str(&format!(
+                "<li><strong>{:?}</strong>: {} - {}</li>",
+                finding.severity, finding.title, finding.description
+            ));
         }
         html.push_str("</ul></body></html>");
         html
@@ -159,7 +161,10 @@ impl SecurityAgent for ReportingAgent {
         report.push_str("\n");
 
         for finding in &input.findings {
-            report.push_str(&format!("[{:?}] {} - {}\n", finding.severity, finding.title, finding.description));
+            report.push_str(&format!(
+                "[{:?}] {} - {}\n",
+                finding.severity, finding.title, finding.description
+            ));
         }
 
         report

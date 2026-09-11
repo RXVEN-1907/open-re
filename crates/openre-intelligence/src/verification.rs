@@ -5,9 +5,8 @@
 
 use crate::{error::IntelligenceError, IntelligenceResult};
 use openre_core::evidence::{
-    FindingEvidence, FindingVerifier, HttpInteraction, HttpRequestEvidence, HttpResponseEvidence,
-    TimingEvidence, TriggerCondition, VerificationEvidence, VerificationMethod, VerificationResult,
-    VerificationStatus,
+    FindingVerifier, HttpInteraction, HttpRequestEvidence, HttpResponseEvidence, TimingEvidence,
+    VerificationEvidence, VerificationMethod, VerificationResult, VerificationStatus,
 };
 
 /// Create an empty VerificationEvidence
@@ -21,15 +20,14 @@ fn empty_verification_evidence() -> VerificationEvidence {
         logs: Vec::new(),
     }
 }
-use openre_core::ids::{FindingId, VerificationId};
-use openre_core::result::{Category, Finding, Severity};
+use openre_core::ids::VerificationId;
+use openre_core::result::{Category, Finding};
 use reqwest::Client;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tracing::{debug, info, warn};
+use tracing::warn;
 
 /// Verification engine that coordinates multiple verifiers
 pub struct VerificationEngine {
@@ -65,6 +63,12 @@ impl Default for VerificationConfig {
             retry_attempts: 3,
             retry_delay: Duration::from_secs(5),
         }
+    }
+}
+
+impl Default for VerificationEngine {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -240,13 +244,13 @@ impl VerificationEngine {
 
         // Determine overall status
         let statuses: Vec<_> = results.iter().map(|r| r.status).collect();
-        let overall_status = if statuses.iter().any(|s| *s == VerificationStatus::Confirmed) {
+        let overall_status = if statuses.contains(&VerificationStatus::Confirmed) {
             VerificationStatus::Confirmed
-        } else if statuses.iter().any(|s| *s == VerificationStatus::Likely) {
+        } else if statuses.contains(&VerificationStatus::Likely) {
             VerificationStatus::Likely
-        } else if statuses.iter().any(|s| *s == VerificationStatus::Unconfirmed) {
+        } else if statuses.contains(&VerificationStatus::Unconfirmed) {
             VerificationStatus::Unconfirmed
-        } else if statuses.iter().any(|s| *s == VerificationStatus::NotReproducible) {
+        } else if statuses.contains(&VerificationStatus::NotReproducible) {
             VerificationStatus::NotReproducible
         } else {
             VerificationStatus::Error
@@ -296,6 +300,12 @@ impl VerificationEngine {
             },
             duration_ms: total_duration,
         })
+    }
+}
+
+impl Default for SecurityHeaderVerifier {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -438,6 +448,12 @@ impl FindingVerifier for SecurityHeaderVerifier {
                 duration_ms: start.elapsed().as_millis() as u64,
             }
         })
+    }
+}
+
+impl Default for InfoDisclosureVerifier {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -589,6 +605,12 @@ impl FindingVerifier for InfoDisclosureVerifier {
     }
 }
 
+impl Default for TechnologyVerifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Technology Verifier
 pub struct TechnologyVerifier {
     tech_patterns: HashMap<String, String>,
@@ -731,6 +753,12 @@ impl FindingVerifier for TechnologyVerifier {
     }
 }
 
+impl Default for AuthVerifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Authentication Verifier
 pub struct AuthVerifier;
 
@@ -844,6 +872,12 @@ impl FindingVerifier for AuthVerifier {
     }
 }
 
+impl Default for RateLimitVerifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Rate Limit Verifier
 pub struct RateLimitVerifier;
 
@@ -931,6 +965,12 @@ pub struct DirectoryListingVerifier;
 impl DirectoryListingVerifier {
     pub fn new() -> Self {
         Self
+    }
+}
+
+impl Default for DirectoryListingVerifier {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1047,6 +1087,12 @@ pub struct CorsVerifier;
 impl CorsVerifier {
     pub fn new() -> Self {
         Self
+    }
+}
+
+impl Default for CorsVerifier {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1185,6 +1231,12 @@ impl SslTlsVerifier {
     }
 }
 
+impl Default for SslTlsVerifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FindingVerifier for SslTlsVerifier {
     fn can_verify(&self, finding: &Finding) -> bool {
         matches!(finding.category, Category::SecurityMisconfiguration | Category::Cryptographic)
@@ -1302,6 +1354,12 @@ pub struct CookieSecurityVerifier;
 impl CookieSecurityVerifier {
     pub fn new() -> Self {
         Self
+    }
+}
+
+impl Default for CookieSecurityVerifier {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

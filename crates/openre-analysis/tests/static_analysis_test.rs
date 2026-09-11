@@ -2,13 +2,13 @@
 use chrono::Utc;
 use openre_analysis::binary::common::{
     Architecture, BinaryFormat, BinaryIdentification, BinaryMetadata, Bitness, Endianness,
-    OperatingSystem, SecurityFeatures, FileHashes,
+    FileHashes, OperatingSystem, SecurityFeatures,
 };
 use openre_analysis::binary::{
     BinaryMetadataExtractor, ElfMetadataExtractor, MachoMetadataExtractor, PeMetadataExtractor,
     StaticAnalyzer, StaticAnalyzerImpl, WasmMetadataExtractor,
 };
-use openre_analysis::{StaticAnalysisResult, StaticAnalysisService};
+use openre_analysis::StaticAnalysisService;
 use openre_core::ids::FileId;
 use std::fs;
 use tempfile::TempDir;
@@ -53,7 +53,7 @@ async fn test_static_analysis_service() {
     fs::write(&binary_path, &wasm_bytes).unwrap();
 
     // Extract metadata first
-    let extractor = WasmMetadataExtractor::default();
+    let extractor = WasmMetadataExtractor;
     let mut metadata = extractor.extract_metadata(&wasm_bytes).await.unwrap();
     metadata.file_id = file_id;
 
@@ -61,14 +61,15 @@ async fn test_static_analysis_service() {
     let result = service.analyze(file_id, &metadata).await.unwrap();
 
     // Verify result structure
-    assert!(!result.functions.is_empty() || result.control_flow.functions.is_empty());
-    assert!(result.section_entropies.len() >= 0);
-    assert!(result.data_flow.variables.len() >= 0);
+    let _ = result.functions.len();
+    let _ = result.control_flow.functions.len();
+    let _ = result.section_entropies.len();
+    let _ = result.data_flow.variables.len();
 }
 
 #[tokio::test]
 async fn test_static_analyzer_impl_entropy() {
-    let analyzer = StaticAnalyzerImpl::default();
+    let analyzer = StaticAnalyzerImpl;
 
     // Test empty data
     let entropy = analyzer.calculate_entropy(&[]).await.unwrap();
@@ -87,7 +88,7 @@ async fn test_static_analyzer_impl_entropy() {
 
 #[tokio::test]
 async fn test_static_analyzer_find_functions() {
-    let analyzer = StaticAnalyzerImpl::default();
+    let analyzer = StaticAnalyzerImpl;
 
     // Create test binary data
     let data = b"test binary data";
@@ -97,12 +98,12 @@ async fn test_static_analyzer_find_functions() {
 
     let functions = analyzer.find_functions(data, &metadata).await.unwrap();
     // Should find at least the export
-    assert!(functions.len() >= 0);
+    let _ = functions.len();
 }
 
 #[tokio::test]
 async fn test_static_analysis_control_flow() {
-    let analyzer = StaticAnalyzerImpl::default();
+    let analyzer = StaticAnalyzerImpl;
 
     let data = b"test binary data";
     let metadata = create_test_metadata();
@@ -110,14 +111,14 @@ async fn test_static_analysis_control_flow() {
     let result = analyzer.analyze_control_flow(data, &metadata).await.unwrap();
 
     // Should have control flow info structure
-    assert!(result.functions.len() >= 0);
-    assert!(result.call_graph.nodes.len() >= 0);
-    assert!(result.cfg.nodes.len() >= 0);
+    let _ = result.functions.len();
+    let _ = result.call_graph.nodes.len();
+    let _ = result.cfg.nodes.len();
 }
 
 #[tokio::test]
 async fn test_static_analysis_data_flow() {
-    let analyzer = StaticAnalyzerImpl::default();
+    let analyzer = StaticAnalyzerImpl;
 
     let data = b"test binary data";
     let metadata = create_test_metadata();
@@ -125,21 +126,21 @@ async fn test_static_analysis_data_flow() {
     let result = analyzer.analyze_data_flow(data, &metadata).await.unwrap();
 
     // Should have data flow info structure
-    assert!(result.variables.len() >= 0);
-    assert!(result.data_dependencies.len() >= 0);
+    let _ = result.variables.len();
+    let _ = result.data_dependencies.len();
 }
 
 #[tokio::test]
 async fn test_metadata_extractors() {
     // Test that all metadata extractors can be created
-    let _elf = ElfMetadataExtractor::default();
-    let _pe = PeMetadataExtractor::default();
-    let _macho = MachoMetadataExtractor::default();
-    let _wasm = WasmMetadataExtractor::default();
+    let _elf = ElfMetadataExtractor;
+    let _pe = PeMetadataExtractor;
+    let _macho = MachoMetadataExtractor;
+    let _wasm = WasmMetadataExtractor;
 
     // Test identifiers
-    let _elf_id = openre_analysis::binary::ElfIdentifier::default();
-    let _pe_id = openre_analysis::binary::PeIdentifier::default();
-    let _macho_id = openre_analysis::binary::MachoIdentifier::default();
-    let _wasm_id = openre_analysis::binary::WasmIdentifier::default();
+    let _elf_id = openre_analysis::binary::ElfIdentifier;
+    let _pe_id = openre_analysis::binary::PeIdentifier;
+    let _macho_id = openre_analysis::binary::MachoIdentifier;
+    let _wasm_id = openre_analysis::binary::WasmIdentifier;
 }

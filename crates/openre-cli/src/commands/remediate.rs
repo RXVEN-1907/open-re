@@ -1,14 +1,14 @@
 //! Remediation guidance commands
 
-use colored::Colorize;
-use clap::{Args, Subcommand, ValueEnum};
 use crate::intelligence_stubs::{
-    Finding, RemediationEngine, RemediationPlan, RemediationReport, RemediationItem,
-    Priority, Environment, ComplianceFramework, Language, GroupBy, VerificationResult,
+    ComplianceFramework, Environment, Finding, GroupBy, Language, Priority, RemediationEngine,
+    RemediationItem, RemediationPlan, RemediationReport, VerificationResult,
 };
-use crate::{Context, CliError, print_output, OutputFormat};
+use crate::{print_output, CliError, Context, OutputFormat};
+use clap::{Args, Subcommand, ValueEnum};
+use colored::Colorize;
 use std::path::PathBuf;
-use tabled::{Table, settings::Style};
+use tabled::{settings::Style, Table};
 
 #[derive(Subcommand, Debug)]
 pub enum RemediateCommands {
@@ -130,11 +130,9 @@ async fn run_plan(ctx: Context, args: PlanArgs) -> Result<(), CliError> {
     let engine = RemediationEngine::new();
 
     let spinner = ctx.spinner("Generating remediation plan...");
-    let plan = engine.generate_plan(
-        &finding,
-        args.environment.into(),
-        args.compliance.map(|c| c.into()),
-    ).await?;
+    let plan = engine
+        .generate_plan(&finding, args.environment.into(), args.compliance.map(|c| c.into()))
+        .await?;
     spinner.finish_and_clear();
 
     println!("\n{}", "Remediation Plan".bold().cyan());
@@ -151,7 +149,13 @@ async fn run_plan(ctx: Context, args: PlanArgs) -> Result<(), CliError> {
                 Priority::Medium => "🟡",
                 Priority::Low => "🔵",
             };
-            println!("  {}. {} {} {}", i + 1, priority_icon, step.title.bold(), format!("({})", step.effort).dimmed());
+            println!(
+                "  {}. {} {} {}",
+                i + 1,
+                priority_icon,
+                step.title.bold(),
+                format!("({})", step.effort).dimmed()
+            );
             println!("     {}", step.description);
             if let Some(code) = &step.code_example {
                 println!("\n     {}:", "Example".bold());
@@ -214,7 +218,8 @@ async fn run_report(ctx: Context, args: ReportArgs) -> Result<(), CliError> {
     let findings = load_findings_from_path(&args.path)?;
     let engine = RemediationEngine::new();
 
-    let spinner = ctx.spinner(format!("Generating remediation report for {} findings...", findings.len()));
+    let spinner =
+        ctx.spinner(format!("Generating remediation report for {} findings...", findings.len()));
     let report = engine.generate_report(&findings, args.group_by.into()).await?;
     spinner.finish_and_clear();
 
@@ -229,12 +234,16 @@ async fn run_report(ctx: Context, args: ReportArgs) -> Result<(), CliError> {
         for group in &report.groups {
             println!("\n{} ({})", group.name.bold(), group.count);
             let mut table = Table::new(
-                group.items.iter().map(|i| RemediationItemRow {
-                    finding: i.finding_title.clone(),
-                    priority: format!("{:?}", i.priority),
-                    effort: i.effort.clone(),
-                    summary: i.summary.clone(),
-                }).collect::<Vec<_>>()
+                group
+                    .items
+                    .iter()
+                    .map(|i| RemediationItemRow {
+                        finding: i.finding_title.clone(),
+                        priority: format!("{:?}", i.priority),
+                        effort: i.effort.clone(),
+                        summary: i.summary.clone(),
+                    })
+                    .collect::<Vec<_>>(),
             );
             table.with(Style::modern());
             println!("{}", table);
@@ -275,7 +284,9 @@ fn load_finding(path: &str) -> Result<Finding, CliError> {
         let content = std::fs::read_to_string(path)?;
         Ok(serde_json::from_str(&content)?)
     } else {
-        Err(CliError::InvalidArgs("Finding ID lookup not implemented. Use JSON file for now.".into()))
+        Err(CliError::InvalidArgs(
+            "Finding ID lookup not implemented. Use JSON file for now.".into(),
+        ))
     }
 }
 

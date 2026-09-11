@@ -1473,12 +1473,11 @@ pub struct RiskChange {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use openre_config::AiConfig;
     use openre_core::evidence::*;
     use openre_core::ids::{FindingId, ScanId};
     use openre_core::result::{Category, Confidence, Finding, Severity};
-    use std::collections::HashMap;
 
+    #[allow(dead_code)]
     fn create_test_finding() -> Finding {
         Finding::new(openre_core::result::FindingConfig {
             title: "Missing CSP Header".to_string(),
@@ -1494,6 +1493,7 @@ mod tests {
         })
     }
 
+    #[allow(dead_code)]
     fn create_test_evidence() -> FindingEvidence {
         FindingEvidence {
             finding_id: FindingId::new(),

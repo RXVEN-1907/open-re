@@ -1,7 +1,7 @@
 //! HTTP client building
 
-pub use reqwest::Client;
 use anyhow::Result;
+pub use reqwest::Client;
 use std::time::Duration;
 
 /// Build HTTP client with basic configuration

@@ -106,8 +106,10 @@ pub trait HistoryStorage: Send + Sync {
     /// Save workflow session
     async fn save_workflow_session(&self, session: &WorkflowSession) -> Result<(), HistoryError>;
     /// Get workflow session
-    async fn get_workflow_session(&self, workflow_id: &WorkflowId)
-        -> Result<Option<WorkflowSession>, HistoryError>;
+    async fn get_workflow_session(
+        &self,
+        workflow_id: &WorkflowId,
+    ) -> Result<Option<WorkflowSession>, HistoryError>;
     /// List workflow sessions
     async fn list_workflow_sessions(
         &self,
@@ -117,7 +119,8 @@ pub trait HistoryStorage: Send + Sync {
         offset: usize,
     ) -> Result<Vec<WorkflowSession>, HistoryError>;
     /// Delete workflow session
-    async fn delete_workflow_session(&self, workflow_id: &WorkflowId) -> Result<bool, HistoryError>;
+    async fn delete_workflow_session(&self, workflow_id: &WorkflowId)
+        -> Result<bool, HistoryError>;
 }
 
 /// History error
@@ -812,12 +815,18 @@ impl HistoryManager {
     }
 
     /// Save workflow session
-    pub async fn save_workflow_session(&self, session: &WorkflowSession) -> Result<(), HistoryError> {
+    pub async fn save_workflow_session(
+        &self,
+        session: &WorkflowSession,
+    ) -> Result<(), HistoryError> {
         self.storage.save_workflow_session(session).await
     }
 
     /// Get workflow session
-    pub async fn get_workflow_session(&self, workflow_id: &WorkflowId) -> Result<Option<WorkflowSession>, HistoryError> {
+    pub async fn get_workflow_session(
+        &self,
+        workflow_id: &WorkflowId,
+    ) -> Result<Option<WorkflowSession>, HistoryError> {
         self.storage.get_workflow_session(workflow_id).await
     }
 
@@ -833,7 +842,10 @@ impl HistoryManager {
     }
 
     /// Delete workflow session
-    pub async fn delete_workflow_session(&self, workflow_id: &WorkflowId) -> Result<bool, HistoryError> {
+    pub async fn delete_workflow_session(
+        &self,
+        workflow_id: &WorkflowId,
+    ) -> Result<bool, HistoryError> {
         self.storage.delete_workflow_session(workflow_id).await
     }
 }

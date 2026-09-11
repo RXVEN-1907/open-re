@@ -1,7 +1,7 @@
 //! CLI-specific configuration
 
-use openre_config::{Config as CoreConfig, default_config_path};
 use crate::{CliError, Result};
+use openre_config::{default_config_path, Config as CoreConfig};
 use std::path::{Path, PathBuf};
 
 pub struct CliConfig {
@@ -17,10 +17,7 @@ impl CliConfig {
             CoreConfig::load()?
         };
 
-        Ok(Self {
-            core,
-            path: config_path.map(|p| p.to_path_buf()),
-        })
+        Ok(Self { core, path: config_path.map(|p| p.to_path_buf()) })
     }
 
     pub fn core(&self) -> &CoreConfig {

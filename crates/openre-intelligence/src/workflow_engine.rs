@@ -1,28 +1,24 @@
 //! Investigation Workflow Engine - Orchestrate multi-stage security investigations
 
 use crate::{
-    correlation::CorrelationEngine,
-    error::IntelligenceError,
-    knowledge_base::KnowledgeBase,
-    types::*,
-    verification::VerificationEngine,
-    IntelligenceResult,
+    correlation::CorrelationEngine, error::IntelligenceError, knowledge_base::KnowledgeBase,
+    types::*, verification::VerificationEngine, IntelligenceResult,
 };
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use openre_core::evidence::VerificationStatus;
 use openre_core::history::{
-    InvestigationStageConfig, StageResult, StageStatus, WorkflowArtifact, WorkflowSession, WorkflowStatus,
-    DiscoverConfig, AnalyzeConfig, CorrelateConfig, VerifyConfig, PrioritizeConfig, WorkflowReportConfig,
+    AnalyzeConfig, CorrelateConfig, DiscoverConfig, InvestigationStageConfig, PrioritizeConfig,
+    StageResult, StageStatus, VerifyConfig, WorkflowArtifact, WorkflowSession, WorkflowStatus,
 };
 use openre_core::ids::{FindingId, ScanId, WorkflowId};
-use openre_core::result::{Finding, Severity, Category};
-use chrono::{DateTime, Utc};
+use openre_core::result::{Finding, Severity};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
-use tracing::{debug, info, warn, error};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 /// Investigation stages in the workflow with configuration
@@ -64,14 +60,7 @@ pub struct ReportConfig {
 impl InvestigationStage {
     /// Get all stages in order
     pub fn all() -> &'static [&'static str] {
-        &[
-            "discover",
-            "analyze",
-            "correlate",
-            "verify",
-            "prioritize",
-            "report",
-        ]
+        &["discover", "analyze", "correlate", "verify", "prioritize", "report"]
     }
 
     /// Get the stage name
@@ -101,11 +90,21 @@ impl InvestigationStage {
     /// Get the next stage
     pub fn next(&self) -> Option<InvestigationStage> {
         match self {
-            InvestigationStage::Discover(_) => Some(InvestigationStage::Analyze(AnalyzeConfig::default())),
-            InvestigationStage::Analyze(_) => Some(InvestigationStage::Correlate(CorrelateConfig::default())),
-            InvestigationStage::Correlate(_) => Some(InvestigationStage::Verify(VerifyConfig::default())),
-            InvestigationStage::Verify(_) => Some(InvestigationStage::Prioritize(PrioritizeConfig::default())),
-            InvestigationStage::Prioritize(_) => Some(InvestigationStage::Report(ReportConfig::default())),
+            InvestigationStage::Discover(_) => {
+                Some(InvestigationStage::Analyze(AnalyzeConfig::default()))
+            }
+            InvestigationStage::Analyze(_) => {
+                Some(InvestigationStage::Correlate(CorrelateConfig::default()))
+            }
+            InvestigationStage::Correlate(_) => {
+                Some(InvestigationStage::Verify(VerifyConfig::default()))
+            }
+            InvestigationStage::Verify(_) => {
+                Some(InvestigationStage::Prioritize(PrioritizeConfig::default()))
+            }
+            InvestigationStage::Prioritize(_) => {
+                Some(InvestigationStage::Report(ReportConfig::default()))
+            }
             InvestigationStage::Report(_) => None,
         }
     }
@@ -114,11 +113,21 @@ impl InvestigationStage {
     pub fn previous(&self) -> Option<InvestigationStage> {
         match self {
             InvestigationStage::Discover(_) => None,
-            InvestigationStage::Analyze(_) => Some(InvestigationStage::Discover(DiscoverConfig::default())),
-            InvestigationStage::Correlate(_) => Some(InvestigationStage::Analyze(AnalyzeConfig::default())),
-            InvestigationStage::Verify(_) => Some(InvestigationStage::Correlate(CorrelateConfig::default())),
-            InvestigationStage::Prioritize(_) => Some(InvestigationStage::Verify(VerifyConfig::default())),
-            InvestigationStage::Report(_) => Some(InvestigationStage::Prioritize(PrioritizeConfig::default())),
+            InvestigationStage::Analyze(_) => {
+                Some(InvestigationStage::Discover(DiscoverConfig::default()))
+            }
+            InvestigationStage::Correlate(_) => {
+                Some(InvestigationStage::Analyze(AnalyzeConfig::default()))
+            }
+            InvestigationStage::Verify(_) => {
+                Some(InvestigationStage::Correlate(CorrelateConfig::default()))
+            }
+            InvestigationStage::Prioritize(_) => {
+                Some(InvestigationStage::Verify(VerifyConfig::default()))
+            }
+            InvestigationStage::Report(_) => {
+                Some(InvestigationStage::Prioritize(PrioritizeConfig::default()))
+            }
         }
     }
 }
@@ -236,7 +245,7 @@ impl InvestigationWorkflow {
     }
 
     /// Mark workflow as failed
-    pub fn mark_failed(&mut self, error: String) {
+    pub fn mark_failed(&mut self, _error: String) {
         self.status = WorkflowStatus::Failed;
         self.updated_at = Utc::now();
     }
@@ -272,7 +281,11 @@ impl InvestigationWorkflow {
             error: None,
             created_at: self.created_at,
             updated_at: self.updated_at,
-            completed_at: if self.status == WorkflowStatus::Completed { Some(self.updated_at) } else { None },
+            completed_at: if self.status == WorkflowStatus::Completed {
+                Some(self.updated_at)
+            } else {
+                None
+            },
         }
     }
 }
@@ -286,15 +299,15 @@ impl From<InvestigationStage> for InvestigationStageConfig {
             InvestigationStage::Correlate(cfg) => InvestigationStageConfig::Correlate(cfg),
             InvestigationStage::Verify(cfg) => InvestigationStageConfig::Verify(cfg),
             InvestigationStage::Prioritize(cfg) => InvestigationStageConfig::Prioritize(cfg),
-            InvestigationStage::Report(cfg) => InvestigationStageConfig::Report(
-                openre_core::history::WorkflowReportConfig {
+            InvestigationStage::Report(cfg) => {
+                InvestigationStageConfig::Report(openre_core::history::WorkflowReportConfig {
                     format: cfg.format,
                     include_executive_summary: cfg.include_executive_summary,
                     include_technical_details: cfg.include_technical_details,
                     include_remediation: cfg.include_remediation,
                     output_dir: cfg.output_dir,
-                }
-            ),
+                })
+            }
         }
     }
 }
@@ -407,7 +420,7 @@ pub trait InvestigationStageHandler: Send + Sync {
     async fn execute(&self, context: &mut InvestigationContext) -> IntelligenceResult<StageResult>;
 
     /// Check if this stage can run (preconditions)
-    async fn can_run(&self, context: &InvestigationContext) -> bool {
+    async fn can_run(&self, _context: &InvestigationContext) -> bool {
         true // Default: can always run
     }
 
@@ -527,7 +540,7 @@ impl InvestigationStageHandler for AnalyzeStageHandler {
         for finding in &mut context.findings {
             context.cancellation_token.notified().await;
 
-            if let Ok(Some(entry)) = self.knowledge_base.enrich_single_finding(finding) {
+            if let Ok(Some(_entry)) = self.knowledge_base.enrich_single_finding(finding) {
                 enriched_findings.push(finding.clone());
             }
         }
@@ -580,35 +593,72 @@ impl InvestigationStageHandler for CorrelateStageHandler {
     async fn execute(&self, context: &mut InvestigationContext) -> IntelligenceResult<StageResult> {
         let started_at = Utc::now();
 
-        // Apply correlation configuration
-        let mut engine = (*self.correlation_engine).clone();
         // Note: In practice, you'd apply the config to the engine
+        let _engine = (*self.correlation_engine).clone();
 
-        let finding_relationships = self.correlation_engine.correlate_findings(&context.findings).await?;
+        let finding_relationships =
+            self.correlation_engine.correlate_findings(&context.findings).await?;
 
         // Convert FindingRelationship to EnhancedCorrelation
-        let correlations: Vec<EnhancedCorrelation> = finding_relationships.into_iter().map(|rel| {
-            EnhancedCorrelation {
+        let correlations: Vec<EnhancedCorrelation> = finding_relationships
+            .into_iter()
+            .map(|rel| EnhancedCorrelation {
                 finding_ids: vec![rel.source_finding, rel.target_finding],
                 correlation_type: match rel.relationship_type {
-                    openre_core::relationships::FindingRelationshipType::Enables => CorrelationType::Enables,
-                    openre_core::relationships::FindingRelationshipType::Amplifies => CorrelationType::Strengthening,
-                    openre_core::relationships::FindingRelationshipType::Requires => CorrelationType::Requires,
-                    openre_core::relationships::FindingRelationshipType::SameRootCause => CorrelationType::SameRootCause,
-                    openre_core::relationships::FindingRelationshipType::ChainedExploit => CorrelationType::ChainedExploit,
-                    openre_core::relationships::FindingRelationshipType::Mitigates => CorrelationType::Mitigates,
-                    openre_core::relationships::FindingRelationshipType::Duplicate => CorrelationType::Duplicate,
-                    openre_core::relationships::FindingRelationshipType::SharedComponent => CorrelationType::SharedComponent,
-                    openre_core::relationships::FindingRelationshipType::SharedAttackSurface => CorrelationType::SharedAttackSurface,
-                    openre_core::relationships::FindingRelationshipType::InformationLeakage => CorrelationType::InformationLeakage,
-                    openre_core::relationships::FindingRelationshipType::PrivilegeEscalation => CorrelationType::PrivilegeEscalation,
-                    openre_core::relationships::FindingRelationshipType::LateralMovement => CorrelationType::LateralMovement,
-                    openre_core::relationships::FindingRelationshipType::DataExfiltration => CorrelationType::DataExfiltration,
-                    openre_core::relationships::FindingRelationshipType::Prerequisite => CorrelationType::Prerequisite,
-                    openre_core::relationships::FindingRelationshipType::MutuallyExclusive => CorrelationType::MutuallyExclusive,
-                    openre_core::relationships::FindingRelationshipType::Temporal => CorrelationType::Temporal,
-                    openre_core::relationships::FindingRelationshipType::Spatial => CorrelationType::Spatial,
-                    openre_core::relationships::FindingRelationshipType::Custom => CorrelationType::Custom,
+                    openre_core::relationships::FindingRelationshipType::Enables => {
+                        CorrelationType::Enables
+                    }
+                    openre_core::relationships::FindingRelationshipType::Amplifies => {
+                        CorrelationType::Strengthening
+                    }
+                    openre_core::relationships::FindingRelationshipType::Requires => {
+                        CorrelationType::Requires
+                    }
+                    openre_core::relationships::FindingRelationshipType::SameRootCause => {
+                        CorrelationType::SameRootCause
+                    }
+                    openre_core::relationships::FindingRelationshipType::ChainedExploit => {
+                        CorrelationType::ChainedExploit
+                    }
+                    openre_core::relationships::FindingRelationshipType::Mitigates => {
+                        CorrelationType::Mitigates
+                    }
+                    openre_core::relationships::FindingRelationshipType::Duplicate => {
+                        CorrelationType::Duplicate
+                    }
+                    openre_core::relationships::FindingRelationshipType::SharedComponent => {
+                        CorrelationType::SharedComponent
+                    }
+                    openre_core::relationships::FindingRelationshipType::SharedAttackSurface => {
+                        CorrelationType::SharedAttackSurface
+                    }
+                    openre_core::relationships::FindingRelationshipType::InformationLeakage => {
+                        CorrelationType::InformationLeakage
+                    }
+                    openre_core::relationships::FindingRelationshipType::PrivilegeEscalation => {
+                        CorrelationType::PrivilegeEscalation
+                    }
+                    openre_core::relationships::FindingRelationshipType::LateralMovement => {
+                        CorrelationType::LateralMovement
+                    }
+                    openre_core::relationships::FindingRelationshipType::DataExfiltration => {
+                        CorrelationType::DataExfiltration
+                    }
+                    openre_core::relationships::FindingRelationshipType::Prerequisite => {
+                        CorrelationType::Prerequisite
+                    }
+                    openre_core::relationships::FindingRelationshipType::MutuallyExclusive => {
+                        CorrelationType::MutuallyExclusive
+                    }
+                    openre_core::relationships::FindingRelationshipType::Temporal => {
+                        CorrelationType::Temporal
+                    }
+                    openre_core::relationships::FindingRelationshipType::Spatial => {
+                        CorrelationType::Spatial
+                    }
+                    openre_core::relationships::FindingRelationshipType::Custom => {
+                        CorrelationType::Custom
+                    }
                 },
                 confidence: rel.confidence,
                 description: rel.explanation,
@@ -619,8 +669,8 @@ impl InvestigationStageHandler for CorrelateStageHandler {
                     explanation: String::new(),
                 },
                 mitigation_approach: String::new(),
-            }
-        }).collect();
+            })
+            .collect();
 
         let completed_at = Utc::now();
         Ok(StageResult {
@@ -649,7 +699,11 @@ pub struct VerifyStageHandler {
 }
 
 impl VerifyStageHandler {
-    pub fn new(verification_engine: Arc<VerificationEngine>, http_client: Arc<Client>, config: VerifyConfig) -> Self {
+    pub fn new(
+        verification_engine: Arc<VerificationEngine>,
+        http_client: Arc<Client>,
+        config: VerifyConfig,
+    ) -> Self {
         Self { verification_engine, http_client, config }
     }
 }
@@ -681,10 +735,16 @@ impl InvestigationStageHandler for VerifyStageHandler {
                     // Convert evidence VerificationResult to workflow_engine VerificationResult
                     let workflow_result = VerificationResult {
                         finding_id: evidence_result.finding_id,
-                        verified: matches!(evidence_result.status, VerificationStatus::Confirmed | VerificationStatus::Likely),
+                        verified: matches!(
+                            evidence_result.status,
+                            VerificationStatus::Confirmed | VerificationStatus::Likely
+                        ),
                         confidence: evidence_result.confidence,
                         evidence: vec![evidence_result.notes],
-                        false_positive: matches!(evidence_result.status, VerificationStatus::NotReproducible),
+                        false_positive: matches!(
+                            evidence_result.status,
+                            VerificationStatus::NotReproducible
+                        ),
                     };
                     verification_results.push(workflow_result);
                 }
@@ -775,7 +835,8 @@ impl InvestigationStageHandler for PrioritizeStageHandler {
         }
 
         // Sort by priority (highest first)
-        prioritized_findings.sort_by(|a, b| b.priority.cmp(&a.priority).then(b.risk_score.cmp(&a.risk_score)));
+        prioritized_findings
+            .sort_by(|a, b| b.priority.cmp(&a.priority).then(b.risk_score.cmp(&a.risk_score)));
 
         let completed_at = Utc::now();
         Ok(StageResult {
@@ -856,28 +917,30 @@ impl InvestigationStageHandler for ReportStageHandler {
     }
 
     fn stage_config(&self) -> InvestigationStageConfig {
-        InvestigationStageConfig::Report(
-            openre_core::history::WorkflowReportConfig {
-                format: self.config.format.clone(),
-                include_executive_summary: self.config.include_executive_summary,
-                include_technical_details: self.config.include_technical_details,
-                include_remediation: self.config.include_remediation,
-                output_dir: self.config.output_dir.clone(),
-            }
-        )
+        InvestigationStageConfig::Report(openre_core::history::WorkflowReportConfig {
+            format: self.config.format.clone(),
+            include_executive_summary: self.config.include_executive_summary,
+            include_technical_details: self.config.include_technical_details,
+            include_remediation: self.config.include_remediation,
+            output_dir: self.config.output_dir.clone(),
+        })
     }
 
     async fn execute(&self, context: &mut InvestigationContext) -> IntelligenceResult<StageResult> {
         let started_at = Utc::now();
 
         // Get prioritized findings from previous stage
-        let prioritized = context.stage_results.get(&4)
+        let prioritized = context
+            .stage_results
+            .get(&4)
             .map(|r| r.output.clone())
             .and_then(|v| serde_json::from_value::<Vec<PrioritizedFinding>>(v).ok())
             .unwrap_or_default();
 
         // Get verification results
-        let verified = context.stage_results.get(&3)
+        let verified = context
+            .stage_results
+            .get(&3)
             .map(|r| r.output.clone())
             .and_then(|v| serde_json::from_value::<Vec<VerificationResult>>(v).ok())
             .unwrap_or_default();
@@ -949,17 +1012,17 @@ impl RiskScorer for DefaultRiskScorer {
         let base_score = finding.calculate_risk_score();
 
         // Adjust based on exploitability
-        let exploitability_bonus = finding.exploitability.as_ref()
-            .map(|e| (e.score / 10.0 * 20.0) as u8)
-            .unwrap_or(0);
+        let exploitability_bonus =
+            finding.exploitability.as_ref().map(|e| (e.score / 10.0 * 20.0) as u8).unwrap_or(0);
 
         // Adjust based on business impact
-        let impact_bonus = finding.business_impact.as_ref()
-            .map(|b| (b.score / 10.0 * 15.0) as u8)
-            .unwrap_or(0);
+        let impact_bonus =
+            finding.business_impact.as_ref().map(|b| (b.score / 10.0 * 15.0) as u8).unwrap_or(0);
 
         // Adjust based on asset criticality
-        let asset_bonus = finding.business_impact.as_ref()
+        let asset_bonus = finding
+            .business_impact
+            .as_ref()
             .map(|b| match b.asset_criticality {
                 openre_core::result::AssetCriticality::Critical => 15,
                 openre_core::result::AssetCriticality::High => 10,
@@ -968,7 +1031,11 @@ impl RiskScorer for DefaultRiskScorer {
             })
             .unwrap_or(0);
 
-        Ok((base_score as u16 + exploitability_bonus as u16 + impact_bonus as u16 + asset_bonus as u16).min(100) as u8)
+        Ok((base_score as u16
+            + exploitability_bonus as u16
+            + impact_bonus as u16
+            + asset_bonus as u16)
+            .min(100) as u8)
     }
 }
 
@@ -1021,20 +1088,12 @@ pub struct WorkflowProgress {
 impl InvestigationWorkflowEngine {
     /// Create a new workflow engine with default handlers
     pub fn new() -> Self {
-        Self {
-            handlers: Vec::new(),
-            config: WorkflowEngineConfig::default(),
-            progress_tx: None,
-        }
+        Self { handlers: Vec::new(), config: WorkflowEngineConfig::default(), progress_tx: None }
     }
 
     /// Create with custom config
     pub fn with_config(config: WorkflowEngineConfig) -> Self {
-        Self {
-            handlers: Vec::new(),
-            config,
-            progress_tx: None,
-        }
+        Self { handlers: Vec::new(), config, progress_tx: None }
     }
 
     /// Set progress sender
@@ -1056,10 +1115,23 @@ impl InvestigationWorkflowEngine {
         verification_engine: Arc<VerificationEngine>,
         http_client: Arc<Client>,
     ) {
-        self.add_handler(Arc::new(AnalyzeStageHandler::new(knowledge_base, AnalyzeConfig::default())));
-        self.add_handler(Arc::new(CorrelateStageHandler::new(correlation_engine, CorrelateConfig::default())));
-        self.add_handler(Arc::new(VerifyStageHandler::new(verification_engine, http_client, VerifyConfig::default())));
-        self.add_handler(Arc::new(PrioritizeStageHandler::new(Arc::new(DefaultRiskScorer), PrioritizeConfig::default())));
+        self.add_handler(Arc::new(AnalyzeStageHandler::new(
+            knowledge_base,
+            AnalyzeConfig::default(),
+        )));
+        self.add_handler(Arc::new(CorrelateStageHandler::new(
+            correlation_engine,
+            CorrelateConfig::default(),
+        )));
+        self.add_handler(Arc::new(VerifyStageHandler::new(
+            verification_engine,
+            http_client,
+            VerifyConfig::default(),
+        )));
+        self.add_handler(Arc::new(PrioritizeStageHandler::new(
+            Arc::new(DefaultRiskScorer),
+            PrioritizeConfig::default(),
+        )));
         self.add_handler(Arc::new(ReportStageHandler::new(ReportConfig::default())));
     }
 
@@ -1156,13 +1228,20 @@ impl InvestigationWorkflowEngine {
                     }
                     Ok(Err(e)) => {
                         last_error = Some(e);
-                        warn!("Stage {} attempt {} failed: {}", stage_name, attempt + 1, last_error.as_ref().unwrap());
+                        warn!(
+                            "Stage {} attempt {} failed: {}",
+                            stage_name,
+                            attempt + 1,
+                            last_error.as_ref().unwrap()
+                        );
                         if attempt < self.config.max_retries {
                             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
                         }
                     }
                     Err(_) => {
-                        last_error = Some(IntelligenceError::WorkflowFeatureDisabled("stage timeout".to_string()));
+                        last_error = Some(IntelligenceError::WorkflowFeatureDisabled(
+                            "stage timeout".to_string(),
+                        ));
                         warn!("Stage {} attempt {} timed out", stage_name, attempt + 1);
                         if attempt < self.config.max_retries {
                             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
@@ -1174,7 +1253,13 @@ impl InvestigationWorkflowEngine {
             let result = match result {
                 Some(r) => r,
                 None => {
-                    let error_msg = last_error.unwrap_or_else(|| IntelligenceError::WorkflowFeatureDisabled("stage failed after retries".to_string())).to_string();
+                    let error_msg = last_error
+                        .unwrap_or_else(|| {
+                            IntelligenceError::WorkflowFeatureDisabled(
+                                "stage failed after retries".to_string(),
+                            )
+                        })
+                        .to_string();
                     StageResult {
                         stage_index,
                         status: StageStatus::Failed,
@@ -1202,7 +1287,9 @@ impl InvestigationWorkflowEngine {
                     progress: (stage_index + 1) as f32 / total_stages as f32,
                     message: match result.status {
                         StageStatus::Completed => format!("Stage {} completed", stage_name),
-                        StageStatus::Failed => format!("Stage {} failed: {:?}", stage_name, result.errors),
+                        StageStatus::Failed => {
+                            format!("Stage {} failed: {:?}", stage_name, result.errors)
+                        }
                         _ => format!("Stage {} finished", stage_name),
                     },
                     timestamp: Utc::now(),
@@ -1301,7 +1388,9 @@ impl InvestigationWorkflowEngine {
                         }
                     }
                     Err(_) => {
-                        last_error = Some(IntelligenceError::WorkflowFeatureDisabled("stage timeout".to_string()));
+                        last_error = Some(IntelligenceError::WorkflowFeatureDisabled(
+                            "stage timeout".to_string(),
+                        ));
                         if attempt < self.config.max_retries {
                             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
                         }
@@ -1312,7 +1401,13 @@ impl InvestigationWorkflowEngine {
             let result = match result {
                 Some(r) => r,
                 None => {
-                    let error_msg = last_error.unwrap_or_else(|| IntelligenceError::WorkflowFeatureDisabled("stage failed after retries".to_string())).to_string();
+                    let error_msg = last_error
+                        .unwrap_or_else(|| {
+                            IntelligenceError::WorkflowFeatureDisabled(
+                                "stage failed after retries".to_string(),
+                            )
+                        })
+                        .to_string();
                     StageResult {
                         stage_index,
                         status: StageStatus::Failed,
@@ -1366,11 +1461,17 @@ impl InvestigationWorkflowEngine {
     }
 
     /// Load workflow from storage
-    pub async fn load_workflow(&self, workflow_id: &WorkflowId) -> IntelligenceResult<Option<InvestigationWorkflow>> {
+    pub async fn load_workflow(
+        &self,
+        workflow_id: &WorkflowId,
+    ) -> IntelligenceResult<Option<InvestigationWorkflow>> {
         if let Some(storage) = &self.config.storage {
             let session = storage.get_workflow_session(workflow_id).await?;
             if let Some(session) = session {
-                let mut workflow = InvestigationWorkflow::new(session.name, session.stages.iter().map(|s| s.clone().into()).collect());
+                let mut workflow = InvestigationWorkflow::new(
+                    session.name,
+                    session.stages.iter().map(|s| s.clone().into()).collect(),
+                );
                 workflow.id = session.id;
                 workflow.current_stage = session.current_stage_index;
                 workflow.status = session.status;
@@ -1387,7 +1488,7 @@ impl InvestigationWorkflowEngine {
     /// Save workflow to storage
     pub async fn save_workflow(&self, workflow: &InvestigationWorkflow) -> IntelligenceResult<()> {
         if let Some(storage) = &self.config.storage {
-            let mut session = workflow.to_session();
+            let session = workflow.to_session();
             storage.save_workflow_session(&session).await?;
         }
         Ok(())
@@ -1407,7 +1508,9 @@ impl InvestigationWorkflowEngine {
         offset: usize,
     ) -> IntelligenceResult<Vec<WorkflowSession>> {
         if let Some(storage) = &self.config.storage {
-            storage.list_workflow_sessions(scan_id, status, limit, offset).await
+            storage
+                .list_workflow_sessions(scan_id, status, limit, offset)
+                .await
                 .map_err(|e| IntelligenceError::Storage(e.to_string()))
         } else {
             Ok(Vec::new())
@@ -1425,10 +1528,11 @@ impl Default for InvestigationWorkflowEngine {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use openre_core::ids::{FindingId, ScanId, WorkflowId};
+    use openre_core::ids::{FindingId, ScanId};
     use openre_core::result::{Category, Confidence, Finding, Severity};
     use std::collections::HashMap;
 
+    #[allow(dead_code)]
     fn create_test_finding(title: &str, category: Category, severity: Severity) -> Finding {
         Finding {
             id: FindingId::new(),

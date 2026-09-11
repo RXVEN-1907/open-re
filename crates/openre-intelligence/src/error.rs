@@ -1,6 +1,6 @@
 //! Error types for the intelligence module
 
-use openre_core::{Error, history::HistoryError};
+use openre_core::{history::HistoryError, Error};
 use thiserror::Error;
 
 /// Intelligence module error types

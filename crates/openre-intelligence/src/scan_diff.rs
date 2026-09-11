@@ -1,12 +1,10 @@
 //! Scan Diff Intelligence - Compare scans for changes and identify significant differences
 
-use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use crate::{types::*, IntelligenceResult};
 use chrono::{DateTime, Utc};
 use openre_core::ids::{FindingId, ScanId};
-use openre_core::result::{Confidence, Finding, Severity};
-use serde::{Deserialize, Serialize};
+use openre_core::result::{Finding, Severity};
 use std::collections::{HashMap, HashSet};
-use tracing::{debug, info, warn};
 
 /// Metadata describing a scan used for diffing
 #[derive(Debug, Clone)]
@@ -58,6 +56,12 @@ impl Default for ScanDiffConfig {
 /// Scan diff analyzer for comparing security scans over time
 pub struct ScanDiffAnalyzer {
     config: ScanDiffConfig,
+}
+
+impl Default for ScanDiffAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ScanDiffAnalyzer {
@@ -133,8 +137,8 @@ impl ScanDiffAnalyzer {
                         .fingerprint
                         .clone()
                         .unwrap_or_else(|| current_finding.id.to_string()),
-                    previous_severity: prev_finding.severity.into(),
-                    current_severity: current_finding.severity.into(),
+                    previous_severity: prev_finding.severity,
+                    current_severity: current_finding.severity,
                     change_magnitude,
                     change_type,
                 });
@@ -143,8 +147,8 @@ impl ScanDiffAnalyzer {
             if prev_finding.confidence != current_finding.confidence {
                 confidence_changes.push(ConfidenceChange {
                     finding_id: current_finding.id,
-                    previous_confidence: prev_finding.confidence.into(),
-                    current_confidence: current_finding.confidence.into(),
+                    previous_confidence: prev_finding.confidence,
+                    current_confidence: current_finding.confidence,
                     change_type: if current_finding.confidence > prev_finding.confidence {
                         ConfidenceChangeType::Increased
                     } else {
@@ -157,16 +161,13 @@ impl ScanDiffAnalyzer {
         // Identify significant new findings based on severity
         let significant_new_findings: Vec<&Finding> = new_findings
             .iter()
-            .filter(|f| f.severity >= self.config.min_severity_for_significant_change.into())
+            .filter(|f| f.severity >= self.config.min_severity_for_significant_change)
             .copied()
             .collect();
 
         // Identify critical new findings regardless of threshold
-        let critical_new_findings: Vec<&Finding> = new_findings
-            .iter()
-            .filter(|f| f.severity == Severity::Critical.into())
-            .copied()
-            .collect();
+        let critical_new_findings: Vec<&Finding> =
+            new_findings.iter().filter(|f| f.severity == Severity::Critical).copied().collect();
 
         // Calculate statistics
         let total_previous = previous_findings.len();
@@ -283,15 +284,11 @@ impl ScanDiffAnalyzer {
         let mut worsening_trends = Vec::new();
 
         // Check each severity level for changes
-        for severity in &[
-            Severity::Critical,
-            Severity::High,
-            Severity::Medium,
-            Severity::Low,
-            Severity::Info,
-        ] {
-            let prev_count = *prev_severity_counts.get(&(*severity).into()).unwrap_or(&0);
-            let curr_count = *curr_severity_counts.get(&(*severity).into()).unwrap_or(&0);
+        for severity in
+            &[Severity::Critical, Severity::High, Severity::Medium, Severity::Low, Severity::Info]
+        {
+            let prev_count = *prev_severity_counts.get(severity).unwrap_or(&0);
+            let curr_count = *curr_severity_counts.get(severity).unwrap_or(&0);
 
             if curr_count < prev_count {
                 improving_trends.push(SeverityTrend {
@@ -441,7 +438,7 @@ impl ScanDiffAnalyzer {
                         .findings
                         .iter()
                         .find(|f| &f.id == *id)
-                        .map(|f| f.severity == Severity::Critical.into())
+                        .map(|f| f.severity == Severity::Critical)
                         .unwrap_or(false)
                 })
                 .copied()
@@ -508,9 +505,7 @@ impl ScanDiffAnalyzer {
                     {
                         report.push_str(&format!(
                             "- {} - {:?} → {:?}\n",
-                            finding.title,
-                            Severity::from(change.previous_severity),
-                            Severity::from(change.current_severity)
+                            finding.title, change.previous_severity, change.current_severity
                         ));
                     }
                 }
@@ -526,9 +521,7 @@ impl ScanDiffAnalyzer {
                     {
                         report.push_str(&format!(
                             "- {} - {:?} → {:?}\n",
-                            finding.title,
-                            Severity::from(change.previous_severity),
-                            Severity::from(change.current_severity)
+                            finding.title, change.previous_severity, change.current_severity
                         ));
                     }
                 }
@@ -634,7 +627,7 @@ impl ScanDiffAnalyzer {
     pub fn identify_priority_findings(
         &self,
         analysis: &ScanDiffAnalysis,
-        current_scan: &ScanData,
+        _current_scan: &ScanData,
     ) -> Vec<FindingId> {
         let mut priority_findings = HashSet::new();
 

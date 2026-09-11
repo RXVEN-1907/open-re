@@ -8,15 +8,21 @@ pub mod sandbox;
 pub mod sdk;
 pub mod security;
 
-pub use lifecycle::*;
-pub use manifest::*;
+// Explicit re-exports to avoid ambiguous glob re-exports
+pub use lifecycle::{PluginConfig, PluginLifecycleManager, PluginRuntimeInfo, PluginState};
+pub use manifest::{
+    BuildConfig, BuildTarget, ConfigSchema, EntryConfig, MenuExtension, PanelExtension,
+    PanelPosition, PluginConfig as ManifestPluginConfig, PluginManifest, PluginMetadata,
+    PluginSource, PluginStatus, RemoteRegistryConfig, ResourceConfig, SimplePluginMetadata,
+    UiConfig, ViewExtension,
+};
 pub use registry::*;
 pub use runtime::*;
 pub use sandbox::*;
+pub use sdk::*;
 pub use security::*;
 
 // Re-export core types
-pub use crate::manifest::{PluginSource, SimplePluginMetadata};
 pub use openre_core::ids::{
     Capability, CapabilityRequest, CapabilityResponse, CapabilitySet, PluginId, PluginType,
     RiskLevel, StageId,

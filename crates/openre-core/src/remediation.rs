@@ -1,10 +1,12 @@
 //! Remediation types for tracking fix verification and scan comparison
 
-use crate::ids::{FindingId, RecheckId, RemediationId, ScanId};
-use crate::result::{Confidence, Finding, Severity};
+use crate::ids::{FindingId, RecheckId, ScanId};
+use crate::result::{Finding, Severity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+pub use crate::ids::RemediationId;
 
 /// Enhanced scan diff with remediation tracking
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -456,9 +458,7 @@ impl std::str::FromStr for RemediationExportFormat {
 mod tests {
     use super::*;
     use crate::ids::{FindingId, RecheckId, RemediationId, ScanId};
-    use crate::result::{Category, Confidence, Finding, Severity};
     use chrono::Utc;
-    use std::collections::HashMap;
 
     #[test]
     fn test_enhanced_scan_diff() {

@@ -65,9 +65,8 @@ impl Config {
 
     /// Load configuration from a specific file
     pub fn from_file(path: &std::path::Path) -> Result<Self> {
-        let figment = Figment::new()
-            .merge(Serialized::defaults(Self::default()))
-            .merge(Toml::file(path));
+        let figment =
+            Figment::new().merge(Serialized::defaults(Self::default())).merge(Toml::file(path));
 
         let config: Config =
             figment.extract().map_err(|e| openre_core::Error::Config(e.to_string()))?;
@@ -77,10 +76,9 @@ impl Config {
 
     /// Save configuration to a file
     pub fn save_to_file(&self, path: &std::path::Path) -> Result<()> {
-        let toml = toml::to_string_pretty(self)
-            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
-        std::fs::write(path, toml)
-            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        let toml =
+            toml::to_string_pretty(self).map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        std::fs::write(path, toml).map_err(|e| openre_core::Error::Config(e.to_string()))?;
         Ok(())
     }
 
@@ -139,7 +137,8 @@ impl Config {
 
     /// Set a configuration value by key (dot notation)
     pub fn set(&mut self, key: &str, value_str: &str) -> Result<()> {
-        let mut value = serde_json::to_value(&*self).map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        let mut value =
+            serde_json::to_value(&*self).map_err(|e| openre_core::Error::Config(e.to_string()))?;
         let parts: Vec<&str> = key.split('.').collect();
         let mut current = &mut value;
 
@@ -156,8 +155,8 @@ impl Config {
         }
 
         // Convert back to Config
-        let new_config: Config = serde_json::from_value(value)
-            .map_err(|e| openre_core::Error::Config(e.to_string()))?;
+        let new_config: Config =
+            serde_json::from_value(value).map_err(|e| openre_core::Error::Config(e.to_string()))?;
         *self = new_config;
         Ok(())
     }

@@ -1,9 +1,9 @@
 //! CLI execution context
 
-use openre_config::Config;
 use crate::ai_stubs::{AiClient, AiProvider};
 use crate::{CliError, OutputFormat};
 use indicatif::{ProgressBar, ProgressStyle};
+use openre_config::Config;
 use std::sync::Arc;
 
 pub struct Context {
@@ -27,16 +27,7 @@ impl Context {
         ai_model: Option<String>,
         no_ai: bool,
     ) -> Result<Self, CliError> {
-        Ok(Self {
-            config,
-            format,
-            verbose,
-            offline,
-            ai_provider,
-            ai_model,
-            no_ai,
-            ai_client: None,
-        })
+        Ok(Self { config, format, verbose, offline, ai_provider, ai_model, no_ai, ai_client: None })
     }
 
     pub fn ai_client(&mut self) -> Result<Arc<AiClient>, CliError> {
@@ -54,11 +45,7 @@ impl Context {
 
     pub fn spinner(&self, msg: impl AsRef<str>) -> ProgressBar {
         let pb = ProgressBar::new_spinner();
-        pb.set_style(
-            ProgressStyle::default_spinner()
-                .template("{spinner:.green} {msg}")
-                .unwrap(),
-        );
+        pb.set_style(ProgressStyle::default_spinner().template("{spinner:.green} {msg}").unwrap());
         pb.set_message(msg.as_ref().to_string());
         pb.enable_steady_tick(std::time::Duration::from_millis(100));
         pb

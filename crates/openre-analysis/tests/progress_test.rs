@@ -1,6 +1,6 @@
 // crates/openre-analysis/tests/progress_test.rs
 use openre_analysis::progress::{JobProgress, JobStatus, ProgressTracker};
-use openre_core::ids::{JobId, StageId, WorkerId};
+use openre_core::ids::WorkerId;
 
 #[tokio::test]
 async fn test_progress_tracker_basic() {
@@ -39,7 +39,7 @@ async fn test_progress_subscription() {
     let mut rx = tracker.subscribe();
 
     let job_id = openre_core::ids::JobId::new();
-    let progress = openre_analysis::progress::JobProgress {
+    let _progress = openre_analysis::progress::JobProgress {
         job_id,
         status: openre_analysis::progress::JobStatus::Running {
             worker_id: openre_core::ids::WorkerId::new(),

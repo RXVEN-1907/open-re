@@ -34,16 +34,20 @@ impl CapstoneWrapper {
             Syntax::Att => capstone::Syntax::Att,
         };
 
-        // Convert endianness
-        let cs_endian = match endian {
-            Endianness::Little => Endian::Little,
-            Endianness::Big => Endian::Big,
-        };
-
         // Infer bitness from architecture
         let bitness = match arch {
-            Architecture::X86_64 | Architecture::AArch64 | Architecture::Mips64 | Architecture::RiscV64 | Architecture::PowerPc64 | Architecture::Sparc64 => 64,
-            Architecture::X86 | Architecture::Arm | Architecture::Mips | Architecture::RiscV32 | Architecture::PowerPc | Architecture::Sparc => 32,
+            Architecture::X86_64
+            | Architecture::AArch64
+            | Architecture::Mips64
+            | Architecture::RiscV64
+            | Architecture::PowerPc64
+            | Architecture::Sparc64 => 64,
+            Architecture::X86
+            | Architecture::Arm
+            | Architecture::Mips
+            | Architecture::RiscV32
+            | Architecture::PowerPc
+            | Architecture::Sparc => 32,
             Architecture::SystemZ => 64,
             Architecture::Bpf => 64,
             Architecture::Evm => 64,
@@ -63,7 +67,14 @@ impl CapstoneWrapper {
             .map_err(|e| DisasmError::CapstoneInit(e.to_string()))?;
 
         // Set syntax for architectures that support it
-        let supports_syntax = matches!(arch, Architecture::X86 | Architecture::X86_64 | Architecture::Arm | Architecture::PowerPc | Architecture::PowerPc64);
+        let supports_syntax = matches!(
+            arch,
+            Architecture::X86
+                | Architecture::X86_64
+                | Architecture::Arm
+                | Architecture::PowerPc
+                | Architecture::PowerPc64
+        );
         if supports_syntax {
             cs.set_syntax(cs_syntax).map_err(|e| DisasmError::CapstoneInit(e.to_string()))?;
         }
@@ -91,22 +102,25 @@ impl CapstoneWrapper {
 
     /// Disassemble a single instruction at the given address
     pub fn disassemble_one(&self, code: &[u8], address: u64) -> Result<Option<Insn>> {
-        let insns = self.cs.disasm_count(code, address, 1)
-            .map_err(|e| DisasmError::DisassemblyFailed { offset: address, reason: e.to_string() })?;
+        let insns = self.cs.disasm_count(code, address, 1).map_err(|e| {
+            DisasmError::DisassemblyFailed { offset: address, reason: e.to_string() }
+        })?;
         Ok(insns.iter().next().map(|insn| Insn::from_capstone(&self.cs, insn)))
     }
 
     /// Disassemble multiple instructions
     pub fn disassemble(&self, code: &[u8], address: u64, count: usize) -> Result<Vec<Insn>> {
-        let insns = self.cs.disasm_count(code, address, count)
-            .map_err(|e| DisasmError::DisassemblyFailed { offset: address, reason: e.to_string() })?;
+        let insns = self.cs.disasm_count(code, address, count).map_err(|e| {
+            DisasmError::DisassemblyFailed { offset: address, reason: e.to_string() }
+        })?;
         Ok(insns.iter().map(|insn| Insn::from_capstone(&self.cs, insn)).collect())
     }
 
     /// Disassemble all instructions in the given code
     pub fn disassemble_all(&self, code: &[u8], address: u64) -> Result<Vec<Insn>> {
-        let insns = self.cs.disasm_all(code, address)
-            .map_err(|e| DisasmError::DisassemblyFailed { offset: address, reason: e.to_string() })?;
+        let insns = self.cs.disasm_all(code, address).map_err(|e| {
+            DisasmError::DisassemblyFailed { offset: address, reason: e.to_string() }
+        })?;
         Ok(insns.iter().map(|insn| Insn::from_capstone(&self.cs, insn)).collect())
     }
 }
@@ -138,14 +152,23 @@ impl Insn {
     fn from_capstone(cs: &Capstone, insn: &capstone::Insn) -> Self {
         let detail = cs.insn_detail(insn).ok();
 
-        let groups = detail.as_ref().map(|d| d.groups().iter().map(InsnGroup::from_capstone).collect()).unwrap_or_default();
+        let groups = detail
+            .as_ref()
+            .map(|d| d.groups().iter().map(InsnGroup::from_capstone).collect())
+            .unwrap_or_default();
 
         // Note: operands require architecture-specific detail extraction
         // For now, we leave operands empty and rely on mnemonic/op_str
         let operands = Vec::new();
 
-        let regs_read = detail.as_ref().map(|d| d.regs_read().iter().map(|r| RegId(r.0 as u32)).collect()).unwrap_or_default();
-        let regs_write = detail.as_ref().map(|d| d.regs_write().iter().map(|r| RegId(r.0 as u32)).collect()).unwrap_or_default();
+        let regs_read = detail
+            .as_ref()
+            .map(|d| d.regs_read().iter().map(|r| RegId(r.0 as u32)).collect())
+            .unwrap_or_default();
+        let regs_write = detail
+            .as_ref()
+            .map(|d| d.regs_write().iter().map(|r| RegId(r.0 as u32)).collect())
+            .unwrap_or_default();
 
         Self {
             address: insn.address(),
@@ -217,14 +240,10 @@ pub struct OpDetail {
 }
 
 impl OpDetail {
+    #[allow(dead_code)]
     fn from_capstone(_op: &()) -> Self {
         // Placeholder - detailed operand extraction requires architecture-specific code
-        OpDetail {
-            op_type: OpType::RegMem,
-            reg: None,
-            imm: None,
-            mem: None,
-        }
+        OpDetail { op_type: OpType::RegMem, reg: None, imm: None, mem: None }
     }
 }
 
@@ -267,9 +286,8 @@ mod tests {
 
     #[test]
     fn test_x86_64_disasm() {
-        let wrapper = CapstoneWrapper::new(
-            Architecture::X86_64, Endianness::Little, Syntax::Intel
-        ).unwrap();
+        let wrapper =
+            CapstoneWrapper::new(Architecture::X86_64, Endianness::Little, Syntax::Intel).unwrap();
 
         // push rbp; mov rbp, rsp; pop rbp; ret
         let code = [0x55, 0x48, 0x89, 0xe5, 0x5d, 0xc3];
@@ -284,12 +302,14 @@ mod tests {
 
     #[test]
     fn test_aarch64_disasm() {
-        let wrapper = CapstoneWrapper::new(
-            Architecture::AArch64, Endianness::Little, Syntax::Intel
-        ).unwrap();
+        let wrapper =
+            CapstoneWrapper::new(Architecture::AArch64, Endianness::Little, Syntax::Intel).unwrap();
 
         // stp x29, x30, [sp, #-16]!; mov x29, sp; ldp x29, x30, [sp], #16; ret
-        let code = [0xa9, 0xbf, 0x7f, 0xd2, 0xfd, 0x7b, 0xbf, 0xa9, 0xa8, 0xbf, 0x7f, 0xf2, 0xc0, 0x03, 0x5f, 0xd6];
+        let code = [
+            0xa9, 0xbf, 0x7f, 0xd2, 0xfd, 0x7b, 0xbf, 0xa9, 0xa8, 0xbf, 0x7f, 0xf2, 0xc0, 0x03,
+            0x5f, 0xd6,
+        ];
         let insns = wrapper.disassemble_all(&code, 0x1000).unwrap();
 
         assert!(insns.len() >= 3);

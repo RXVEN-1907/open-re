@@ -666,7 +666,7 @@ lodash==4.17.20
         println!("   ✅ Root Cause Analyzer isolated correctly");
 
         // Scan Diff Analyzer
-        let scan_diff_analyzer = ScanDiffAnalyzer::new();
+        let _scan_diff_analyzer = ScanDiffAnalyzer::new();
         // This would require mock data to test fully, but instantiation works
         println!("   ✅ Scan Diff Analyzer isolated correctly");
 

@@ -185,7 +185,7 @@ impl BinaryIdentifier for ElfIdentifier {
                 Endianness::Big
             },
             os: OperatingSystem::Linux, // ELF is primarily Linux
-            entry_point: Some(elf.entry as u64),
+            entry_point: Some(elf.entry),
             compiler_info: None,
             security_features: SecurityFeatures::default(),
             confidence: 0.95,
@@ -331,7 +331,7 @@ impl BinaryMetadataExtractor for ElfMetadataExtractor {
                     Endianness::Big
                 },
                 os: OperatingSystem::Linux,
-                entry_point: Some(elf.entry as u64),
+                entry_point: Some(elf.entry),
                 compiler_info: None,
                 security_features: SecurityFeatures::default(),
                 confidence: 0.95,
@@ -409,6 +409,7 @@ fn calculate_entropy(data: &[u8]) -> f64 {
 }
 
 /// Calculate file hashes
+#[allow(unused_imports)]
 fn calculate_hashes(data: &[u8]) -> FileHashes {
     use md5::{Digest, Md5};
     use sha1::{Digest as Sha1Digest, Sha1};

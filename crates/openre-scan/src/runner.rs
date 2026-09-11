@@ -9,7 +9,6 @@ use colored::Colorize;
 use openre_config::ScannerConfig;
 use openre_core::result::{Finding, Severity};
 use std::time::Instant;
-use tracing::Level;
 use url::Url;
 
 /// Internal scan function for programmatic use
@@ -104,12 +103,7 @@ pub async fn run_scan(config: ScanConfig, scanner_config: &ScannerConfig) -> Res
                 all_findings.extend(findings);
             }
             Err(e) => {
-                eprintln!(
-                    "{} {} failed: {}",
-                    "✗".red().bold(),
-                    check.name().bright_yellow(),
-                    e
-                );
+                eprintln!("{} {} failed: {}", "✗".red().bold(), check.name().bright_yellow(), e);
             }
         }
     }

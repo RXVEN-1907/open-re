@@ -1512,7 +1512,11 @@ impl Panel for FindingsPanel {
                                         )
                                     })
                                     .collect(),
-                                references: r.references.iter().map(|ref_| format!("{}: {}", ref_.title, ref_.url)).collect(),
+                                references: r
+                                    .references
+                                    .iter()
+                                    .map(|ref_| format!("{}: {}", ref_.title, ref_.url))
+                                    .collect(),
                                 effort: format!("{:?}", r.effort),
                                 priority: format!("{:?}", r.priority),
                             }

@@ -1,6 +1,7 @@
 //! Risk scoring and security knowledge mapping types
 
-use crate::ids::{AttackId, CapecId, CveId, CweId, FindingId, ScanId};
+use crate::app_map::{AuthType, SensitivityLevel};
+use crate::ids::FindingId;
 use crate::result::{Category, Confidence, Severity};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -60,22 +61,6 @@ pub struct EndpointContext {
     pub has_waf: bool,
 }
 
-/// Authentication types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AuthType {
-    None,
-    Basic,
-    Digest,
-    Bearer,
-    ApiKey,
-    Cookie,
-    OAuth,
-    SAML,
-    OIDC,
-    Custom,
-}
-
 /// Authentication context
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthContext {
@@ -96,17 +81,6 @@ pub enum AuthStrength {
     Medium,
     Strong,
     VeryStrong,
-}
-
-/// Sensitivity levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SensitivityLevel {
-    Public,
-    Internal,
-    Confidential,
-    Restricted,
-    TopSecret,
 }
 
 /// Finding dependency with risk multiplier
@@ -304,7 +278,7 @@ pub struct CompensatingControl {
 #[serde(rename_all = "snake_case")]
 pub enum ControlType {
     WAF,
-    IDS_IPS,
+    IdsIps,
     EDR,
     NetworkSegmentation,
     Encryption,
@@ -689,6 +663,9 @@ pub fn calculate_risk_score(factors: &RiskFactors) -> RiskScore {
         SensitivityLevel::Confidential => 5.0,
         SensitivityLevel::Restricted => 8.0,
         SensitivityLevel::TopSecret => 10.0,
+        SensitivityLevel::Authenticated => 2.0,
+        SensitivityLevel::Admin => 1.0,
+        SensitivityLevel::Critical => 10.0,
     };
     breakdown.sensitivity.raw_value = sensitivity_score;
     breakdown.sensitivity.weighted_value = sensitivity_score * breakdown.sensitivity.weight;

@@ -1,6 +1,6 @@
 //! Incremental re-analysis for open-re
 
-use crate::{binary::common::FunctionBoundary, orchestrator::*};
+use crate::orchestrator::*;
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use std::sync::Arc;

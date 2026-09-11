@@ -2,7 +2,7 @@
 
 use crate::architecture::Architecture;
 use crate::disassembler::Instruction;
-use crate::error::{DisasmError, Result};
+use crate::error::Result;
 use serde::{Deserialize, Serialize};
 
 /// Intermediate Representation instruction
@@ -148,16 +148,14 @@ pub enum IrSideEffect {
 
 /// Lifter: converts native instructions to IR
 pub struct Lifter {
+    #[allow(dead_code)]
     architecture: Architecture,
     temp_counter: usize,
 }
 
 impl Lifter {
     pub fn new(architecture: Architecture) -> Self {
-        Self {
-            architecture,
-            temp_counter: 0,
-        }
+        Self { architecture, temp_counter: 0 }
     }
 
     pub fn lift(&mut self, insn: &Instruction) -> Result<Vec<IrInstruction>> {
@@ -194,6 +192,7 @@ impl Lifter {
         Ok(all_ir)
     }
 
+    #[allow(unreachable_patterns)]
     fn mnemonic_to_ir_op(&self, mnemonic: &str) -> Result<IrOp> {
         let mnem = mnemonic.to_lowercase();
         let ir_op = match mnem.as_str() {
@@ -225,7 +224,10 @@ impl Lifter {
             "cmp" => IrOp::Cmp,
             "test" => IrOp::Test,
             "jmp" => IrOp::Jmp,
-            "ja" | "jae" | "jb" | "jbe" | "jc" | "jnc" | "je" | "jne" | "jg" | "jge" | "jl" | "jle" | "jna" | "jnae" | "jnb" | "jnbe" | "jnc" | "jne" | "jng" | "jnge" | "jnl" | "jnle" | "jno" | "jnp" | "jns" | "jnz" | "jo" | "jp" | "jpe" | "jpo" | "js" | "jz" => IrOp::Jcc,
+            "ja" | "jae" | "jb" | "jbe" | "jc" | "jnc" | "je" | "jne" | "jg" | "jge" | "jl"
+            | "jle" | "jna" | "jnae" | "jnb" | "jnbe" | "jnc" | "jne" | "jng" | "jnge" | "jnl"
+            | "jnle" | "jno" | "jnp" | "jns" | "jnz" | "jo" | "jp" | "jpe" | "jpo" | "js"
+            | "jz" => IrOp::Jcc,
             "call" => IrOp::Call,
             "ret" | "retn" | "retf" => IrOp::Ret,
             "int" | "int3" | "into" => IrOp::Int,
@@ -243,11 +245,26 @@ impl Lifter {
     }
 
     fn produces_result(&self, op: IrOp) -> bool {
-        !matches!(op,
-            IrOp::Jmp | IrOp::Jcc | IrOp::Call | IrOp::Ret | IrOp::Int | IrOp::Iret |
-            IrOp::Syscall | IrOp::Nop | IrOp::Hlt | IrOp::Pause | IrOp::Cpuid |
-            IrOp::Clc | IrOp::Stc | IrOp::Cmc | IrOp::Cld | IrOp::Std |
-            IrOp::Fence | IrOp::Unknown
+        !matches!(
+            op,
+            IrOp::Jmp
+                | IrOp::Jcc
+                | IrOp::Call
+                | IrOp::Ret
+                | IrOp::Int
+                | IrOp::Iret
+                | IrOp::Syscall
+                | IrOp::Nop
+                | IrOp::Hlt
+                | IrOp::Pause
+                | IrOp::Cpuid
+                | IrOp::Clc
+                | IrOp::Stc
+                | IrOp::Cmc
+                | IrOp::Cld
+                | IrOp::Std
+                | IrOp::Fence
+                | IrOp::Unknown
         )
     }
 }

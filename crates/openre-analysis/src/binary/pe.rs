@@ -377,6 +377,7 @@ fn calculate_entropy(data: &[u8]) -> f64 {
 }
 
 /// Calculate file hashes
+#[allow(unused_imports)]
 fn calculate_hashes(data: &[u8]) -> FileHashes {
     use md5::{Digest, Md5};
     use sha1::{Digest as Sha1Digest, Sha1};

@@ -3,9 +3,9 @@
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::{Capability, PluginId, PluginType};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use utoipa::ToSchema;
 
 /// Simple plugin metadata for security plugins
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,7 +182,7 @@ pub struct ConfigSchema {
 
 impl PluginManifest {
     /// Load manifest from a directory
-    pub fn from_dir(dir: &PathBuf) -> Result<Self> {
+    pub fn from_dir(dir: &Path) -> Result<Self> {
         let manifest_path = dir.join("plugin.toml");
         if !manifest_path.exists() {
             return Err(openre_core::Error::NotFound(format!(
@@ -243,12 +243,12 @@ impl PluginManifest {
     }
 
     /// Get the WASM module path
-    pub fn wasm_path(&self, base_dir: &PathBuf) -> Option<PathBuf> {
+    pub fn wasm_path(&self, base_dir: &Path) -> Option<PathBuf> {
         self.plugin.entry.wasm.as_ref().map(|p| base_dir.join(p))
     }
 
     /// Get the native library path for current OS
-    pub fn native_path(&self, base_dir: &PathBuf) -> Option<PathBuf> {
+    pub fn native_path(&self, base_dir: &Path) -> Option<PathBuf> {
         let os = std::env::consts::OS;
         self.plugin.entry.native.get(os).map(|p| base_dir.join(p))
     }

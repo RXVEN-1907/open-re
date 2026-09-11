@@ -1,10 +1,9 @@
 //! Security Knowledge Base - Link findings to CWE, OWASP, CAPEC, CVE, and standards
 
-use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use crate::{types::*, IntelligenceResult};
 use openre_core::ids::FindingId;
 use openre_core::result::{Category, Finding, Severity};
 use std::collections::HashMap;
-use tracing::{debug, info, warn};
 
 /// Configuration for the knowledge base
 #[derive(Debug, Clone)]
@@ -37,6 +36,12 @@ pub struct KnowledgeBase {
     capec_database: HashMap<String, CapecEntry>,
     secure_coding_guidelines: HashMap<Category, Vec<SecureCodingGuideline>>,
     standards_references: HashMap<String, Vec<StandardReference>>,
+}
+
+impl Default for KnowledgeBase {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// CWE database entry
@@ -388,7 +393,7 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
         let mut cwe_ids = Vec::new();
         let mut owasp_categories = Vec::new();
         let mut capec_ids = Vec::new();
-        let mut cve_ids = Vec::new();
+        let cve_ids = Vec::new();
         let mut mitre_attack_techniques = Vec::new();
 
         // Map category to CWE IDs
@@ -590,7 +595,7 @@ cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s",
     }
 
     /// Get knowledge base entry for a finding
-    pub fn get_knowledge_base_entry(&self, finding_id: &FindingId) -> Option<KnowledgeBaseEntry> {
+    pub fn get_knowledge_base_entry(&self, _finding_id: &FindingId) -> Option<KnowledgeBaseEntry> {
         // In a real implementation, this would look up stored entries
         // For now, we'll return None as entries are created during enrichment
         None
@@ -721,7 +726,7 @@ mod tests {
     #[test]
     fn test_xss_knowledge_enrichment() {
         let kb = KnowledgeBase::new();
-        let mut finding = create_test_finding(
+        let finding = create_test_finding(
             "Reflected XSS in search parameter",
             Category::Xss,
             "The application reflects user input directly into the HTML response without proper encoding."
@@ -744,7 +749,7 @@ mod tests {
     #[test]
     fn test_sql_injection_knowledge_enrichment() {
         let kb = KnowledgeBase::new();
-        let mut finding = create_test_finding(
+        let finding = create_test_finding(
             "SQL Injection vulnerability in login form",
             Category::Injection,
             "The application constructs SQL queries using string concatenation with user input.",
@@ -767,7 +772,7 @@ mod tests {
     #[test]
     fn test_keyword_based_mapping() {
         let kb = KnowledgeBase::new();
-        let mut finding = create_test_finding(
+        let finding = create_test_finding(
             "SQL Injection vulnerability detected",
             Category::Custom("Database".to_string()),
             "User input is concatenated directly into SQL queries without sanitization.",

@@ -8,10 +8,11 @@ use crate::binary::common::{
     TypeRecoveryOutput, Variable,
 };
 use crate::orchestrator::{
-    CancellationToken, IsolatedBinary, PipelineContext, StageContext, StageExecutor, StageMetrics, StageResult, StageStatus,
+    IsolatedBinary, PipelineContext, StageContext, StageExecutor, StageMetrics, StageResult,
+    StageStatus,
 };
-use openre_core::ids::{Architecture, FileFormat, FunctionId, ProjectId, StageId};
 use openre_core::error::OpenreResult as Result;
+use openre_core::ids::{Architecture, FileFormat, FunctionId, ProjectId, StageId};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -406,6 +407,7 @@ impl PipelineStage for DisassemblyStage {
 }
 
 /// Stage 4: Control Flow
+#[allow(dead_code)]
 pub struct ControlFlowStage {
     analyzer: Arc<dyn AnalyzerPlugin>,
     executor: Arc<StageExecutor>,
@@ -461,6 +463,7 @@ impl PipelineStage for ControlFlowStage {
 }
 
 /// Stage 5: Data Flow
+#[allow(dead_code)]
 pub struct DataFlowStage {
     analyzer: Arc<dyn AnalyzerPlugin>,
     executor: Arc<StageExecutor>,
@@ -509,6 +512,7 @@ impl PipelineStage for DataFlowStage {
 }
 
 /// Stage 6: Type Recovery
+#[allow(dead_code)]
 pub struct TypeRecoveryStage {
     analyzer: Arc<dyn AnalyzerPlugin>,
     executor: Arc<StageExecutor>,
@@ -557,6 +561,7 @@ impl PipelineStage for TypeRecoveryStage {
 }
 
 /// Stage 7: Decompilation
+#[allow(dead_code)]
 pub struct DecompilationStage {
     decompiler: Arc<dyn DecompilerPlugin>,
     executor: Arc<StageExecutor>,

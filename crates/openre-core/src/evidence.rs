@@ -1,7 +1,7 @@
 //! Standardized Evidence Schema for findings with verification support
 
-use crate::ids::{EvidenceId, FindingId, VerificationId};
-use crate::result::{Confidence, Severity};
+use crate::ids::{FindingId, VerificationId};
+use crate::result::Severity;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -661,7 +661,7 @@ pub trait FindingVerifier: Send + Sync {
     fn verify<'a>(
         &'a self,
         finding: &'a crate::result::Finding,
-        client: &'a reqwest::Client,
+        _client: &'a reqwest::Client,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = VerificationResult> + Send + 'a>>;
 }
 
@@ -678,9 +678,9 @@ impl FindingVerifier for Box<dyn FindingVerifier> {
     fn verify<'a>(
         &'a self,
         finding: &'a crate::result::Finding,
-        client: &'a reqwest::Client,
+        _client: &'a reqwest::Client,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = VerificationResult> + Send + 'a>> {
-        self.as_ref().verify(finding, client)
+        self.as_ref().verify(finding, _client)
     }
 }
 
@@ -715,6 +715,7 @@ pub mod builtin_verifiers {
             }
         }
 
+        #[allow(unused_variables)]
         fn verify<'a>(
             &'a self,
             finding: &'a Finding,
@@ -855,6 +856,7 @@ pub mod builtin_verifiers {
             }
         }
 
+        #[allow(unused_variables)]
         fn verify<'a>(
             &'a self,
             finding: &'a Finding,
@@ -904,6 +906,7 @@ pub mod builtin_verifiers {
             }
         }
 
+        #[allow(unused_variables)]
         fn verify<'a>(
             &'a self,
             finding: &'a Finding,
@@ -952,6 +955,7 @@ pub mod builtin_verifiers {
             }
         }
 
+        #[allow(unused_variables)]
         fn verify<'a>(
             &'a self,
             finding: &'a Finding,
@@ -998,6 +1002,7 @@ pub mod builtin_verifiers {
             }
         }
 
+        #[allow(unused_variables)]
         fn verify<'a>(
             &'a self,
             finding: &'a Finding,
@@ -1041,6 +1046,7 @@ pub mod builtin_verifiers {
             VerificationMethod::DirectoryListingCheck { path: "/".to_string() }
         }
 
+        #[allow(unused_variables)]
         fn verify<'a>(
             &'a self,
             finding: &'a Finding,
@@ -1087,6 +1093,7 @@ pub mod builtin_verifiers {
             }
         }
 
+        #[allow(unused_variables)]
         fn verify<'a>(
             &'a self,
             finding: &'a Finding,
@@ -1134,10 +1141,8 @@ pub mod builtin_verifiers {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ids::{EvidenceId, FindingId, VerificationId};
-    use crate::result::{Category, Confidence, Finding, Severity};
+    use crate::ids::{FindingId, VerificationId};
     use chrono::Utc;
-    use std::collections::HashMap;
 
     #[test]
     fn test_finding_evidence_creation() {
@@ -1197,7 +1202,7 @@ mod tests {
 
         for condition in conditions {
             let json = serde_json::to_string(&condition).unwrap();
-            let deserialized: TriggerCondition = serde_json::from_str(&json).unwrap();
+            let _deserialized: TriggerCondition = serde_json::from_str(&json).unwrap();
             // Just verify serialization works
             assert!(!json.is_empty());
         }
@@ -1222,7 +1227,7 @@ mod tests {
 
         for method in methods {
             let json = serde_json::to_string(&method).unwrap();
-            let deserialized: VerificationMethod = serde_json::from_str(&json).unwrap();
+            let _deserialized: VerificationMethod = serde_json::from_str(&json).unwrap();
             assert!(!json.is_empty());
         }
     }

@@ -32,20 +32,16 @@ impl ScanConfig {
         }
     }
 
-    pub fn resolve_profile(
-        &self,
-        scanner_config: &ScannerConfig,
-    ) -> crate::profiles::ScanProfile {
-        self.profile.as_ref().cloned().unwrap_or_else(|| {
-            match scanner_config.default_profile.as_str() {
-                "quick" => crate::profiles::ScanProfile::Quick,
-                "full" => crate::profiles::ScanProfile::Full,
-                _ => crate::profiles::ScanProfile::Standard,
-            }
-        })
+    pub fn resolve_profile(&self, scanner_config: &ScannerConfig) -> crate::profiles::ScanProfile {
+        let default_profile = match scanner_config.default_profile.as_str() {
+            "quick" => crate::profiles::ScanProfile::Quick,
+            "full" => crate::profiles::ScanProfile::Full,
+            _ => crate::profiles::ScanProfile::Standard,
+        };
+        self.profile.as_ref().cloned().unwrap_or(default_profile)
     }
 
     pub fn resolve_format(&self) -> crate::output::OutputFormat {
-        self.format.clone().unwrap_or(crate::output::OutputFormat::Table)
+        self.format.unwrap_or(crate::output::OutputFormat::Table)
     }
 }

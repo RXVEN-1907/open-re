@@ -1,6 +1,6 @@
 //! Performance optimizations - Caching and incremental operation
 
-use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use crate::{error::IntelligenceError, IntelligenceResult};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
@@ -60,6 +60,12 @@ impl<T> CacheEntry<T> {
 
     pub fn age(&self) -> Duration {
         self.created_at.elapsed()
+    }
+}
+
+impl Default for PerformanceOptimizer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -178,7 +184,7 @@ impl PerformanceOptimizer {
             self.cache.iter().map(|(key, entry)| (key.clone(), entry.age())).collect();
 
         // Sort by age (oldest first)
-        entries.sort_by(|a, b| b.1.cmp(&a.1));
+        entries.sort_by_key(|b| std::cmp::Reverse(b.1));
 
         // Remove oldest entries
         for (key, _) in entries.into_iter().take(count) {

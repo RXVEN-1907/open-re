@@ -1,12 +1,8 @@
 //! Pipeline orchestrator for open-re - standalone version
 
 use crate::binary::common::CompilerInfo;
-use crate::progress::{JobProgress, JobStatus, StageProgress, StageStatus as ProgressStageStatus};
-use crate::stages::{
-    AiEnrichmentConfig, AiEnrichmentStage, AiService, ControlFlowStage, DataFlowStage, DecompilationStage,
-    DisassemblyStage, FinalizationStage, IdentificationStage, LoadingStage, NoopAiService,
-    NoopAnalyzer, NoopDecompiler, NoopDisassembler, PipelineStage, TypeRecoveryStage,
-};
+use crate::progress::{JobProgress, StageProgress};
+use crate::stages::{AiService, PipelineStage};
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::*;
 use std::collections::HashMap;
@@ -22,9 +18,18 @@ pub struct IsolatedBinary;
 pub struct ProjectStore;
 
 impl ProjectStore {
-    pub fn new() -> Arc<Self> { Arc::new(Self) }
-    pub async fn write_identification(&self, _output: &openre_core::traits::IdentificationOutput) -> Result<()> { Ok(()) }
-    pub async fn finalize(&self, _project_id: ProjectId) -> Result<()> { Ok(()) }
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self)
+    }
+    pub async fn write_identification(
+        &self,
+        _output: &openre_core::traits::IdentificationOutput,
+    ) -> Result<()> {
+        Ok(())
+    }
+    pub async fn finalize(&self, _project_id: ProjectId) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -34,7 +39,9 @@ pub struct PluginRegistry;
 pub struct TelemetryHandle;
 
 impl TelemetryHandle {
-    pub fn new() -> Arc<Self> { Arc::new(Self) }
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self)
+    }
     pub fn record_stage_start(&self, _stage: &str) {}
     pub fn record_stage_end(&self, _stage: &str, _duration: Duration) {}
     pub fn record_error(&self, _error: &str) {}
@@ -93,13 +100,24 @@ pub struct CancellationToken {
 }
 
 impl CancellationToken {
-    pub fn new() -> Self { Self { cancelled: Arc::new(tokio::sync::RwLock::new(false)) } }
-    pub async fn cancel(&self) { let mut c = self.cancelled.write().await; *c = true; }
-    pub async fn is_cancelled(&self) -> bool { *self.cancelled.read().await }
+    pub fn new() -> Self {
+        Self { cancelled: Arc::new(tokio::sync::RwLock::new(false)) }
+    }
+    pub async fn cancel(&self) {
+        let mut c = self.cancelled.write().await;
+        *c = true;
+    }
+    pub async fn is_cancelled(&self) -> bool {
+        *self.cancelled.read().await
+    }
     pub fn check(&self) -> Result<()> {
         // Note: This is a synchronous check; for async check, use is_cancelled().await
         let cancelled = self.cancelled.try_read().map(|c| *c).unwrap_or(false);
-        if cancelled { Err(openre_core::Error::Cancelled) } else { Ok(()) }
+        if cancelled {
+            Err(openre_core::Error::Cancelled)
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -226,14 +244,8 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    pub fn new(
-        stages: Vec<Arc<dyn PipelineStage>>,
-        stage_executor: Arc<StageExecutor>,
-    ) -> Self {
-        Self {
-            stages,
-            stage_executor,
-        }
+    pub fn new(stages: Vec<Arc<dyn PipelineStage>>, stage_executor: Arc<StageExecutor>) -> Self {
+        Self { stages, stage_executor }
     }
 
     /// Execute the full analysis pipeline
@@ -322,7 +334,7 @@ impl Orchestrator {
         }
 
         // Check if stage was already completed successfully
-        if let Some(result) = previous_results.get(&stage_id) {
+        if let Some(result) = previous_results.get(stage_id) {
             if result.status == StageStatus::Success {
                 // Verify input hasn't changed
                 return Ok(true);
@@ -354,7 +366,7 @@ impl Orchestrator {
             }
         }
 
-        let current_stage_result = results.get(&stage_id);
+        let current_stage_result = results.get(stage_id);
         let stage_progress = current_stage_result
             .map(|r| if r.status == StageStatus::Success { 1.0 } else { 0.5 })
             .unwrap_or(0.0);
@@ -442,7 +454,7 @@ impl Orchestrator {
             annotations: Vec::new(),
             strings: Vec::new(),
             constants: Vec::new(),
-            statistics: AnalysisStatistics::default(),
+            statistics: AnalysisStatistics,
             completed_at: chrono::Utc::now(),
         })
     }
@@ -457,7 +469,15 @@ impl StageDag {
     pub fn new() -> Self {
         Self { stages: HashMap::new() }
     }
+}
 
+impl Default for StageDag {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl StageDag {
     pub fn add_stage(&mut self, stage_id: StageId, dependencies: Vec<StageId>) {
         self.stages.insert(stage_id, dependencies);
     }

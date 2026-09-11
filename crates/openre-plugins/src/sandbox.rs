@@ -2,7 +2,7 @@
 
 use openre_core::error::OpenreResult as Result;
 use openre_core::ids::Capability;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Sandbox configuration
 #[derive(Debug, Clone)]
@@ -80,7 +80,7 @@ impl PluginSandbox {
         caps
     }
 
-    pub fn check_filesystem_read(&self, path: &PathBuf) -> Result<()> {
+    pub fn check_filesystem_read(&self, path: &Path) -> Result<()> {
         match &self.config.filesystem {
             FilesystemPermission::None => {
                 Err(openre_core::Error::Forbidden("Filesystem access denied".into()))
@@ -118,7 +118,7 @@ impl PluginSandbox {
         }
     }
 
-    pub fn check_filesystem_write(&self, path: &PathBuf) -> Result<()> {
+    pub fn check_filesystem_write(&self, path: &Path) -> Result<()> {
         match &self.config.filesystem {
             FilesystemPermission::Write { paths } => {
                 if paths.iter().any(|p| path.starts_with(p)) {

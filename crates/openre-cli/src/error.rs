@@ -1,11 +1,11 @@
 //! CLI error types
 
-use thiserror::Error;
 use crate::ai_stubs::AiError;
 use crate::analysis_stubs::AnalysisError;
 use crate::intelligence_stubs::IntelligenceError;
 #[cfg(feature = "scan")]
 use openre_scan::ScanError;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum CliError {

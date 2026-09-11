@@ -5,11 +5,7 @@ use colored::Colorize;
 /// Print version information
 pub fn show_version() {
     println!("{} {}", "Version:".bold(), env!("CARGO_PKG_VERSION").bright_white());
-    println!(
-        "{} {}",
-        "Component:".bold(),
-        "openre-scan (standalone scanner)".bright_white()
-    );
+    println!("{} {}", "Component:".bold(), "openre-scan (standalone scanner)".bright_white());
     println!(
         "{} {}",
         "Repository:".bold(),
