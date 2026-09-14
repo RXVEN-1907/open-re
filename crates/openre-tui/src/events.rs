@@ -1,15 +1,14 @@
 //! Event system for the TUI
 
 use crate::state::{
-    AIAnalysis, AIViewMode, ChatMessage, ChatRole, FindingsGroupBy, JobStatus, KeyBindings,
+    AIAnalysis, AIViewMode, ChatMessage, FindingsGroupBy, JobStatus, KeyBindings,
     LogEntry, LogLevel, Notification, PanelType, PluginInfo, ProjectInfo, QueueStats, REViewMode,
-    ReportInfo, ReportType, ScanStatus, Theme, Workflow, WorkflowExecution, WorkflowViewMode,
+    ReportInfo, Theme, Workflow,
 };
 use openre_core::ids::{JobId, ProjectId, ScanId};
 use openre_core::result::{Category, Confidence, Finding, Severity};
-use openre_queue::{Job, Priority};
+use openre_intelligence::job::{Job, Priority};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Events that can be sent through the event bus
 #[derive(Debug, Clone, Serialize, Deserialize)]

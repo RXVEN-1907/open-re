@@ -1,13 +1,12 @@
-//! Research agent implementation
-
+/// Research agent implementation
+#[allow(unused_imports)]
 use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
-use crate::agents::context::*;
+use crate::agents::context::{ResearchInput, ResearchOutput, CveMatch, CweMapping, CapecMapping, MitreMapping};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
 use crate::cve_intelligence::CveIntelligence;
 use crate::knowledge_base::KnowledgeBase;
 use async_trait::async_trait;
 use openre_core::ids::AgentId;
-use openre_core::result::Finding;
 use std::sync::Arc;
 
 /// Research agent for fetching CVE, CWE, CAPEC, ATT&CK data

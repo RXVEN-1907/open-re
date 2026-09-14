@@ -1,0 +1,445 @@
+{
+  "warnings": [
+    {
+      "file": "crates/openre-tui/src/app.rs",
+      "line": 10,
+      "imports": [
+        "PluginViewMode",
+        "ReportViewMode",
+        "WorkflowViewMode"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/app.rs",
+      "line": 10,
+      "imports": [
+        "Finding"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/app.rs",
+      "line": 10,
+      "imports": [
+        "AIAnalysis",
+        "AIViewMode",
+        "DisplayFinding",
+        "FindingsGroupBy",
+        "FunctionSummary",
+        "KeyBindings",
+        "LogEntry",
+        "LogLevel",
+        "PluginInfo",
+        "PluginViewMode",
+        "ProjectInfo",
+        "ProjectSortBy",
+        "QueueStats",
+        "REProject",
+        "ReportInfo",
+        "ReportType",
+        "ReportViewMode",
+        "ThemeColors",
+        "WorkflowExecution",
+        "WorkflowViewMode",
+        "Workflow",
+        "utils::*"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/app.rs",
+      "line": 27,
+      "imports": [
+        "JobId",
+        "ProjectId",
+        "ScanId"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/app.rs",
+      "line": 28,
+      "imports": [
+        "openre_core::result::Finding"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/app.rs",
+      "line": 29,
+      "imports": [
+        "Category",
+        "Confidence",
+        "Severity"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/app.rs",
+      "line": 34,
+      "imports": [
+        "Alignment",
+        "Color",
+        "Frame",
+        "Gauge"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/app.rs",
+      "line": 40,
+      "imports": [
+        "HashMap",
+        "VecDeque"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/app.rs",
+      "line": 45,
+      "imports": [
+        "debug"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/components.rs",
+      "line": 8,
+      "imports": [
+        "Cell",
+        "Color"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/components.rs",
+      "line": 16,
+      "imports": [
+        "std::collections::HashMap"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/events.rs",
+      "line": 12,
+      "imports": [
+        "ChatRole",
+        "ReportType",
+        "ScanStatus",
+        "WorkflowExecution",
+        "WorkflowViewMode"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/events.rs",
+      "line": 12,
+      "imports": [
+        "std::collections::HashMap"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/panels.rs",
+      "line": 8,
+      "imports": [
+        "AIAnalysis",
+        "DisplayFinding",
+        "FindingsState",
+        "FunctionSummary",
+        "JobsState",
+        "LogLevel",
+        "LogsState",
+        "PluginInfo",
+        "ProjectInfo",
+        "ProjectSortBy",
+        "ProjectsState",
+        "QueueStats",
+        "REProject",
+        "ReportInfo",
+        "ScansState",
+        "WorkflowExecution",
+        "Workflow"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/panels.rs",
+      "line": 16,
+      "imports": [
+        "JobId",
+        "ProjectId"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/panels.rs",
+      "line": 17,
+      "imports": [
+        "Category",
+        "Confidence",
+        "Finding"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/panels.rs",
+      "line": 20,
+      "imports": [
+        "Alignment",
+        "Cell",
+        "Color",
+        "Gauge",
+        "Tabs"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/panels.rs",
+      "line": 29,
+      "imports": [
+        "std::collections::HashMap"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/panels.rs",
+      "line": 30,
+      "imports": [
+        "std::sync::Arc"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/panels.rs",
+      "line": 31,
+      "imports": [
+        "tokio::sync::RwLock"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/services.rs",
+      "line": 13,
+      "imports": [
+        "KeyModifiers"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/services.rs",
+      "line": 13,
+      "imports": [
+        "KeyModifiers"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/services.rs",
+      "line": 13,
+      "imports": [
+        "KeyModifiers"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/services.rs",
+      "line": 11,
+      "imports": [
+        "AIViewMode",
+        "ActiveScanInfo",
+        "ChatMessage",
+        "ChatRole",
+        "EvidenceDetail",
+        "FindingDetail",
+        "FindingsGroupBy",
+        "LogLevel",
+        "PluginViewMode",
+        "ProjectSortBy",
+        "REViewMode",
+        "RemediationDetail",
+        "ReportViewMode",
+        "ScanStatus",
+        "WorkflowExecution",
+        "WorkflowViewMode"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/services.rs",
+      "line": 11,
+      "imports": [
+        "FileId",
+        "JobId"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/services.rs",
+      "line": 12,
+      "imports": [
+        "Category",
+        "Confidence",
+        "Finding",
+        "Severity"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/services.rs",
+      "line": 27,
+      "imports": [
+        "InvestigationWorkflowEngine",
+        "KnowledgeBase",
+        "WorkflowManager"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/services.rs",
+      "line": 31,
+      "imports": [
+        "Path"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/services.rs",
+      "line": 34,
+      "imports": [
+        "debug",
+        "error"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/state.rs",
+      "line": 14,
+      "imports": [
+        "crate::app::App"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/state.rs",
+      "line": 14,
+      "imports": [
+        "FileId",
+        "JobId"
+      ]
+    },
+    {
+      "file": "crates/openre-tui/src/state.rs",
+      "line": 14,
+      "imports": [
+        "RwLock"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/commands/mod.rs",
+      "line": 18,
+      "imports": [
+        "openre_config::Config"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/commands/mod.rs",
+      "line": 18,
+      "imports": [
+        "std::collections::HashMap"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "BinaryFormat",
+        "BinaryInfo",
+        "Disassembly",
+        "Function",
+        "PipelineResult",
+        "PipelineStage"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "AiClient",
+        "AiProvider",
+        "AnalysisType",
+        "Audience",
+        "ConnectionTestResult",
+        "ExplainDetail",
+        "FixType",
+        "ProviderInfo"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "Category as VulnCategory",
+        "ExploitTemplateDetail",
+        "ExploitTemplate",
+        "Language"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "ComplianceFramework",
+        "Environment",
+        "GroupBy",
+        "Language",
+        "RemediationItem",
+        "RemediationPlan",
+        "RemediationReport",
+        "VerificationResult"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "print_output"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "OutputFormat",
+        "print_output"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "default_config_path"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "std::path::PathBuf"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "CliError"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "default_config_path"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "std::collections::HashMap"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "uuid::Uuid"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 23,
+      "imports": [
+        "openre_analysis::*"
+      ]
+    },
+    {
+      "file": "crates/openre-cli/src/main.rs",
+      "line": 43,
+      "imports": [
+        "openre_intelligence::*"
+      ]
+    }
+  ]
+}

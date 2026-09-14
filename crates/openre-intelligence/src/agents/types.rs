@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Agent types and capabilities
 
 use openre_core::ids::AgentId;

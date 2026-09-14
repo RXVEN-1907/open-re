@@ -1,4 +1,4 @@
-# openre-scan
+# openre
 
 ```
  ██████╗ ██████╗ ███████╗███╗   ██╗         ██████╗ ███████╗
@@ -6,174 +6,192 @@
 ██║   ██║██████╔╝█████╗  ██╔██╗ ██║ ██████╗ ██████╔╝█████╗
 ██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║ ╚═════╝ ██╔══██╗██╔══╝
 ╚██████╔╝██║     ███████╗██║ ╚████║         ██║  ██║███████╗
- ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝         ╚═╝  ╚═╝╚══════╝
+ ╚═════╝ ╚═╝     ╚══════╝╚════════╝         ╚══════╝╚══════╝
 ```
 
-**Lightning-fast web security scanner for developers and security professionals**
+**Open-source Reverse Engineering & Security Platform**
 
-[![CI](https://github.com/RXVEN-1907/open-re/actions/workflows/ci.yml/badge.svg)](https://github.com/RXVEN-1907/open-re/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/rust-1.80+-orange.svg)](https://www.rust-lang.org)
+Modern security tools + LLMs for automated analysis of binaries, websites, APIs, and applications — discover vulnerabilities, generate reproducible PoC exploits, and get actionable remediation guidance.
 
----
-
-## What is it?
-
-**openre-scan** is a standalone, zero-dependency web security scanner. Single binary (~7 MB), no runtime dependencies, no database, no server, no Docker. Runs everywhere: Linux, macOS, Windows, FreeBSD — on x86_64, aarch64, armv7.
-
-Designed for:
-- **Developers** — Quick security checks in CI/CD pipelines
-- **Security professionals** — Rapid reconnaissance and auditing
-- **Anyone** who needs to know if their web app has basic security headers
-
----
-
-## Install
-
-```bash
-# Download release (recommended)
-curl -L https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-scan-$(uname -s)-$(uname -m) -o openre-scan
-chmod +x openre-scan
-
-# Or build from source
-git clone https://github.com/RXVEN-1907/open-re.git
-cd open-re
-cargo build --release --package openre-scan
-# Binary at ./target/release/openre-scan
-```
+All in a single cross-platform binary. No database, no server, no Docker, no external dependencies. Works like `nmap`.
 
 ---
 
 ## Quick Start
 
+### Install (Pre-built Binaries)
+
+```bash
+# Linux / macOS / FreeBSD
+curl -L https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-$(uname -s)-$(uname -m) -o openre
+chmod +x openre
+
+# Windows (PowerShell)
+irm https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-windows-x86_64.exe -o openre.exe
+```
+
+### Build from Source
+
+```bash
+git clone https://github.com/RXVEN-1907/open-re.git
+cd open-re
+cargo build --release --package openre --package openre-scan --package openre-tui
+# Binaries at ./target/release/
+```
+
+---
+
+## What is it?
+
+**openre** is a unified platform combining:
+- **Web vulnerability scanning** (18+ security checks)
+- **Binary analysis** (ELF, PE, Mach-O, WASM with CFG/DFG recovery)
+- **AI-powered vulnerability research** (local: Ollama, llama.cpp, ONNX | cloud: OpenAI, Anthropic)
+- **PoC exploit generation** & **actionable remediation guidance**
+
+All in a single cross-platform binary (~15-20MB). No database, no server, no Docker required.
+
+---
+
+## Usage
+
+### Web Security Scanning
+
 ```bash
 # Quick scan (~2-3s) — essential checks for CI/CD
-openre-scan scan https://example.com --profile quick
+openre scan https://example.com --profile quick
 
 # Standard scan (~10-15s) — recommended for general use
-openre-scan scan https://example.com --profile standard
+openre scan https://example.com --profile standard
 
 # Full audit (~30-60s) — comprehensive
-openre-scan scan https://example.com --profile full --format sarif --output audit.sarif
+openre scan https://example.com --profile full --format sarif --output audit.sarif
 ```
 
----
-
-## Scan Profiles
-
-| Profile | Checks | Time | Use Case |
-|---------|--------|------|----------|
-| **Quick** | 6 | ~2-3s | CI/CD gates, rapid assessment |
-| **Standard** | 15 | ~10-15s | General purpose (recommended) |
-| **Full** | 18 | ~30-60s | Comprehensive audit |
-
----
-
-## 18 Security Checks
-
-```
-http-headers        → Server disclosure, powered-by, custom headers
-security-headers    → HSTS, CSP, X-Frame-Options, X-Content-Type-Options,
-                      Referrer-Policy, Permissions-Policy, COOP, CORP
-cookie-security     → Secure, HttpOnly, SameSite flags
-tls-certificate     → Certificate validation, chain, expiry, SANs
-info-disclosure     → Debug headers, stack traces, version info
-tech-fingerprint    → Framework, CMS, server, library detection
-csp                 → Content Security Policy directive analysis
-cors                → CORS misconfiguration (wildcard origin, credentials)
-robots-txt          → robots.txt enumeration and analysis
-sitemap             → sitemap.xml discovery
-dir-listing         → Directory listing detection
-sensitive-files     → 20+ common sensitive paths (.git, .env, configs, etc.)
-forms               → GET passwords, autocomplete, CSRF tokens
-links               → Mixed content, mailto links, external redirects
-scripts             → Inline scripts, external resources, integrity
-meta-tags           → Security-relevant meta tags (generator, refresh)
-http-methods        → TRACE, PUT, DELETE, PATCH, OPTIONS (Full only)
-ssl-config          → SSL/TLS configuration placeholder (Full only)
-```
-
----
-
-## Output Formats
-
-| Format | Use Case |
-|--------|----------|
-| **table** (default) | Human-readable colorized table |
-| **json** | Automation, scripting |
-| **sarif** | CI/CD integration (GitHub Code Scanning, Azure DevOps) |
+### Binary Analysis
 
 ```bash
-# SARIF for GitHub Code Scanning
-openre-scan scan https://example.com --format sarif --output results.sarif
+# Analyze any binary (ELF, PE, Mach-O, WASM)
+openre analyze ./binary --format json
 
-# JSON for automation
-openre-scan scan https://example.com --format json > results.json
+# With AI-enhanced analysis
+openre ai "analyze this function for vulnerabilities" --binary ./binary
 ```
+
+### AI-Powered Features
+
+```bash
+# Generate PoC exploit for a finding
+openre exploit <finding-id>
+
+# Get actionable remediation guidance
+openre remediate <finding-id>
+
+# Chat with AI about vulnerabilities
+openre ai "explain this buffer overflow" --binary ./vulnerable_binary
+```
+
+### Interactive TUI
+
+```bash
+# Full-screen terminal UI with 10 panels
+openre tui
+```
+
+**TUI Panels:** Projects, Jobs, Scans, Reverse Engineering, Findings, Workflows, AI, Plugins, Logs, Reports
 
 ---
 
-## Example Output
+## 18 Security Checks (Web Scanner)
 
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│ 🔍 openre-scan — Security Scan                                              │
-├────────────────────────────────────────────────────────────────────────────┤
-│ Target:              https://example.com                                    │
-│ Profile:             Standard (15 checks)                                   │
-└────────────────────────────────────────────────────────────────────────────┘
+| Check | Quick | Standard | Full |
+|-------|-------|----------|------|
+| HTTP Headers | ✅ | ✅ | ✅ |
+| Security Headers (HSTS, CSP, etc.) | ✅ | ✅ | ✅ |
+| Cookie Security | ✅ | ✅ | ✅ |
+| TLS Certificate | ✅ | ✅ | ✅ |
+| Information Disclosure | ✅ | ✅ | ✅ |
+| Technology Fingerprinting | ✅ | ✅ | ✅ |
+| CSP Analysis | | ✅ | ✅ |
+| CORS Configuration | | ✅ | ✅ |
+| robots.txt | | ✅ | ✅ |
+| sitemap.xml | | ✅ | ✅ |
+| Directory Listing | | ✅ | ✅ |
+| Sensitive Files (20+ paths) | | ✅ | ✅ |
+| Form Analysis | | ✅ | ✅ |
+| Link Analysis | | ✅ | ✅ |
+| Script Analysis | | ✅ | ✅ |
+| Meta Tags | | ✅ | ✅ |
+| HTTP Methods | | | ✅ |
+| SSL/TLS Configuration | | | ✅ |
 
-  ✓ Server Header Disclosure (Info) [http-headers]
-  ✓ Missing X-Frame-Options Header (Medium) [security-headers]
-  ✓ Missing Content-Security-Policy (High) [security-headers]
-  ...
+---
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│ 📋 Scan Results                                                              │
-├────────────────────────────────────────────────────────────────────────────┤
-│ Scan ID:        abc123...                                                    │
-│ Duration:       2.34s                                                        │
-│ Checks Run:     15                                                           │
-│ Findings:       7                                                            │
-└────────────────────────────────────────────────────────────────────────────┘
+## Cross-Platform Support
 
-📊 Findings by Severity:
-  🔴 HIGH:     2
-  🟡 MEDIUM:   3
-  🔵 LOW:      1
-  ⚪ INFO:     1
-```
+| OS | Architectures |
+|----|---------------|
+| Linux | x86_64, aarch64, armv7 |
+| macOS | x86_64, arm64 |
+| Windows | x86_64 |
+| FreeBSD | x86_64, aarch64 |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     openre-scan                              │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │ HTTP Client  │  │ Check Engine │  │ Output Formatter │   │
-│  │ (reqwest)    │──▶│ (18 checks)  │──▶│ (table/json/sarif)│   │
-│  └──────────────┘  └──────────────┘  └──────────────────┘   │
-│         │                  │                   │             │
-│         ▼                  ▼                   ▼             │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              18 Security Checks                      │    │
-│  │  http-headers │ security-headers │ cookie-security  │    │
-│  │  tls-cert     │ info-disclosure  │ tech-fingerprint │    │
-│  │  csp          │ cors             │ robots-txt       │    │
-│  │  sitemap      │ dir-listing      │ sensitive-files  │    │
-│  │  forms        │ links            │ scripts          │    │
-│  │  meta-tags    │ http-methods*    │ ssl-config*      │    │
-│  └─────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              open-re Platform                               │
+│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │ CLI (openre) │  │ TUI (openre-tui) │  │ Library API  │  │   Plugins    │ │
+│  └──────┬───────┘  └────────┬─────────┘  └──────┬───────┘  └──────┬───────┘ │
+│         │                   │                   │                 │         │
+│         └───────────────────┴───────────────────┴─────────────────┘         │
+│                             ▼                   ▼                           │
+│              ┌─────────────────────────────────────────┐                    │
+│              │               openre-core               │                    │
+│              │   Types, Errors, Traits, Results, IDs   │                    │
+│              └──────────────────┬──────────────────────┘                    │
+│                                 │                                           │
+│        ┌────────────────────────┼────────────────────────┐                  │
+│        ▼                        ▼                        ▼                  │
+│   ┌─────────────┐        ┌──────────────────┐       ┌─────────────┐         │
+│   │ openre-scan │        │ openre-analysis  │       │  openre-ai  │         │
+│   │ Web Scanner │        │ Binary Analyzer  │       │  AI Engine  │         │
+│   │ 18+ checks  │        │ ELF/PE/Mach-O/   │       │ Local/Cloud │         │
+│   │ SARIF/JSON  │        │  WASM + CFG/DFG  │       │  LLM + RAG  │         │
+│   └──────┬──────┘        └────────┬─────────┘       └──────┬──────┘         │
+│          │                        │                        │                │
+│          └────────────────────────┼────────────────────────┘                │
+│                                   ▼                                         │
+│                      ┌────────────────────────┐                             │
+│                      │  openre-intelligence   │                             │
+│                      │  Coordinator Agent     │                             │
+│                      │  Vuln Research → PoC   │                             │
+│                      │ Exploit Gen → Remediate│                             │
+│                      └────────────────────────┘                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-* Single binary (~7 MB stripped)
-* Zero runtime dependencies
-* Cross-platform: Linux, macOS, Windows, FreeBSD
-* Architectures: x86_64, aarch64, armv7
+---
+
+## AI Providers
+
+| Type | Providers |
+|------|-----------|
+| **Local** | Ollama, llama.cpp, ONNX Runtime (CPU/CUDA/CoreML) |
+| **Cloud** | OpenAI, Anthropic, vLLM |
+| **Hybrid** | Local-first with cloud fallback |
+
+---
+
+## Output Formats
+
+- **table** (default) — Human-readable colored tables
+- **json** — For automation and scripting
+- **sarif** — CI/CD integration (GitHub Code Scanning, Azure DevOps)
+- **yaml** — For configuration
 
 ---
 
@@ -183,7 +201,7 @@ openre-scan scan https://example.com --format json > results.json
 # GitHub Actions example
 - name: Security Scan
   run: |
-    ./openre-scan scan https://staging.example.com --profile quick --format sarif --output results.sarif
+    ./openre scan https://staging.example.com --profile quick --format sarif --output results.sarif
 - name: Upload SARIF
   uses: github/codeql-action/upload-sarif@v3
   with:
@@ -203,14 +221,3 @@ MIT License — see [LICENSE](LICENSE) for details.
 Only scan targets you own or have explicit written permission to test. Unauthorized scanning may violate laws and terms of service.
 
 No telemetry. No data collection. Ever.
-
----
-
-## Contributing
-
-```bash
-# Run checks locally
-cargo fmt --check && cargo clippy --workspace
-cargo test --workspace
-cargo build --workspace --release
-```

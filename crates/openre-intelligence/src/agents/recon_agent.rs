@@ -1,15 +1,12 @@
-//! Recon agent implementation
-
+/// Recon agent implementation
+#[allow(unused_imports)]
 use crate::agents::agent_trait::{AgentContext, AgentInput, AgentOutput, SecurityAgent};
 use crate::agents::context::*;
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
-use crate::error::IntelligenceError;
 use async_trait::async_trait;
 use openre_core::ids::AgentId;
-use openre_core::result::Finding;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, info, warn};
@@ -480,4 +477,3 @@ impl SecurityAgent for ReconAgent {
     }
 }
 
-use std::collections::VecDeque;

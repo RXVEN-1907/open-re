@@ -6,8 +6,6 @@ use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType}
 use crate::correlation::CorrelationEngine;
 use async_trait::async_trait;
 use openre_core::ids::AgentId;
-use openre_core::ids::FindingId;
-use openre_core::result::Finding;
 use std::sync::Arc;
 
 /// Correlation agent for correlating findings and building attack paths

@@ -1,13 +1,11 @@
-//! Verification agent implementation
-
+/// Verification agent implementation
+#[allow(unused_imports)]
 use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
-use crate::agents::context::*;
+use crate::agents::context::{VerificationInput, VerificationOutput, VerificationResult, VerificationSummary};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
 use crate::verification::VerificationEngine;
 use async_trait::async_trait;
 use openre_core::ids::AgentId;
-use openre_core::ids::FindingId;
-use openre_core::result::Finding;
 use std::sync::Arc;
 
 /// Verification agent for verifying findings with safe checks

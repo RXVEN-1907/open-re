@@ -12,7 +12,7 @@ use openre_core::ids::{FileId, JobId, ProjectId, ScanId};
 use openre_core::result::{Category, Confidence, Finding, Severity};
 #[cfg(feature = "intelligence")]
 use openre_intelligence::{InvestigationWorkflowEngine, KnowledgeBase, WorkflowManager};
-use openre_queue::{
+use openre_intelligence::job::{
     Job, JobStatus as QueueJobStatus, Priority, QueueManager, QueueStats as QueueQueueStats,
 };
 use openre_scanner::{ScanManager, ScanProgress, ScanSession};

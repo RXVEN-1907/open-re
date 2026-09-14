@@ -23,6 +23,7 @@ openre-config = { path = "../openre-config" }
 openre-scan = { path = "../openre-scan", optional = true }
 openre-plugins = { path = "../openre-plugins", optional = true }
 openre-telemetry = { path = "../openre-telemetry", optional = true }
+openre-intelligence = { path = "../openre-intelligence", optional = true }
 
 # TUI
 ratatui = { workspace = true }
@@ -61,14 +62,6 @@ full = ["scan", "plugins", "telemetry"]
 scan = ["dep:openre-scan"]
 plugins = ["dep:openre-plugins"]
 telemetry = ["dep:openre-telemetry"]
+intelligence = ["dep:openre-intelligence"]
 
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-panic = "abort"
-strip = true
 
-[profile.dev]
-opt-level = 0
-debug = true

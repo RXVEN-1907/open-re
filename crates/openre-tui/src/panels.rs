@@ -5,30 +5,28 @@ use crate::events::Event;
 use crate::{
     components::*,
     state::{
-        AIAnalysis, AIState, AIViewMode, AppState, ChatMessage, ChatRole, DisplayFinding,
-        FindingsGroupBy, FindingsState, FunctionSummary, JobStatus, JobsState, LogEntry, LogLevel,
-        LogsState, Notification, PanelType, PluginInfo, PluginViewMode, PluginsState, ProjectInfo,
-        ProjectSortBy, ProjectsState, QueueStats, REProject, REViewMode, ReportInfo, ReportType,
-        ReportViewMode, ReportsState, ReverseEngineeringState, ScanStatus, ScansState, ThemeColors,
-        Workflow, WorkflowExecution, WorkflowViewMode, WorkflowsState,
-    },
+        AIState, AIViewMode, AppState, ChatMessage, ChatRole,
+        FindingsGroupBy,
+        JobStatus,
+        LogEntry,
+        Notification, PanelType, PluginViewMode, PluginsState,
+        REViewMode, ReportsState, ReverseEngineeringState, ScanStatus, ScansState, ThemeColors,
+        Workflow, WorkflowExecution,
+        WorkflowsState,
+    }
 };
-use openre_core::ids::{JobId, ProjectId, ScanId};
+use openre_core::ids::ScanId;
 use openre_core::result::{Category, Confidence, Finding, Severity};
-use openre_queue::{Job, Priority};
+use openre_intelligence::job::{Job, Priority};
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Modifier, Style},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, Cell, Gauge, List, ListItem, ListState, Paragraph, Row, Table, TableState,
-        Tabs,
+        Block, Borders, List, ListItem, ListState, Paragraph, Row, Table, TableState,
     },
     Frame,
 };
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Trait for panel rendering and interaction
 pub trait Panel: Send + Sync {
@@ -129,7 +127,7 @@ impl Panel for ProjectsPanel {
                     cell(project.scan_count.to_string(), base_style),
                     cell(project.finding_count.to_string(), base_style),
                     cell(crate::utils::format_relative_time(project.updated_at), base_style),
-                    cell("", base_style), // Status will be rendered separately
+                    cell(status_text, base_style),
                 ])
                 .style(base_style)
             })
@@ -231,7 +229,7 @@ impl Panel for ProjectsPanel {
         key: crossterm::event::KeyEvent,
         state: &mut AppState,
     ) -> anyhow::Result<Vec<Action>> {
-        use crossterm::event::{KeyCode, KeyModifiers};
+        use crossterm::event::{KeyCode};
 
         let projects_state = &mut state.projects_state;
         let len = projects_state.projects.len();
@@ -363,8 +361,8 @@ impl Panel for JobsPanel {
                 Row::new(vec![
                     cell(crate::utils::truncate(&job.id.to_string(), 12), base_style),
                     cell(crate::utils::truncate(&job.job_type.to_string(), 20), base_style),
-                    cell("", base_style), // Status badge
-                    cell("", base_style), // Priority badge
+                    cell(status_badge, base_style),
+                    cell(priority_badge, base_style),
                     cell(progress_text, base_style),
                     cell(worker_text, base_style),
                     cell(queued_text, base_style),
@@ -472,7 +470,7 @@ impl Panel for JobsPanel {
         key: crossterm::event::KeyEvent,
         state: &mut AppState,
     ) -> anyhow::Result<Vec<Action>> {
-        use crossterm::event::{KeyCode, KeyModifiers};
+        use crossterm::event::{KeyCode};
 
         let jobs_state = &mut state.jobs_state;
         let len = jobs_state.jobs.len();
@@ -485,7 +483,7 @@ impl Panel for JobsPanel {
             }
             KeyCode::Char('p') => {
                 if let Some(job) = jobs_state.jobs.get(jobs_state.selected_index) {
-                    if matches!(job.status, openre_queue::JobStatus::Running) {
+                    if matches!(job.status, openre_intelligence::job::JobStatus::Running) {
                         return Ok(vec![Action::PauseJob(job.id)]);
                     }
                 }
@@ -494,7 +492,7 @@ impl Panel for JobsPanel {
                 if let Some(job) = jobs_state.jobs.get(jobs_state.selected_index) {
                     if matches!(
                         job.status,
-                        openre_queue::JobStatus::Failed | openre_queue::JobStatus::Cancelled
+                        openre_intelligence::job::JobStatus::Failed | openre_intelligence::job::JobStatus::Cancelled
                     ) {
                         return Ok(vec![Action::ResumeJob(job.id)]);
                     }
@@ -683,7 +681,7 @@ impl Panel for ScansPanel {
         key: crossterm::event::KeyEvent,
         state: &mut AppState,
     ) -> anyhow::Result<Vec<Action>> {
-        use crossterm::event::{KeyCode, KeyModifiers};
+        use crossterm::event::{KeyCode};
 
         let scans_state = &mut state.scans_state;
         let len = scans_state.scans.len();

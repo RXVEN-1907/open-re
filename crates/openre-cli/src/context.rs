@@ -1,5 +1,9 @@
 //! CLI execution context
 
+#[cfg(feature = "ai")]
+use crate::ai::{AiClient, AiProvider};
+
+#[cfg(not(feature = "ai"))]
 use crate::ai_stubs::{AiClient, AiProvider};
 use crate::{CliError, OutputFormat};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -36,7 +40,8 @@ impl Context {
         }
 
         if self.ai_client.is_none() {
-            let client = AiClient::new(self.ai_provider, self.ai_model.clone())?;
+            let client = AiClient::new(self.ai_provider, self.ai_model.clone())
+                .map_err(|e| CliError::Anyhow(e))?;
             self.ai_client = Some(Arc::new(client));
         }
 

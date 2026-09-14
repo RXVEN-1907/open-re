@@ -1,5 +1,6 @@
-//! Agent coordinator for managing agent execution
+#!/ Agent coordinator for managing agent execution
 
+#![allow(unused_imports)]
 use crate::agents::agent_trait::{
     AgentContext, AiService, CancellationToken, ScanStorage, SecurityAgent, SharedState,
 };
@@ -9,7 +10,6 @@ use crate::agents::types::{
 };
 use crate::error::IntelligenceError;
 use crate::job::{Job, JobStatus, Priority, QueueManager, QueueStats};
-use crate::types::*;
 use openre_core::ids::AgentId;
 use openre_core::ids::{FindingId, ScanId, WorkflowId};
 use petgraph::algo::toposort;
@@ -180,7 +180,6 @@ struct RegisteredAgent {
         >,
     >,
     metadata: AgentMetadata,
-    semaphore: Arc<Semaphore>,
 }
 
 /// Agent coordinator
@@ -243,7 +242,7 @@ impl AgentCoordinator {
         let metadata = AgentMetadata::new(agent_id, name, agent_type);
 
         let registered =
-            RegisteredAgent { agent, metadata, semaphore: Arc::new(Semaphore::new(1)) };
+            RegisteredAgent { agent, metadata };
 
         let mut agents = self.registered_agents.write().await;
         agents.insert(agent_id, registered);
@@ -512,48 +511,6 @@ impl AgentCoordinator {
             // For now, just sleep and let direct execution handle tasks
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
-    }
-
-    /// Process a single job
-    async fn process_job(&self, mut job: crate::job::Job) -> anyhow::Result<()> {
-        let _job_id = job.id.to_string();
-
-        // Parse task from job data (clone payload to avoid move)
-        let payload = job.payload.clone();
-        let task: AgentTask = serde_json::from_value(payload)?;
-
-        // Check dependencies
-        {
-            let graph = self.dependency_graph.read().await;
-            let completed: HashSet<String> =
-                self.task_results.read().await.keys().cloned().collect();
-            let ready = graph.get_ready_tasks(&completed);
-
-            if !ready.contains(&task.id) {
-                // Re-queue for later
-                job.status = crate::job::JobStatus::Pending;
-                self.queue_manager.enqueue(job).await?;
-                return Ok(());
-            }
-        }
-
-        // Execute task
-        let result = self.execute_task_direct(task).await?;
-
-        // Complete or fail the job
-        if result.success {
-            self.queue_manager.complete(job.id, serde_json::to_value(&result)?).await?;
-        } else {
-            self.queue_manager
-                .fail(
-                    job.id,
-                    result.error.clone().unwrap_or_else(|| "Unknown error".to_string()),
-                    result.error.is_some(),
-                )
-                .await?;
-        }
-
-        Ok(())
     }
 
     /// Health check loop

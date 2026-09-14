@@ -1,12 +1,11 @@
 //! CVE Intelligence - Match software versions against vulnerability databases
 
-use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use crate::{types::*, IntelligenceResult};
 use async_trait::async_trait;
-use openre_core::result::{Evidence, Finding};
-use serde::{Deserialize, Serialize};
+use openre_core::result::Finding;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 /// Trait for CVE data providers
 #[async_trait]
@@ -51,7 +50,6 @@ impl Default for CveIntelligenceConfig {
 /// CVE Intelligence system
 pub struct CveIntelligence {
     providers: Vec<Arc<dyn CveProvider>>,
-    config: CveIntelligenceConfig,
     cache: Option<std::sync::RwLock<CveCache>>,
 }
 
@@ -111,7 +109,7 @@ impl CveIntelligence {
             None
         };
 
-        Self { providers: Vec::new(), config, cache }
+        Self { providers: Vec::new(), cache }
     }
 
     /// Add a CVE provider
@@ -413,6 +411,12 @@ impl CveIntelligence {
 #[derive(Debug)]
 pub struct MockCveProvider {
     cve_database: HashMap<String, CveInfo>,
+}
+
+impl Default for MockCveProvider {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MockCveProvider {

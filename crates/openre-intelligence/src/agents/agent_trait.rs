@@ -131,7 +131,7 @@ pub struct TelemetryHandle {
     inner: Arc<dyn TelemetryInner>,
 }
 
-trait TelemetryInner: Send + Sync {
+pub trait TelemetryInner: Send + Sync {
     fn record_metric(&self, name: &str, value: f64, labels: HashMap<String, String>);
     fn record_event(&self, name: &str, attributes: HashMap<String, String>);
     fn start_span(&self, name: &str) -> Box<dyn TelemetrySpan>;

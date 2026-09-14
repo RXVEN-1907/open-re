@@ -3,8 +3,6 @@
 use chrono::{DateTime, Utc};
 use openre_core::ids::JobId;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use uuid::Uuid;
 
 /// Job priority levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

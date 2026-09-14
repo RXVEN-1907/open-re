@@ -1,26 +1,21 @@
-//! Remediation agent implementation
-
+/// Remediation agent implementation
+#[allow(unused_imports)]
 use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
-use crate::agents::context::*;
+use crate::agents::context::{RemediationInput, RemediationOutput, RemediationSuggestion, FixVerification};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
-use crate::remediation::RemediationVerifier;
-use async_trait::async_trait;
 use openre_core::ids::AgentId;
-use openre_core::ids::FindingId;
-use openre_core::result::Finding;
-use std::sync::Arc;
+use async_trait::async_trait;
 
 /// Remediation agent for suggesting and verifying fixes
 pub struct RemediationAgent {
     base: BaseAgent,
-    remediation_verifier: Arc<RemediationVerifier>,
 }
 
 impl RemediationAgent {
     /// Create a new remediation agent
-    pub fn new(remediation_verifier: Arc<RemediationVerifier>) -> Self {
+    pub fn new() -> Self {
         let base = BaseAgent::new("remediation-agent".to_string(), AgentType::Remediation);
-        Self { base, remediation_verifier }
+        Self { base }
     }
 }
 
@@ -137,5 +132,11 @@ impl SecurityAgent for RemediationAgent {
 
     async fn health_check(&self) -> AgentHealth {
         AgentHealth::Healthy
+    }
+}
+
+impl Default for RemediationAgent {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -1,18 +1,15 @@
 //! Attack Path Graph - Build exploitation paths from findings and relationships
 
-use crate::{error::IntelligenceError, IntelligenceResult};
-use openre_core::app_map::HttpMethod;
+use crate::IntelligenceResult;
 use openre_core::attack_path::{
     AttackComplexity, AttackNodeType, AttackPath, AttackPathEdge, AttackPathNode, AttackTechnique,
-    AttackVector, BusinessImpact, EntryPoint, EvidenceRef, ExploitabilityInfo, ImpactAssessment,
-    ImpactDetail, ImpactLevel, PrivilegeLevel, PrivilegesRequired, RiskLevel, Scope,
+    AttackVector, EntryPoint, EvidenceRef, ExploitabilityInfo, PrivilegeLevel, PrivilegesRequired, RiskLevel, Scope,
     UserInteraction,
 };
-use openre_core::ids::{AttackPathId, EntryPointId, EvidenceId, FindingId, NodeId, ScanId};
+use openre_core::ids::{EntryPointId, EvidenceId, NodeId};
 use openre_core::relationships::{
-    EvidenceSource, EvidenceType as RelationshipEvidenceType, FindingRelationship,
-    FindingRelationshipGraph, FindingRelationshipType, RelationshipEvidence, RiskImpact,
-    RiskLevelChange,
+    EvidenceType as RelationshipEvidenceType,
+    FindingRelationshipGraph, FindingRelationshipType,
 };
 use openre_core::result::{
     Category, Confidence, EvidenceType as ResultEvidenceType, Finding, Severity,
@@ -21,7 +18,6 @@ use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, NodeIndex};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use uuid::Uuid;
 
 /// Attack path graph builder
 pub struct AttackPathBuilder {
@@ -67,7 +63,7 @@ impl AttackPathBuilder {
         }
 
         // Sort by risk score (highest first)
-        paths.sort_by(|a, b| b.overall_risk.score.cmp(&a.overall_risk.score));
+        paths.sort_by_key(|b| std::cmp::Reverse(b.overall_risk.score));
 
         // Deduplicate similar paths
         paths = self.deduplicate_paths(paths);
@@ -205,7 +201,7 @@ impl AttackPathBuilder {
 
     /// Extract endpoint ID from finding evidence
     fn extract_endpoint_id(&self, finding: &Finding) -> Option<String> {
-        finding.evidence.first().and_then(|e| e.location.as_ref()).map(|l| l.clone())
+        finding.evidence.first().and_then(|e| e.location.as_ref()).cloned()
     }
 
     /// Identify entry points in the graph

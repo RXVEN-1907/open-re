@@ -5,8 +5,6 @@ use crate::agents::context::*;
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
 use async_trait::async_trait;
 use openre_core::ids::AgentId;
-use openre_core::result::Finding;
-use std::sync::Arc;
 
 /// API Analysis agent for analyzing REST/GraphQL APIs
 pub struct ApiAnalysisAgent {
@@ -68,5 +66,11 @@ impl SecurityAgent for ApiAnalysisAgent {
 
     async fn health_check(&self) -> AgentHealth {
         AgentHealth::Healthy
+    }
+}
+
+impl Default for ApiAnalysisAgent {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -7,13 +7,11 @@ use crate::{
     panels::{get_all_panels, Panel},
     services::{DataFetcher, Services},
     state::{
-        AIAnalysis, AIViewMode, ActiveScanInfo, AppState, ChatMessage, ChatRole, DisplayFinding,
-        FindingsGroupBy, FunctionSummary, JobStatus, KeyBindings, LogEntry, LogLevel, Notification,
-        PanelType, PluginInfo, PluginViewMode, ProjectInfo, ProjectSortBy, QueueStats, REProject,
-        REViewMode, ReportInfo, ReportType, ReportViewMode, ScanStatus, Theme, ThemeColors,
-        Workflow, WorkflowExecution, WorkflowViewMode,
+        ActiveScanInfo, AppState, ChatMessage, ChatRole,
+        JobStatus, Notification,
+        PanelType,
+        REViewMode, ScanStatus, Theme,
     },
-    utils::*,
 };
 use crossterm::{
     event::{
@@ -24,25 +22,20 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use openre_config::Config;
-use openre_core::ids::{JobId, ProjectId, ScanId};
-use openre_core::result::Finding;
-use openre_core::result::{Category, Confidence, Severity};
-use openre_queue::Job;
-use openre_queue::Priority;
+use openre_intelligence::job::{Job, Priority};
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Gauge, Paragraph, Tabs},
-    Frame, Terminal,
+    widgets::{Block, Borders, Paragraph, Tabs},
+    Terminal,
 };
-use std::collections::{HashMap, VecDeque};
 use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, mpsc, RwLock};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 /// Main application struct
 pub struct App {

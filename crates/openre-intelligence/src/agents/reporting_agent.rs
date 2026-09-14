@@ -1,7 +1,7 @@
-//! Reporting agent implementation
-
+/// Reporting agent implementation
+#[allow(unused_imports)]
 use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
-use crate::agents::context::*;
+use crate::agents::context::{ReportingInput, ReportingOutput, ReportMetadata};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
 use async_trait::async_trait;
 use openre_core::ids::AgentId;
@@ -95,7 +95,7 @@ impl SecurityAgent for ReportingAgent {
     fn generate_html_report(&self, input: &ReportingInput) -> String {
         let mut html = String::new();
         html.push_str("<html><head><title>Security Report</title></head><body>");
-        html.push_str(&format!("<h1>Security Scan Report</h1>"));
+        html.push_str("<h1>Security Scan Report</h1>");
         html.push_str(&format!("<p>Scan ID: {}</p>", input.scan_id));
         html.push_str(&format!("<p>Generated: {}</p>", chrono::Utc::now()));
         html.push_str(&format!("<p>Total Findings: {}</p>", input.findings.len()));
@@ -147,8 +147,8 @@ impl SecurityAgent for ReportingAgent {
 
     fn generate_text_report(&self, input: &ReportingInput) -> String {
         let mut report = String::new();
-        report.push_str(&format!("Security Scan Report\n"));
-        report.push_str(&format!("====================\n\n"));
+        report.push_str("Security Scan Report\n");
+        report.push_str("====================\n\n");
         report.push_str(&format!("Scan ID: {}\n", input.scan_id));
         report.push_str(&format!("Generated: {}\n", chrono::Utc::now()));
         report.push_str(&format!("Report Type: {}\n", input.report_type));
@@ -158,7 +158,7 @@ impl SecurityAgent for ReportingAgent {
         for (severity, count) in counts {
             report.push_str(&format!("  {}: {}\n", severity, count));
         }
-        report.push_str("\n");
+        report.push('\n');
 
         for finding in &input.findings {
             report.push_str(&format!(
@@ -172,5 +172,11 @@ impl SecurityAgent for ReportingAgent {
 
     async fn health_check(&self) -> AgentHealth {
         AgentHealth::Healthy
+    }
+}
+
+impl Default for ReportingAgent {
+    fn default() -> Self {
+        Self::new()
     }
 }

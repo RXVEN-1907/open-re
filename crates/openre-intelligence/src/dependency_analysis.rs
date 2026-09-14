@@ -1,8 +1,8 @@
 //! Dependency Analysis - Analyze package manager lockfiles and manifests
 
 use crate::{error::IntelligenceError, types::*, IntelligenceResult};
-use semver::{Version, VersionReq};
-use serde::{Deserialize, Serialize};
+use semver::Version;
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
 use tracing::warn;
@@ -180,7 +180,7 @@ impl DependencyFileType {
             let spec = line.split('#').next().unwrap_or(line).trim();
             let spec = spec.split(';').next().unwrap_or(spec).trim();
             let name = spec
-                .split(|c: char| c == '=' || c == '>' || c == '<' || c == '!' || c == '~')
+                .split(&['=', '>', '<', '!', '~'])
                 .next()
                 .unwrap_or("");
             !name.trim().is_empty()
@@ -283,15 +283,11 @@ impl DependencyAnalyzer {
         struct PackageLock {
             #[serde(default)]
             dependencies: HashMap<String, PackageInfo>,
-            #[serde(rename = "lockfileVersion")]
-            lockfile_version: Option<u32>,
         }
 
         #[derive(Deserialize)]
         struct PackageInfo {
             version: String,
-            #[serde(default)]
-            dependencies: HashMap<String, PackageInfo>,
         }
 
         let lock_file: PackageLock = serde_json::from_str(content)
@@ -382,8 +378,7 @@ impl DependencyAnalyzer {
             }
 
             // Entry header: "package@^1.2.3", package@^1.2.3:
-            if !trimmed.starts_with("version") && !trimmed.starts_with("dependencies") {
-                if trimmed.contains('@') && trimmed.ends_with(':') {
+            if !trimmed.starts_with("version") && !trimmed.starts_with("dependencies") && trimmed.contains('@') && trimmed.ends_with(':') {
                     // Strip quotes and trailing colon, then take the package name (before last @version spec)
                     let entry = trimmed.trim_end_matches(':').trim_matches('"');
                     if let Some(pos) = entry.rfind('@') {
@@ -393,7 +388,6 @@ impl DependencyAnalyzer {
                     }
                     continue;
                 }
-            }
 
             // Version line: version "1.2.3"
             if trimmed.starts_with("version ") && trimmed.contains('"') {
@@ -457,10 +451,8 @@ impl DependencyAnalyzer {
                     let version = parts[1].trim_start_matches('v');
                     dependencies.push(self.analyze_single_dependency(name, version, "go").await?);
                 }
-            } else if trimmed == "require (" {
-                continue;
-            } else if trimmed.ends_with(')') && !trimmed.contains(' ') {
-                continue;
+            } else if trimmed == "require (" || (trimmed.ends_with(')') && !trimmed.contains(' ')) {
+                // Skip require block markers and lone closing parentheses
             }
         }
 

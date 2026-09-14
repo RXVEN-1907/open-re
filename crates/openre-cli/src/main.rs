@@ -28,6 +28,26 @@ mod analysis {
     pub use crate::analysis_stubs::*;
 }
 
+#[cfg(feature = "ai")]
+mod ai {
+    pub use openre_ai::*;
+}
+
+#[cfg(not(feature = "ai"))]
+mod ai {
+    pub use crate::ai_stubs::*;
+}
+
+#[cfg(feature = "analysis")]
+mod intelligence {
+    pub use openre_intelligence::*;
+}
+
+#[cfg(not(feature = "analysis"))]
+mod intelligence {
+    pub use crate::intelligence_stubs::*;
+}
+
 #[cfg(feature = "scan")]
 use commands::scan::ScanCommands;
 

@@ -2,11 +2,11 @@
 
 use crate::state::{
     AIViewMode, FindingsGroupBy, JobStatus, KeyBindings, LogLevel, Notification, PanelType,
-    PluginViewMode, REViewMode, ReportType, ReportViewMode, ScanStatus, Theme, WorkflowViewMode,
+    REViewMode, ScanStatus, Theme,
 };
 use openre_core::ids::{JobId, ProjectId, ScanId};
-use openre_core::result::{Category, Confidence, Finding, Severity};
-use openre_queue::{Job, Priority};
+use openre_core::result::{Category, Confidence, Severity};
+use openre_intelligence::job::{Job, Priority};
 use serde::{Deserialize, Serialize};
 
 /// Actions that can be dispatched to the application

@@ -3,15 +3,14 @@
 //! This module provides systematic pairwise finding analysis, evidence-based relationship inference,
 //! confidence scoring, and CWE/CAPEC-based relationship rules.
 
-use crate::{error::IntelligenceError, types::*, IntelligenceResult};
+use crate::IntelligenceResult;
 use openre_core::ids::{FindingId, RelationshipId};
 use openre_core::relationships::{
     EvidenceSource, EvidenceType, FindingRelationship, FindingRelationshipGraph,
     FindingRelationshipType, RelationshipEvidence, RiskFactor, RiskImpact, RiskLevelChange,
 };
-use openre_core::result::{Category, Finding, Severity};
-use std::collections::{HashMap, HashSet};
-use tracing::{debug, info, warn};
+use openre_core::result::{Category, Finding};
+use std::collections::HashMap;
 
 /// Configuration for the correlation engine
 #[derive(Debug, Clone)]
@@ -77,7 +76,6 @@ pub struct CorrelationEngine {
 /// Rule for inferring relationships from CWE
 #[derive(Debug, Clone)]
 struct CweRelationshipRule {
-    cwe_id: String,
     relationship_type: FindingRelationshipType,
     confidence: f32,
     description: String,
@@ -86,7 +84,6 @@ struct CweRelationshipRule {
 /// Rule for inferring relationships from CAPEC
 #[derive(Debug, Clone)]
 struct CapecRelationshipRule {
-    capec_id: String,
     relationship_type: FindingRelationshipType,
     confidence: f32,
     description: String,
@@ -122,13 +119,11 @@ impl CorrelationEngine {
             "CWE-79".to_string(), // XSS
             vec![
                 CweRelationshipRule {
-                    cwe_id: "CWE-79".to_string(),
                     relationship_type: FindingRelationshipType::Enables,
                     confidence: 0.85,
                     description: "XSS can enable client-side attacks".to_string(),
                 },
                 CweRelationshipRule {
-                    cwe_id: "CWE-693".to_string(), // Missing CSP
                     relationship_type: FindingRelationshipType::Enables,
                     confidence: 0.8,
                     description: "Missing CSP enables XSS exploitation".to_string(),
@@ -139,7 +134,6 @@ impl CorrelationEngine {
         self.cwe_relationship_rules.insert(
             "CWE-89".to_string(), // SQL Injection
             vec![CweRelationshipRule {
-                cwe_id: "CWE-89".to_string(),
                 relationship_type: FindingRelationshipType::ChainedExploit,
                 confidence: 0.9,
                 description: "SQL injection can lead to data exfiltration".to_string(),
@@ -149,7 +143,6 @@ impl CorrelationEngine {
         self.cwe_relationship_rules.insert(
             "CWE-22".to_string(), // Path Traversal
             vec![CweRelationshipRule {
-                cwe_id: "CWE-22".to_string(),
                 relationship_type: FindingRelationshipType::ChainedExploit,
                 confidence: 0.85,
                 description: "Path traversal can lead to file read/write".to_string(),
@@ -159,7 +152,6 @@ impl CorrelationEngine {
         self.cwe_relationship_rules.insert(
             "CWE-798".to_string(), // Hardcoded Credentials
             vec![CweRelationshipRule {
-                cwe_id: "CWE-798".to_string(),
                 relationship_type: FindingRelationshipType::Enables,
                 confidence: 0.9,
                 description: "Hardcoded credentials enable authentication bypass".to_string(),
@@ -169,7 +161,6 @@ impl CorrelationEngine {
         self.cwe_relationship_rules.insert(
             "CWE-200".to_string(), // Information Exposure
             vec![CweRelationshipRule {
-                cwe_id: "CWE-200".to_string(),
                 relationship_type: FindingRelationshipType::InformationLeakage,
                 confidence: 0.8,
                 description: "Information exposure enables further attacks".to_string(),
@@ -180,7 +171,6 @@ impl CorrelationEngine {
         self.capec_relationship_rules.insert(
             "CAPEC-86".to_string(), // Embedding Scripts in HTTP Headers
             vec![CapecRelationshipRule {
-                capec_id: "CAPEC-86".to_string(),
                 relationship_type: FindingRelationshipType::Enables,
                 confidence: 0.85,
                 description: "Script embedding enables XSS".to_string(),
@@ -190,7 +180,6 @@ impl CorrelationEngine {
         self.capec_relationship_rules.insert(
             "CAPEC-109".to_string(), // Object Relational Mapping Injection
             vec![CapecRelationshipRule {
-                capec_id: "CAPEC-109".to_string(),
                 relationship_type: FindingRelationshipType::ChainedExploit,
                 confidence: 0.9,
                 description: "ORM injection enables SQL injection".to_string(),
@@ -200,7 +189,6 @@ impl CorrelationEngine {
         self.capec_relationship_rules.insert(
             "CAPEC-126".to_string(), // Path Traversal
             vec![CapecRelationshipRule {
-                capec_id: "CAPEC-126".to_string(),
                 relationship_type: FindingRelationshipType::ChainedExploit,
                 confidence: 0.85,
                 description: "Path traversal enables file access".to_string(),
@@ -313,7 +301,7 @@ impl CorrelationEngine {
         let relationships = self.correlate_findings(findings).await?;
         let mut graph = FindingRelationshipGraph::new();
         for rel in relationships {
-            graph.add_relationship(rel.into());
+            graph.add_relationship(rel);
         }
         Ok(graph)
     }
@@ -326,7 +314,7 @@ impl CorrelationEngine {
         let relationships = self.correlate_findings_sync(findings)?;
         let mut graph = FindingRelationshipGraph::new();
         for rel in relationships {
-            graph.add_relationship(rel.into());
+            graph.add_relationship(rel);
         }
         Ok(graph)
     }
@@ -781,14 +769,13 @@ impl CorrelationEngine {
 
         // Sort findings by timestamp
         let mut sorted_findings = findings.to_vec();
-        sorted_findings.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+        sorted_findings.sort_by_key(|a| a.timestamp);
 
         // Check adjacent findings within time window
         for i in 0..sorted_findings.len() {
             for j in (i + 1)..sorted_findings.len() {
                 let time_diff = (sorted_findings[j].timestamp - sorted_findings[i].timestamp)
-                    .num_seconds()
-                    .abs() as u64;
+                    .num_seconds().unsigned_abs();
 
                 if time_diff <= self.config.temporal_window_seconds {
                     if sorted_findings[i].target == sorted_findings[j].target {
@@ -899,47 +886,6 @@ impl CorrelationEngine {
         Ok(relationships)
     }
 
-    /// Limit the number of correlations per finding to prevent explosion
-    fn limit_correlations_per_finding(
-        &self,
-        relationships: &mut Vec<FindingRelationship>,
-    ) -> IntelligenceResult<()> {
-        if self.config.max_correlations_per_finding == 0 {
-            return Ok(());
-        }
-
-        // Count correlations per finding
-        let mut correlation_count: HashMap<FindingId, usize> = HashMap::new();
-        for relationship in relationships.iter() {
-            *correlation_count.entry(relationship.source_finding).or_insert(0) += 1;
-            *correlation_count.entry(relationship.target_finding).or_insert(0) += 1;
-        }
-
-        // If any finding exceeds the limit, we need to filter
-        let mut filtered_relationships = Vec::new();
-        let mut finding_usage: HashMap<FindingId, usize> = HashMap::new();
-
-        for relationship in relationships.iter() {
-            let mut can_add = true;
-            for finding_id in [relationship.source_finding, relationship.target_finding] {
-                if let Some(count) = finding_usage.get(&finding_id) {
-                    if *count >= self.config.max_correlations_per_finding {
-                        can_add = false;
-                        break;
-                    }
-                }
-            }
-
-            if can_add {
-                filtered_relationships.push(relationship.clone());
-                *finding_usage.entry(relationship.source_finding).or_insert(0) += 1;
-                *finding_usage.entry(relationship.target_finding).or_insert(0) += 1;
-            }
-        }
-
-        *relationships = filtered_relationships;
-        Ok(())
-    }
 }
 
 impl Default for CorrelationEngine {

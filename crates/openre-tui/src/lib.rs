@@ -18,7 +18,7 @@ pub use app::{run_tui, App};
 pub use components::*;
 pub use events::{Event, EventBus, EventHandler};
 pub use openre_core::result::{Category, Confidence, Severity};
-pub use openre_queue::Priority;
+pub use openre_intelligence::job::Priority;
 pub use panels::{get_all_panels, Panel};
 pub use services::{DataFetcher, Services};
 pub use state::{

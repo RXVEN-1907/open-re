@@ -1,0 +1,379 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-scan/Cargo.toml
+workspace: /home/jupyter-24b11cs489@adityau-1219b/project/open-re/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-tui/Cargo.toml
+workspace: /home/jupyter-24b11cs489@adityau-1219b/project/open-re/Cargo.toml
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> .patched-crates/select-patched/src/document.rs:17:31
+   |
+17 |     pub fn find<P: Predicate>(&self, predicate: P) -> Find<P> {
+   |                               ^^^^^                   ^^^^^^^ the same lifetime is hidden here
+   |                               |
+   |                               the lifetime is elided here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+   = note: `#[warn(mismatched_lifetime_syntaxes)]` on by default
+help: use `'_` for type paths
+   |
+17 |     pub fn find<P: Predicate>(&self, predicate: P) -> Find<'_, P> {
+   |                                                            +++
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+  --> .patched-crates/select-patched/src/document.rs:27:16
+   |
+27 |     pub fn nth(&self, n: usize) -> Option<Node> {
+   |                ^^^^^                      ^^^^ the same lifetime is hidden here
+   |                |
+   |                the lifetime is elided here
+   |
+   = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+help: use `'_` for type paths
+   |
+27 |     pub fn nth(&self, n: usize) -> Option<Node<'_>> {
+   |                                               ++++
+
+warning: `select` (lib) generated 2 warnings (run `cargo clippy --fix --lib -p select -- -D warnings` to apply 2 suggestions)
+    Checking openre-intelligence v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-intelligence)
+error[E0422]: cannot find struct, variant or union type `ImpactAssessment` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:701:21
+    |
+701 |             impact: ImpactAssessment {
+    |                     ^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ImpactDetail` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:703:34
+    |
+703 |                 confidentiality: ImpactDetail {
+    |                                  ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ImpactDetail` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:709:28
+    |
+709 |                 integrity: ImpactDetail {
+    |                            ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ImpactDetail` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:715:31
+    |
+715 |                 availability: ImpactDetail {
+    |                               ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `BusinessImpact` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:721:27
+    |
+721 |                 business: BusinessImpact {
+    |                           ^^^^^^^^^^^^^^ not found in this scope
+
+error[E0433]: cannot find type `FindingId` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:536:17
+    |
+536 |             id: FindingId::new(),
+    |                 ^^^^^^^^^ use of undeclared type `FindingId`
+    |
+help: a struct with a similar name exists
+    |
+536 -             id: FindingId::new(),
+536 +             id: Finding::new(),
+    |
+
+error[E0433]: cannot find type `ScanId` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:549:22
+    |
+549 |             scan_id: ScanId::new(),
+    |                      ^^^^^^ use of undeclared type `ScanId`
+
+error[E0433]: cannot find type `AttackPathId` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:680:17
+    |
+680 |             id: AttackPathId::new(),
+    |                 ^^^^^^^^^^^^ use of undeclared type `AttackPathId`
+    |
+help: a struct with a similar name exists
+    |
+680 -             id: AttackPathId::new(),
+680 +             id: AttackPath::new(),
+    |
+
+error[E0433]: cannot find type `ImpactLevel` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:702:33
+    |
+702 |                 overall_impact: ImpactLevel::None,
+    |                                 ^^^^^^^^^^^ use of undeclared type `ImpactLevel`
+
+error[E0433]: cannot find type `ImpactLevel` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:704:28
+    |
+704 |                     level: ImpactLevel::None,
+    |                            ^^^^^^^^^^^ use of undeclared type `ImpactLevel`
+
+error[E0433]: cannot find type `ImpactLevel` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:710:28
+    |
+710 |                     level: ImpactLevel::None,
+    |                            ^^^^^^^^^^^ use of undeclared type `ImpactLevel`
+
+error[E0433]: cannot find type `ImpactLevel` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:716:28
+    |
+716 |                     level: ImpactLevel::None,
+    |                            ^^^^^^^^^^^ use of undeclared type `ImpactLevel`
+
+error[E0433]: cannot find type `ImpactLevel` in this scope
+   --> crates/openre-intelligence/src/attack_path.rs:722:28
+    |
+722 |                     level: ImpactLevel::None,
+    |                            ^^^^^^^^^^^ use of undeclared type `ImpactLevel`
+
+error: trait `agents::agent_trait::TelemetryInner` is more private than the item `agents::agent_trait::TelemetryHandle::new`
+   --> crates/openre-intelligence/src/agents/agent_trait.rs:147:5
+    |
+147 |     pub fn new(inner: Arc<dyn TelemetryInner>) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ associated function `agents::agent_trait::TelemetryHandle::new` is reachable at visibility `pub`
+    |
+note: but trait `agents::agent_trait::TelemetryInner` is only usable at visibility `pub(self)`
+   --> crates/openre-intelligence/src/agents/agent_trait.rs:134:1
+    |
+134 | trait TelemetryInner: Send + Sync {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `-D private-interfaces` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(private_interfaces)]`
+
+error: type `knowledge_base::CweEntry` is more private than the item `knowledge_base::KnowledgeBase::get_cwe_info`
+   --> crates/openre-intelligence/src/knowledge_base.rs:605:5
+    |
+605 |     pub fn get_cwe_info(&self, cwe_id: &str) -> Option<&CweEntry> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `knowledge_base::KnowledgeBase::get_cwe_info` is reachable at visibility `pub`
+    |
+note: but type `knowledge_base::CweEntry` is only usable at visibility `pub(self)`
+   --> crates/openre-intelligence/src/knowledge_base.rs:49:1
+    |
+ 49 | struct CweEntry {
+    | ^^^^^^^^^^^^^^^
+
+error: type `knowledge_base::CapecEntry` is more private than the item `knowledge_base::KnowledgeBase::get_capec_info`
+   --> crates/openre-intelligence/src/knowledge_base.rs:620:5
+    |
+620 |     pub fn get_capec_info(&self, capec_id: &str) -> Option<&CapecEntry> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `knowledge_base::KnowledgeBase::get_capec_info` is reachable at visibility `pub`
+    |
+note: but type `knowledge_base::CapecEntry` is only usable at visibility `pub(self)`
+   --> crates/openre-intelligence/src/knowledge_base.rs:61:1
+    |
+ 61 | struct CapecEntry {
+    | ^^^^^^^^^^^^^^^^^
+
+error: field `semaphore` is never read
+   --> crates/openre-intelligence/src/agents/coordinator.rs:184:5
+    |
+176 | struct RegisteredAgent {
+    |        --------------- field in this struct
+...
+184 |     semaphore: Arc<Semaphore>,
+    |     ^^^^^^^^^
+    |
+    = note: `-D dead-code` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[expect(dead_code)]` or `#[allow(dead_code)]`
+
+error: method `process_job` is never used
+   --> crates/openre-intelligence/src/agents/coordinator.rs:519:14
+    |
+203 | impl AgentCoordinator {
+    | --------------------- method in this implementation
+...
+519 |     async fn process_job(&self, mut job: crate::job::Job) -> anyhow::Result<()> {
+    |              ^^^^^^^^^^^
+
+error: field `remediation_verifier` is never read
+  --> crates/openre-intelligence/src/agents/remediation_agent.rs:14:5
+   |
+12 | pub struct RemediationAgent {
+   |            ---------------- field in this struct
+13 |     base: BaseAgent,
+14 |     remediation_verifier: Arc<RemediationVerifier>,
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+error: field `cwe_id` is never read
+  --> crates/openre-intelligence/src/correlation.rs:79:5
+   |
+78 | struct CweRelationshipRule {
+   |        ------------------- field in this struct
+79 |     cwe_id: String,
+   |     ^^^^^^
+   |
+   = note: `CweRelationshipRule` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+error: field `capec_id` is never read
+  --> crates/openre-intelligence/src/correlation.rs:88:5
+   |
+87 | struct CapecRelationshipRule {
+   |        --------------------- field in this struct
+88 |     capec_id: String,
+   |     ^^^^^^^^
+   |
+   = note: `CapecRelationshipRule` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+error: method `limit_correlations_per_finding` is never used
+   --> crates/openre-intelligence/src/correlation.rs:901:8
+    |
+ 94 | impl CorrelationEngine {
+    | ---------------------- method in this implementation
+...
+901 |     fn limit_correlations_per_finding(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: field `config` is never read
+  --> crates/openre-intelligence/src/cve_intelligence.rs:53:5
+   |
+51 | pub struct CveIntelligence {
+   |            --------------- field in this struct
+52 |     providers: Vec<Arc<dyn CveProvider>>,
+53 |     config: CveIntelligenceConfig,
+   |     ^^^^^^
+
+error: field `lockfile_version` is never read
+   --> crates/openre-intelligence/src/dependency_analysis.rs:287:13
+    |
+283 |         struct PackageLock {
+    |                ----------- field in this struct
+...
+287 |             lockfile_version: Option<u32>,
+    |             ^^^^^^^^^^^^^^^^
+
+error: field `dependencies` is never read
+   --> crates/openre-intelligence/src/dependency_analysis.rs:294:13
+    |
+291 |         struct PackageInfo {
+    |                ----------- field in this struct
+...
+294 |             dependencies: HashMap<String, PackageInfo>,
+    |             ^^^^^^^^^^^^
+
+error: field `config` is never read
+  --> crates/openre-intelligence/src/knowledge_base.rs:33:5
+   |
+32 | pub struct KnowledgeBase {
+   |            ------------- field in this struct
+33 |     config: KnowledgeBaseConfig,
+   |     ^^^^^^
+
+error: fields `likelihood`, `impact`, and `related_cwes` are never read
+  --> crates/openre-intelligence/src/knowledge_base.rs:53:5
+   |
+49 | struct CweEntry {
+   |        -------- fields in this struct
+...
+53 |     likelihood: String,
+   |     ^^^^^^^^^^
+54 |     impact: String,
+   |     ^^^^^^
+55 |     related_cwes: Vec<String>,
+   |     ^^^^^^^^^^^^
+   |
+   = note: `CweEntry` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+error: fields `likelihood`, `typical_severity`, `related_cwes`, and `mitigation_strategies` are never read
+  --> crates/openre-intelligence/src/knowledge_base.rs:65:5
+   |
+61 | struct CapecEntry {
+   |        ---------- fields in this struct
+...
+65 |     likelihood: String,
+   |     ^^^^^^^^^^
+66 |     typical_severity: Severity,
+   |     ^^^^^^^^^^^^^^^^
+67 |     related_cwes: Vec<String>,
+   |     ^^^^^^^^^^^^
+68 |     mitigation_strategies: Vec<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `CapecEntry` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+error: field `http_client` is never read
+  --> crates/openre-intelligence/src/remediation.rs:24:5
+   |
+22 | pub struct RemediationVerifier {
+   |            ------------------- field in this struct
+23 |     config: RemediationVerifierConfig,
+24 |     http_client: Client,
+   |     ^^^^^^^^^^^
+
+error: you should consider adding a `Default` implementation for `ApiAnalysisAgent`
+  --> crates/openre-intelligence/src/agents/api_analysis_agent.rs:16:5
+   |
+16 | /     pub fn new() -> Self {
+17 | |         let base = BaseAgent::new("api-analysis-agent".to_string(), AgentType::ApiAnalysis);
+18 | |         Self { base }
+19 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#new_without_default
+   = note: `-D clippy::new-without-default` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::new_without_default)]`
+help: try adding this
+   |
+14 + impl Default for ApiAnalysisAgent {
+15 +     fn default() -> Self {
+16 +         Self::new()
+17 +     }
+18 + }
+   |
+
+error: you should consider adding a `Default` implementation for `ReportingAgent`
+  --> crates/openre-intelligence/src/agents/reporting_agent.rs:18:5
+   |
+18 | /     pub fn new() -> Self {
+19 | |         let base = BaseAgent::new("reporting-agent".to_string(), AgentType::Reporting);
+20 | |         Self { base }
+21 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#new_without_default
+help: try adding this
+   |
+16 + impl Default for ReportingAgent {
+17 +     fn default() -> Self {
+18 +         Self::new()
+19 +     }
+20 + }
+   |
+
+error: you should consider adding a `Default` implementation for `WebAnalysisAgent`
+  --> crates/openre-intelligence/src/agents/web_analysis_agent.rs:16:5
+   |
+16 | /     pub fn new() -> Self {
+17 | |         let base = BaseAgent::new("web-analysis-agent".to_string(), AgentType::WebAnalysis);
+18 | |         Self { base }
+19 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#new_without_default
+help: try adding this
+   |
+14 + impl Default for WebAnalysisAgent {
+15 +     fn default() -> Self {
+16 +         Self::new()
+17 +     }
+18 + }
+   |
+
+error: consider using `sort_by_key`
+  --> crates/openre-intelligence/src/attack_path.rs:66:9
+   |
+66 |         paths.sort_by(|a, b| b.overall_risk.score.cmp(&a.overall_risk.score));
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_sort_by
+   = note: `-D clippy::unnecessary-sort-by` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::unnecessary_sort_by)]`
+help: try
+   |
+66 -         paths.sort_by(|a, b| b.overall_risk.score.cmp(&a.overall_risk.score));
+66 +         paths.sort_by_key(|b| std::cmp::Reverse(b.overall_risk.score));
+   |
+
+Some errors have detailed explanations: E0422, E0433.
+For more information about an error, try `rustc --explain E0422`.
+error: could not compile `openre-intelligence` (lib test) due to 13 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `openre-intelligence` (lib) due to 20 previous errors

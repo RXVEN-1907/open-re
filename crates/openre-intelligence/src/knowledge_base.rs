@@ -2,7 +2,7 @@
 
 use crate::{types::*, IntelligenceResult};
 use openre_core::ids::FindingId;
-use openre_core::result::{Category, Finding, Severity};
+use openre_core::result::{Category, Finding};
 use std::collections::HashMap;
 
 /// Configuration for the knowledge base
@@ -30,7 +30,6 @@ impl Default for KnowledgeBaseConfig {
 
 /// Security knowledge base linking findings to standards and guidelines
 pub struct KnowledgeBase {
-    config: KnowledgeBaseConfig,
     cwe_database: HashMap<String, CweEntry>,
     owasp_mappings: HashMap<Category, Vec<String>>,
     capec_database: HashMap<String, CapecEntry>,
@@ -46,33 +45,25 @@ impl Default for KnowledgeBase {
 
 /// CWE database entry
 #[derive(Debug, Clone)]
-struct CweEntry {
+pub struct CweEntry {
     id: String,
     name: String,
     description: String,
-    likelihood: String,
-    impact: String,
-    related_cwes: Vec<String>,
     capec_ids: Vec<String>,
 }
 
 /// CAPEC database entry
 #[derive(Debug, Clone)]
-struct CapecEntry {
+pub struct CapecEntry {
     id: String,
     name: String,
     description: String,
-    likelihood: String,
-    typical_severity: Severity,
-    related_cwes: Vec<String>,
-    mitigation_strategies: Vec<String>,
 }
 
 impl KnowledgeBase {
     /// Create a new knowledge base with default configuration
     pub fn new() -> Self {
         let mut kb = Self {
-            config: KnowledgeBaseConfig::default(),
             cwe_database: HashMap::new(),
             owasp_mappings: HashMap::new(),
             capec_database: HashMap::new(),
@@ -86,9 +77,8 @@ impl KnowledgeBase {
     }
 
     /// Create a new knowledge base with custom configuration
-    pub fn with_config(config: KnowledgeBaseConfig) -> Self {
+    pub fn with_config(_config: KnowledgeBaseConfig) -> Self {
         let mut kb = Self {
-            config,
             cwe_database: HashMap::new(),
             owasp_mappings: HashMap::new(),
             capec_database: HashMap::new(),
@@ -125,45 +115,30 @@ impl KnowledgeBase {
                 id: "CWE-79".to_string(),
                 name: "Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')".to_string(),
                 description: "The software does not neutralize or incorrectly neutralizes user-controllable input before it is placed in output that is used as a web page that is served to other users.".to_string(),
-                likelihood: "High".to_string(),
-                impact: "Medium".to_string(),
-                related_cwes: vec!["CWE-80".to_string(), "CWE-81".to_string()],
                 capec_ids: vec!["CAPEC-66".to_string(), "CAPEC-72".to_string()],
             },
             CweEntry {
                 id: "CWE-89".to_string(),
                 name: "Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')".to_string(),
                 description: "The software constructs all or part of an SQL command using externally-influenced input from an upstream component, but it does not neutralize or incorrectly neutralizes special elements that could modify the intended SQL command when it is sent to a downstream component.".to_string(),
-                likelihood: "High".to_string(),
-                impact: "High".to_string(),
-                related_cwes: vec!["CWE-564".to_string(), "CWE-791".to_string()],
                 capec_ids: vec!["CAPEC-66".to_string(), "CAPEC-108".to_string()],
             },
             CweEntry {
                 id: "CWE-22".to_string(),
                 name: "Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')".to_string(),
                 description: "The software uses external input to construct a pathname that is intended to identify a file or directory that is located underneath a restricted parent directory, but the software does not properly neutralize special elements within the pathname that can cause the pathname to resolve to a location that is outside of the restricted directory.".to_string(),
-                likelihood: "Medium".to_string(),
-                impact: "High".to_string(),
-                related_cwes: vec!["CWE-23".to_string(), "CWE-36".to_string()],
                 capec_ids: vec!["CAPEC-126".to_string(), "CAPEC-177".to_string()],
             },
             CweEntry {
                 id: "CWE-287".to_string(),
                 name: "Improper Authentication".to_string(),
                 description: "When an actor claims to have a given identity, the software does not prove or insufficiently proves that the claim is correct.".to_string(),
-                likelihood: "Medium".to_string(),
-                impact: "High".to_string(),
-                related_cwes: vec!["CWE-284".to_string(), "CWE-306".to_string()],
                 capec_ids: vec!["CAPEC-112".to_string(), "CAPEC-555".to_string()],
             },
             CweEntry {
                 id: "CWE-732".to_string(),
                 name: "Incorrect Permission Assignment for Critical Resource".to_string(),
                 description: "The software specifies permissions for a security-critical resource in a way that allows that resource to be read or modified by unintended actors.".to_string(),
-                likelihood: "Medium".to_string(),
-                impact: "High".to_string(),
-                related_cwes: vec!["CWE-275".to_string(), "CWE-733".to_string()],
                 capec_ids: vec!["CAPEC-18".to_string(), "CAPEC-67".to_string()],
             },
         ];
@@ -241,27 +216,11 @@ impl KnowledgeBase {
                 id: "CAPEC-66".to_string(),
                 name: "SQL Injection".to_string(),
                 description: "An adversary injects malicious SQL code into application queries to manipulate the database.".to_string(),
-                likelihood: "High".to_string(),
-                typical_severity: Severity::High,
-                related_cwes: vec!["CWE-89".to_string()],
-                mitigation_strategies: vec![
-                    "Use parameterized queries or prepared statements".to_string(),
-                    "Validate and sanitize all input".to_string(),
-                    "Implement least privilege database access".to_string(),
-                ],
             },
             CapecEntry {
                 id: "CAPEC-72".to_string(),
                 name: "Cross Site Scripting".to_string(),
                 description: "An adversary injects malicious script code into web pages viewed by other users.".to_string(),
-                likelihood: "High".to_string(),
-                typical_severity: Severity::Medium,
-                related_cwes: vec!["CWE-79".to_string()],
-                mitigation_strategies: vec![
-                    "Encode output based on context (HTML, JavaScript, CSS)".to_string(),
-                    "Use Content Security Policy (CSP) headers".to_string(),
-                    "Validate and sanitize input".to_string(),
-                ],
             },
         ];
 

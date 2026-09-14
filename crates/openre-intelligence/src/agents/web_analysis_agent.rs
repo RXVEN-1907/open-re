@@ -1,12 +1,10 @@
-//! Web Analysis agent implementation
-
+/// Web Analysis agent implementation
+#[allow(unused_imports)]
 use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
-use crate::agents::context::*;
+use crate::agents::context::{WebAnalysisInput, WebAnalysisOutput};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
 use async_trait::async_trait;
 use openre_core::ids::AgentId;
-use openre_core::result::Finding;
-use std::sync::Arc;
 
 /// Web Analysis agent for analyzing web applications for vulnerabilities
 pub struct WebAnalysisAgent {
@@ -73,6 +71,12 @@ impl SecurityAgent for WebAnalysisAgent {
 
     async fn health_check(&self) -> AgentHealth {
         AgentHealth::Healthy
+    }
+}
+
+impl Default for WebAnalysisAgent {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

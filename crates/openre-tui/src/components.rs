@@ -5,15 +5,14 @@ use openre_core::result::Severity;
 use openre_queue::Priority;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, Cell, Gauge, List, ListItem, ListState, Paragraph, Row, Table, TableState,
+        Block, Borders, Gauge, List, ListItem, ListState, Paragraph, Row, Table, TableState,
         Tabs,
     },
     Frame,
 };
-use std::collections::HashMap;
 
 /// Render a styled block with title
 pub fn render_block(

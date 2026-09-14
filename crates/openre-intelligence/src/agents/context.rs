@@ -1,16 +1,9 @@
 //! Agent context and related types
 
-use crate::agents::agent_trait::{
-    AgentContext, AiService, CancellationToken, ScanStorage, SharedState, TelemetryHandle,
-};
-use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
-use async_trait::async_trait;
-use openre_core::ids::AgentId;
-use openre_core::ids::{FindingId, ScanId, WorkflowId};
+use openre_core::ids::{FindingId, ScanId};
 use openre_core::result::Finding;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
 
 /// Input for Recon agent
 #[derive(Debug, Clone, Serialize, Deserialize)]

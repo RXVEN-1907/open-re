@@ -6,22 +6,19 @@
 use crate::{IntelligenceError, IntelligenceResult};
 use openre_core::ids::{FindingId, RecheckId, RemediationId, ScanId};
 use openre_core::remediation::{
-    RecheckFrequency, RecheckStatus, RemediationResult, RemediationStatus, RemediationStatusType,
+    RecheckStatus, RemediationResult, RemediationStatus, RemediationStatusType,
     RemediationSummary, RemediationVerifierConfig, ScheduledRecheck,
     VerificationResult as RemediationVerificationResult,
 };
 use openre_core::result::Finding;
-use reqwest::Client;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::warn;
 
 /// Remediation verifier for confirming fixes
 pub struct RemediationVerifier {
     config: RemediationVerifierConfig,
-    http_client: Client,
     verification_engine: Arc<crate::verification::VerificationEngine>,
     storage: Arc<dyn ScanStorage>,
     scheduled_rechecks: Arc<RwLock<HashMap<RecheckId, ScheduledRecheck>>>,
@@ -59,14 +56,8 @@ impl RemediationVerifier {
         storage: Arc<dyn ScanStorage>,
         verification_engine: Arc<crate::verification::VerificationEngine>,
     ) -> Self {
-        let http_client = Client::builder()
-            .timeout(Duration::from_secs(config.verification_timeout_seconds))
-            .build()
-            .expect("Failed to create HTTP client");
-
         Self {
             config,
-            http_client,
             verification_engine,
             storage,
             scheduled_rechecks: Arc::new(RwLock::new(HashMap::new())),

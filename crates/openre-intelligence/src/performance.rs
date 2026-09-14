@@ -4,7 +4,7 @@ use crate::{error::IntelligenceError, IntelligenceResult};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
-use tracing::{debug, info, warn};
+use tracing::debug;
 
 /// Configuration for performance optimizations
 #[derive(Debug, Clone)]
