@@ -3,13 +3,13 @@
 use crate::IntelligenceResult;
 use openre_core::attack_path::{
     AttackComplexity, AttackNodeType, AttackPath, AttackPathEdge, AttackPathNode, AttackTechnique,
-    AttackVector, EntryPoint, EvidenceRef, ExploitabilityInfo, PrivilegeLevel, PrivilegesRequired, RiskLevel, Scope,
+    AttackVector,   BusinessImpact, EntryPoint, EvidenceRef, ExploitabilityInfo, ImpactAssessment,
+    ImpactDetail, ImpactLevel, PrivilegeLevel, PrivilegesRequired, RiskLevel, Scope,
     UserInteraction,
 };
-use openre_core::ids::{EntryPointId, EvidenceId, NodeId};
+use openre_core::ids::{EntryPointId, EvidenceId, NodeId, FindingId, ScanId, AttackPathId};
 use openre_core::relationships::{
-    EvidenceType as RelationshipEvidenceType,
-    FindingRelationshipGraph, FindingRelationshipType,
+    EvidenceType as RelationshipEvidenceType, FindingRelationshipGraph, FindingRelationshipType,
 };
 use openre_core::result::{
     Category, Confidence, EvidenceType as ResultEvidenceType, Finding, Severity,
@@ -677,7 +677,7 @@ mod tests {
             .collect();
 
         AttackPath {
-            id: AttackPathId::new(),
+            id: openre_core::ids::AttackPathId::new(),
             name: "Test Path".to_string(),
             description: "Test".to_string(),
             nodes,
