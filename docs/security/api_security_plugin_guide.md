@@ -137,6 +137,20 @@ Evaluates API rate limiting implementation.
 }
 ```
 
+**Configuration Parameters:**
+- `request_timeout`: Timeout for each HTTP request in seconds
+- `max_concurrent_requests`: Maximum number of concurrent requests to send
+- `user_agent`: User agent string to send with requests
+- `follow_redirects`: Whether to follow HTTP redirects automatically
+- `max_redirects`: Maximum number of redirects to follow before stopping
+- `verify_ssl`: Whether to verify SSL certificates of target servers
+- `sustained_requests_per_second`: Number of requests per second to send during sustained rate testing
+- `sustained_test_duration_seconds`: Duration in seconds to sustain the test rate for
+- `burst_test_size`: Number of rapid-fire requests to send in burst testing to check rate limiting thresholds
+- `auth_endpoint_test_requests`: Number of requests to send specifically to authentication endpoints to test if they have rate limiting
+- `max_test_requests`: Maximum total number of requests to send per endpoint during all tests combined
+- `test_requests_per_endpoint`: Number of test requests to send per individual endpoint for rate limiting detection
+
 #### Findings
 
 -   Missing Rate Limiting (High for auth, Medium for others)

@@ -179,6 +179,14 @@ The security plugins are modular, independent components that integrate with the
 }
 ```
 
+**Configuration Parameters:**
+- `burst_size`: Number of requests to send in rapid succession during initial burst testing to check for rate limiting thresholds
+- `sustained_requests`: Number of requests to send during the sustained rate testing phase
+- `sustained_delay_ms`: Delay in milliseconds between each sustained request to achieve the desired rate
+- `request_timeout`: Timeout for each HTTP request in seconds
+- `max_concurrent_requests`: Maximum number of concurrent requests to send
+- `enabled_checks`: Array of check types to enable for rate limiting testing
+
 **References**: OWASP A07:2021, CWE-770, CWE-307
 
 ---

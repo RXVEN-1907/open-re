@@ -14,6 +14,7 @@ members = [
     "crates/openre-telemetry",
     "crates/sentinel",
     "crates/openre-disasm",
+    "crates/openre-storage",
 ]
 
 [workspace.package]
@@ -136,8 +137,7 @@ mockall = "0.12"
 proptest = "1.4"
 test-case = "3.0"
 tokio-test = "0.4"
-wat = "1.0"
-wiremock = "0.5"
+
 
 # Benchmarking
 criterion = "0.5"
@@ -145,6 +145,8 @@ criterion = "0.5"
 # Network
 pnet = "0.36"
 trust-dns-resolver = { version = "0.23", features = ["tokio"] }
+redis = { workspace = true }
+sqlx = { workspace = true, default-features = false }
 
 # Crypto
 ring = "0.17"

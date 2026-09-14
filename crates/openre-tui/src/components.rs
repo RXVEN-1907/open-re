@@ -2,7 +2,7 @@
 
 use crate::state::{JobStatus, LogLevel, ReportType, ScanStatus, ThemeColors};
 use openre_core::result::Severity;
-use openre_queue::Priority;
+use openre_core::Priority;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},

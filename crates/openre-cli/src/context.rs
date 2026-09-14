@@ -1,9 +1,5 @@
 //! CLI execution context
 
-#[cfg(feature = "ai")]
-use crate::ai::{AiClient, AiProvider};
-
-#[cfg(not(feature = "ai"))]
 use crate::ai_stubs::{AiClient, AiProvider};
 use crate::{CliError, OutputFormat};
 use indicatif::{ProgressBar, ProgressStyle};

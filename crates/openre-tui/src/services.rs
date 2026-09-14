@@ -15,8 +15,23 @@ use openre_intelligence::{InvestigationWorkflowEngine, KnowledgeBase, WorkflowMa
 use openre_intelligence::job::{
     Job, JobStatus as QueueJobStatus, Priority, QueueManager, QueueStats as QueueQueueStats,
 };
-use openre_scanner::{ScanManager, ScanProgress, ScanSession};
-use openre_storage::{global::GlobalStore, ProjectStore};
+use openre_scan::{ScanManager, ScanProgress, ScanSession};
+use openre_analysis::ProjectStore;
+#[cfg(not(feature = "storage"))]
+mod dummy_global_store {
+    pub struct GlobalStore;
+    impl GlobalStore {
+        pub async fn new(_config: &openre_config::DatabaseConfig) -> openre_core::error::OpenreResult<Self> {
+            Err(openre_core::error::Error::NotImplemented("Storage feature not enabled".into()))
+        }
+        pub fn pool(&self) -> &'static tokio_postgres::pool::Pool {
+            // This is a dummy - shouldn't be called when storage feature is disabled
+            unimplemented!()
+        }
+    }
+}
+#[cfg(feature = "storage")]
+use openre_storage::global::GlobalStore;
 #[cfg(not(feature = "intelligence"))]
 mod dummy_intelligence {
     pub struct WorkflowManager;

@@ -21,7 +21,7 @@
           "default": 10,
           "minimum": 5,
           "maximum": 50,
-          "description": "Number of requests in initial burst test"
+          "description": "Number of requests to send in rapid succession during initial burst testing to check for rate limiting thresholds"
         },
         "sustained_requests": {
           "type": "integer",

@@ -8,78 +8,78 @@
       "minimum": 1,
       "maximum": 300,
       "default": 30,
-      "description": "Request timeout in seconds"
+      "description": "Request timeout in seconds for API calls"
     },
     "max_concurrent_requests": {
       "type": "integer",
       "minimum": 1,
       "maximum": 50,
       "default": 5,
-      "description": "Maximum concurrent requests"
+      "description": "Maximum number of concurrent requests to send"
     },
     "user_agent": {
       "type": "string",
       "default": "open-re-api-rate-limiter/1.0",
-      "description": "User agent string"
+      "description": "User agent string sent with requests"
     },
     "follow_redirects": {
       "type": "boolean",
       "default": true,
-      "description": "Follow HTTP redirects"
+      "description": "Whether to follow HTTP redirects automatically"
     },
     "max_redirects": {
       "type": "integer",
       "minimum": 0,
       "maximum": 20,
       "default": 10,
-      "description": "Maximum redirect depth"
+      "description": "Maximum number of redirects to follow before stopping"
     },
     "verify_ssl": {
       "type": "boolean",
       "default": true,
-      "description": "Verify SSL certificates"
+      "description": "Whether to verify SSL certificates of target servers"
     },
     "sustained_requests_per_second": {
       "type": "integer",
       "minimum": 1,
       "maximum": 20,
       "default": 5,
-      "description": "Sustained requests per second for testing"
+      "description": "Number of requests per second to send during sustained rate testing"
     },
     "sustained_test_duration_seconds": {
       "type": "integer",
       "minimum": 1,
       "maximum": 60,
       "default": 10,
-      "description": "Duration of sustained rate test in seconds"
+      "description": "Duration in seconds to sustain the test rate for"
     },
     "burst_test_size": {
       "type": "integer",
       "minimum": 1,
       "maximum": 30,
       "default": 10,
-      "description": "Number of requests in burst test"
+      "description": "Number of rapid-fire requests to send in burst testing to check rate limiting thresholds"
     },
     "auth_endpoint_test_requests": {
       "type": "integer",
       "minimum": 1,
       "maximum": 20,
       "default": 5,
-      "description": "Number of requests to test auth endpoints"
+      "description": "Number of requests to send specifically to authentication endpoints to test if they have rate limiting"
     },
     "max_test_requests": {
       "type": "integer",
       "minimum": 10,
       "maximum": 200,
       "default": 50,
-      "description": "Maximum total test requests per endpoint"
+      "description": "Maximum total number of requests to send per endpoint during all tests combined"
     },
     "test_requests_per_endpoint": {
       "type": "integer",
       "minimum": 5,
       "maximum": 100,
       "default": 20,
-      "description": "Test requests per endpoint"
+      "description": "Number of test requests to send per individual endpoint for rate limiting detection"
     }
   },
   "required": [

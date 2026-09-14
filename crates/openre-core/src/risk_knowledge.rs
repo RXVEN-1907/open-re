@@ -329,25 +329,35 @@ pub struct BusinessContext {
     pub operational_impact: OperationalImpact,
 }
 
-/// Asset criticality
+/// Asset criticality levels indicating the importance and value of an asset to the organization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AssetCriticality {
+    /// Minimal impact if compromised; easily replaceable assets.
     Low,
+    /// Moderate impact; important but not critical to core operations.
     Medium,
+    /// Significant impact; core business operations would be affected.
     High,
+    /// Severe impact; critical to survival of the business.
     Critical,
+    /// Catastrophic impact; loss would threaten organizational viability.
     MissionCritical,
 }
 
-/// Data classification
+/// Data classification levels indicating the sensitivity and required protection controls for data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DataClassification {
+    /// Publicly available information with no special protection requirements.
     Public,
+    /// Internal use only; minimal sensitivity but not for public distribution.
     Internal,
+    /// Sensitive data that could cause harm if disclosed; requires protection.
     Confidential,
+    /// Highly sensitive data with serious consequences if exposed; requires strong protections.
     Restricted,
+    /// Extremely sensitive data with grave consequences if compromised; highest protection level.
     TopSecret,
 }
 

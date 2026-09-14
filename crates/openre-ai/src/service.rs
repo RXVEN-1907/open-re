@@ -84,34 +84,57 @@ impl AiService {
         // Note: Remote provider API keys should be configured via environment variables
         // or a separate secrets management system. The config only specifies which
         // providers are allowed via `allowed_remote_providers`.
+        let mut remote_providers_registered = 0;
         for provider_name in &config.allowed_remote_providers {
             match provider_name.as_str() {
                 "openai" => {
-                    if let Ok(api_key) = std::env::var("OPENAI_API_KEY") {
-                        registry.register(Box::new(
-                            crate::providers::remote::RemoteProvider::openai(api_key),
-                        ));
+                    match std::env::var("OPENAI_API_KEY") {
+                        Ok(api_key) => {
+                            registry.register(Box::new(
+                                crate::providers::remote::RemoteProvider::openai(api_key),
+                            ));
+                            remote_providers_registered += 1;
+                        }
+                        Err(_) => {
+                            tracing::warn!("OPENAI_API_KEY not set; skipping OpenAI provider");
+                        }
                     }
                 }
                 "vllm" => {
-                    if let Ok(base_url) = std::env::var("VLLM_BASE_URL") {
-                        let api_key = std::env::var("VLLM_API_KEY").ok();
-                        registry.register(Box::new(
-                            crate::providers::remote::RemoteProvider::vllm(base_url, api_key),
-                        ));
+                    match std::env::var("VLLM_BASE_URL") {
+                        Ok(base_url) => {
+                            let api_key = std::env::var("VLLM_API_KEY").ok();
+                            registry.register(Box::new(
+                                crate::providers::remote::RemoteProvider::vllm(base_url, api_key),
+                            ));
+                            remote_providers_registered += 1;
+                        }
+                        Err(_) => {
+                            tracing::warn!("VLLM_BASE_URL not set; skipping vLLM provider");
+                        }
                     }
                 }
                 "anthropic" => {
-                    if let Ok(api_key) = std::env::var("ANTHROPIC_API_KEY") {
-                        registry.register(Box::new(
-                            crate::providers::remote::RemoteProvider::anthropic(api_key),
-                        ));
+                    match std::env::var("ANTHROPIC_API_KEY") {
+                        Ok(api_key) => {
+                            registry.register(Box::new(
+                                crate::providers::remote::RemoteProvider::anthropic(api_key),
+                            ));
+                            remote_providers_registered += 1;
+                        }
+                        Err(_) => {
+                            tracing::warn!("ANTHROPIC_API_KEY not set; skipping Anthropic provider");
+                        }
                     }
                 }
                 _ => {
                     tracing::warn!("Unknown remote provider: {}", provider_name);
                 }
             }
+        }
+
+        if !config.allowed_remote_providers.is_empty() && remote_providers_registered == 0 {
+            tracing::warn!("No remote providers registered; check API key configuration for allowed remote providers");
         }
 
         Ok(())

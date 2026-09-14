@@ -24,6 +24,7 @@ openre-scan = { path = "../openre-scan", optional = true }
 openre-plugins = { path = "../openre-plugins", optional = true }
 openre-telemetry = { path = "../openre-telemetry", optional = true }
 openre-intelligence = { path = "../openre-intelligence", optional = true }
+openre-storage = { path = "../openre-storage", optional = true }
 
 # TUI
 ratatui = { workspace = true }
@@ -58,10 +59,11 @@ colored = { workspace = true }
 
 [features]
 default = ["full"]
-full = ["scan", "plugins", "telemetry"]
+full = ["scan", "plugins", "telemetry", "intelligence", "storage"]
 scan = ["dep:openre-scan"]
 plugins = ["dep:openre-plugins"]
 telemetry = ["dep:openre-telemetry"]
 intelligence = ["dep:openre-intelligence"]
+storage = ["dep:openre-storage"]
 
 

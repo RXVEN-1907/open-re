@@ -315,16 +315,16 @@ async fn run_test(ctx: &mut Context, args: TestArgs) -> Result<(), CliError> {
     let client = ctx.ai_client()?;
 
     let spinner = ctx.spinner("Testing AI connection...");
-    let (success, provider, model, latency_ms, error) = client.test_connection(args.provider, args.model.as_deref()).await?;
+    let result = client.test_connection(args.provider, args.model.as_deref()).await?;
     spinner.finish_and_clear();
 
-    if success {
+    if result.success {
         println!("{} Connection successful!", "✓".green().bold());
-        println!("  Provider: {}", provider);
-        println!("  Model: {}", model);
-        println!("  Latency: {:.0}ms", latency_ms);
+        println!("  Provider: {}", result.provider);
+        println!("  Model: {}", result.model);
+        println!("  Latency: {:.0}ms", result.latency_ms);
     } else {
-        println!("{} Connection failed: {}", "✗".red().bold(), error.unwrap_or_else(|| "Unknown error".to_string()));
+        println!("{} Connection failed: {}", "✗".red().bold(), result.error.unwrap_or_else(|| "Unknown error".to_string()));
     }
     Ok(())
 }
