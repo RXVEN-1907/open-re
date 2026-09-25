@@ -1233,7 +1233,7 @@ async fn list_plugins(State(state): State<ApiState>) -> Result<impl IntoResponse
 async fn get_plugin(
     State(state): State<ApiState>,
     Path(id): Path<PluginId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let plugin = state.plugin_manager.get_plugin(&id).ok_or_else(|| {
         (
             StatusCode::NOT_FOUND,
@@ -1243,10 +1243,9 @@ async fn get_plugin(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
-    Ok(Json(PluginResponse::from(plugin)).into_response())
+    Ok(Json(PluginResponse::from(plugin)))
 }
 
 /// Enable a plugin
@@ -1265,7 +1264,7 @@ async fn get_plugin(
 async fn enable_plugin(
     State(state): State<ApiState>,
     Path(id): Path<PluginId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     state.plugin_manager.enable_plugin(&id).await.map_err(|e| {
         (
             StatusCode::NOT_FOUND,
@@ -1275,7 +1274,6 @@ async fn enable_plugin(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     let plugin = state.plugin_manager.get_plugin(&id).ok_or_else(|| {
@@ -1287,10 +1285,9 @@ async fn enable_plugin(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
-    Ok(Json(PluginResponse::from(plugin)).into_response())
+    Ok(Json(PluginResponse::from(plugin)))
 }
 
 /// Disable a plugin
@@ -1309,7 +1306,7 @@ async fn enable_plugin(
 async fn disable_plugin(
     State(state): State<ApiState>,
     Path(id): Path<PluginId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     state.plugin_manager.disable_plugin(&id).await.map_err(|e| {
         (
             StatusCode::NOT_FOUND,
@@ -1319,7 +1316,6 @@ async fn disable_plugin(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     let plugin = state.plugin_manager.get_plugin(&id).ok_or_else(|| {
@@ -1331,10 +1327,9 @@ async fn disable_plugin(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
-    Ok(Json(PluginResponse::from(plugin)).into_response())
+    Ok(Json(PluginResponse::from(plugin)))
 }
 
 /// Get plugin configuration
@@ -1353,7 +1348,7 @@ async fn disable_plugin(
 async fn get_plugin_config(
     State(state): State<ApiState>,
     Path(id): Path<PluginId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let config = state.plugin_manager.get_plugin_config(&id).ok_or_else(|| {
         (
             StatusCode::NOT_FOUND,
@@ -1363,10 +1358,9 @@ async fn get_plugin_config(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
-    Ok(Json(config).into_response())
+    Ok(Json(config))
 }
 
 /// Set plugin configuration
@@ -1387,7 +1381,7 @@ async fn set_plugin_config(
     State(state): State<ApiState>,
     Path(id): Path<PluginId>,
     Json(config): Json<PluginConfig>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     if config.plugin_id != id {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -1396,8 +1390,7 @@ async fn set_plugin_config(
                 message: "Plugin ID in path and body must match".to_string(),
                 details: None,
             }),
-        )
-            .into_response());
+        ));
     }
 
     state.plugin_manager.set_plugin_config(config.clone()).await.map_err(|e| {
@@ -1409,10 +1402,9 @@ async fn set_plugin_config(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
-    Ok(Json(config).into_response())
+    Ok(Json(config))
 }
 
 /// Get finding statistics
@@ -1430,7 +1422,7 @@ async fn set_plugin_config(
 async fn get_finding_stats(
     State(state): State<ApiState>,
     Query(params): Query<HashMap<String, String>>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let scan_id = params.get("scan_id").and_then(|s| s.parse().ok());
     let stats = state
         .storage
@@ -1445,10 +1437,9 @@ async fn get_finding_stats(
                     details: None,
                 }),
             )
-                .into_response()
         })?;
 
-    Ok(Json(stats).into_response())
+    Ok(Json(stats))
 }
 
 #[cfg(test)]
