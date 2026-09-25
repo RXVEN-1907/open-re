@@ -5,9 +5,9 @@ use crate::app::App;
 use crate::events::Event;
 use crate::services::Services;
 use chrono::{DateTime, Utc};
-use openre_core::ids::{FileId, JobId, ProjectId, ScanId};
+pub use openre_core::ids::{FileId, JobId, JobStatus, ProjectId, ScanId};
 use openre_core::result::{Category, Confidence, Finding, Severity};
-use openre_intelligence::job::{Job, JobStatus as QueueJobStatus, Priority};
+use openre_intelligence::job::{Job, Priority};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
@@ -95,32 +95,6 @@ pub struct ProjectInfo {
     pub scan_count: usize,
     pub finding_count: usize,
     pub is_active: bool,
-}
-
-/// Job status for display (extends queue JobStatus)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum JobStatus {
-    Pending,
-    Queued,
-    Running,
-    Completed,
-    Failed,
-    Cancelled,
-    Scheduled,
-}
-
-impl From<QueueJobStatus> for JobStatus {
-    fn from(status: QueueJobStatus) -> Self {
-        match status {
-            QueueJobStatus::Pending => JobStatus::Pending,
-            QueueJobStatus::Queued => JobStatus::Queued,
-            QueueJobStatus::Running => JobStatus::Running,
-            QueueJobStatus::Completed => JobStatus::Completed,
-            QueueJobStatus::Failed => JobStatus::Failed,
-            QueueJobStatus::Cancelled => JobStatus::Cancelled,
-            QueueJobStatus::Scheduled => JobStatus::Scheduled,
-        }
-    }
 }
 
 /// Scan status for display

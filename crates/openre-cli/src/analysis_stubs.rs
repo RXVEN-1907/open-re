@@ -2,7 +2,7 @@
 
 use goblin::Object;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Binary format
@@ -54,8 +54,8 @@ pub struct BinaryAnalyzer {
 }
 
 impl BinaryAnalyzer {
-    pub async fn open(path: &PathBuf, format: BinaryFormat) -> anyhow::Result<Self> {
-        Ok(Self { format, path: path.clone() })
+    pub async fn open(path: &Path, format: BinaryFormat) -> anyhow::Result<Self> {
+        Ok(Self { format, path: path.to_path_buf() })
     }
 
     pub async fn info(&self) -> anyhow::Result<BinaryInfo> {

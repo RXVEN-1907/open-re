@@ -24,15 +24,9 @@ impl ObjectStore {
             std::fs::create_dir_all(parent)?;
         }
 
-        info!(
-            "Object store initialized with backend: {:?}",
-            config.backend
-        );
+        info!("Object store initialized with backend: {:?}", config.backend);
 
-        Ok(Self {
-            config: config.clone(),
-            local_base,
-        })
+        Ok(Self { config: config.clone(), local_base })
     }
 
     /// Store a file stream with SHA256 hashing
@@ -151,7 +145,7 @@ impl ObjectStore {
         }
         file.flush().await?;
 
-        let hash = format!("{:x}", hasher.finalize());
+        let hash = hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect::<String>();
         Ok((hash, total_bytes))
     }
 }

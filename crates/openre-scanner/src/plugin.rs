@@ -84,9 +84,10 @@ fn plugin_id_from_name(name: &str) -> PluginId {
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::fs::{read_dir, read_to_string};
 use tracing::{info, warn};
 use utoipa::ToSchema;
 
@@ -305,7 +306,7 @@ impl PluginManager {
             return Ok(discovered);
         }
 
-        let mut entries = tokio::fs::read_dir(&self.plugin_dir).await?;
+        let mut entries = read_dir(&self.plugin_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
             if path.is_dir() {
@@ -321,7 +322,7 @@ impl PluginManager {
                         }
                     }
                 }
-            } else if path.extension().map_or(false, |ext| ext == "wasm") {
+            } else if path.extension().is_some_and(|ext| ext == "wasm") {
                 // WASM plugin
                 match self.load_wasm_plugin(&path).await {
                     Ok(plugin_info) => {
@@ -338,8 +339,8 @@ impl PluginManager {
     }
 
     /// Load plugin manifest
-    async fn load_plugin_manifest(&self, manifest_path: &PathBuf) -> ScannerResult<PluginInfo> {
-        let content = tokio::fs::read_to_string(manifest_path).await?;
+    async fn load_plugin_manifest(&self, manifest_path: &Path) -> ScannerResult<PluginInfo> {
+        let content = read_to_string(manifest_path).await?;
         let manifest: Manifest = toml::from_str(&content)?;
 
         let plugin_id = plugin_id_from_name(&manifest.name);
@@ -390,7 +391,7 @@ impl PluginManager {
     }
 
     /// Load WASM plugin
-    async fn load_wasm_plugin(&self, path: &PathBuf) -> ScannerResult<PluginInfo> {
+    async fn load_wasm_plugin(&self, path: &Path) -> ScannerResult<PluginInfo> {
         // For WASM plugins, we need to load the manifest from the WASM module
         // or from a companion .toml file
         let manifest_path = path.with_extension("toml");
@@ -416,7 +417,7 @@ impl PluginManager {
             default_config: None,
             tags: vec!["wasm".to_string()],
             status: PluginStatus::Discovered,
-            source_path: Some(path.clone()),
+            source_path: Some(path.to_path_buf()),
             loaded_at: None,
             last_health_check: None,
             health_status: HealthStatus::Unknown,

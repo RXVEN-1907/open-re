@@ -1,7 +1,9 @@
 /// Research agent implementation
 #[allow(unused_imports)]
 use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
-use crate::agents::context::{ResearchInput, ResearchOutput, CveMatch, CweMapping, CapecMapping, MitreMapping};
+use crate::agents::context::{
+    CapecMapping, CveMatch, CweMapping, MitreMapping, ResearchInput, ResearchOutput,
+};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
 use crate::cve_intelligence::CveIntelligence;
 use crate::knowledge_base::KnowledgeBase;

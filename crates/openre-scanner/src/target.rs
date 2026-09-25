@@ -205,7 +205,13 @@ pub enum AuthConfig {
     /// Cookie-based authentication
     Cookie { name: String, value: String },
     /// OAuth2 authentication
-    OAuth2 { client_id: String, client_secret: String, #[schema(value_type = String)] token_url: Url, scopes: Vec<String> },
+    OAuth2 {
+        client_id: String,
+        client_secret: String,
+        #[schema(value_type = String)]
+        token_url: Url,
+        scopes: Vec<String>,
+    },
     /// Custom authentication
     Custom { config: HashMap<String, serde_json::Value> },
 }

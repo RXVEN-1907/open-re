@@ -62,3 +62,9 @@ pub enum Error {
     #[error("Rate limited: {0}")]
     RateLimited(String),
 }
+
+impl From<rusqlite::Error> for Error {
+    fn from(e: rusqlite::Error) -> Self {
+        Error::Database(e.to_string())
+    }
+}

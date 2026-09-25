@@ -3,18 +3,21 @@
 //! Implements the `HistoryStorage` trait from `openre-core::history` using SQLite/rusqlite.
 
 use openre_core::error::OpenreResult;
-use openre_core::ids::{FindingId, ProjectId, ScanId};
+use openre_core::ids::{FindingId, ProjectId, ScanId, WorkflowId};
 // Types defined in history.rs module itself
+use chrono::{DateTime, Utc};
 #[allow(unused_imports)]
 use openre_core::history::{
-    HistoryError, HistoryStorage, ReportArtifact, RiskMetrics, RiskMetricsSummary,
-    ScanConfigSummary, ScanProgressSummary, ScanSummary, StoredEvidence,
+    HistoryError, HistoryStorage, InvestigationStageConfig, ReportArtifact, ReportTemplate,
+    RiskMetrics, RiskMetricsSummary, ScanConfigSummary, ScanProgressSummary, ScanSummary,
+    StageResult, StoredEvidence, WorkflowArtifact, WorkflowSession, WorkflowStatus,
 };
-use openre_core::reporting::ScanComparison;
+use openre_core::reporting::{ReportFormat, ScanComparison};
 #[allow(unused_imports)]
 use openre_core::{Finding, FindingStats, RiskTrends, TrendDirection};
 use rusqlite::{params, Connection, OptionalExtension};
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -30,7 +33,7 @@ pub struct SqliteHistoryStorage {
 
 impl SqliteHistoryStorage {
     /// Create a new storage instance at the given path.
-    pub fn new(db_path: &PathBuf) -> OpenreResult<Self> {
+    pub fn new(db_path: &Path) -> OpenreResult<Self> {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -47,10 +50,7 @@ impl SqliteHistoryStorage {
         let _ = conn.prepare("PRAGMA temp_store=MEMORY")?.query([])?;
         let _ = conn.prepare("PRAGMA busy_timeout=30000")?.query([])?;
 
-        let storage = Self {
-            db_path: db_path.clone(),
-            conn: Arc::new(Mutex::new(conn)),
-        };
+        let storage = Self { db_path: db_path.to_path_buf(), conn: Arc::new(Mutex::new(conn)) };
 
         Ok(storage)
     }
@@ -157,10 +157,7 @@ impl SqliteHistoryStorage {
             "CREATE INDEX IF NOT EXISTS idx_evidence_finding ON evidence(finding_id)",
             [],
         )?;
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_evidence_scan ON evidence(scan_id)",
-            [],
-        )?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_evidence_scan ON evidence(scan_id)", [])?;
 
         // Deduplicated findings table (stored as JSON per scan)
         conn.execute(
@@ -231,6 +228,24 @@ impl SqliteHistoryStorage {
             [],
         )?;
 
+        // Report templates table
+        conn.execute(
+            r#"CREATE TABLE IF NOT EXISTS report_templates (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                format TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL
+            )"#,
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_report_templates_name ON report_templates(name)",
+            [],
+        )?;
+
         Ok(())
     }
 
@@ -263,9 +278,7 @@ impl SqliteHistoryStorage {
             created_at: row.get("created_at")?,
             started_at: row.get("started_at")?,
             completed_at: row.get("completed_at")?,
-            duration_seconds: row
-                .get::<_, Option<i64>>("duration_seconds")?
-                .map(|v| v as u64),
+            duration_seconds: row.get::<_, Option<i64>>("duration_seconds")?.map(|v| v as u64),
             tags: serde_json::from_str(&tags_json).unwrap(),
         })
     }
@@ -279,10 +292,7 @@ impl SqliteHistoryStorage {
         Ok(conn
             .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(
-                params![limit as i64, offset as i64],
-                Self::deserialize_scan_summary,
-            )
+            .query_map(params![limit as i64, offset as i64], Self::deserialize_scan_summary)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -311,11 +321,12 @@ impl SqliteHistoryStorage {
         let format_str: String = row.get("format")?;
         let config_json: String = row.get("config_json")?;
         let metadata_json: String = row.get("metadata_json")?;
-        let scan_id_str: String = row.get("scan_id")?;
 
         Ok(ReportArtifact {
             id: row.get("id")?,
-            scan_id: ScanId::from_uuid(uuid::Uuid::parse_str(&scan_id_str).unwrap_or_default()),
+            scan_id: ScanId::from_uuid(
+                uuid::Uuid::parse_str(&row.get::<_, String>("scan_id")?).unwrap_or_default(),
+            ),
             project_id: row
                 .get::<_, Option<String>>("project_id")?
                 .map(|s| ProjectId::from_uuid(uuid::Uuid::parse_str(&s).unwrap_or_default())),
@@ -340,10 +351,7 @@ impl SqliteHistoryStorage {
         Ok(conn
             .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(
-                params![limit as i64, offset as i64],
-                Self::deserialize_report_artifact,
-            )
+            .query_map(params![limit as i64, offset as i64], Self::deserialize_report_artifact)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -440,7 +448,7 @@ impl SqliteHistoryStorage {
             verified_count: row.get::<_, i64>("verified_count")? as usize,
             false_positive_count: row.get::<_, i64>("false_positive_count")? as usize,
             exploit_available_count: row.get::<_, i64>("exploit_available_count")? as usize,
-            exploited_in_wild_count: row.get::<_, i64>("exploited_in_wild_count")? as usize,
+            exploited_in_wild_count: row.get::<_, i64>("exploit_in_wild_count")? as usize,
             top_cwes: serde_json::from_str(row.get::<_, String>("top_cwes_json")?.as_str())
                 .unwrap_or_default(),
             top_owasp: serde_json::from_str(row.get::<_, String>("top_owasp_json")?.as_str())
@@ -460,6 +468,48 @@ impl SqliteHistoryStorage {
                     trend_direction: TrendDirection::Unknown,
                 },
             ),
+        })
+    }
+
+    fn deserialize_workflow_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkflowSession> {
+        let stages: Vec<InvestigationStageConfig> =
+            serde_json::from_str(row.get::<_, String>("stages_json")?.as_str()).unwrap_or_default();
+        let stage_results: HashMap<usize, StageResult> =
+            serde_json::from_str(row.get::<_, String>("stage_results_json")?.as_str())
+                .unwrap_or_default();
+        let artifacts: Vec<WorkflowArtifact> =
+            serde_json::from_str(row.get::<_, String>("artifacts_json")?.as_str())
+                .unwrap_or_default();
+        let config: HashMap<String, serde_json::Value> =
+            serde_json::from_str(row.get::<_, String>("config_json")?.as_str()).unwrap_or_default();
+
+        let scan_id_opt = row
+            .get::<_, Option<String>>("scan_id")?
+            .map(|s| ScanId::from_uuid(uuid::Uuid::parse_str(&s).unwrap_or_default()));
+        let status_str = row.get::<_, String>("status")?;
+        // Stored via `serde_json::to_string` on save, so it arrives JSON-quoted.
+        let status: WorkflowStatus = serde_json::from_str(&status_str).map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+        })?;
+        let error_opt = row.get::<_, Option<String>>("error")?;
+
+        Ok(WorkflowSession {
+            id: WorkflowId::from_uuid(
+                uuid::Uuid::parse_str(row.get::<_, String>("id")?.as_str()).unwrap_or_default(),
+            ),
+            name: row.get("name")?,
+            target: row.get("target")?,
+            scan_id: scan_id_opt,
+            stages,
+            current_stage_index: row.get::<_, i64>("current_stage_index")? as usize,
+            status,
+            stage_results,
+            artifacts,
+            config,
+            error: error_opt,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+            completed_at: row.get::<_, Option<DateTime<Utc>>>("completed_at")?,
         })
     }
 
@@ -505,10 +555,7 @@ impl SqliteHistoryStorage {
         Ok(conn
             .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(
-                params![project_id_str, date_from],
-                Self::deserialize_risk_metrics_row,
-            )
+            .query_map(params![project_id_str, date_from], Self::deserialize_risk_metrics_row)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -523,10 +570,7 @@ impl SqliteHistoryStorage {
         Ok(conn
             .prepare(sql)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
-            .query_map(
-                params![project_id_str, date_to],
-                Self::deserialize_risk_metrics_row,
-            )
+            .query_map(params![project_id_str, date_to], Self::deserialize_risk_metrics_row)
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>())
@@ -566,7 +610,8 @@ impl HistoryStorage for SqliteHistoryStorage {
                 plugin_executions_json, summary.created_at, summary.started_at, summary.completed_at,
                 summary.duration_seconds, tags_json
             ],
-        ).map_err(|e| HistoryError::Storage(e.to_string()))?;
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
 
         Ok(())
     }
@@ -582,7 +627,9 @@ impl HistoryStorage for SqliteHistoryStorage {
             r#"SELECT id, project_id, target_id, name, description, status, config_json, progress_json, finding_stats_json, risk_metrics_json, plugin_executions_json, created_at, started_at, completed_at, duration_seconds, tags_json FROM scan_summaries WHERE id = ?1"#,
             params![id_str],
             Self::deserialize_scan_summary,
-        ).optional().map_err(|e| HistoryError::Storage(e.to_string()))
+        )
+        .optional()
+        .map_err(|e| HistoryError::Storage(e.to_string()))
     }
 
     async fn list_scan_summaries(
@@ -601,26 +648,26 @@ impl HistoryStorage for SqliteHistoryStorage {
     }
 
     async fn delete_scan_summary(&self, scan_id: &ScanId) -> Result<bool, HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
         let id_str = scan_id.to_string();
-        let deleted = conn
+        let deleted = cn
             .execute("DELETE FROM scan_summaries WHERE id = ?1", params![id_str])
             .map_err(|e| HistoryError::Storage(e.to_string()))?;
         Ok(deleted > 0)
     }
 
     async fn save_report_artifact(&self, artifact: &ReportArtifact) -> Result<(), HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
         let config_json =
             serde_json::to_string(&artifact.config).map_err(HistoryError::Serialization)?;
         let metadata_json =
             serde_json::to_string(&artifact.metadata).map_err(HistoryError::Serialization)?;
 
-        conn.execute(
+        cn.execute(
             r#"INSERT OR REPLACE INTO report_artifacts (
                 id, scan_id, project_id, format, title, storage_path, size_bytes, checksum,
                 generated_at, generated_by, config_json, metadata_json
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"#,
+            ) VALUES (?1, ?2, ?3, &4, &5, &6, &7, &8, &9, &10, &11, &12)"#,
             params![
                 &artifact.id,
                 artifact.scan_id.to_string(),
@@ -645,12 +692,14 @@ impl HistoryStorage for SqliteHistoryStorage {
         &self,
         artifact_id: &str,
     ) -> Result<Option<ReportArtifact>, HistoryError> {
-        let conn = self.conn().await;
-        conn.query_row(
+        let cn = self.conn().await;
+        cn.query_row(
             "SELECT id, scan_id, project_id, format, title, storage_path, size_bytes, checksum, generated_at, generated_by, config_json, metadata_json FROM report_artifacts WHERE id = ?1",
             params![artifact_id],
             Self::deserialize_report_artifact,
-        ).optional().map_err(|e| HistoryError::Storage(e.to_string()))
+        )
+        .optional()
+        .map_err(|e| HistoryError::Storage(e.to_string()))
     }
 
     async fn list_report_artifacts(
@@ -659,28 +708,25 @@ impl HistoryStorage for SqliteHistoryStorage {
         limit: usize,
         offset: usize,
     ) -> std::result::Result<Vec<ReportArtifact>, HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
 
         if let Some(sid) = scan_id {
-            Self::list_artifacts_with_scan(&conn, &sid.to_string(), limit, offset)
+            Self::list_artifacts_with_scan(&cn, &sid.to_string(), limit, offset)
         } else {
-            Self::list_all_artifacts(&conn, limit, offset)
+            Self::list_all_artifacts(&cn, limit, offset)
         }
     }
 
     async fn delete_report_artifact(&self, artifact_id: &str) -> Result<bool, HistoryError> {
-        let conn = self.conn().await;
-        let deleted = conn
-            .execute(
-                "DELETE FROM report_artifacts WHERE id = ?1",
-                params![artifact_id],
-            )
+        let cn = self.conn().await;
+        let deleted = cn
+            .execute("DELETE FROM report_artifacts WHERE id = ?1", params![artifact_id])
             .map_err(|e| HistoryError::Storage(e.to_string()))?;
         Ok(deleted > 0)
     }
 
     async fn save_evidence(&self, evidence: &StoredEvidence) -> Result<(), HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
 
         let evidence_type_str = serde_json::to_string(&evidence.evidence_type).unwrap_or_default();
         let metadata_json =
@@ -716,12 +762,12 @@ impl HistoryStorage for SqliteHistoryStorage {
             .transpose()
             .map_err(HistoryError::Serialization)?;
 
-        conn.execute(
+        cn.execute(
             r#"INSERT OR REPLACE INTO evidence (
                 id, finding_id, scan_id, evidence_type, description, data, location, metadata_json,
                 http_request_json, http_response_json, timing_json, payload_json, reproduction_steps_json,
                 captured_at, plugin_source
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"#,
+            ) VALUES (?1, ?2, ?3, &4, &5, &6, &7, &8, &9, &10, &11, &12, &13, &14, &15)"#,
             params![
                 &evidence.id, evidence.finding_id.to_string(), evidence.scan_id.to_string(),
                 evidence_type_str, &evidence.description, evidence.data.as_deref(),
@@ -729,7 +775,8 @@ impl HistoryStorage for SqliteHistoryStorage {
                 timing_json, payload_json, reproduction_steps_json, evidence.captured_at,
                 &evidence.plugin_source
             ],
-        ).map_err(|e| HistoryError::Storage(e.to_string()))?;
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
 
         Ok(())
     }
@@ -738,21 +785,23 @@ impl HistoryStorage for SqliteHistoryStorage {
         &self,
         evidence_id: &str,
     ) -> Result<Option<StoredEvidence>, HistoryError> {
-        let conn = self.conn().await;
-        conn.query_row(
+        let cn = self.conn().await;
+        cn.query_row(
             r#"SELECT id, finding_id, scan_id, evidence_type, description, data, location, metadata_json, http_request_json, http_response_json, timing_json, payload_json, reproduction_steps_json, captured_at, plugin_source FROM evidence WHERE id = ?1"#,
             params![evidence_id],
             Self::deserialize_evidence_row,
-        ).optional().map_err(|e| HistoryError::Storage(e.to_string()))
+        )
+        .optional()
+        .map_err(|e| HistoryError::Storage(e.to_string()))
     }
 
     async fn list_evidence_for_finding(
         &self,
         finding_id: &FindingId,
     ) -> Result<Vec<StoredEvidence>, HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
         let fid_str = finding_id.to_string();
-        let mut stmt = conn.prepare(
+        let mut stmt = cn.prepare(
             r#"SELECT id, finding_id, scan_id, evidence_type, description, data, location, metadata_json, http_request_json, http_response_json, timing_json, payload_json, reproduction_steps_json, captured_at, plugin_source FROM evidence WHERE finding_id = ?1 ORDER BY captured_at DESC"#
         ).map_err(|e| HistoryError::Storage(e.to_string()))?;
 
@@ -770,18 +819,15 @@ impl HistoryStorage for SqliteHistoryStorage {
         scan_id: &ScanId,
         findings: &[Finding],
     ) -> Result<(), HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
         let id_str = Uuid::new_v4().to_string();
         let sid_str = scan_id.to_string();
         let data_json = serde_json::to_string(findings).map_err(HistoryError::Serialization)?;
 
-        conn.execute(
-            "DELETE FROM deduplicated_findings WHERE scan_id = ?1",
-            params![sid_str],
-        )
-        .map_err(|e| HistoryError::Storage(e.to_string()))?;
+        cn.execute("DELETE FROM deduplicated_findings WHERE scan_id = ?1", params![sid_str])
+            .map_err(|e| HistoryError::Storage(e.to_string()))?;
 
-        conn.execute(
+        cn.execute(
             "INSERT INTO deduplicated_findings (id, scan_id, data_json) VALUES (?1, ?2, ?3)",
             params![id_str, sid_str, data_json],
         )
@@ -794,9 +840,9 @@ impl HistoryStorage for SqliteHistoryStorage {
         &self,
         scan_id: &ScanId,
     ) -> Result<Vec<Finding>, HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
         let sid_str = scan_id.to_string();
-        let data_json: String = conn.query_row(
+        let data_json: String = cn.query_row(
             "SELECT data_json FROM deduplicated_findings WHERE scan_id = ?1 ORDER BY created_at DESC LIMIT 1",
             params![sid_str],
             |row| row.get(0),
@@ -807,14 +853,15 @@ impl HistoryStorage for SqliteHistoryStorage {
     }
 
     async fn save_comparison(&self, comparison: &ScanComparison) -> Result<(), HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
         let id_str = Uuid::new_v4().to_string();
         let data_json = serde_json::to_string(comparison).map_err(HistoryError::Serialization)?;
 
-        conn.execute(
-            r#"INSERT OR REPLACE INTO scan_comparisons (id, baseline_scan_id, current_scan_id, data_json) VALUES (?1, ?2, ?3, ?4)"#,
+        cn.execute(
+            r#"INSERT OR REPLACE INTO scan_comparisons (id, baseline_scan_id, current_scan_id, data_json) VALUES (?1, ?2, ?3, &4)"#,
             params![id_str, comparison.baseline_scan_id.to_string(), comparison.current_scan_id.to_string(), data_json],
-        ).map_err(|e| HistoryError::Storage(e.to_string()))?;
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
 
         Ok(())
     }
@@ -823,8 +870,8 @@ impl HistoryStorage for SqliteHistoryStorage {
         &self,
         comparison_id: &str,
     ) -> Result<Option<ScanComparison>, HistoryError> {
-        let conn = self.conn().await;
-        conn.query_row(
+        let cn = self.conn().await;
+        cn.query_row(
             "SELECT data_json FROM scan_comparisons WHERE id = ?1",
             params![comparison_id],
             |row| row.get::<_, String>(0),
@@ -841,27 +888,23 @@ impl HistoryStorage for SqliteHistoryStorage {
         limit: usize,
         offset: usize,
     ) -> Result<Vec<ScanComparison>, HistoryError> {
-        let conn = self.conn().await;
-        let mut stmt = conn.prepare(
+        let cn = self.conn().await;
+        let mut stmt = cn.prepare(
             "SELECT data_json FROM scan_comparisons ORDER BY created_at DESC LIMIT ?1 OFFSET ?2"
-        ).map_err(|e| HistoryError::Storage(e.to_string()))?;
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
 
         let rows: Vec<String> = stmt
-            .query_map(params![limit as i64, offset as i64], |row| {
-                row.get::<_, String>(0)
-            })
+            .query_map(params![limit as i64, offset as i64], |row| row.get::<_, String>(0))
             .map_err(|e| HistoryError::Storage(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect();
 
-        Ok(rows
-            .iter()
-            .filter_map(|json| serde_json::from_str(json).ok())
-            .collect())
+        Ok(rows.iter().filter_map(|json| serde_json::from_str(json).ok()).collect())
     }
 
     async fn save_risk_metrics(&self, metrics: &RiskMetrics) -> Result<(), HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
 
         let by_severity_json =
             serde_json::to_string(&metrics.by_severity).map_err(HistoryError::Serialization)?;
@@ -876,24 +919,24 @@ impl HistoryStorage for SqliteHistoryStorage {
         let trends_json =
             serde_json::to_string(&metrics.trends).map_err(HistoryError::Serialization)?;
 
-        conn.execute(
+        cn.execute(
             r#"INSERT OR REPLACE INTO risk_metrics (
                 id, project_id, scan_id, timestamp, overall_risk_score, risk_level, by_severity_json,
                 by_category_json, avg_risk_score, max_risk_score, critical_count, high_count, medium_count,
                 low_count, info_count, verified_count, false_positive_count, exploit_available_count,
                 exploited_in_wild_count, top_cwes_json, top_owasp_json, remediation_priority_json, trends_json
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)"#,
+            ) VALUES (?1, ?2, ?3, &4, &5, &6, &7, &8, &9, &10, &11, &12, &13, &14, &15, &16, &17, &18, &19, &20, &21, &22, &23)"#,
             params![
                 &metrics.id, metrics.project_id.to_string(),
                 metrics.scan_id.map(|s| s.to_string()), metrics.timestamp, metrics.overall_risk_score as i64,
                 serde_json::to_string(&metrics.risk_level).unwrap_or_default(), by_severity_json, by_category_json,
                 metrics.avg_risk_score, metrics.max_risk_score as i64, metrics.critical_count as i64,
-                metrics.high_count as i64, metrics.medium_count as i64, metrics.low_count as i64,
-                metrics.info_count as i64, metrics.verified_count as i64, metrics.false_positive_count as i64,
-                metrics.exploit_available_count as i64, metrics.exploited_in_wild_count as i64, top_cwes_json,
+                metrics.low_count as i64, metrics.info_count as i64, metrics.verified_count as i64,
+                metrics.false_positive_count as i64, metrics.exploit_available_count as i64, metrics.exploited_in_wild_count as i64, top_cwes_json,
                 top_owasp_json, remediation_priority_json, trends_json
             ],
-        ).map_err(|e| HistoryError::Storage(e.to_string()))?;
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
 
         Ok(())
     }
@@ -904,14 +947,14 @@ impl HistoryStorage for SqliteHistoryStorage {
         date_from: Option<chrono::DateTime<chrono::Utc>>,
         date_to: Option<chrono::DateTime<chrono::Utc>>,
     ) -> std::result::Result<Vec<RiskMetrics>, HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
         let pid_str = project_id.to_string();
 
         match (date_from, date_to) {
-            (Some(from), Some(to)) => Self::query_risk_metrics_range(&conn, &pid_str, from, to),
-            (Some(from), None) => Self::query_risk_metrics_since(&conn, &pid_str, from),
-            (None, Some(to)) => Self::query_risk_metrics_until(&conn, &pid_str, to),
-            (None, None) => Self::query_all_risk_metrics(&conn, &pid_str),
+            (Some(from), Some(to)) => Self::query_risk_metrics_range(&cn, &pid_str, from, to),
+            (Some(from), None) => Self::query_risk_metrics_since(&cn, &pid_str, from),
+            (None, Some(to)) => Self::query_risk_metrics_until(&cn, &pid_str, to),
+            (None, None) => Self::query_all_risk_metrics(&cn, &pid_str),
         }
     }
 
@@ -919,14 +962,211 @@ impl HistoryStorage for SqliteHistoryStorage {
         &self,
         project_id: &ProjectId,
     ) -> Result<Option<RiskMetrics>, HistoryError> {
-        let conn = self.conn().await;
+        let cn = self.conn().await;
         let pid_str = project_id.to_string();
 
-        conn.query_row(
+        cn.query_row(
             r#"SELECT id, project_id, scan_id, timestamp, overall_risk_score, risk_level, by_severity_json, by_category_json, avg_risk_score, max_risk_score, critical_count, high_count, medium_count, low_count, info_count, verified_count, false_positive_count, exploit_available_count, exploited_in_wild_count, top_cwes_json, top_owasp_json, remediation_priority_json, trends_json FROM risk_metrics WHERE project_id = ?1 ORDER BY timestamp DESC LIMIT 1"#,
             params![pid_str],
             Self::deserialize_risk_metrics_row,
-        ).optional().map_err(|e| HistoryError::Storage(e.to_string()))
+        )
+        .optional()
+        .map_err(|e| HistoryError::Storage(e.to_string()))
+    }
+
+    async fn save_workflow_session(&self, session: &WorkflowSession) -> Result<(), HistoryError> {
+        let cn = self.conn().await;
+        let stages_json =
+            serde_json::to_string(&session.stages).map_err(HistoryError::Serialization)?;
+        let stage_results_json =
+            serde_json::to_string(&session.stage_results).map_err(HistoryError::Serialization)?;
+        let artifacts_json =
+            serde_json::to_string(&session.artifacts).map_err(HistoryError::Serialization)?;
+        let config_json =
+            serde_json::to_string(&session.config).map_err(HistoryError::Serialization)?;
+
+        cn.execute(
+            r#"INSERT OR REPLACE INTO workflow_sessions (
+                id, name, target, scan_id, stages_json, current_stage_index, status,
+                stage_results_json, artifacts_json, config_json, error, created_at, updated_at, completed_at
+            ) VALUES (?1, ?2, &3, &4, &5, &6, &7, &8, &9, &10, &11, &12, &13, &14)"#,
+            params![
+                &session.id.to_string(),
+                &session.name,
+                &session.target,
+                session.scan_id.map(|s| s.to_string()),
+                stages_json,
+                session.current_stage_index as i64,
+                serde_json::to_string(&session.status).unwrap_or_default(),
+                stage_results_json,
+                artifacts_json,
+                config_json,
+                session.error.as_deref(),
+                session.created_at,
+                session.updated_at,
+                session.completed_at,
+            ],
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn get_workflow_session(
+        &self,
+        workflow_id: &WorkflowId,
+    ) -> Result<Option<WorkflowSession>, HistoryError> {
+        let cn = self.conn().await;
+        let id_str = workflow_id.to_string();
+
+        cn.query_row(
+            "SELECT id, name, target, scan_id, stages_json, current_stage_index, status, stage_results_json, artifacts_json, config_json, error, created_at, updated_at, completed_at FROM workflow_sessions WHERE id = ?1",
+            params![id_str],
+            Self::deserialize_workflow_session,
+        )
+        .optional()
+        .map_err(|e| HistoryError::Storage(e.to_string()))
+    }
+
+    async fn list_workflow_sessions(
+        &self,
+        scan_id: Option<ScanId>,
+        status: Option<WorkflowStatus>,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<WorkflowSession>, HistoryError> {
+        let cn = self.conn().await;
+        let mut query = String::from(
+            "SELECT id, name, target, scan_id, stages_json, current_stage_index, status, stage_results_json, artifacts_json, config_json, error, created_at, updated_at, completed_at FROM workflow_sessions WHERE 1=1",
+        );
+
+        let sid_str: String;
+        let st_str: String;
+        let limit_i64 = limit as i64;
+        let offset_i64 = offset as i64;
+        let mut param_refs: Vec<&dyn rusqlite::ToSql> = Vec::new();
+
+        if let Some(sid) = scan_id {
+            sid_str = sid.to_string();
+            query.push_str(" AND scan_id = ?");
+            param_refs.push(&sid_str);
+        }
+        if let Some(st) = status {
+            st_str = serde_json::to_string(&st).unwrap_or_default();
+            query.push_str(" AND status = ?");
+            param_refs.push(&st_str);
+        }
+
+        query.push_str(" ORDER BY updated_at DESC LIMIT ? OFFSET ?");
+        param_refs.push(&limit_i64);
+        param_refs.push(&offset_i64);
+
+        let mut stmt = cn.prepare(&query).map_err(|e| HistoryError::Storage(e.to_string()))?;
+
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(param_refs), Self::deserialize_workflow_session)
+            .map_err(|e| HistoryError::Storage(e.to_string()))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(rows)
+    }
+
+    async fn delete_workflow_session(
+        &self,
+        workflow_id: &WorkflowId,
+    ) -> Result<bool, HistoryError> {
+        let cn = self.conn().await;
+        let id_str = workflow_id.to_string();
+        let deleted = cn
+            .execute("DELETE FROM workflow_sessions WHERE id = ?1", params![id_str])
+            .map_err(|e| HistoryError::Storage(e.to_string()))?;
+        Ok(deleted > 0)
+    }
+
+    async fn save_report_template(&self, template: &ReportTemplate) -> Result<(), HistoryError> {
+        let cn = self.conn().await;
+        let id_str = Uuid::new_v4().to_string();
+
+        cn.execute(
+            r#"INSERT OR REPLACE INTO report_templates (
+                id, name, format, content, created_at, updated_at
+            ) VALUES (?1, ?2, &3, &4, &5, &6)"#,
+            params![
+                id_str,
+                &template.name,
+                serde_json::to_string(&template.format).unwrap_or_default(),
+                &template.content,
+                template.created_at,
+                template.updated_at,
+            ],
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn get_report_template(
+        &self,
+        name: &str,
+    ) -> Result<Option<ReportTemplate>, HistoryError> {
+        let cn = self.conn().await;
+        cn.query_row(
+            "SELECT id, name, format, content, created_at, updated_at FROM report_templates WHERE name = ?1",
+            params![name],
+            |row| {
+                Ok(ReportTemplate {
+                    id: row.get("id")?,
+                    name: row.get("name")?,
+                    format: serde_json::from_str::<ReportFormat>(row.get::<_, String>("format")?.as_str()).unwrap_or(ReportFormat::Markdown),
+                    content: row.get("content")?,
+                    created_at: row.get("created_at")?,
+                    updated_at: row.get("updated_at")?,
+                })
+            },
+        )
+        .optional()
+        .map_err(|e| HistoryError::Storage(e.to_string()))
+    }
+
+    async fn list_report_templates(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ReportTemplate>, HistoryError> {
+        let cn = self.conn().await;
+        let mut stmt = cn.prepare(
+            "SELECT id, name, format, content, created_at, updated_at FROM report_templates ORDER BY name LIMIT ?1 OFFSET ?2"
+        )
+        .map_err(|e| HistoryError::Storage(e.to_string()))?;
+
+        let rows = stmt
+            .query_map(params![limit as i64, offset as i64], |row| {
+                Ok(ReportTemplate {
+                    id: row.get("id")?,
+                    name: row.get("name")?,
+                    format: serde_json::from_str::<ReportFormat>(
+                        row.get::<_, String>("format")?.as_str(),
+                    )
+                    .unwrap_or(ReportFormat::Markdown),
+                    content: row.get("content")?,
+                    created_at: row.get("created_at")?,
+                    updated_at: row.get("updated_at")?,
+                })
+            })
+            .map_err(|e| HistoryError::Storage(e.to_string()))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(rows)
+    }
+
+    async fn delete_report_template(&self, name: &str) -> Result<bool, HistoryError> {
+        let cn = self.conn().await;
+        let deleted = cn
+            .execute("DELETE FROM report_templates WHERE name = ?1", params![name])
+            .map_err(|e| HistoryError::Storage(e.to_string()))?;
+        Ok(deleted > 0)
     }
 }
 
@@ -968,6 +1208,7 @@ mod tests {
                 endpoints_scanned: 100,
                 endpoints_failed: 0,
                 percentage: 100.0,
+                completed_checks: Vec::new(),
             },
             finding_stats: FindingStats {
                 total: 5,

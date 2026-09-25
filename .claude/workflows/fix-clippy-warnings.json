@@ -1,0 +1,18 @@
+{
+  "name": "fix-clippy-warnings",
+  "description": "Systematically discover and fix clippy warnings across the workspace",
+  "phases": [
+    {
+      "title": "Discover",
+      "detail": "Run clippy to find all warnings"
+    },
+    {
+      "title": "Fix",
+      "detail": "Apply automatic fixes for actionable warnings"
+    },
+    {
+      "title": "Verify",
+      "detail": "Verify no new warnings introduced and build still works"
+    }
+  ]
+}

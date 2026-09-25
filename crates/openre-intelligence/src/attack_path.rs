@@ -3,11 +3,10 @@
 use crate::IntelligenceResult;
 use openre_core::attack_path::{
     AttackComplexity, AttackNodeType, AttackPath, AttackPathEdge, AttackPathNode, AttackTechnique,
-    AttackVector,   BusinessImpact, EntryPoint, EvidenceRef, ExploitabilityInfo, ImpactAssessment,
-    ImpactDetail, ImpactLevel, PrivilegeLevel, PrivilegesRequired, RiskLevel, Scope,
-    UserInteraction,
+    AttackVector, EntryPoint, EvidenceRef, ExploitabilityInfo, PrivilegeLevel, PrivilegesRequired,
+    RiskLevel, Scope, UserInteraction,
 };
-use openre_core::ids::{EntryPointId, EvidenceId, NodeId, FindingId, ScanId, AttackPathId};
+use openre_core::ids::{EntryPointId, EvidenceId, NodeId};
 use openre_core::relationships::{
     EvidenceType as RelationshipEvidenceType, FindingRelationshipGraph, FindingRelationshipType,
 };
@@ -502,9 +501,10 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use openre_core::attack_path::{
-        AttackPath, AttackPathNode, RiskLevel, RiskScore, RiskScoreBreakdown,
+        AttackPath, AttackPathNode, BusinessImpact, ImpactAssessment, ImpactDetail, ImpactLevel,
+        RiskLevel, RiskScore, RiskScoreBreakdown,
     };
-    use openre_core::ids::NodeId;
+    use openre_core::ids::{FindingId, NodeId, ScanId};
     use openre_core::relationships::{
         FindingRelationship, FindingRelationshipGraph, FindingRelationshipType, RiskImpact,
         RiskLevelChange,

@@ -19,6 +19,7 @@ path = "src/main.rs"
 [dependencies]
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
+openre-storage = { path = "../openre-storage" }
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true }
 colored = { workspace = true }

@@ -1,10 +1,12 @@
 /// Remediation agent implementation
 #[allow(unused_imports)]
 use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
-use crate::agents::context::{RemediationInput, RemediationOutput, RemediationSuggestion, FixVerification};
+use crate::agents::context::{
+    FixVerification, RemediationInput, RemediationOutput, RemediationSuggestion,
+};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
-use openre_core::ids::AgentId;
 use async_trait::async_trait;
+use openre_core::ids::AgentId;
 
 /// Remediation agent for suggesting and verifying fixes
 pub struct RemediationAgent {

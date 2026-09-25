@@ -6,7 +6,7 @@ use crate::plugin::{PluginInfo, PluginManager};
 use crate::result::Finding;
 use crate::target::{ScanConfig, Target};
 pub use openre_core::ids::{JobId, ScanId};
-use openre_queue::QueueManager;
+use openre_core::traits::QueueManager;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -274,7 +274,7 @@ impl Default for CancellationToken {
 /// Scan Manager - orchestrates scan execution
 pub struct ScanManager {
     /// Queue manager for job scheduling
-    queue_manager: Arc<QueueManager>,
+    queue_manager: Arc<dyn QueueManager>,
     /// Plugin manager
     plugin_manager: Arc<PluginManager>,
     /// Scan storage
@@ -290,7 +290,7 @@ pub struct ScanManager {
 impl ScanManager {
     /// Create a new scan manager
     pub fn new(
-        queue_manager: Arc<QueueManager>,
+        queue_manager: Arc<dyn QueueManager>,
         plugin_manager: Arc<PluginManager>,
         storage: Arc<dyn ScanStorage>,
     ) -> Self {
@@ -398,7 +398,7 @@ impl ScanManager {
             let _cancellation_token = cancellation_token.clone();
             let plugin_timeout = config.plugin_timeout;
             let plugin_name = plugin.name.clone();
-            let plugin_id = plugin.id.clone();
+            let plugin_id = plugin.id;
 
             let handle = tokio::spawn(async move {
                 let _permit = permit; // Hold permit for duration
@@ -483,8 +483,6 @@ impl ScanManager {
         // Finalize scan
         let final_status = if failed > 0 && completed == 0 {
             ScanStatus::Failed("All plugins failed".to_string())
-        } else if failed > 0 {
-            ScanStatus::Completed // Partial success
         } else {
             ScanStatus::Completed
         };

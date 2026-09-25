@@ -18,4 +18,7 @@ pub mod remediate;
 #[cfg(feature = "queue")]
 pub mod queue;
 
+#[cfg(feature = "report")]
+pub mod report;
+
 pub mod config;

@@ -57,11 +57,13 @@ md5 = { package = "md-5", version = "0.10" }
 semver = "1.0"
 indexmap = "2.0"
 petgraph = { version = "0.6", features = ["serde"] }
+rusqlite = { version = "0.31", features = ["chrono"] }
 colored = "2.0"
 urlencoding = { version = "1.0", features = [] }
 metrics = "0.21"
 metrics-exporter-prometheus = "0.13"
 prometheus = "0.13"
+tokio-postgres = { version = "0.7" }
 
 # HTTP
 reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multipart", "gzip", "brotli", "cookies"] }
@@ -78,6 +80,7 @@ x509-parser = "0.16"
 pem = "1.0"
 cookie = "0.16"
 markup5ever_rcdom = "0.39"
+axum = { version = "0.7", features = ["json"] }
 
 # HTML parsing for web scanning
 select = { version = "0.7", features = ["html"] }
@@ -145,8 +148,8 @@ criterion = "0.5"
 # Network
 pnet = "0.36"
 trust-dns-resolver = { version = "0.23", features = ["tokio"] }
-redis = { workspace = true }
-sqlx = { workspace = true, default-features = false }
+redis = "0.23"
+sqlx = { version = "0.8", default-features = false, features = ["postgres", "chrono", "uuid", "tz"] }
 
 # Crypto
 ring = "0.17"

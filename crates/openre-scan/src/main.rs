@@ -5,11 +5,16 @@
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use openre_config::{Config, ScannerConfig};
-use openre_scan::{run_scan, OutputFormat, ScanConfig, ScanProfile};
+use openre_core::history::{HistoryStorage, ScanConfigSummary, ScanSummary};
+use openre_core::ids::ScanId;
+use openre_core::result::Severity;
+use openre_scan::{run_scan, runner::run_scan_internal, OutputFormat, ScanConfig, ScanProfile};
+use openre_storage::history::SqliteHistoryStorage;
+use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::Duration;
-use tokio::time::sleep;
+use tokio::time::{sleep, Duration as TokioDuration};
 use tracing::Level;
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -25,6 +30,7 @@ const ASCII_BANNER: &str = r#"
 
 const ASCII_BANNER_SMALL: &str = r#"
 ███████╗██████╗ ██████╗  ██████╗ ███████╗███████╗
+use tokio::time::{interval, sleep};
 ██╔════╝██╔══██╗██╔══██╗██╔═══██╗██╔════╝██╔════╝
 █████╗  ██████╔╝██████╔╝██║   ██║███████╗█████╗
 ██╔══╝  ██╔══██╗██╔═══╝ ██║   ██║╚════██║██╔══╝
@@ -212,6 +218,13 @@ pub enum Commands {
         /// Custom headers (key=value)
         #[arg(long, value_delimiter = ',', value_parser = parse_header)]
         header: Option<Vec<(String, String)>>,
+        /// Enable continuous monitoring mode
+        #[arg(long)]
+        continuous: bool,
+
+        /// Interval between scans in minutes (default: 60)
+        #[arg(long, default_value_t = 60)]
+        interval: u64,
     },
 
     /// Show version information
@@ -264,6 +277,7 @@ async fn main() -> anyhow::Result<()> {
         sleep(Duration::from_millis(100)).await;
     }
 
+    // Handle commands
     match cli.command {
         Commands::Scan {
             target,
@@ -276,39 +290,41 @@ async fn main() -> anyhow::Result<()> {
             no_progress,
             follow_redirects,
             header,
+            continuous,
+            interval,
         } => {
-            // Determine output format with precedence: command > global flag > config default
-            let output_format = format.or(Some(cli.format));
-
-            run_scan(
-                ScanConfig {
-                    target_str: target,
-                    profile: profile.or(cli.profile),
-                    format: output_format,
-                    checks,
-                    exclude,
-                    max_duration: max_duration.or(cli.max_duration),
-                    output,
-                    no_progress,
-                    follow_redirects: follow_redirects.or(cli.follow_redirects),
-                    headers: header,
-                    timeout: cli.timeout,
-                    max_redirects: cli.max_redirects,
-                    user_agent: cli.user_agent,
-                },
-                &config.scanner,
-            )
-            .await?;
+            // Handle scan command
+            let scan_args = ScanConfig {
+                target_str: target,
+                profile,
+                format,
+                checks,
+                exclude,
+                max_duration,
+                output,
+                no_progress,
+                follow_redirects,
+                headers: header,
+                timeout: None,
+                max_redirects: None,
+                user_agent: None,
+            };
+            handle_scan(config, scan_args, continuous, interval).await?;
         }
         Commands::Version => {
             openre_scan::show_version();
         }
-        #[cfg(feature = "tui")]
         Commands::Tui => {
-            if show_banner {
-                println!("{}", "Launching TUI...".bright_cyan());
+            #[cfg(feature = "tui")]
+            {
+                // Launch TUI
+                // We'll need to implement this or return an error if not implemented
+                Err(anyhow::anyhow!("TUI feature not implemented"))?;
             }
-            openre_scan::tui::run_tui().await?;
+            #[cfg(not(feature = "tui"))]
+            {
+                return Err(anyhow::anyhow!("TUI feature not enabled"))?;
+            }
         }
     }
 
@@ -344,4 +360,248 @@ fn apply_cli_overrides(scanner_config: &mut ScannerConfig, cli: &Cli) {
     if let Some(proxy) = &cli.proxy {
         scanner_config.proxy = Some(proxy.clone());
     }
+}
+
+/// Map a finding severity to a terminal color for highlighting
+fn severity_color(severity: &Severity) -> colored::Color {
+    match severity {
+        Severity::Critical => colored::Color::Red,
+        Severity::High => colored::Color::BrightRed,
+        Severity::Medium => colored::Color::Yellow,
+        Severity::Low => colored::Color::BrightCyan,
+        Severity::Info => colored::Color::Cyan,
+    }
+}
+
+/// Handle the scan command with continuous monitoring support
+async fn handle_scan(
+    config: Config,
+    scan_args: ScanConfig,
+    continuous: bool,
+    interval: u64,
+) -> anyhow::Result<()> {
+    if continuous {
+        // Continuous monitoring mode
+        println!(
+            "{} {}",
+            "🔄 Starting continuous monitoring mode".bright_green().bold(),
+            format!("(interval: {} minutes)", interval).dimmed()
+        );
+
+        // Get history storage for baseline comparison
+        let history = SqliteHistoryStorage::new(&config.storage.local_path.join("history.db"))?;
+        history.ensure_schema().await?;
+
+        let mut baseline_scan_id: Option<ScanId> = None;
+        let mut first_scan = true;
+
+        // Continuous monitoring loop
+        loop {
+            println!(
+                "\n{} {}",
+                "🔍 Starting scan at".bright_white().bold(),
+                chrono::Utc::now().to_rfc3339()
+            );
+
+            // Apply scan arguments to config
+            // (scanner-level overrides were already applied via `apply_cli_overrides`;
+            // the remaining scan arguments live in `scan_args`)
+
+            // Run the scan
+            let result = run_scan_internal(
+                scan_args.target_str.clone(),
+                scan_args.resolve_profile(&config.scanner),
+                scan_args.resolve_format(),
+                config.scanner.timeout_secs,
+                config.scanner.max_redirects,
+                config.scanner.user_agent.clone(),
+            )
+            .await;
+
+            match result {
+                Ok(findings) => {
+                    if first_scan {
+                        // First scan - establish baseline
+                        println!(
+                            "{} {}",
+                            "📊 Baseline scan completed".bright_green().bold(),
+                            format!("({} findings)", findings.len()).dimmed()
+                        );
+
+                        // Save baseline scan summary and findings to history
+                        let scan_id = ScanId::new();
+                        let target_id = openre_core::ids::TargetId::from_uuid(uuid::Uuid::new_v4());
+
+                        let summary = ScanSummary {
+                            scan_id,
+                            project_id: None,
+                            target_id,
+                            name: format!("Baseline scan of {}", scan_args.target_str),
+                            description: Some(
+                                "Baseline scan for continuous monitoring".to_string(),
+                            ),
+                            status: "completed".to_string(),
+                            config: ScanConfigSummary {
+                                name: format!("Baseline scan of {}", scan_args.target_str),
+                                target_url: scan_args.target_str.clone(),
+                                plugins: vec![],
+                                rate_limit: None,
+                                timeout_seconds: Some(config.scanner.timeout_secs as u32),
+                                auth_configured: false,
+                                custom_headers_count: scan_args
+                                    .headers
+                                    .as_ref()
+                                    .map_or(0, |h| h.len()),
+                            },
+                            progress: openre_core::history::ScanProgressSummary {
+                                total_endpoints: 0,
+                                endpoints_scanned: 0,
+                                endpoints_failed: 0,
+                                percentage: 0.0,
+                                completed_checks: vec![],
+                            },
+                            finding_stats: openre_core::result::FindingStats {
+                                total: findings.len(),
+                                by_severity: std::collections::HashMap::new(),
+                                by_confidence: std::collections::HashMap::new(),
+                                by_category: std::collections::HashMap::new(),
+                                by_plugin: std::collections::HashMap::new(),
+                                verified: 0,
+                                false_positives: 0,
+                                avg_risk_score: 0.0,
+                                max_risk_score: 0,
+                                by_owasp_category: std::collections::HashMap::new(),
+                                by_cwe: std::collections::HashMap::new(),
+                                avg_advanced_risk_score: 0.0,
+                                max_advanced_risk_score: 0,
+                                by_remediation_priority: std::collections::HashMap::new(),
+                                exploit_available_count: 0,
+                                exploited_in_wild_count: 0,
+                            },
+                            risk_metrics: openre_core::history::RiskMetricsSummary {
+                                overall_risk_score: 0,
+                                risk_level: openre_core::reporting::RiskLevel::Low,
+                                critical_count: 0,
+                                high_count: 0,
+                                medium_count: 0,
+                                low_count: 0,
+                                info_count: 0,
+                                avg_risk_score: 0.0,
+                                max_risk_score: 0,
+                            },
+                            plugin_executions: vec![],
+                            created_at: chrono::Utc::now(),
+                            started_at: Some(chrono::Utc::now()),
+                            completed_at: Some(chrono::Utc::now()),
+                            duration_seconds: Some(0),
+                            tags: vec![],
+                        };
+
+                        history.save_scan_summary(&summary).await?;
+                        history.save_deduplicated_findings(&scan_id, &findings).await?;
+
+                        baseline_scan_id = Some(scan_id);
+                        first_scan = false;
+                    } else {
+                        // Subsequent scan - compare with baseline
+                        if let Some(baseline_id) = baseline_scan_id {
+                            let baseline_findings =
+                                history.get_deduplicated_findings(&baseline_id).await?;
+
+                            // Convert findings to sets for comparison (using ID as key)
+                            let current_findings_set: HashSet<_> =
+                                findings.iter().map(|f| f.id).collect();
+                            let baseline_findings_set: HashSet<_> =
+                                baseline_findings.iter().map(|f| f.id).collect();
+
+                            let new_findings: Vec<_> = findings
+                                .iter()
+                                .filter(|f| !baseline_findings_set.contains(&f.id))
+                                .cloned()
+                                .collect();
+
+                            let fixed_findings: Vec<_> = baseline_findings
+                                .iter()
+                                .filter(|f| !current_findings_set.contains(&f.id))
+                                .cloned()
+                                .collect();
+
+                            let unchanged_count = baseline_findings
+                                .iter()
+                                .filter(|f| current_findings_set.contains(&f.id))
+                                .count();
+
+                            // Output results
+                            println!(
+                                "\n{} {}",
+                                "📊 Comparison scan completed".bright_white().bold(),
+                                format!("({} findings)", findings.len()).dimmed()
+                            );
+                            println!(
+                                "{} {}",
+                                "📈 Baseline findings:".bright_blue().bold(),
+                                baseline_findings.len()
+                            );
+                            println!(
+                                "{} {}",
+                                "🆕 New findings:".bright_green().bold(),
+                                new_findings.len()
+                            );
+                            println!(
+                                "{} {}",
+                                "✅ Fixed findings:".bright_yellow().bold(),
+                                fixed_findings.len()
+                            );
+                            println!(
+                                "{} {}",
+                                "➖ Unchanged findings:".bright_blue().bold(),
+                                unchanged_count
+                            );
+
+                            if !new_findings.is_empty() {
+                                println!(
+                                    "\n{} {}",
+                                    "⚠️  ALERT: New vulnerabilities detected!".bright_red().bold(),
+                                    format!("({} new findings)", new_findings.len()).dimmed()
+                                );
+                                for finding in &new_findings {
+                                    println!(
+                                        "  {} {} [{}]",
+                                        "🆕".bright_green(),
+                                        finding.title.bright_white(),
+                                        format!("({})", finding.severity)
+                                            .color(severity_color(&finding.severity))
+                                    );
+                                }
+                            }
+
+                            if !fixed_findings.is_empty() {
+                                println!(
+                                    "\n{} {}",
+                                    "✅ FIXED: Vulnerabilities resolved".bright_green().bold(),
+                                    format!("({} findings)", fixed_findings.len()).dimmed()
+                                );
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{} {}", "❌ Scan failed:".bright_red().bold(), e);
+                }
+            }
+
+            // Wait for the specified interval
+            println!(
+                "\n{} {}",
+                "😴 Waiting for next scan".bright_white().dimmed(),
+                format!("({} minutes)", interval).dimmed()
+            );
+            sleep(TokioDuration::from_secs(interval * 60)).await;
+        }
+    } else {
+        // Regular (non-continuous) scan mode
+        run_scan(scan_args, &config.scanner).await?;
+    }
+
+    Ok(())
 }

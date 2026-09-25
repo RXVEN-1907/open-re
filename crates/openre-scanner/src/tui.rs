@@ -3057,7 +3057,7 @@ impl TuiApp {
                         target.id.to_string(),
                         truncate(&target.metadata.name, 30),
                         format!("{}", target.target_type),
-                        truncate(&target.metadata.base_url.to_string(), 40)
+                        truncate(target.metadata.base_url.as_ref(), 40)
                     );
                 }
                 Ok(())

@@ -470,12 +470,14 @@ impl Architecture {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum JobStatus {
+    Pending,
     Queued { queued_at: chrono::DateTime<chrono::Utc> },
     Running { worker_id: WorkerId, started_at: chrono::DateTime<chrono::Utc>, stage: StageName },
     Completed { completed_at: chrono::DateTime<chrono::Utc> },
     Failed { error: String, failed_at: chrono::DateTime<chrono::Utc>, retryable: bool },
     Cancelled { cancelled_at: chrono::DateTime<chrono::Utc>, reason: String },
     Scheduled { run_at: chrono::DateTime<chrono::Utc> },
+    Retrying,
 }
 
 /// Job priority levels

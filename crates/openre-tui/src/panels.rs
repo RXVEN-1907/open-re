@@ -5,15 +5,11 @@ use crate::events::Event;
 use crate::{
     components::*,
     state::{
-        AIState, AIViewMode, AppState, ChatMessage, ChatRole,
-        FindingsGroupBy,
-        JobStatus,
-        LogEntry,
-        Notification, PanelType, PluginViewMode, PluginsState,
-        REViewMode, ReportsState, ReverseEngineeringState, ScanStatus, ScansState, ThemeColors,
-        Workflow, WorkflowExecution,
-        WorkflowsState,
-    }
+        AIState, AIViewMode, AppState, ChatMessage, ChatRole, FindingsGroupBy, JobStatus, LogEntry,
+        Notification, PanelType, PluginViewMode, PluginsState, REViewMode, ReportType,
+        ReportViewMode, ReportsState, ReverseEngineeringState, ScanStatus, ScansState, ThemeColors,
+        Workflow, WorkflowExecution, WorkflowViewMode, WorkflowsState,
+    },
 };
 use openre_core::ids::ScanId;
 use openre_core::result::{Category, Confidence, Finding, Severity};
@@ -22,9 +18,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{
-        Block, Borders, List, ListItem, ListState, Paragraph, Row, Table, TableState,
-    },
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Row, Table, TableState},
     Frame,
 };
 
@@ -127,7 +121,7 @@ impl Panel for ProjectsPanel {
                     cell(project.scan_count.to_string(), base_style),
                     cell(project.finding_count.to_string(), base_style),
                     cell(crate::utils::format_relative_time(project.updated_at), base_style),
-                    cell(status_text, base_style),
+                    cell(status_text.content, base_style),
                 ])
                 .style(base_style)
             })
@@ -229,7 +223,7 @@ impl Panel for ProjectsPanel {
         key: crossterm::event::KeyEvent,
         state: &mut AppState,
     ) -> anyhow::Result<Vec<Action>> {
-        use crossterm::event::{KeyCode};
+        use crossterm::event::KeyCode;
 
         let projects_state = &mut state.projects_state;
         let len = projects_state.projects.len();
@@ -344,15 +338,11 @@ impl Panel for JobsPanel {
                     Style::default().fg(colors.fg)
                 };
 
-                let status_badge = status_badge(job.status.into(), colors);
-                let priority_badge = priority_badge(job.priority, colors);
-                let progress_text =
-                    job.progress.map_or("—".to_string(), |p| format!("{:.0}%", p * 100.0));
+                let status_badge_span = status_badge(job.status.clone(), colors);
+                let priority_badge_span = priority_badge(job.priority, colors);
+                let progress_text = format!("{:.0}%", job.progress as f32 * 100.0);
                 let worker_text = job.worker_id.as_deref().unwrap_or("—");
-                let queued_text = job
-                    .queued_at
-                    .map(crate::utils::format_relative_time)
-                    .unwrap_or("—".to_string());
+                let queued_text = crate::utils::format_relative_time(job.created_at);
                 let started_text = job
                     .started_at
                     .map(crate::utils::format_relative_time)
@@ -360,9 +350,28 @@ impl Panel for JobsPanel {
 
                 Row::new(vec![
                     cell(crate::utils::truncate(&job.id.to_string(), 12), base_style),
-                    cell(crate::utils::truncate(&job.job_type.to_string(), 20), base_style),
-                    cell(status_badge, base_style),
-                    cell(priority_badge, base_style),
+                    {
+                        let job_type_str = match job.job_type {
+                            openre_intelligence::job::JobType::Scan => "Scan",
+                            openre_intelligence::job::JobType::Analysis => "Analysis",
+                            openre_intelligence::job::JobType::AiAnalysis => "AI Analysis",
+                            openre_intelligence::job::JobType::ReportGeneration => {
+                                "Report Generation"
+                            }
+                            openre_intelligence::job::JobType::PluginExecution => {
+                                "Plugin Execution"
+                            }
+                            openre_intelligence::job::JobType::Verification => "Verification",
+                            openre_intelligence::job::JobType::Correlation => "Correlation",
+                            openre_intelligence::job::JobType::Prioritization => "Prioritization",
+                            openre_intelligence::job::JobType::Investigation => "Investigation",
+                            openre_intelligence::job::JobType::Workflow => "Workflow",
+                            openre_intelligence::job::JobType::Maintenance => "Maintenance",
+                        };
+                        cell(crate::utils::truncate(job_type_str, 20), base_style)
+                    },
+                    cell(status_badge_span.content, base_style),
+                    cell(priority_badge_span.content, base_style),
                     cell(progress_text, base_style),
                     cell(worker_text, base_style),
                     cell(queued_text, base_style),
@@ -470,7 +479,7 @@ impl Panel for JobsPanel {
         key: crossterm::event::KeyEvent,
         state: &mut AppState,
     ) -> anyhow::Result<Vec<Action>> {
-        use crossterm::event::{KeyCode};
+        use crossterm::event::KeyCode;
 
         let jobs_state = &mut state.jobs_state;
         let len = jobs_state.jobs.len();
@@ -483,17 +492,15 @@ impl Panel for JobsPanel {
             }
             KeyCode::Char('p') => {
                 if let Some(job) = jobs_state.jobs.get(jobs_state.selected_index) {
-                    if matches!(job.status, openre_intelligence::job::JobStatus::Running) {
+                    if matches!(job.status, JobStatus::Running { .. }) {
                         return Ok(vec![Action::PauseJob(job.id)]);
                     }
                 }
             }
             KeyCode::Char('P') => {
                 if let Some(job) = jobs_state.jobs.get(jobs_state.selected_index) {
-                    if matches!(
-                        job.status,
-                        openre_intelligence::job::JobStatus::Failed | openre_intelligence::job::JobStatus::Cancelled
-                    ) {
+                    if matches!(job.status, JobStatus::Failed { .. } | JobStatus::Cancelled { .. })
+                    {
                         return Ok(vec![Action::ResumeJob(job.id)]);
                     }
                 }
@@ -681,7 +688,7 @@ impl Panel for ScansPanel {
         key: crossterm::event::KeyEvent,
         state: &mut AppState,
     ) -> anyhow::Result<Vec<Action>> {
-        use crossterm::event::{KeyCode};
+        use crossterm::event::KeyCode;
 
         let scans_state = &mut state.scans_state;
         let len = scans_state.scans.len();
@@ -996,9 +1003,9 @@ impl ReverseEngineeringPanel {
                 };
 
                 let status = match project.analysis_status {
-                    JobStatus::Running => "🔄 Analyzing",
-                    JobStatus::Completed => "✅ Done",
-                    JobStatus::Failed => "❌ Failed",
+                    JobStatus::Running { .. } => "🔄 Analyzing",
+                    JobStatus::Completed { .. } => "✅ Done",
+                    JobStatus::Failed { .. } => "❌ Failed",
                     _ => "⏳ Pending",
                 };
 
@@ -1932,10 +1939,10 @@ impl WorkflowsPanel {
             ];
 
             for (i, stage) in wf.stages.iter().enumerate() {
-                let status_badge = status_badge(stage.status, colors);
+                let status_badge_span = status_badge(stage.status.clone(), colors);
                 lines.push(Line::from(vec![
                     Span::styled(format!("  {}. ", i + 1), Style::default().fg(colors.muted)),
-                    status_badge,
+                    status_badge_span,
                     Span::styled(format!(" {}", stage.name), Style::default().fg(colors.fg)),
                     Span::styled(
                         format!(" ({})", stage.job_type),
@@ -2026,7 +2033,6 @@ impl WorkflowsPanel {
                     Style::default().fg(colors.fg)
                 };
 
-                let status_badge = status_badge(exec.status, colors);
                 let completed = exec
                     .completed_at
                     .map(crate::utils::format_relative_time)
@@ -2239,7 +2245,6 @@ impl AIPanel {
                     Style::default().fg(colors.fg)
                 };
 
-                let status_badge = status_badge(analysis.status, colors);
                 let progress = format!("{:.0}%", analysis.progress * 100.0);
                 let started = analysis
                     .started_at
@@ -3104,7 +3109,6 @@ impl ReportsPanel {
                 };
 
                 let type_badge = report_type_badge(report.report_type, colors);
-                let status_badge = status_badge(report.status, colors);
                 let size =
                     report.size_bytes.map(crate::utils::format_bytes).unwrap_or("—".to_string());
 
@@ -3180,7 +3184,7 @@ impl ReportsPanel {
                 ]),
                 Line::from(vec![
                     Span::styled("Status: ", Style::default().fg(colors.accent)),
-                    status_badge(report.status, colors),
+                    status_badge(report.status.clone(), colors),
                 ]),
                 Line::from(vec![
                     Span::styled("Created: ", Style::default().fg(colors.accent)),

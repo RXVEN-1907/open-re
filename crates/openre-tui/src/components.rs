@@ -2,14 +2,13 @@
 
 use crate::state::{JobStatus, LogLevel, ReportType, ScanStatus, ThemeColors};
 use openre_core::result::Severity;
-use openre_core::Priority;
+use openre_intelligence::job::{Job, Priority};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, Gauge, List, ListItem, ListState, Paragraph, Row, Table, TableState,
-        Tabs,
+        Block, Borders, Gauge, List, ListItem, ListState, Paragraph, Row, Table, TableState, Tabs,
     },
     Frame,
 };
@@ -119,12 +118,13 @@ pub fn render_empty_state(
 pub fn status_badge(status: JobStatus, colors: &ThemeColors) -> Span<'static> {
     let (icon, color, text) = match status {
         JobStatus::Pending => ("⏳", colors.muted, "Pending"),
-        JobStatus::Queued => ("📋", colors.info, "Queued"),
-        JobStatus::Running => ("🔄", colors.accent, "Running"),
-        JobStatus::Completed => ("✅", colors.success, "Completed"),
-        JobStatus::Failed => ("❌", colors.error, "Failed"),
-        JobStatus::Cancelled => ("🚫", colors.warning, "Cancelled"),
-        JobStatus::Scheduled => ("📅", colors.info, "Scheduled"),
+        JobStatus::Queued { .. } => ("📋", colors.info, "Queued"),
+        JobStatus::Running { .. } => ("🔄", colors.accent, "Running"),
+        JobStatus::Completed { .. } => ("✅", colors.success, "Completed"),
+        JobStatus::Failed { .. } => ("❌", colors.error, "Failed"),
+        JobStatus::Cancelled { .. } => ("🚫", colors.warning, "Cancelled"),
+        JobStatus::Scheduled { .. } => ("📅", colors.info, "Scheduled"),
+        JobStatus::Retrying => ("🔄", colors.accent, "Retrying"),
     };
 
     Span::styled(
@@ -178,6 +178,7 @@ pub fn severity_badge(severity: Severity, colors: &ThemeColors) -> Span<'static>
 /// Render a priority badge
 pub fn priority_badge(priority: Priority, colors: &ThemeColors) -> Span<'static> {
     let (text, color) = match priority {
+        Priority::Critical => ("HIGH", colors.error),
         Priority::High => ("HIGH", colors.error),
         Priority::Default => ("NORMAL", colors.info),
         Priority::Low => ("LOW", colors.muted),

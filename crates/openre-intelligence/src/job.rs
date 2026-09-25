@@ -1,29 +1,21 @@
 //! Local job/queue types to replace openre_queue dependency
 
 use chrono::{DateTime, Utc};
-use openre_core::ids::JobId;
+use openre_config::{QueueConfig, RedisConfig};
+use openre_core::ids::{JobId, JobStatus};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
 
+pub trait QueueMetrics: Send + Sync {}
 /// Job priority levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Hash)]
 pub enum Priority {
     Low = 0,
     #[default]
     Default = 1,
     High = 2,
     Critical = 3,
-}
-
-/// Job status
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum JobStatus {
-    #[default]
-    Pending,
-    Running,
-    Completed,
-    Failed,
-    Cancelled,
-    Retrying,
 }
 
 /// Job type
@@ -70,7 +62,7 @@ impl Job {
         Self {
             id: JobId::new(),
             job_type,
-            status: JobStatus::Pending,
+            status: JobStatus::Queued { queued_at: now },
             priority: Priority::Default,
             payload,
             result: None,
@@ -92,23 +84,30 @@ impl Job {
 /// Queue statistics
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct QueueStats {
-    pub pending: usize,
-    pub running: usize,
-    pub completed: usize,
-    pub failed: usize,
-    pub cancelled: usize,
-    pub total: usize,
+    pub total_queued: usize,
+    pub jobs_queued_by_priority: HashMap<Priority, usize>,
+    pub jobs_running: usize,
+    pub jobs_scheduled: usize,
+    pub jobs_dlq: usize,
+    pub workers_active: usize,
+    pub workers_idle: usize,
 }
 
 /// Queue manager trait (simplified)
 #[derive(Debug, Clone)]
 pub struct QueueManager {
+    _queue_config: QueueConfig,
+    _redis_config: RedisConfig,
     // Simplified - in reality this would connect to Redis
 }
 
 impl QueueManager {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(
+        queue_config: QueueConfig,
+        redis_config: RedisConfig,
+        _metrics: Arc<dyn QueueMetrics + Send + Sync>,
+    ) -> Self {
+        Self { _queue_config: queue_config, _redis_config: redis_config }
     }
 
     pub async fn enqueue(&self, _job: Job) -> anyhow::Result<()> {
@@ -124,12 +123,30 @@ impl QueueManager {
     }
 
     pub async fn get_stats(&self) -> anyhow::Result<QueueStats> {
-        Ok(QueueStats::default())
+        Ok(QueueStats {
+            total_queued: 0,
+            jobs_queued_by_priority: HashMap::new(),
+            jobs_running: 0,
+            jobs_scheduled: 0,
+            jobs_dlq: 0,
+            workers_active: 0,
+            workers_idle: 0,
+        })
+    }
+
+    pub async fn cancel(&self, _job_id: JobId) -> bool {
+        // Simplified - in reality this would attempt to cancel the job in Redis
+        false
     }
 }
 
 impl Default for QueueManager {
     fn default() -> Self {
-        Self::new()
+        Self::new(QueueConfig::default(), RedisConfig::default(), Arc::new(NullMetrics))
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct NullMetrics;
+
+impl QueueMetrics for NullMetrics {}

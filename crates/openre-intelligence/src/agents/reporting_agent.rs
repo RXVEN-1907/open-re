@@ -1,7 +1,7 @@
 /// Reporting agent implementation
 #[allow(unused_imports)]
 use crate::agents::agent_trait::{AgentContext, BaseAgent, SecurityAgent};
-use crate::agents::context::{ReportingInput, ReportingOutput, ReportMetadata};
+use crate::agents::context::{ReportMetadata, ReportingInput, ReportingOutput};
 use crate::agents::types::{AgentCapability, AgentHealth, AgentResult, AgentType};
 use async_trait::async_trait;
 use openre_core::ids::AgentId;

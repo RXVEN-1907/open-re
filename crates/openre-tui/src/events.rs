@@ -1,9 +1,9 @@
 //! Event system for the TUI
 
 use crate::state::{
-    AIAnalysis, AIViewMode, ChatMessage, FindingsGroupBy, JobStatus, KeyBindings,
-    LogEntry, LogLevel, Notification, PanelType, PluginInfo, ProjectInfo, QueueStats, REViewMode,
-    ReportInfo, Theme, Workflow,
+    AIAnalysis, AIViewMode, ChatMessage, FindingsGroupBy, JobStatus, KeyBindings, LogEntry,
+    LogLevel, Notification, PanelType, PluginInfo, ProjectInfo, QueueStats, REViewMode, ReportInfo,
+    Theme, Workflow,
 };
 use openre_core::ids::{JobId, ProjectId, ScanId};
 use openre_core::result::{Category, Confidence, Finding, Severity};

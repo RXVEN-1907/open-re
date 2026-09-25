@@ -207,7 +207,7 @@ impl CveIntelligence {
         }
 
         // Remove duplicates by CVE ID
-        all_cves.sort_by(|a, b| a.cve_id.cmp(&b.cve_id));
+        all_cves.sort_by_key(|c| c.cve_id.clone());
         all_cves.dedup_by(|a, b| a.cve_id == b.cve_id);
 
         Ok(all_cves)

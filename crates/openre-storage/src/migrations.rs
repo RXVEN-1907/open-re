@@ -34,10 +34,7 @@ pub struct MigrationManager {
 #[cfg(feature = "postgres")]
 impl MigrationManager {
     pub fn new(pool: Arc<PgPool>) -> Self {
-        Self {
-            pool,
-            migrations: Vec::new(),
-        }
+        Self { pool, migrations: Vec::new() }
     }
 
     pub fn add_migration(&mut self, migration: Arc<dyn Migration>) {
@@ -73,11 +70,7 @@ impl MigrationManager {
         // Apply pending migrations
         for migration in migrations {
             if !applied.contains(&migration.version()) {
-                info!(
-                    version = migration.version(),
-                    name = migration.name(),
-                    "Applying migration"
-                );
+                info!(version = migration.version(), name = migration.name(), "Applying migration");
                 sqlx::query(migration.up_sql())
                     .execute(&*self.pool)
                     .await
@@ -108,10 +101,8 @@ impl MigrationManager {
         .await
         .map_err(map_sqlx_error)?;
 
-        let applied: Vec<(i64, String)> = applied_rows
-            .into_iter()
-            .map(|row| (row.get("version"), row.get("name")))
-            .collect();
+        let applied: Vec<(i64, String)> =
+            applied_rows.into_iter().map(|row| (row.get("version"), row.get("name"))).collect();
 
         let mut migrations = self.migrations.clone();
         migrations.sort_by_key(|m| m.version());

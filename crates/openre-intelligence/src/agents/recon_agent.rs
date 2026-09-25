@@ -476,4 +476,3 @@ impl SecurityAgent for ReconAgent {
         AgentHealth::Healthy
     }
 }
-

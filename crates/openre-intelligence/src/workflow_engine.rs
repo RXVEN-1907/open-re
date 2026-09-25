@@ -836,7 +836,7 @@ impl InvestigationStageHandler for PrioritizeStageHandler {
 
         // Sort by priority (highest first)
         prioritized_findings
-            .sort_by(|a, b| b.priority.cmp(&a.priority).then(b.risk_score.cmp(&a.risk_score)));
+            .sort_by_key(|h| (std::cmp::Reverse(h.priority), std::cmp::Reverse(h.risk_score)));
 
         let completed_at = Utc::now();
         Ok(StageResult {

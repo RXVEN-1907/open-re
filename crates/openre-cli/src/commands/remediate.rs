@@ -7,7 +7,7 @@ use crate::intelligence_stubs::{
 use crate::{print_output, CliError, Context, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tabled::{settings::Style, Table};
 
 #[derive(Subcommand, Debug)]
@@ -290,7 +290,7 @@ fn load_finding(path: &str) -> Result<Finding, CliError> {
     }
 }
 
-fn load_findings_from_path(path: &PathBuf) -> Result<Vec<Finding>, CliError> {
+fn load_findings_from_path(path: &Path) -> Result<Vec<Finding>, CliError> {
     if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
         let content = std::fs::read_to_string(path)?;
         Ok(serde_json::from_str(&content)?)

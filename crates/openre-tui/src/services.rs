@@ -10,18 +10,19 @@ use crate::state::{
 use openre_config::Config;
 use openre_core::ids::{FileId, JobId, ProjectId, ScanId};
 use openre_core::result::{Category, Confidence, Finding, Severity};
+use openre_intelligence::job::{Job, Priority, QueueManager, QueueStats as QueueQueueStats};
 #[cfg(feature = "intelligence")]
 use openre_intelligence::{InvestigationWorkflowEngine, KnowledgeBase, WorkflowManager};
-use openre_intelligence::job::{
-    Job, JobStatus as QueueJobStatus, Priority, QueueManager, QueueStats as QueueQueueStats,
-};
-use openre_scan::{ScanManager, ScanProgress, ScanSession};
-use openre_analysis::ProjectStore;
+use openre_scanner::{ScanManager, ScanProgress, ScanSession};
+#[cfg(feature = "storage")]
+use openre_storage::project::ProjectStore;
 #[cfg(not(feature = "storage"))]
 mod dummy_global_store {
     pub struct GlobalStore;
     impl GlobalStore {
-        pub async fn new(_config: &openre_config::DatabaseConfig) -> openre_core::error::OpenreResult<Self> {
+        pub async fn new(
+            _config: &openre_config::DatabaseConfig,
+        ) -> openre_core::error::OpenreResult<Self> {
             Err(openre_core::error::Error::NotImplemented("Storage feature not enabled".into()))
         }
         pub fn pool(&self) -> &'static tokio_postgres::pool::Pool {
@@ -40,6 +41,37 @@ mod dummy_intelligence {
 }
 #[cfg(not(feature = "intelligence"))]
 use dummy_intelligence::{InvestigationWorkflowEngine, KnowledgeBase, WorkflowManager};
+
+#[cfg(not(feature = "storage"))]
+mod dummy_storage {
+    use openre_core::error::OpenreResult as Result;
+    use openre_core::ids::ProjectId;
+    use std::path::Path;
+    use tokio_postgres::Connection;
+
+    #[derive(Debug, Clone)]
+    pub struct ProjectStore;
+
+    impl ProjectStore {
+        pub fn new(_project_id: ProjectId, _base_path: &Path) -> Result<Self> {
+            Err(openre_core::Error::NotImplemented("Storage feature not enabled".into()))
+        }
+
+        async fn take_conn(&self) -> Result<Connection> {
+            Err(openre_core::Error::NotImplemented("Storage feature not enabled".into()))
+        }
+
+        async fn put_conn(&self, _conn: Connection) {
+            // Do nothing
+        }
+
+        async fn ensure_schema(&self) -> Result<()> {
+            Err(openre_core::Error::NotImplemented("Storage feature not enabled".into()))
+        }
+    }
+}
+#[cfg(not(feature = "storage"))]
+use dummy_storage::ProjectStore;
 use redis::Client as RedisClient;
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -54,6 +86,7 @@ pub struct Services {
     pub queue_manager: Option<Arc<QueueManager>>,
     pub redis_client: Option<RedisClient>,
     pub global_store: Option<Arc<GlobalStore>>,
+    #[cfg(feature = "scan")]
     pub scan_manager: Option<Arc<ScanManager>>,
     #[cfg(feature = "intelligence")]
     pub workflow_manager: Option<Arc<WorkflowManager>>,
@@ -61,6 +94,8 @@ pub struct Services {
     pub workflow_engine: Option<Arc<InvestigationWorkflowEngine>>,
     #[cfg(feature = "intelligence")]
     pub knowledge_base: Option<Arc<KnowledgeBase>>,
+    #[cfg(feature = "storage")]
+    #[cfg(feature = "storage")]
     pub project_stores: Arc<RwLock<HashMap<ProjectId, Arc<ProjectStore>>>>,
 }
 
@@ -70,14 +105,16 @@ impl std::fmt::Debug for Services {
         ds.field("config", &self.config)
             .field("queue_manager", &self.queue_manager.is_some())
             .field("redis_client", &self.redis_client.is_some())
-            .field("global_store", &self.global_store.is_some())
-            .field("scan_manager", &self.scan_manager.is_some());
+            .field("global_store", &self.global_store.is_some());
+        #[cfg(feature = "scan")]
+        ds.field("scan_manager", &self.scan_manager.is_some());
         #[cfg(feature = "intelligence")]
         {
             ds.field("workflow_manager", &self.workflow_manager.is_some())
                 .field("workflow_engine", &self.workflow_engine.is_some())
                 .field("knowledge_base", &self.knowledge_base.is_some());
         }
+        #[cfg(feature = "storage")]
         ds.field("project_stores", &format_args!("HashMap<ProjectId, Arc<ProjectStore>>")).finish()
     }
 }
@@ -92,7 +129,10 @@ impl Services {
         let global_store = Self::connect_global_store(&config).await;
 
         // Create scan manager (requires plugin_manager and storage - not available in TUI)
+        #[cfg(feature = "scan")]
         let scan_manager = None;
+        #[cfg(not(feature = "scan"))]
+        let scan_manager: Option<Arc<ScanManager>> = None;
 
         // Create workflow manager (requires intelligence feature)
         #[cfg(feature = "intelligence")]
@@ -120,6 +160,7 @@ impl Services {
             queue_manager,
             redis_client,
             global_store,
+            #[cfg(feature = "scan")]
             scan_manager,
             #[cfg(feature = "intelligence")]
             workflow_manager,
@@ -142,22 +183,13 @@ impl Services {
                             Ok(_) => {
                                 info!("Connected to Redis at {}", config.redis.url);
                                 // Try to create queue manager
-                                match QueueManager::new(
+                                let qm = openre_intelligence::job::QueueManager::new(
                                     config.queue.clone(),
-                                    &config.redis,
-                                    Arc::new(openre_queue::metrics::QueueMetrics::new()),
-                                )
-                                .await
-                                {
-                                    Ok(qm) => {
-                                        info!("Queue manager initialized");
-                                        (Some(client), Some(Arc::new(qm)))
-                                    }
-                                    Err(e) => {
-                                        warn!("Failed to create queue manager: {}", e);
-                                        (Some(client), None)
-                                    }
-                                }
+                                    config.redis.clone(),
+                                    Arc::new(openre_intelligence::job::NullMetrics),
+                                );
+                                info!("Queue manager initialized");
+                                (Some(client), Some(Arc::new(qm)))
                             }
                             Err(e) => {
                                 warn!("Redis PING failed: {}", e);
@@ -199,6 +231,7 @@ impl Services {
         }
     }
 
+    #[cfg(feature = "storage")]
     /// Get or create project store for a project
     pub async fn get_project_store(
         &self,
@@ -244,6 +277,7 @@ impl Services {
         Ok(Vec::new())
     }
 
+    #[cfg(feature = "storage")]
     /// Get project list from global store or local storage
     pub async fn get_projects(&self) -> anyhow::Result<Vec<ProjectInfo>> {
         // Try global store first (PostgreSQL)
@@ -311,6 +345,7 @@ impl Services {
         Ok(projects)
     }
 
+    #[cfg(feature = "storage")]
     /// Create a new project
     pub async fn create_project(&self, name: String, path: String) -> anyhow::Result<ProjectId> {
         let project_id = ProjectId::new();
@@ -330,6 +365,7 @@ impl Services {
         Ok(project_id)
     }
 
+    #[cfg(feature = "storage")]
     /// Delete a project
     pub async fn delete_project(&self, project_id: ProjectId) -> anyhow::Result<()> {
         // Remove from local cache
@@ -355,6 +391,7 @@ impl Services {
         Ok(Vec::new())
     }
 
+    #[cfg(feature = "scan")]
     /// Start a new scan
     pub async fn start_scan(
         &self,
@@ -422,7 +459,9 @@ impl Services {
                             strings: string_count as usize,
                             imports: import_count as usize,
                             exports: export_count as usize,
-                            analysis_status: JobStatus::Completed,
+                            analysis_status: JobStatus::Completed {
+                                completed_at: chrono::Utc::now(),
+                            },
                             last_analyzed: Some(chrono::Utc::now()),
                         });
                     }

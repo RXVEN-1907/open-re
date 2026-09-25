@@ -2,7 +2,7 @@
 
 use crate::state::{
     AIViewMode, FindingsGroupBy, JobStatus, KeyBindings, LogLevel, Notification, PanelType,
-    REViewMode, ScanStatus, Theme,
+    REViewMode, ReportType, ScanStatus, Theme, WorkflowViewMode,
 };
 use openre_core::ids::{JobId, ProjectId, ScanId};
 use openre_core::result::{Category, Confidence, Severity};

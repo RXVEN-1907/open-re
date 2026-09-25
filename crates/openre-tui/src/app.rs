@@ -7,9 +7,7 @@ use crate::{
     panels::{get_all_panels, Panel},
     services::{DataFetcher, Services},
     state::{
-        ActiveScanInfo, AppState, ChatMessage, ChatRole,
-        JobStatus, Notification,
-        PanelType,
+        ActiveScanInfo, AppState, ChatMessage, ChatRole, JobStatus, Notification, PanelType,
         REViewMode, ScanStatus, Theme,
     },
 };
@@ -22,6 +20,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use openre_config::Config;
+use openre_core::ids::{StageName, WorkerId};
 use openre_intelligence::job::{Job, Priority};
 use ratatui::{
     backend::CrosstermBackend,
@@ -36,6 +35,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tracing::{error, info, warn};
+use uuid::Uuid;
 
 /// Main application struct
 pub struct App {
@@ -261,9 +261,14 @@ impl App {
             Action::CancelJob(id) => {
                 if let Some(svc) = &state_guard.services {
                     if let Some(qm) = &svc.queue_manager {
-                        if qm.cancel(id).await.unwrap_or(false) {
-                            let _ =
-                                event_tx.send(Event::JobStatusChanged(id, JobStatus::Cancelled));
+                        if qm.cancel(id).await {
+                            let _ = event_tx.send(Event::JobStatusChanged(
+                                id,
+                                JobStatus::Cancelled {
+                                    cancelled_at: chrono::Utc::now(),
+                                    reason: "User requested cancellation".to_string(),
+                                },
+                            ));
                             state_guard.add_notification(Notification {
                                 id: uuid::Uuid::new_v4().to_string(),
                                 level: crate::state::NotificationLevel::Info,
@@ -617,7 +622,11 @@ impl App {
                             id: report_id,
                             title: format!("{:?} Report", report_type),
                             report_type,
-                            status: JobStatus::Running,
+                            status: JobStatus::Running {
+                                worker_id: WorkerId::from_uuid(uuid::Uuid::nil()),
+                                started_at: chrono::Utc::now(),
+                                stage: StageName::Identification,
+                            },
                             created_at: chrono::Utc::now(),
                             file_path: None,
                             size_bytes: None,

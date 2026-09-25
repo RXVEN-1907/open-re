@@ -1,0 +1,1778 @@
+{
+  ".cspell.json": {
+    "mtime": 1784790522.4063418,
+    "seen": 1789368578.8955185,
+    "ast_hash": "afad8ee881b566b65175859d4ff9f51d",
+    "semantic_hash": "afad8ee881b566b65175859d4ff9f51d"
+  },
+  ".github/markdown-link-check.json": {
+    "mtime": 1784790543.2937891,
+    "seen": 1789368578.8955278,
+    "ast_hash": "18c2cdabdb0c8490616befa2c54b5889",
+    "semantic_hash": "18c2cdabdb0c8490616befa2c54b5889"
+  },
+  ".ipynb_checkpoints/benchmark-checkpoint.sh": {
+    "mtime": 1788767122.5617397,
+    "seen": 1789368578.8955314,
+    "ast_hash": "d6293c5d45521d280204e17db91f53f3",
+    "semantic_hash": "d6293c5d45521d280204e17db91f53f3"
+  },
+  ".ipynb_checkpoints/build-checkpoint.sh": {
+    "mtime": 1788767122.5617397,
+    "seen": 1789368578.8955336,
+    "ast_hash": "f29459b87b8fbc81fa5510bda886263a",
+    "semantic_hash": "f29459b87b8fbc81fa5510bda886263a"
+  },
+  ".markdownlint.json": {
+    "mtime": 1787423224.7439935,
+    "seen": 1789368578.8955357,
+    "ast_hash": "f89e1277fe43922762f747a675df17ea",
+    "semantic_hash": "f89e1277fe43922762f747a675df17ea"
+  },
+  ".patched-crates/select-patched/Cargo.toml": {
+    "mtime": 1788242339.4872587,
+    "seen": 1789368578.8955374,
+    "ast_hash": "9c6d4494f607fd1562142d06664c36fd",
+    "semantic_hash": "9c6d4494f607fd1562142d06664c36fd"
+  },
+  ".patched-crates/select-patched/benches/benches.rs": {
+    "mtime": 1788242330.1988761,
+    "seen": 1789368578.8955393,
+    "ast_hash": "6924fdc2ac71bdfc4feeb8aff9e0db93",
+    "semantic_hash": "6924fdc2ac71bdfc4feeb8aff9e0db93"
+  },
+  ".patched-crates/select-patched/examples/stackoverflow.rs": {
+    "mtime": 1788242330.199876,
+    "seen": 1789368578.895541,
+    "ast_hash": "f7f423232dca3618d5672b3b0db09e55",
+    "semantic_hash": "f7f423232dca3618d5672b3b0db09e55"
+  },
+  ".patched-crates/select-patched/src/document.rs": {
+    "mtime": 1789368343.560164,
+    "seen": 1789368578.8955426,
+    "ast_hash": "7c899030dd7dfbb3aeda613458d3418d",
+    "semantic_hash": "7c899030dd7dfbb3aeda613458d3418d"
+  },
+  ".patched-crates/select-patched/src/lib.rs": {
+    "mtime": 1788242330.199876,
+    "seen": 1789368578.8955443,
+    "ast_hash": "0dd46009da0035aaadcb096d514efe05",
+    "semantic_hash": "0dd46009da0035aaadcb096d514efe05"
+  },
+  ".patched-crates/select-patched/src/node.rs": {
+    "mtime": 1788242330.199876,
+    "seen": 1789368578.8955462,
+    "ast_hash": "f0de278c19d875981b62b2aff19bf187",
+    "semantic_hash": "f0de278c19d875981b62b2aff19bf187"
+  },
+  ".patched-crates/select-patched/src/predicate.rs": {
+    "mtime": 1788242330.199876,
+    "seen": 1789368578.895548,
+    "ast_hash": "1d387049b3cbf1989ffa09530fec9ff9",
+    "semantic_hash": "1d387049b3cbf1989ffa09530fec9ff9"
+  },
+  ".patched-crates/select-patched/src/selection.rs": {
+    "mtime": 1788242330.199876,
+    "seen": 1789368578.89555,
+    "ast_hash": "65e910f1e0a734f87e38e7ffd9784a24",
+    "semantic_hash": "65e910f1e0a734f87e38e7ffd9784a24"
+  },
+  ".patched-crates/select-patched/tests/document_tests.rs": {
+    "mtime": 1788242330.199876,
+    "seen": 1789368578.8955517,
+    "ast_hash": "d84cff9740e4e4bcecc0c3ef15e47d7c",
+    "semantic_hash": "d84cff9740e4e4bcecc0c3ef15e47d7c"
+  },
+  ".patched-crates/select-patched/tests/node_tests.rs": {
+    "mtime": 1788242330.200876,
+    "seen": 1789368578.8955534,
+    "ast_hash": "afaa3211c94f90ec33b0b2c79a692317",
+    "semantic_hash": "afaa3211c94f90ec33b0b2c79a692317"
+  },
+  ".patched-crates/select-patched/tests/predicate_tests.rs": {
+    "mtime": 1788242330.200876,
+    "seen": 1789368578.8955548,
+    "ast_hash": "d4aaa915d0a24be1919ae557e40b0e8d",
+    "semantic_hash": "d4aaa915d0a24be1919ae557e40b0e8d"
+  },
+  ".patched-crates/select-patched/tests/selection_tests.rs": {
+    "mtime": 1788242330.200876,
+    "seen": 1789368578.8955567,
+    "ast_hash": "7ad2814c9f84e214cafb534260b89e94",
+    "semantic_hash": "7ad2814c9f84e214cafb534260b89e94"
+  },
+  "benchmark.sh": {
+    "mtime": 1786790531.7130873,
+    "seen": 1789368578.8955584,
+    "ast_hash": "d6293c5d45521d280204e17db91f53f3",
+    "semantic_hash": "d6293c5d45521d280204e17db91f53f3"
+  },
+  "build.sh": {
+    "mtime": 1786278450.5899823,
+    "seen": 1789368578.89556,
+    "ast_hash": "f29459b87b8fbc81fa5510bda886263a",
+    "semantic_hash": "f29459b87b8fbc81fa5510bda886263a"
+  },
+  "crates/openre-ai/Cargo.toml": {
+    "mtime": 1788631666.5524712,
+    "seen": 1789368578.8955615,
+    "ast_hash": "3c7b3b35c36709cfd33cb3a24246293e",
+    "semantic_hash": "3c7b3b35c36709cfd33cb3a24246293e"
+  },
+  "crates/openre-ai/src/cache.rs": {
+    "mtime": 1789027220.434,
+    "seen": 1789368578.8955631,
+    "ast_hash": "d26386208e8ee781ecf8a9fb2a0266e0",
+    "semantic_hash": "d26386208e8ee781ecf8a9fb2a0266e0"
+  },
+  "crates/openre-ai/src/grounded.rs": {
+    "mtime": 1789027220.435,
+    "seen": 1789368578.8955646,
+    "ast_hash": "7a57b653df811dab75f150f91833f96e",
+    "semantic_hash": "7a57b653df811dab75f150f91833f96e"
+  },
+  "crates/openre-ai/src/lib.rs": {
+    "mtime": 1789368343.5621638,
+    "seen": 1789368578.8955672,
+    "ast_hash": "9845aa95fe52d5f635f50001f553fff9",
+    "semantic_hash": "9845aa95fe52d5f635f50001f553fff9"
+  },
+  "crates/openre-ai/src/privacy.rs": {
+    "mtime": 1787949824.8468401,
+    "seen": 1789368578.8955686,
+    "ast_hash": "38337bf99ae9e30aeee2651db11e1d37",
+    "semantic_hash": "38337bf99ae9e30aeee2651db11e1d37"
+  },
+  "crates/openre-ai/src/prompt_compiler.rs": {
+    "mtime": 1788767122.5637395,
+    "seen": 1789368578.8955708,
+    "ast_hash": "eb3e5e99ceb4222e86177c8269ecae16",
+    "semantic_hash": "eb3e5e99ceb4222e86177c8269ecae16"
+  },
+  "crates/openre-ai/src/providers.rs": {
+    "mtime": 1787949824.8608391,
+    "seen": 1789368578.8955722,
+    "ast_hash": "03124762088f4825da071ef20ce63839",
+    "semantic_hash": "03124762088f4825da071ef20ce63839"
+  },
+  "crates/openre-ai/src/providers/llama_cpp.rs": {
+    "mtime": 1786838286.80757,
+    "seen": 1789368578.895574,
+    "ast_hash": "62a4f78e480e666c548c2d0c4f307503",
+    "semantic_hash": "62a4f78e480e666c548c2d0c4f307503"
+  },
+  "crates/openre-ai/src/providers/onnx.rs": {
+    "mtime": 1786838286.80757,
+    "seen": 1789368578.8955758,
+    "ast_hash": "f7cd2b49496142d0a07d247cc2d1ec55",
+    "semantic_hash": "f7cd2b49496142d0a07d247cc2d1ec55"
+  },
+  "crates/openre-ai/src/providers/remote.rs": {
+    "mtime": 1787949824.8588393,
+    "seen": 1789368578.8955774,
+    "ast_hash": "7ea131e6cc84e41007f55bef9cdd554b",
+    "semantic_hash": "7ea131e6cc84e41007f55bef9cdd554b"
+  },
+  "crates/openre-ai/src/router.rs": {
+    "mtime": 1787949824.862839,
+    "seen": 1789368578.8955789,
+    "ast_hash": "7865dd3e4ab32ec6933fbb24740c5c86",
+    "semantic_hash": "7865dd3e4ab32ec6933fbb24740c5c86"
+  },
+  "crates/openre-ai/src/service.rs": {
+    "mtime": 1789027220.435,
+    "seen": 1789368578.8955805,
+    "ast_hash": "69241ba45c6fc152d3907b698e7d67db",
+    "semantic_hash": "69241ba45c6fc152d3907b698e7d67db"
+  },
+  "crates/openre-ai/src/tools.rs": {
+    "mtime": 1789027220.435,
+    "seen": 1789368578.8955822,
+    "ast_hash": "f5e70e429453b9613af6f8e217088c15",
+    "semantic_hash": "f5e70e429453b9613af6f8e217088c15"
+  },
+  "crates/openre-analysis/Cargo.toml": {
+    "mtime": 1788593265.0070956,
+    "seen": 1789368578.8955843,
+    "ast_hash": "9e7eecae87f8525e5583c30cde9e4e34",
+    "semantic_hash": "9e7eecae87f8525e5583c30cde9e4e34"
+  },
+  "crates/openre-analysis/src/binary/common.rs": {
+    "mtime": 1789027220.435,
+    "seen": 1789368578.8955858,
+    "ast_hash": "61b71b14d8ebbe6a734808dfc9c5965d",
+    "semantic_hash": "61b71b14d8ebbe6a734808dfc9c5965d"
+  },
+  "crates/openre-analysis/src/binary/elf.rs": {
+    "mtime": 1789027220.435,
+    "seen": 1789368578.8955877,
+    "ast_hash": "6daa05ac8985a31492eb3ee008fd8441",
+    "semantic_hash": "6daa05ac8985a31492eb3ee008fd8441"
+  },
+  "crates/openre-analysis/src/binary/macho.rs": {
+    "mtime": 1789027220.435,
+    "seen": 1789368578.8955889,
+    "ast_hash": "44422bf54069d1ed0ee4f5e8554bd268",
+    "semantic_hash": "44422bf54069d1ed0ee4f5e8554bd268"
+  },
+  "crates/openre-analysis/src/binary/metadata.rs": {
+    "mtime": 1789027220.435,
+    "seen": 1789368578.8955913,
+    "ast_hash": "9b60f01d200eed06eff6b88d2cd7d30a",
+    "semantic_hash": "9b60f01d200eed06eff6b88d2cd7d30a"
+  },
+  "crates/openre-analysis/src/binary/metrics.rs": {
+    "mtime": 1788767122.5647395,
+    "seen": 1789368578.895593,
+    "ast_hash": "a00ca8c1c74a0b702ba343bdad6e0bc6",
+    "semantic_hash": "a00ca8c1c74a0b702ba343bdad6e0bc6"
+  },
+  "crates/openre-analysis/src/binary/mod.rs": {
+    "mtime": 1789142906.6233299,
+    "seen": 1789368578.8955948,
+    "ast_hash": "d324a9f3964cf4cfc7924cb114224c01",
+    "semantic_hash": "d324a9f3964cf4cfc7924cb114224c01"
+  },
+  "crates/openre-analysis/src/binary/pe.rs": {
+    "mtime": 1789027220.435,
+    "seen": 1789368578.8955963,
+    "ast_hash": "78193a7938bba07552606db1c41a744f",
+    "semantic_hash": "78193a7938bba07552606db1c41a744f"
+  },
+  "crates/openre-analysis/src/binary/static_analysis.rs": {
+    "mtime": 1789027220.435,
+    "seen": 1789368578.8955982,
+    "ast_hash": "eed4f2315c466627da9f189395505d49",
+    "semantic_hash": "eed4f2315c466627da9f189395505d49"
+  },
+  "crates/openre-analysis/src/binary/traits.rs": {
+    "mtime": 1787591786.5777857,
+    "seen": 1789368578.8955998,
+    "ast_hash": "36e15b41bdb456126b14412d9a2eaa8a",
+    "semantic_hash": "36e15b41bdb456126b14412d9a2eaa8a"
+  },
+  "crates/openre-analysis/src/binary/upload.rs": {
+    "mtime": 1789027220.4359999,
+    "seen": 1789368578.8956017,
+    "ast_hash": "574a93113f74cf8522e349cd21e73ec1",
+    "semantic_hash": "574a93113f74cf8522e349cd21e73ec1"
+  },
+  "crates/openre-analysis/src/binary/wasm.rs": {
+    "mtime": 1789142906.6423285,
+    "seen": 1789368578.895611,
+    "ast_hash": "e74206d8e38210e8099231ea99b203a6",
+    "semantic_hash": "e74206d8e38210e8099231ea99b203a6"
+  },
+  "crates/openre-analysis/src/incremental.rs": {
+    "mtime": 1789027220.4359999,
+    "seen": 1789368578.895613,
+    "ast_hash": "40407911dc77f819cca23868491162d5",
+    "semantic_hash": "40407911dc77f819cca23868491162d5"
+  },
+  "crates/openre-analysis/src/lib.rs": {
+    "mtime": 1789142906.6443284,
+    "seen": 1789368578.8956149,
+    "ast_hash": "f2f40e4f910bf2ba388ef9c477e40deb",
+    "semantic_hash": "f2f40e4f910bf2ba388ef9c477e40deb"
+  },
+  "crates/openre-analysis/src/metrics.rs": {
+    "mtime": 1788767122.5647395,
+    "seen": 1789368578.8956165,
+    "ast_hash": "6ac497fc84c024674936f115fd53505b",
+    "semantic_hash": "6ac497fc84c024674936f115fd53505b"
+  },
+  "crates/openre-analysis/src/orchestrator.rs": {
+    "mtime": 1789027220.4359999,
+    "seen": 1789368578.8956182,
+    "ast_hash": "e6cd2beb031a5449e58fae84fb38918f",
+    "semantic_hash": "e6cd2beb031a5449e58fae84fb38918f"
+  },
+  "crates/openre-analysis/src/progress.rs": {
+    "mtime": 1789027220.4359999,
+    "seen": 1789368578.89562,
+    "ast_hash": "75bf579c70eac595187972a5b3ed979c",
+    "semantic_hash": "75bf579c70eac595187972a5b3ed979c"
+  },
+  "crates/openre-analysis/src/stages.rs": {
+    "mtime": 1789142906.6613271,
+    "seen": 1789368578.8956215,
+    "ast_hash": "650db8cb95f8b8e0a266b414d6867284",
+    "semantic_hash": "650db8cb95f8b8e0a266b414d6867284"
+  },
+  "crates/openre-analysis/src/stubs.rs": {
+    "mtime": 1788767122.5657394,
+    "seen": 1789368578.8956234,
+    "ast_hash": "85ad483a6f49f473787069c08acda3fa",
+    "semantic_hash": "85ad483a6f49f473787069c08acda3fa"
+  },
+  "crates/openre-analysis/tests/pipeline_test.rs": {
+    "mtime": 1789027220.4359999,
+    "seen": 1789368578.8956249,
+    "ast_hash": "8a72abbe897bc4196e5aa0e4c3ed19e6",
+    "semantic_hash": "8a72abbe897bc4196e5aa0e4c3ed19e6"
+  },
+  "crates/openre-analysis/tests/progress_test.rs": {
+    "mtime": 1789027220.4359999,
+    "seen": 1789368578.8956268,
+    "ast_hash": "ba6e5586ca8ebaeab6080a2b8169b2d7",
+    "semantic_hash": "ba6e5586ca8ebaeab6080a2b8169b2d7"
+  },
+  "crates/openre-analysis/tests/static_analysis_test.rs": {
+    "mtime": 1789027220.4359999,
+    "seen": 1789368578.8956285,
+    "ast_hash": "d2aa3519e28e870011b7b921bfe4d05d",
+    "semantic_hash": "d2aa3519e28e870011b7b921bfe4d05d"
+  },
+  "crates/openre-analysis/tests/wasm_parser_test.rs": {
+    "mtime": 1789027220.4359999,
+    "seen": 1789368578.8956304,
+    "ast_hash": "2e52a04bcaa8ad6d82787c123f42ba64",
+    "semantic_hash": "2e52a04bcaa8ad6d82787c123f42ba64"
+  },
+  "crates/openre-cli/Cargo.toml": {
+    "mtime": 1789368343.5621638,
+    "seen": 1789368578.8956318,
+    "ast_hash": "a3e04cf2c4b76a09a522130da7e379aa",
+    "semantic_hash": "a3e04cf2c4b76a09a522130da7e379aa"
+  },
+  "crates/openre-cli/src/ai_stubs.rs": {
+    "mtime": 1789027220.4359999,
+    "seen": 1789368578.8956337,
+    "ast_hash": "ab30f36c6550ef742a92abbacd851271",
+    "semantic_hash": "ab30f36c6550ef742a92abbacd851271"
+  },
+  "crates/openre-cli/src/analysis_stubs.rs": {
+    "mtime": 1789027220.4359999,
+    "seen": 1789368578.8956354,
+    "ast_hash": "8402b8a3ddc1fabe1b88de87cfdd74f4",
+    "semantic_hash": "8402b8a3ddc1fabe1b88de87cfdd74f4"
+  },
+  "crates/openre-cli/src/commands/ai.rs": {
+    "mtime": 1789368343.5631638,
+    "seen": 1789368578.8956373,
+    "ast_hash": "2ad7ed291fd66b3a2ebc3e59772b69a5",
+    "semantic_hash": "2ad7ed291fd66b3a2ebc3e59772b69a5"
+  },
+  "crates/openre-cli/src/commands/analyze.rs": {
+    "mtime": 1789277959.1206074,
+    "seen": 1789368578.8956392,
+    "ast_hash": "395a1d5c9e6d5f13f33fa28be7f5fee3",
+    "semantic_hash": "395a1d5c9e6d5f13f33fa28be7f5fee3"
+  },
+  "crates/openre-cli/src/commands/config.rs": {
+    "mtime": 1789027220.4369998,
+    "seen": 1789368578.895641,
+    "ast_hash": "fb6c5b0ff6f4977f33bf227ea5e84e0e",
+    "semantic_hash": "fb6c5b0ff6f4977f33bf227ea5e84e0e"
+  },
+  "crates/openre-cli/src/commands/exploit.rs": {
+    "mtime": 1789277969.2158086,
+    "seen": 1789368578.8956425,
+    "ast_hash": "9060e766620e65fc9a645281ccd1ff6a",
+    "semantic_hash": "9060e766620e65fc9a645281ccd1ff6a"
+  },
+  "crates/openre-cli/src/commands/mod.rs": {
+    "mtime": 1789027220.4369998,
+    "seen": 1789368578.8956447,
+    "ast_hash": "c0197641efe69412182044e54aab0582",
+    "semantic_hash": "c0197641efe69412182044e54aab0582"
+  },
+  "crates/openre-cli/src/commands/queue.rs": {
+    "mtime": 1789027220.4369998,
+    "seen": 1789368578.8956466,
+    "ast_hash": "56c782bf2e5606775a1d5aa59eafd1d7",
+    "semantic_hash": "56c782bf2e5606775a1d5aa59eafd1d7"
+  },
+  "crates/openre-cli/src/commands/remediate.rs": {
+    "mtime": 1789277972.2295704,
+    "seen": 1789368578.895648,
+    "ast_hash": "ddeb1004de44f6ee6cc29d1534bb6617",
+    "semantic_hash": "ddeb1004de44f6ee6cc29d1534bb6617"
+  },
+  "crates/openre-cli/src/commands/scan.rs": {
+    "mtime": 1789027220.4369998,
+    "seen": 1789368578.8956494,
+    "ast_hash": "e48bc0e9c11f638f3090c8e6ab03916e",
+    "semantic_hash": "e48bc0e9c11f638f3090c8e6ab03916e"
+  },
+  "crates/openre-cli/src/config.rs": {
+    "mtime": 1789027220.4369998,
+    "seen": 1789368578.8956513,
+    "ast_hash": "84d89a4ba89e6d986445d383bcfc06c3",
+    "semantic_hash": "84d89a4ba89e6d986445d383bcfc06c3"
+  },
+  "crates/openre-cli/src/context.rs": {
+    "mtime": 1789368343.5631638,
+    "seen": 1789368578.8956528,
+    "ast_hash": "6a6efb58efadf3e8d1aff120fb81e405",
+    "semantic_hash": "6a6efb58efadf3e8d1aff120fb81e405"
+  },
+  "crates/openre-cli/src/error.rs": {
+    "mtime": 1789027220.4379997,
+    "seen": 1789368578.8956547,
+    "ast_hash": "812169620457703ab9ec2f2cc05081fc",
+    "semantic_hash": "812169620457703ab9ec2f2cc05081fc"
+  },
+  "crates/openre-cli/src/intelligence_stubs.rs": {
+    "mtime": 1789027220.4379997,
+    "seen": 1789368578.895656,
+    "ast_hash": "6021891ae988b5b027612019b071a5d5",
+    "semantic_hash": "6021891ae988b5b027612019b071a5d5"
+  },
+  "crates/openre-cli/src/main.rs": {
+    "mtime": 1789368343.5631638,
+    "seen": 1789368578.895659,
+    "ast_hash": "9c545a2f76a5f98ab286865853b4237e",
+    "semantic_hash": "9c545a2f76a5f98ab286865853b4237e"
+  },
+  "crates/openre-cli/src/output.rs": {
+    "mtime": 1789027220.4379997,
+    "seen": 1789368578.8956628,
+    "ast_hash": "5e4f21f1bc344872b686f420e3d487b4",
+    "semantic_hash": "5e4f21f1bc344872b686f420e3d487b4"
+  },
+  "crates/openre-config/Cargo.toml": {
+    "mtime": 1788767122.567739,
+    "seen": 1789368578.8956656,
+    "ast_hash": "081b7294ef6db81a2b4fa52dd69fb285",
+    "semantic_hash": "081b7294ef6db81a2b4fa52dd69fb285"
+  },
+  "crates/openre-config/src/config.rs": {
+    "mtime": 1789027220.4379997,
+    "seen": 1789368578.8956673,
+    "ast_hash": "01d0fff6dab3592c347a4c196fda8a1e",
+    "semantic_hash": "01d0fff6dab3592c347a4c196fda8a1e"
+  },
+  "crates/openre-config/src/layers.rs": {
+    "mtime": 1789027220.4379997,
+    "seen": 1789368578.8956692,
+    "ast_hash": "11c63b47f083b3ab39405d4ccc96d4f9",
+    "semantic_hash": "11c63b47f083b3ab39405d4ccc96d4f9"
+  },
+  "crates/openre-config/src/lib.rs": {
+    "mtime": 1786887832.7653465,
+    "seen": 1789368578.895671,
+    "ast_hash": "b1ca442dda7271d0e3da19b5656f2a89",
+    "semantic_hash": "b1ca442dda7271d0e3da19b5656f2a89"
+  },
+  "crates/openre-core/Cargo.toml": {
+    "mtime": 1788767681.225127,
+    "seen": 1789368578.8956723,
+    "ast_hash": "48fce4255c77b21334d74a42ecb0d12f",
+    "semantic_hash": "48fce4255c77b21334d74a42ecb0d12f"
+  },
+  "crates/openre-core/src/app_map.rs": {
+    "mtime": 1789027220.4379997,
+    "seen": 1789368578.8956738,
+    "ast_hash": "d0926defebea107890a138a8f571b6bf",
+    "semantic_hash": "d0926defebea107890a138a8f571b6bf"
+  },
+  "crates/openre-core/src/attack_path.rs": {
+    "mtime": 1789142906.7823176,
+    "seen": 1789368578.8956757,
+    "ast_hash": "41020b3f3b86fce0a81c673bd44dfbbd",
+    "semantic_hash": "41020b3f3b86fce0a81c673bd44dfbbd"
+  },
+  "crates/openre-core/src/deduplication.rs": {
+    "mtime": 1789027220.4389997,
+    "seen": 1789368578.8956773,
+    "ast_hash": "fda3fb2fa91ea4d30310d1ff92de31fe",
+    "semantic_hash": "fda3fb2fa91ea4d30310d1ff92de31fe"
+  },
+  "crates/openre-core/src/error.rs": {
+    "mtime": 1789027220.4389997,
+    "seen": 1789368578.8956792,
+    "ast_hash": "79bf81c838a6a163f62d4f4234de3b30",
+    "semantic_hash": "79bf81c838a6a163f62d4f4234de3b30"
+  },
+  "crates/openre-core/src/evidence.rs": {
+    "mtime": 1789027220.4389997,
+    "seen": 1789368578.8956807,
+    "ast_hash": "35c5790290ed76a0d554bcb80f7d7bc7",
+    "semantic_hash": "35c5790290ed76a0d554bcb80f7d7bc7"
+  },
+  "crates/openre-core/src/history.rs": {
+    "mtime": 1789027220.4389997,
+    "seen": 1789368578.8956823,
+    "ast_hash": "46677e7ffc6e6d1a740663ed4faaf6d4",
+    "semantic_hash": "46677e7ffc6e6d1a740663ed4faaf6d4"
+  },
+  "crates/openre-core/src/ids.rs": {
+    "mtime": 1788767122.568739,
+    "seen": 1789368578.895684,
+    "ast_hash": "5f690c05c1ba82f72d2e53602a236076",
+    "semantic_hash": "5f690c05c1ba82f72d2e53602a236076"
+  },
+  "crates/openre-core/src/lib.rs": {
+    "mtime": 1789142906.819315,
+    "seen": 1789368578.8956857,
+    "ast_hash": "2a410ada5034aa47adcee882e8d45e05",
+    "semantic_hash": "2a410ada5034aa47adcee882e8d45e05"
+  },
+  "crates/openre-core/src/plugin.rs": {
+    "mtime": 1787949825.2248116,
+    "seen": 1789368578.895687,
+    "ast_hash": "78aaa13c5193a888127c36f42db366e8",
+    "semantic_hash": "78aaa13c5193a888127c36f42db366e8"
+  },
+  "crates/openre-core/src/relationships.rs": {
+    "mtime": 1788279487.214066,
+    "seen": 1789368578.8956904,
+    "ast_hash": "693dbc7d49e62f028b67f07b13146add",
+    "semantic_hash": "693dbc7d49e62f028b67f07b13146add"
+  },
+  "crates/openre-core/src/remediation.rs": {
+    "mtime": 1789027220.4389997,
+    "seen": 1789368578.895692,
+    "ast_hash": "ff3a6440113fef3361a96d6fde571c90",
+    "semantic_hash": "ff3a6440113fef3361a96d6fde571c90"
+  },
+  "crates/openre-core/src/reporting.rs": {
+    "mtime": 1789027220.4399996,
+    "seen": 1789368578.8956938,
+    "ast_hash": "4f4921437393a3e56f8b389646fc0749",
+    "semantic_hash": "4f4921437393a3e56f8b389646fc0749"
+  },
+  "crates/openre-core/src/result.rs": {
+    "mtime": 1789027220.4399996,
+    "seen": 1789368578.8956957,
+    "ast_hash": "87165f42b2c39758699a823e4d923d32",
+    "semantic_hash": "87165f42b2c39758699a823e4d923d32"
+  },
+  "crates/openre-core/src/risk_knowledge.rs": {
+    "mtime": 1789027220.4399996,
+    "seen": 1789368578.8956974,
+    "ast_hash": "21008de357840e0fdf45fba6eb200e3e",
+    "semantic_hash": "21008de357840e0fdf45fba6eb200e3e"
+  },
+  "crates/openre-core/src/traits.rs": {
+    "mtime": 1788279487.256063,
+    "seen": 1789368578.895699,
+    "ast_hash": "c478e1d75ced5d63384c6370b1305774",
+    "semantic_hash": "c478e1d75ced5d63384c6370b1305774"
+  },
+  "crates/openre-core/tests/integration.rs": {
+    "mtime": 1787949825.2598088,
+    "seen": 1789368578.8957007,
+    "ast_hash": "cff4a538b8e8f02529f9b682dab886d8",
+    "semantic_hash": "cff4a538b8e8f02529f9b682dab886d8"
+  },
+  "crates/openre-disasm/Cargo.toml": {
+    "mtime": 1789027220.4399996,
+    "seen": 1789368578.8957024,
+    "ast_hash": "6a99b45cf100ac3d80d5c74a53647513",
+    "semantic_hash": "6a99b45cf100ac3d80d5c74a53647513"
+  },
+  "crates/openre-disasm/src/architecture.rs": {
+    "mtime": 1789027220.4399996,
+    "seen": 1789368578.8957038,
+    "ast_hash": "db30c898b802a50786166f3c4024314b",
+    "semantic_hash": "db30c898b802a50786166f3c4024314b"
+  },
+  "crates/openre-disasm/src/capstone_wrapper.rs": {
+    "mtime": 1789027220.4399996,
+    "seen": 1789368578.8957057,
+    "ast_hash": "72a0a650c9e9ea59be2ab407997bc19f",
+    "semantic_hash": "72a0a650c9e9ea59be2ab407997bc19f"
+  },
+  "crates/openre-disasm/src/cfg.rs": {
+    "mtime": 1789027220.4409995,
+    "seen": 1789368578.8957071,
+    "ast_hash": "331e6d0816cdfb6943f0b342bc1c224f",
+    "semantic_hash": "331e6d0816cdfb6943f0b342bc1c224f"
+  },
+  "crates/openre-disasm/src/disassembler.rs": {
+    "mtime": 1789027220.4409995,
+    "seen": 1789368578.8957086,
+    "ast_hash": "c8631d558b4840acbf11b107f09459a1",
+    "semantic_hash": "c8631d558b4840acbf11b107f09459a1"
+  },
+  "crates/openre-disasm/src/error.rs": {
+    "mtime": 1789027220.4409995,
+    "seen": 1789368578.8957102,
+    "ast_hash": "4315c8235a216ac27728c2b2c9672bd7",
+    "semantic_hash": "4315c8235a216ac27728c2b2c9672bd7"
+  },
+  "crates/openre-disasm/src/function.rs": {
+    "mtime": 1789027220.4409995,
+    "seen": 1789368578.895712,
+    "ast_hash": "126e70541bdab6ca0a6f4a44b6d406de",
+    "semantic_hash": "126e70541bdab6ca0a6f4a44b6d406de"
+  },
+  "crates/openre-disasm/src/lib.rs": {
+    "mtime": 1789027220.4409995,
+    "seen": 1789368578.8957138,
+    "ast_hash": "8809930e2a9c574a6ed6e404754c5845",
+    "semantic_hash": "8809930e2a9c574a6ed6e404754c5845"
+  },
+  "crates/openre-disasm/src/lifter.rs": {
+    "mtime": 1789027220.4409995,
+    "seen": 1789368578.8957152,
+    "ast_hash": "f540f43255f2b19f339674d80838a989",
+    "semantic_hash": "f540f43255f2b19f339674d80838a989"
+  },
+  "crates/openre-intelligence/Cargo.toml": {
+    "mtime": 1788593300.2306428,
+    "seen": 1789368578.8957171,
+    "ast_hash": "fb5e44b6fd50a095e5c21d3d16a1cf69",
+    "semantic_hash": "fb5e44b6fd50a095e5c21d3d16a1cf69"
+  },
+  "crates/openre-intelligence/src/agents/agent_trait.rs": {
+    "mtime": 1789368343.5631638,
+    "seen": 1789368578.8957188,
+    "ast_hash": "064d9cd81974a000df6e19ae075737e2",
+    "semantic_hash": "064d9cd81974a000df6e19ae075737e2"
+  },
+  "crates/openre-intelligence/src/agents/api_analysis_agent.rs": {
+    "mtime": 1789368343.5631638,
+    "seen": 1789368578.8957205,
+    "ast_hash": "7304cae293bc594b30b9a9b6e35d8360",
+    "semantic_hash": "7304cae293bc594b30b9a9b6e35d8360"
+  },
+  "crates/openre-intelligence/src/agents/context.rs": {
+    "mtime": 1789368343.5631638,
+    "seen": 1789368578.895722,
+    "ast_hash": "8cdaf4ac968d7767abe461a59d9338b7",
+    "semantic_hash": "8cdaf4ac968d7767abe461a59d9338b7"
+  },
+  "crates/openre-intelligence/src/agents/coordinator.rs": {
+    "mtime": 1789368343.5641637,
+    "seen": 1789368578.8957238,
+    "ast_hash": "e880d6867e24693b2c36e4a414f0a391",
+    "semantic_hash": "e880d6867e24693b2c36e4a414f0a391"
+  },
+  "crates/openre-intelligence/src/agents/correlation_agent.rs": {
+    "mtime": 1789368343.5641637,
+    "seen": 1789368578.8957255,
+    "ast_hash": "0db420fc3a4444210f1295ae94b8068b",
+    "semantic_hash": "0db420fc3a4444210f1295ae94b8068b"
+  },
+  "crates/openre-intelligence/src/agents/mod.rs": {
+    "mtime": 1789027220.4419994,
+    "seen": 1789368578.8957272,
+    "ast_hash": "ab3e5f1c0762aeac1fd73fdc2af90413",
+    "semantic_hash": "ab3e5f1c0762aeac1fd73fdc2af90413"
+  },
+  "crates/openre-intelligence/src/agents/recon_agent.rs": {
+    "mtime": 1789368343.5641637,
+    "seen": 1789368578.8957286,
+    "ast_hash": "c7bb437c0d71ea878bd1d8c414963039",
+    "semantic_hash": "c7bb437c0d71ea878bd1d8c414963039"
+  },
+  "crates/openre-intelligence/src/agents/remediation_agent.rs": {
+    "mtime": 1789368343.5641637,
+    "seen": 1789368578.8957303,
+    "ast_hash": "0d8fd2f8d9d2dfdc1341a0be9cf09b18",
+    "semantic_hash": "0d8fd2f8d9d2dfdc1341a0be9cf09b18"
+  },
+  "crates/openre-intelligence/src/agents/reporting_agent.rs": {
+    "mtime": 1789368343.5641637,
+    "seen": 1789368578.8957317,
+    "ast_hash": "857e8fa410ca2a073f7c0efef32e8170",
+    "semantic_hash": "857e8fa410ca2a073f7c0efef32e8170"
+  },
+  "crates/openre-intelligence/src/agents/research_agent.rs": {
+    "mtime": 1789368343.5641637,
+    "seen": 1789368578.8957336,
+    "ast_hash": "14d788da3cc36e4d9af434ed8c9d7729",
+    "semantic_hash": "14d788da3cc36e4d9af434ed8c9d7729"
+  },
+  "crates/openre-intelligence/src/agents/types.rs": {
+    "mtime": 1789368343.5651636,
+    "seen": 1789368578.8957353,
+    "ast_hash": "d2ee2cda35145d7c22f3e57fbd363536",
+    "semantic_hash": "d2ee2cda35145d7c22f3e57fbd363536"
+  },
+  "crates/openre-intelligence/src/agents/verification_agent.rs": {
+    "mtime": 1789368343.5651636,
+    "seen": 1789368578.8957374,
+    "ast_hash": "1c94d26b7c30ab2d9f2278d0bafbc0fa",
+    "semantic_hash": "1c94d26b7c30ab2d9f2278d0bafbc0fa"
+  },
+  "crates/openre-intelligence/src/agents/web_analysis_agent.rs": {
+    "mtime": 1789368343.5651636,
+    "seen": 1789368578.895739,
+    "ast_hash": "8ec58515c1b5edc6c9e851b6faf7d012",
+    "semantic_hash": "8ec58515c1b5edc6c9e851b6faf7d012"
+  },
+  "crates/openre-intelligence/src/attack_path.rs": {
+    "mtime": 1789368343.5651636,
+    "seen": 1789368578.8957412,
+    "ast_hash": "314208bb126bd7fc9fdf51dece1183a0",
+    "semantic_hash": "314208bb126bd7fc9fdf51dece1183a0"
+  },
+  "crates/openre-intelligence/src/benchmarks.rs": {
+    "mtime": 1787604847.396744,
+    "seen": 1789368578.895743,
+    "ast_hash": "cf772be24cba7267a1a91a595b435356",
+    "semantic_hash": "cf772be24cba7267a1a91a595b435356"
+  },
+  "crates/openre-intelligence/src/comprehensive_test.rs": {
+    "mtime": 1789027220.4429994,
+    "seen": 1789368578.8957446,
+    "ast_hash": "38007f2849e6e5a69e2ab3f5893109d4",
+    "semantic_hash": "38007f2849e6e5a69e2ab3f5893109d4"
+  },
+  "crates/openre-intelligence/src/correlation.rs": {
+    "mtime": 1789368343.5651636,
+    "seen": 1789368578.8957462,
+    "ast_hash": "903c7c04638234dc6087f44ba2c3807a",
+    "semantic_hash": "903c7c04638234dc6087f44ba2c3807a"
+  },
+  "crates/openre-intelligence/src/cve_intelligence.rs": {
+    "mtime": 1789368343.5661635,
+    "seen": 1789368578.8957481,
+    "ast_hash": "442bb928b4af41be53b43e43bc2e0515",
+    "semantic_hash": "442bb928b4af41be53b43e43bc2e0515"
+  },
+  "crates/openre-intelligence/src/dependency_analysis.rs": {
+    "mtime": 1789368343.5661635,
+    "seen": 1789368578.8957503,
+    "ast_hash": "83d9a5780d2259c4ee6a0697ebc82da2",
+    "semantic_hash": "83d9a5780d2259c4ee6a0697ebc82da2"
+  },
+  "crates/openre-intelligence/src/error.rs": {
+    "mtime": 1789027220.4439993,
+    "seen": 1789368578.895752,
+    "ast_hash": "3232c4632382cc4032b7cca0e5b45b4d",
+    "semantic_hash": "3232c4632382cc4032b7cca0e5b45b4d"
+  },
+  "crates/openre-intelligence/src/integration_tests.rs": {
+    "mtime": 1787604847.3987439,
+    "seen": 1789368578.8957536,
+    "ast_hash": "5e0e7de093aaadd8603ce232a619c80f",
+    "semantic_hash": "5e0e7de093aaadd8603ce232a619c80f"
+  },
+  "crates/openre-intelligence/src/job.rs": {
+    "mtime": 1789368343.5661635,
+    "seen": 1789368578.8957555,
+    "ast_hash": "39a8b5757072e9c63ecd05c11026db19",
+    "semantic_hash": "39a8b5757072e9c63ecd05c11026db19"
+  },
+  "crates/openre-intelligence/src/knowledge_base.rs": {
+    "mtime": 1789368343.5671635,
+    "seen": 1789368578.8957572,
+    "ast_hash": "d652f03d69a1936de6c5f5d5cba231d7",
+    "semantic_hash": "d652f03d69a1936de6c5f5d5cba231d7"
+  },
+  "crates/openre-intelligence/src/lib.rs": {
+    "mtime": 1789027220.4439993,
+    "seen": 1789368578.895759,
+    "ast_hash": "d757f418c906192eb23790df8825fcfd",
+    "semantic_hash": "d757f418c906192eb23790df8825fcfd"
+  },
+  "crates/openre-intelligence/src/performance.rs": {
+    "mtime": 1789368343.5671635,
+    "seen": 1789368578.895761,
+    "ast_hash": "a22a1007e2d5cd87ea6257b459077757",
+    "semantic_hash": "a22a1007e2d5cd87ea6257b459077757"
+  },
+  "crates/openre-intelligence/src/remediation.rs": {
+    "mtime": 1789368343.5671635,
+    "seen": 1789368578.8957627,
+    "ast_hash": "558b4e04029fc122336c8158639bf9a6",
+    "semantic_hash": "558b4e04029fc122336c8158639bf9a6"
+  },
+  "crates/openre-intelligence/src/root_cause.rs": {
+    "mtime": 1789031257.083407,
+    "seen": 1789368578.8957648,
+    "ast_hash": "eac5ec2df4746583b96f1fe8ba898ae4",
+    "semantic_hash": "eac5ec2df4746583b96f1fe8ba898ae4"
+  },
+  "crates/openre-intelligence/src/scan_diff.rs": {
+    "mtime": 1789142907.0882943,
+    "seen": 1789368578.8957665,
+    "ast_hash": "e829a8d66aa576383094f122669af691",
+    "semantic_hash": "e829a8d66aa576383094f122669af691"
+  },
+  "crates/openre-intelligence/src/tui_enhancements.rs": {
+    "mtime": 1789030768.3396318,
+    "seen": 1789368578.8957682,
+    "ast_hash": "8fa15f8cb680636677dddf73ed334f24",
+    "semantic_hash": "8fa15f8cb680636677dddf73ed334f24"
+  },
+  "crates/openre-intelligence/src/types.rs": {
+    "mtime": 1789028150.2043734,
+    "seen": 1789368578.8957698,
+    "ast_hash": "01a5826412bc80b908dd0f39b9bd59fb",
+    "semantic_hash": "01a5826412bc80b908dd0f39b9bd59fb"
+  },
+  "crates/openre-intelligence/src/verification.rs": {
+    "mtime": 1789142907.1252913,
+    "seen": 1789368578.8957715,
+    "ast_hash": "75780b03339530ba625e691bb04c2b63",
+    "semantic_hash": "75780b03339530ba625e691bb04c2b63"
+  },
+  "crates/openre-intelligence/src/workflow.rs": {
+    "mtime": 1789142907.1342907,
+    "seen": 1789368578.8957732,
+    "ast_hash": "bd5d101c765cff6c1abd7619ae58a5f7",
+    "semantic_hash": "bd5d101c765cff6c1abd7619ae58a5f7"
+  },
+  "crates/openre-intelligence/src/workflow_engine.rs": {
+    "mtime": 1789142907.1502895,
+    "seen": 1789368578.895775,
+    "ast_hash": "c3a6adffbd85e600690a64b1f9adecaa",
+    "semantic_hash": "c3a6adffbd85e600690a64b1f9adecaa"
+  },
+  "crates/openre-plugins-macros/Cargo.toml": {
+    "mtime": 1788195437.9832587,
+    "seen": 1789368578.8957765,
+    "ast_hash": "04d00f007613f8ca8a52ee3bc6633d23",
+    "semantic_hash": "04d00f007613f8ca8a52ee3bc6633d23"
+  },
+  "crates/openre-plugins-macros/src/lib.rs": {
+    "mtime": 1788198438.3932822,
+    "seen": 1789368578.8957784,
+    "ast_hash": "25061cd9a833fb2db5f00f991b7e3093",
+    "semantic_hash": "25061cd9a833fb2db5f00f991b7e3093"
+  },
+  "crates/openre-plugins/Cargo.toml": {
+    "mtime": 1788767958.3439636,
+    "seen": 1789368578.89578,
+    "ast_hash": "be0de8538bd0712ce2ac53214ca550d6",
+    "semantic_hash": "be0de8538bd0712ce2ac53214ca550d6"
+  },
+  "crates/openre-plugins/openre-plugins-macros/Cargo.toml": {
+    "mtime": 1787910664.1158562,
+    "seen": 1789368578.895782,
+    "ast_hash": "eda4b6f11bcc51e9bc3102d1a69183bc",
+    "semantic_hash": "eda4b6f11bcc51e9bc3102d1a69183bc"
+  },
+  "crates/openre-plugins/src/injection/command_injection.rs": {
+    "mtime": 1785092934.2049518,
+    "seen": 1789368578.8957837,
+    "ast_hash": "b4df5098c3122146fd06aa7ec2939047",
+    "semantic_hash": "b4df5098c3122146fd06aa7ec2939047"
+  },
+  "crates/openre-plugins/src/injection/confidence_scoring.rs": {
+    "mtime": 1785092934.2049518,
+    "seen": 1789368578.8957853,
+    "ast_hash": "b36868b48a9ef69ecc10f220e67dfd38",
+    "semantic_hash": "b36868b48a9ef69ecc10f220e67dfd38"
+  },
+  "crates/openre-plugins/src/injection/header_injection.rs": {
+    "mtime": 1785092934.2049518,
+    "seen": 1789368578.895787,
+    "ast_hash": "5156b0ffde5fc315361192f71d41c382",
+    "semantic_hash": "5156b0ffde5fc315361192f71d41c382"
+  },
+  "crates/openre-plugins/src/injection/injection_plugin.rs": {
+    "mtime": 1786875981.6036148,
+    "seen": 1789368578.8957884,
+    "ast_hash": "fc642f1b0461d4913af5b5d91e52e00f",
+    "semantic_hash": "fc642f1b0461d4913af5b5d91e52e00f"
+  },
+  "crates/openre-plugins/src/injection/ldap_injection.rs": {
+    "mtime": 1785092934.2049518,
+    "seen": 1789368578.8957903,
+    "ast_hash": "b2626aabcdd798c9a1165fe75106b620",
+    "semantic_hash": "b2626aabcdd798c9a1165fe75106b620"
+  },
+  "crates/openre-plugins/src/injection/mod.rs": {
+    "mtime": 1786871861.5191004,
+    "seen": 1789368578.8957918,
+    "ast_hash": "dbb814a194c7722e0ce645d075776375",
+    "semantic_hash": "dbb814a194c7722e0ce645d075776375"
+  },
+  "crates/openre-plugins/src/injection/nosql_injection.rs": {
+    "mtime": 1785092934.2059517,
+    "seen": 1789368578.895794,
+    "ast_hash": "21dd7ca541876034f64c4a67fc6e00cc",
+    "semantic_hash": "21dd7ca541876034f64c4a67fc6e00cc"
+  },
+  "crates/openre-plugins/src/injection/payload_engine.rs": {
+    "mtime": 1785092934.2059517,
+    "seen": 1789368578.8957958,
+    "ast_hash": "66244ad21e6cc52d17a7da54e016257a",
+    "semantic_hash": "66244ad21e6cc52d17a7da54e016257a"
+  },
+  "crates/openre-plugins/src/injection/request_engine.rs": {
+    "mtime": 1785092934.2059517,
+    "seen": 1789368578.8957973,
+    "ast_hash": "ab30ccf4278f28620c01b26881518b61",
+    "semantic_hash": "ab30ccf4278f28620c01b26881518b61"
+  },
+  "crates/openre-plugins/src/injection/response_analyzer.rs": {
+    "mtime": 1786871861.5330992,
+    "seen": 1789368578.8957987,
+    "ast_hash": "94f9f6f985a0fbaa94c378c421dfdea8",
+    "semantic_hash": "94f9f6f985a0fbaa94c378c421dfdea8"
+  },
+  "crates/openre-plugins/src/injection/safety_controls.rs": {
+    "mtime": 1785092934.2089515,
+    "seen": 1789368578.8958004,
+    "ast_hash": "6d9eba6a6b0ca4464bf885752a44b3a0",
+    "semantic_hash": "6d9eba6a6b0ca4464bf885752a44b3a0"
+  },
+  "crates/openre-plugins/src/injection/sql_injection.rs": {
+    "mtime": 1785092934.2089515,
+    "seen": 1789368578.895802,
+    "ast_hash": "30d8afadd02f5be801da68d0c7e438d5",
+    "semantic_hash": "30d8afadd02f5be801da68d0c7e438d5"
+  },
+  "crates/openre-plugins/src/injection/ssti.rs": {
+    "mtime": 1785092934.2089515,
+    "seen": 1789368578.895804,
+    "ast_hash": "c22ec53f2278f718d0bd5492d846063b",
+    "semantic_hash": "c22ec53f2278f718d0bd5492d846063b"
+  },
+  "crates/openre-plugins/src/injection/xpath_injection.rs": {
+    "mtime": 1785092934.2089515,
+    "seen": 1789368578.8958054,
+    "ast_hash": "276911fc22194157c4492b1e7706a7f8",
+    "semantic_hash": "276911fc22194157c4492b1e7706a7f8"
+  },
+  "crates/openre-plugins/src/injection/xss.rs": {
+    "mtime": 1785092934.2089515,
+    "seen": 1789368578.8958073,
+    "ast_hash": "64335d8f9c0ff15e3d03b9e359af39b1",
+    "semantic_hash": "64335d8f9c0ff15e3d03b9e359af39b1"
+  },
+  "crates/openre-plugins/src/injection/xxe.rs": {
+    "mtime": 1785092934.2089515,
+    "seen": 1789368578.8958087,
+    "ast_hash": "14cfa8c0be62d2543e0ef0942c6a85fa",
+    "semantic_hash": "14cfa8c0be62d2543e0ef0942c6a85fa"
+  },
+  "crates/openre-plugins/src/lib.rs": {
+    "mtime": 1789027220.4449992,
+    "seen": 1789368578.8958108,
+    "ast_hash": "dda36e4c417907d9fc51ee2772f6e300",
+    "semantic_hash": "dda36e4c417907d9fc51ee2772f6e300"
+  },
+  "crates/openre-plugins/src/lifecycle.rs": {
+    "mtime": 1789027220.4449992,
+    "seen": 1789368578.8958123,
+    "ast_hash": "43addc08d104ebecc5cc55ec6bae9d8e",
+    "semantic_hash": "43addc08d104ebecc5cc55ec6bae9d8e"
+  },
+  "crates/openre-plugins/src/manifest.rs": {
+    "mtime": 1789027220.4449992,
+    "seen": 1789368578.8958142,
+    "ast_hash": "078fdfa438b21bd831dfb321d8ec1a44",
+    "semantic_hash": "078fdfa438b21bd831dfb321d8ec1a44"
+  },
+  "crates/openre-plugins/src/registry.rs": {
+    "mtime": 1789027220.4449992,
+    "seen": 1789368578.8958156,
+    "ast_hash": "c6a12cc91061c3edbe5c8eb69e98dab9",
+    "semantic_hash": "c6a12cc91061c3edbe5c8eb69e98dab9"
+  },
+  "crates/openre-plugins/src/runtime.rs": {
+    "mtime": 1788243535.9629083,
+    "seen": 1789368578.8958173,
+    "ast_hash": "3440bed251da9f959ea5133afb8dc5ed",
+    "semantic_hash": "3440bed251da9f959ea5133afb8dc5ed"
+  },
+  "crates/openre-plugins/src/sandbox.rs": {
+    "mtime": 1789027220.4449992,
+    "seen": 1789368578.895819,
+    "ast_hash": "6a1c94a33729a4712ca1476c7c6897a5",
+    "semantic_hash": "6a1c94a33729a4712ca1476c7c6897a5"
+  },
+  "crates/openre-plugins/src/sdk.rs": {
+    "mtime": 1789027220.4449992,
+    "seen": 1789368578.8958206,
+    "ast_hash": "26b7645c1a2268ca6ade364ef7b9c00a",
+    "semantic_hash": "26b7645c1a2268ca6ade364ef7b9c00a"
+  },
+  "crates/openre-plugins/src/security/access_control.rs": {
+    "mtime": 1788243412.3339942,
+    "seen": 1789368578.895822,
+    "ast_hash": "463a8c735c2dc9de825b00b6a3cf3bc4",
+    "semantic_hash": "463a8c735c2dc9de825b00b6a3cf3bc4"
+  },
+  "crates/openre-plugins/src/security/api_rate_limiting.rs": {
+    "mtime": 1788243425.0680594,
+    "seen": 1789368578.8958237,
+    "ast_hash": "9c7b1ed7fcab648ca2d8bfe420904cb8",
+    "semantic_hash": "9c7b1ed7fcab648ca2d8bfe420904cb8"
+  },
+  "crates/openre-plugins/src/security/auth_discovery.rs": {
+    "mtime": 1788243425.0780587,
+    "seen": 1789368578.8958254,
+    "ast_hash": "f28d2badab5e5fe36da2e7a72bd09fdd",
+    "semantic_hash": "f28d2badab5e5fe36da2e7a72bd09fdd"
+  },
+  "crates/openre-plugins/src/security/cookie_security.rs": {
+    "mtime": 1788243425.0860581,
+    "seen": 1789368578.895827,
+    "ast_hash": "8f252c159a2a2f4887251c64c35016d9",
+    "semantic_hash": "8f252c159a2a2f4887251c64c35016d9"
+  },
+  "crates/openre-plugins/src/security/cors_analysis.rs": {
+    "mtime": 1788243425.0950575,
+    "seen": 1789368578.8958285,
+    "ast_hash": "cc4b11e84e5ae704ee176b7d46699984",
+    "semantic_hash": "cc4b11e84e5ae704ee176b7d46699984"
+  },
+  "crates/openre-plugins/src/security/csp_analysis.rs": {
+    "mtime": 1788243425.1060567,
+    "seen": 1789368578.89583,
+    "ast_hash": "9195e947c31d98d85e059d44e53ca5fa",
+    "semantic_hash": "9195e947c31d98d85e059d44e53ca5fa"
+  },
+  "crates/openre-plugins/src/security/file_upload.rs": {
+    "mtime": 1788243425.1110563,
+    "seen": 1789368578.8958316,
+    "ast_hash": "c7157af90c4120d3c4e08952198a4298",
+    "semantic_hash": "c7157af90c4120d3c4e08952198a4298"
+  },
+  "crates/openre-plugins/src/security/graphql.rs": {
+    "mtime": 1788243504.6912088,
+    "seen": 1789368578.8958333,
+    "ast_hash": "b682269d9efedd4b90afe16ff97b6f04",
+    "semantic_hash": "b682269d9efedd4b90afe16ff97b6f04"
+  },
+  "crates/openre-plugins/src/security/graphql_analysis.rs": {
+    "mtime": 1788243425.1220555,
+    "seen": 1789368578.8958375,
+    "ast_hash": "15964bb42a5228c848d09fea222d878a",
+    "semantic_hash": "15964bb42a5228c848d09fea222d878a"
+  },
+  "crates/openre-plugins/src/security/information_disclosure.rs": {
+    "mtime": 1788243425.1310549,
+    "seen": 1789368578.895839,
+    "ast_hash": "8e6c1fe4e5903dab72f79e851917c14b",
+    "semantic_hash": "8e6c1fe4e5903dab72f79e851917c14b"
+  },
+  "crates/openre-plugins/src/security/mod.rs": {
+    "mtime": 1788243551.9217336,
+    "seen": 1789368578.8958404,
+    "ast_hash": "8fdf434699dc538c33030d10c8f95811",
+    "semantic_hash": "8fdf434699dc538c33030d10c8f95811"
+  },
+  "crates/openre-plugins/src/security/path_traversal.rs": {
+    "mtime": 1788243425.1470537,
+    "seen": 1789368578.895842,
+    "ast_hash": "31880983c8e58dc498a3598a36090855",
+    "semantic_hash": "31880983c8e58dc498a3598a36090855"
+  },
+  "crates/openre-plugins/src/security/rate_limiting.rs": {
+    "mtime": 1788243425.1530533,
+    "seen": 1789368578.8958437,
+    "ast_hash": "00d3e1e98b5eb77f978ea1d1913fb99d",
+    "semantic_hash": "00d3e1e98b5eb77f978ea1d1913fb99d"
+  },
+  "crates/openre-plugins/src/security/rest_api.rs": {
+    "mtime": 1786887833.2033129,
+    "seen": 1789368578.8958457,
+    "ast_hash": "44a7084bf4891b1af58648040314fd85",
+    "semantic_hash": "44a7084bf4891b1af58648040314fd85"
+  },
+  "crates/openre-plugins/src/security/rest_api_analysis.rs": {
+    "mtime": 1788243425.1660523,
+    "seen": 1789368578.8958473,
+    "ast_hash": "f48189e5d599a165dcd7ababeece8a50",
+    "semantic_hash": "f48189e5d599a165dcd7ababeece8a50"
+  },
+  "crates/openre-plugins/src/security/security_headers.rs": {
+    "mtime": 1788243425.1740518,
+    "seen": 1789368578.8958495,
+    "ast_hash": "0391d53714b76427e8ce80e7eae2807b",
+    "semantic_hash": "0391d53714b76427e8ce80e7eae2807b"
+  },
+  "crates/openre-plugins/src/security/sensitive_info.rs": {
+    "mtime": 1788243425.1810513,
+    "seen": 1789368578.8958514,
+    "ast_hash": "60d291f2f1eb16f6b76a0f8ab9fb58bc",
+    "semantic_hash": "60d291f2f1eb16f6b76a0f8ab9fb58bc"
+  },
+  "crates/openre-plugins/src/security/session_management.rs": {
+    "mtime": 1788243425.1910505,
+    "seen": 1789368578.8958526,
+    "ast_hash": "55caecd6b48cc0524be3b2f041b5e1b0",
+    "semantic_hash": "55caecd6b48cc0524be3b2f041b5e1b0"
+  },
+  "crates/openre-plugins/src/security/sql_injection.rs": {
+    "mtime": 1788243425.2010498,
+    "seen": 1789368578.8958542,
+    "ast_hash": "41c2e6dd30278b704c70ea828aa098fd",
+    "semantic_hash": "41c2e6dd30278b704c70ea828aa098fd"
+  },
+  "crates/openre-plugins/src/security/xss_analysis.rs": {
+    "mtime": 1788243425.2090492,
+    "seen": 1789368578.8958561,
+    "ast_hash": "be61a93189e03a79c78dcf216fa977df",
+    "semantic_hash": "be61a93189e03a79c78dcf216fa977df"
+  },
+  "crates/openre-recon/Cargo.toml": {
+    "mtime": 1788242773.0253046,
+    "seen": 1789368578.8958576,
+    "ast_hash": "ac497b7196cb82504184e0be1d008bd0",
+    "semantic_hash": "ac497b7196cb82504184e0be1d008bd0"
+  },
+  "crates/openre-recon/src/auth_discovery.rs": {
+    "mtime": 1787949825.5117896,
+    "seen": 1789368578.8958595,
+    "ast_hash": "9a638d300bed210df8806101aff67202",
+    "semantic_hash": "9a638d300bed210df8806101aff67202"
+  },
+  "crates/openre-recon/src/cookie_analysis.rs": {
+    "mtime": 1787949825.520789,
+    "seen": 1789368578.895861,
+    "ast_hash": "f66177440af1513f78b2fc838a23b413",
+    "semantic_hash": "f66177440af1513f78b2fc838a23b413"
+  },
+  "crates/openre-recon/src/endpoint_discovery.rs": {
+    "mtime": 1787949825.5267885,
+    "seen": 1789368578.8958628,
+    "ast_hash": "64051b4c8dee716129e925dc41092cae",
+    "semantic_hash": "64051b4c8dee716129e925dc41092cae"
+  },
+  "crates/openre-recon/src/header_analysis.rs": {
+    "mtime": 1787949825.545787,
+    "seen": 1789368578.8958642,
+    "ast_hash": "406be424efe1aa10c344c1b1c8358bd0",
+    "semantic_hash": "406be424efe1aa10c344c1b1c8358bd0"
+  },
+  "crates/openre-recon/src/http_fingerprint.rs": {
+    "mtime": 1787949825.5557864,
+    "seen": 1789368578.895866,
+    "ast_hash": "050610f5eb4c7ab2045f2e79424eef4d",
+    "semantic_hash": "050610f5eb4c7ab2045f2e79424eef4d"
+  },
+  "crates/openre-recon/src/lib.rs": {
+    "mtime": 1787910664.116856,
+    "seen": 1789368578.8958673,
+    "ast_hash": "cc105e3d55d999eae2fde5f40de77f4f",
+    "semantic_hash": "cc105e3d55d999eae2fde5f40de77f4f"
+  },
+  "crates/openre-recon/src/robots_sitemap.rs": {
+    "mtime": 1787949825.5657854,
+    "seen": 1789368578.895869,
+    "ast_hash": "7ff58b02def1030a95d5d1472ec48258",
+    "semantic_hash": "7ff58b02def1030a95d5d1472ec48258"
+  },
+  "crates/openre-recon/src/tech_detection.rs": {
+    "mtime": 1787949825.5737848,
+    "seen": 1789368578.8958707,
+    "ast_hash": "e131270e596c00ed46f4b764aed1226a",
+    "semantic_hash": "e131270e596c00ed46f4b764aed1226a"
+  },
+  "crates/openre-recon/src/tls_analysis.rs": {
+    "mtime": 1787949825.583784,
+    "seen": 1789368578.8958724,
+    "ast_hash": "43aa580ae14f590c30b9aaa54e1bf42f",
+    "semantic_hash": "43aa580ae14f590c30b9aaa54e1bf42f"
+  },
+  "crates/openre-scan/Cargo.toml": {
+    "mtime": 1789368343.5671635,
+    "seen": 1789368578.8958738,
+    "ast_hash": "7990fce04b8aaf936d53fe36601f765b",
+    "semantic_hash": "7990fce04b8aaf936d53fe36601f765b"
+  },
+  "crates/openre-scan/src/checks.rs": {
+    "mtime": 1789027220.4449992,
+    "seen": 1789368578.8958752,
+    "ast_hash": "d850c00a69bb6327c43a3cb388930d3e",
+    "semantic_hash": "d850c00a69bb6327c43a3cb388930d3e"
+  },
+  "crates/openre-scan/src/client.rs": {
+    "mtime": 1789027220.4449992,
+    "seen": 1789368578.8958771,
+    "ast_hash": "25ca9a20ceb8664d123d95f9cdc28160",
+    "semantic_hash": "25ca9a20ceb8664d123d95f9cdc28160"
+  },
+  "crates/openre-scan/src/config.rs": {
+    "mtime": 1789027220.4449992,
+    "seen": 1789368578.8958786,
+    "ast_hash": "078af7ea3cc2b9f8a108fa530d6c2026",
+    "semantic_hash": "078af7ea3cc2b9f8a108fa530d6c2026"
+  },
+  "crates/openre-scan/src/extensions.rs": {
+    "mtime": 1789142907.2122848,
+    "seen": 1789368578.8958802,
+    "ast_hash": "385e6a531c6ed76ab60a200955a64917",
+    "semantic_hash": "385e6a531c6ed76ab60a200955a64917"
+  },
+  "crates/openre-scan/src/lib.rs": {
+    "mtime": 1789027220.4459991,
+    "seen": 1789368578.8958817,
+    "ast_hash": "8eb7eca75261c4da40f7f709c9320428",
+    "semantic_hash": "8eb7eca75261c4da40f7f709c9320428"
+  },
+  "crates/openre-scan/src/main.rs": {
+    "mtime": 1789027220.4459991,
+    "seen": 1789368578.8958833,
+    "ast_hash": "7b85edd8129ce2ed32c0919f428e8bd5",
+    "semantic_hash": "7b85edd8129ce2ed32c0919f428e8bd5"
+  },
+  "crates/openre-scan/src/output.rs": {
+    "mtime": 1789027220.4459991,
+    "seen": 1789368578.895885,
+    "ast_hash": "e0feacbbc20c1a195db7bd92424c1a6f",
+    "semantic_hash": "e0feacbbc20c1a195db7bd92424c1a6f"
+  },
+  "crates/openre-scan/src/profiles.rs": {
+    "mtime": 1789027220.4459991,
+    "seen": 1789368578.8958864,
+    "ast_hash": "eaa9e82fc2a54ca0e13fab2bb67353d5",
+    "semantic_hash": "eaa9e82fc2a54ca0e13fab2bb67353d5"
+  },
+  "crates/openre-scan/src/runner.rs": {
+    "mtime": 1789027220.4459991,
+    "seen": 1789368578.8958883,
+    "ast_hash": "a7eba856a3209e4c0443d85b6a24fc4d",
+    "semantic_hash": "a7eba856a3209e4c0443d85b6a24fc4d"
+  },
+  "crates/openre-scan/src/scanner.rs": {
+    "mtime": 1789027220.4459991,
+    "seen": 1789368578.8958902,
+    "ast_hash": "a6163a5375964863be9170e637a5aac8",
+    "semantic_hash": "a6163a5375964863be9170e637a5aac8"
+  },
+  "crates/openre-scan/src/tui/app.rs": {
+    "mtime": 1789027220.4459991,
+    "seen": 1789368578.8958917,
+    "ast_hash": "ed2f5a6d8055e270b5d2ce7cf75cce31",
+    "semantic_hash": "ed2f5a6d8055e270b5d2ce7cf75cce31"
+  },
+  "crates/openre-scan/src/tui/mod.rs": {
+    "mtime": 1786889167.8872654,
+    "seen": 1789368578.8958938,
+    "ast_hash": "0db71bd2a815759bdcdda9883b00937e",
+    "semantic_hash": "0db71bd2a815759bdcdda9883b00937e"
+  },
+  "crates/openre-scan/src/version.rs": {
+    "mtime": 1789027220.446999,
+    "seen": 1789368578.8958952,
+    "ast_hash": "a78517e597667bef00ed8962358b013d",
+    "semantic_hash": "a78517e597667bef00ed8962358b013d"
+  },
+  "crates/openre-scan/tests/integration.rs": {
+    "mtime": 1787949825.6867764,
+    "seen": 1789368578.895897,
+    "ast_hash": "7193ff6dab48c5eab5585c41777006df",
+    "semantic_hash": "7193ff6dab48c5eab5585c41777006df"
+  },
+  "crates/openre-scanner/Cargo.toml": {
+    "mtime": 1788241674.715053,
+    "seen": 1789368578.8958986,
+    "ast_hash": "04a4414e6a1a8827184fc72821b75aa0",
+    "semantic_hash": "04a4414e6a1a8827184fc72821b75aa0"
+  },
+  "crates/openre-scanner/src/api.rs": {
+    "mtime": 1788767122.5717387,
+    "seen": 1789368578.8959005,
+    "ast_hash": "f35c5fb0689a32fd6857c926d98583e8",
+    "semantic_hash": "f35c5fb0689a32fd6857c926d98583e8"
+  },
+  "crates/openre-scanner/src/context.rs": {
+    "mtime": 1788245298.2827816,
+    "seen": 1789368578.895902,
+    "ast_hash": "4ec84d105ceefcc8e3f5f3de695f71dc",
+    "semantic_hash": "4ec84d105ceefcc8e3f5f3de695f71dc"
+  },
+  "crates/openre-scanner/src/error.rs": {
+    "mtime": 1788243673.0933607,
+    "seen": 1789368578.8959038,
+    "ast_hash": "75a6ffbabf7d3c8b736c2cc308d63c8f",
+    "semantic_hash": "75a6ffbabf7d3c8b736c2cc308d63c8f"
+  },
+  "crates/openre-scanner/src/lib.rs": {
+    "mtime": 1786887833.526288,
+    "seen": 1789368578.8959053,
+    "ast_hash": "9bf2375d808c17d8d1123db34829733b",
+    "semantic_hash": "9bf2375d808c17d8d1123db34829733b"
+  },
+  "crates/openre-scanner/src/plugin.rs": {
+    "mtime": 1788767122.5717387,
+    "seen": 1789368578.8959072,
+    "ast_hash": "5b7fcf789e9d1d31c342a218ec5732dc",
+    "semantic_hash": "5b7fcf789e9d1d31c342a218ec5732dc"
+  },
+  "crates/openre-scanner/src/result.rs": {
+    "mtime": 1788245298.2927809,
+    "seen": 1789368578.8959088,
+    "ast_hash": "965918ecb696e197a5566e97fb0ad4de",
+    "semantic_hash": "965918ecb696e197a5566e97fb0ad4de"
+  },
+  "crates/openre-scanner/src/scan.rs": {
+    "mtime": 1788767122.5717387,
+    "seen": 1789368578.8959105,
+    "ast_hash": "c8e2e1d40739b7daec82f123c721243f",
+    "semantic_hash": "c8e2e1d40739b7daec82f123c721243f"
+  },
+  "crates/openre-scanner/src/storage.rs": {
+    "mtime": 1788244085.8164952,
+    "seen": 1789368578.8959122,
+    "ast_hash": "64ea909c1df9db3b49c60fd574f373e2",
+    "semantic_hash": "64ea909c1df9db3b49c60fd574f373e2"
+  },
+  "crates/openre-scanner/src/target.rs": {
+    "mtime": 1788767122.5727386,
+    "seen": 1789368578.895914,
+    "ast_hash": "1f4cb83be254f82e86c6c4912bf13e36",
+    "semantic_hash": "1f4cb83be254f82e86c6c4912bf13e36"
+  },
+  "crates/openre-scanner/src/tui.rs": {
+    "mtime": 1788244416.092502,
+    "seen": 1789368578.8959155,
+    "ast_hash": "c14ab0f879d40042c31c1d9b787da780",
+    "semantic_hash": "c14ab0f879d40042c31c1d9b787da780"
+  },
+  "crates/openre-security-ai/Cargo.toml": {
+    "mtime": 1788241674.715053,
+    "seen": 1789368578.8959174,
+    "ast_hash": "e28dbceaf43aadae03ad571d23c9447b",
+    "semantic_hash": "e28dbceaf43aadae03ad571d23c9447b"
+  },
+  "crates/openre-security-ai/src/analyst.rs": {
+    "mtime": 1787949825.8447642,
+    "seen": 1789368578.8959188,
+    "ast_hash": "1058a17243a196b5e6820aab636fbef4",
+    "semantic_hash": "1058a17243a196b5e6820aab636fbef4"
+  },
+  "crates/openre-security-ai/src/cache.rs": {
+    "mtime": 1787949825.846764,
+    "seen": 1789368578.8959208,
+    "ast_hash": "b8a5c0423c3c11a9952000f657264d2d",
+    "semantic_hash": "b8a5c0423c3c11a9952000f657264d2d"
+  },
+  "crates/openre-security-ai/src/context.rs": {
+    "mtime": 1787949825.8507638,
+    "seen": 1789368578.8959224,
+    "ast_hash": "a8c51161d52a4f5d19f55a2e79d9b858",
+    "semantic_hash": "a8c51161d52a4f5d19f55a2e79d9b858"
+  },
+  "crates/openre-security-ai/src/errors.rs": {
+    "mtime": 1787591491.161035,
+    "seen": 1789368578.8959243,
+    "ast_hash": "7f076594d5b110d65192ef1c1f5988b6",
+    "semantic_hash": "7f076594d5b110d65192ef1c1f5988b6"
+  },
+  "crates/openre-security-ai/src/finding_provider.rs": {
+    "mtime": 1787030332.1605453,
+    "seen": 1789368578.8959258,
+    "ast_hash": "b7979813e42b646e3c8e4d4d4fae8e0d",
+    "semantic_hash": "b7979813e42b646e3c8e4d4d4fae8e0d"
+  },
+  "crates/openre-security-ai/src/lib.rs": {
+    "mtime": 1787599619.9055128,
+    "seen": 1789368578.8959272,
+    "ast_hash": "9b3f4599a1157ad5ccd1be8409b99e64",
+    "semantic_hash": "9b3f4599a1157ad5ccd1be8409b99e64"
+  },
+  "crates/openre-security-ai/src/prompts.rs": {
+    "mtime": 1788253134.1158257,
+    "seen": 1789368578.8959293,
+    "ast_hash": "36e73d6c79b33522cb597d9d55c33a87",
+    "semantic_hash": "36e73d6c79b33522cb597d9d55c33a87"
+  },
+  "crates/openre-security-ai/src/safety.rs": {
+    "mtime": 1787949825.8557634,
+    "seen": 1789368578.8959308,
+    "ast_hash": "1be4ce569b4a1669f10552d95fb08778",
+    "semantic_hash": "1be4ce569b4a1669f10552d95fb08778"
+  },
+  "crates/openre-security-ai/src/scan_storage_provider.rs": {
+    "mtime": 1787949825.8577633,
+    "seen": 1789368578.8959327,
+    "ast_hash": "97a8444718cd8570ded12b3178776537",
+    "semantic_hash": "97a8444718cd8570ded12b3178776537"
+  },
+  "crates/openre-security-ai/src/types.rs": {
+    "mtime": 1787031041.821662,
+    "seen": 1789368578.8959346,
+    "ast_hash": "3c011384b77a97f655da5b9c97f24d11",
+    "semantic_hash": "3c011384b77a97f655da5b9c97f24d11"
+  },
+  "crates/openre-security-ai/tests/analyst_test.rs": {
+    "mtime": 1787765520.1092138,
+    "seen": 1789368578.8959363,
+    "ast_hash": "81cafb74b6447418dd6399754d700176",
+    "semantic_hash": "81cafb74b6447418dd6399754d700176"
+  },
+  "crates/openre-security-ai/tests/cache_test.rs": {
+    "mtime": 1787949825.862763,
+    "seen": 1789368578.8959377,
+    "ast_hash": "dd036d0524516980de0f175b2be4748d",
+    "semantic_hash": "dd036d0524516980de0f175b2be4748d"
+  },
+  "crates/openre-security-ai/tests/context_test.rs": {
+    "mtime": 1787605528.5697587,
+    "seen": 1789368578.8959396,
+    "ast_hash": "1851867bae7e73ad6e61f914e54089c9",
+    "semantic_hash": "1851867bae7e73ad6e61f914e54089c9"
+  },
+  "crates/openre-security-ai/tests/finding_provider_test.rs": {
+    "mtime": 1788238894.5341146,
+    "seen": 1789368578.8959413,
+    "ast_hash": "f90cad12c4ea3caf1876e18635189c7b",
+    "semantic_hash": "f90cad12c4ea3caf1876e18635189c7b"
+  },
+  "crates/openre-security-ai/tests/integration_test.rs": {
+    "mtime": 1787949825.8687625,
+    "seen": 1789368578.895943,
+    "ast_hash": "1fa82be455b0ab8bde98690b2f1a171b",
+    "semantic_hash": "1fa82be455b0ab8bde98690b2f1a171b"
+  },
+  "crates/openre-security-ai/tests/mock_provider.rs": {
+    "mtime": 1787949825.860763,
+    "seen": 1789368578.8959446,
+    "ast_hash": "d37f5fb7c45dd6ea68b50492600f10ba",
+    "semantic_hash": "d37f5fb7c45dd6ea68b50492600f10ba"
+  },
+  "crates/openre-security-ai/tests/prompt_compiler_test.rs": {
+    "mtime": 1787949825.8727622,
+    "seen": 1789368578.8959467,
+    "ast_hash": "5f90defc5a9da4e423057cbe5836943f",
+    "semantic_hash": "5f90defc5a9da4e423057cbe5836943f"
+  },
+  "crates/openre-security-ai/tests/safety_test.rs": {
+    "mtime": 1788238894.5341146,
+    "seen": 1789368578.8959482,
+    "ast_hash": "8c9a213a975905e59421a27ee8774711",
+    "semantic_hash": "8c9a213a975905e59421a27ee8774711"
+  },
+  "crates/openre-security-ai/tests/types_test.rs": {
+    "mtime": 1786887833.6772764,
+    "seen": 1789368578.8959513,
+    "ast_hash": "1e82b6ad5a67c2deadfdc1f6ba218f0a",
+    "semantic_hash": "1e82b6ad5a67c2deadfdc1f6ba218f0a"
+  },
+  "crates/openre-telemetry/Cargo.toml": {
+    "mtime": 1788241674.715053,
+    "seen": 1789368578.8959548,
+    "ast_hash": "9c1f796a800f7bca0121d5b5ecf40959",
+    "semantic_hash": "9c1f796a800f7bca0121d5b5ecf40959"
+  },
+  "crates/openre-telemetry/src/audit.rs": {
+    "mtime": 1787949825.926758,
+    "seen": 1789368578.8959577,
+    "ast_hash": "a35d8308b26300e70ae7c6bd596a7e4b",
+    "semantic_hash": "a35d8308b26300e70ae7c6bd596a7e4b"
+  },
+  "crates/openre-telemetry/src/lib.rs": {
+    "mtime": 1789027220.446999,
+    "seen": 1789368578.8959603,
+    "ast_hash": "e74b5a134c13762b971810b453a16c1f",
+    "semantic_hash": "e74b5a134c13762b971810b453a16c1f"
+  },
+  "crates/openre-telemetry/src/logging.rs": {
+    "mtime": 1787949825.928758,
+    "seen": 1789368578.895962,
+    "ast_hash": "0195056c5eea1860a35bc95c0889e0e9",
+    "semantic_hash": "0195056c5eea1860a35bc95c0889e0e9"
+  },
+  "crates/openre-telemetry/src/metrics.rs": {
+    "mtime": 1789027220.446999,
+    "seen": 1789368578.895964,
+    "ast_hash": "42180f066db8c55100e5188a69cf7265",
+    "semantic_hash": "42180f066db8c55100e5188a69cf7265"
+  },
+  "crates/openre-telemetry/src/tracing.rs": {
+    "mtime": 1788201713.5616927,
+    "seen": 1789368578.8959653,
+    "ast_hash": "ee94aba8fb19f7a14470e02fa6e6a39f",
+    "semantic_hash": "ee94aba8fb19f7a14470e02fa6e6a39f"
+  },
+  "crates/openre-tui/Cargo.toml": {
+    "mtime": 1789368343.5671635,
+    "seen": 1789368578.895967,
+    "ast_hash": "b0d7ff01fd37f3bb60c3c913254a51d3",
+    "semantic_hash": "b0d7ff01fd37f3bb60c3c913254a51d3"
+  },
+  "crates/openre-tui/src/actions.rs": {
+    "mtime": 1789368343.5671635,
+    "seen": 1789368578.8959687,
+    "ast_hash": "de613181a45828ac99e0a7769623bab8",
+    "semantic_hash": "de613181a45828ac99e0a7769623bab8"
+  },
+  "crates/openre-tui/src/app.rs": {
+    "mtime": 1789368343.5681634,
+    "seen": 1789368578.8959708,
+    "ast_hash": "8454ca612f93dd5b19adf7dd87b5eff3",
+    "semantic_hash": "8454ca612f93dd5b19adf7dd87b5eff3"
+  },
+  "crates/openre-tui/src/components.rs": {
+    "mtime": 1789368343.5681634,
+    "seen": 1789368578.8959723,
+    "ast_hash": "cc6781c4218e1378de374a266096460a",
+    "semantic_hash": "cc6781c4218e1378de374a266096460a"
+  },
+  "crates/openre-tui/src/events.rs": {
+    "mtime": 1789368343.5681634,
+    "seen": 1789368578.895974,
+    "ast_hash": "6e7dcf0f79f7c5256da4a7fa95043893",
+    "semantic_hash": "6e7dcf0f79f7c5256da4a7fa95043893"
+  },
+  "crates/openre-tui/src/lib.rs": {
+    "mtime": 1789368343.5681634,
+    "seen": 1789368578.8959756,
+    "ast_hash": "e66f9a7153bce171c60206d6614e4c78",
+    "semantic_hash": "e66f9a7153bce171c60206d6614e4c78"
+  },
+  "crates/openre-tui/src/main.rs": {
+    "mtime": 1788287196.1458204,
+    "seen": 1789368578.8959775,
+    "ast_hash": "d0e988f2149247009c3f77fd13cd3652",
+    "semantic_hash": "d0e988f2149247009c3f77fd13cd3652"
+  },
+  "crates/openre-tui/src/panels.rs": {
+    "mtime": 1789368343.5691633,
+    "seen": 1789368578.895979,
+    "ast_hash": "93496edf50731362ea81d9e0a276c6db",
+    "semantic_hash": "93496edf50731362ea81d9e0a276c6db"
+  },
+  "crates/openre-tui/src/services.rs": {
+    "mtime": 1789368343.5691633,
+    "seen": 1789368578.8959808,
+    "ast_hash": "cee3e8ddc99552216acb0bdccc52489e",
+    "semantic_hash": "cee3e8ddc99552216acb0bdccc52489e"
+  },
+  "crates/openre-tui/src/state.rs": {
+    "mtime": 1789368343.5701632,
+    "seen": 1789368578.8959823,
+    "ast_hash": "59050916fd0196cfb8f17db6da805a78",
+    "semantic_hash": "59050916fd0196cfb8f17db6da805a78"
+  },
+  "crates/openre-tui/src/utils.rs": {
+    "mtime": 1788768201.9950078,
+    "seen": 1789368578.8959844,
+    "ast_hash": "cde07757b70f46f3a512cb9dc64f343b",
+    "semantic_hash": "cde07757b70f46f3a512cb9dc64f343b"
+  },
+  "crates/sentinel/Cargo.toml": {
+    "mtime": 1786278053.8970366,
+    "seen": 1789368578.895986,
+    "ast_hash": "250562b95e9997b697a6a55fdd2a5bd6",
+    "semantic_hash": "250562b95e9997b697a6a55fdd2a5bd6"
+  },
+  "crates/sentinel/src/main.rs": {
+    "mtime": 1788195117.4243133,
+    "seen": 1789368578.895988,
+    "ast_hash": "21a78c154552fbc16b123ead85d6b028",
+    "semantic_hash": "21a78c154552fbc16b123ead85d6b028"
+  },
+  "parse_clippy.py": {
+    "mtime": 1789368343.5701632,
+    "seen": 1789368578.8959892,
+    "ast_hash": "1af0ab97f457c5b4f88b8f1161052142",
+    "semantic_hash": "1af0ab97f457c5b4f88b8f1161052142"
+  },
+  "parsed_warnings.json": {
+    "mtime": 1789368343.5701632,
+    "seen": 1789368578.895991,
+    "ast_hash": "19b51e1f23002c2a9c92b3c311b779dd",
+    "semantic_hash": "19b51e1f23002c2a9c92b3c311b779dd"
+  },
+  "plugins/security/access_control/config_schema.json": {
+    "mtime": 1785092934.2219505,
+    "seen": 1789368578.8959925,
+    "ast_hash": "e03f11dfa1d8a53b6384511bcb2746e9",
+    "semantic_hash": "e03f11dfa1d8a53b6384511bcb2746e9"
+  },
+  "plugins/security/api_rate_limiting/config_schema.json": {
+    "mtime": 1785092934.2219505,
+    "seen": 1789368578.8959944,
+    "ast_hash": "2ceb242cd85fea10a36daac4702b81e1",
+    "semantic_hash": "2ceb242cd85fea10a36daac4702b81e1"
+  },
+  "plugins/security/auth_discovery/config_schema.json": {
+    "mtime": 1785092934.2219505,
+    "seen": 1789368578.8959959,
+    "ast_hash": "da165e42b87761480ca0277c19d6978a",
+    "semantic_hash": "da165e42b87761480ca0277c19d6978a"
+  },
+  "plugins/security/cookie_security/config_schema.json": {
+    "mtime": 1785092934.2239504,
+    "seen": 1789368578.8959978,
+    "ast_hash": "38ab6f2c5c1b5cce1756b9e4a4cf6129",
+    "semantic_hash": "38ab6f2c5c1b5cce1756b9e4a4cf6129"
+  },
+  "plugins/security/cors_analysis/config_schema.json": {
+    "mtime": 1785092934.2249503,
+    "seen": 1789368578.8959994,
+    "ast_hash": "8ed0e6cdaf37cedac4423f0165fd377a",
+    "semantic_hash": "8ed0e6cdaf37cedac4423f0165fd377a"
+  },
+  "plugins/security/file_upload/config_schema.json": {
+    "mtime": 1785092934.2249503,
+    "seen": 1789368578.8960016,
+    "ast_hash": "90adc2a1d19b45a00f666daf06205588",
+    "semantic_hash": "90adc2a1d19b45a00f666daf06205588"
+  },
+  "plugins/security/graphql/config_schema.json": {
+    "mtime": 1785092934.2249503,
+    "seen": 1789368578.8960028,
+    "ast_hash": "d4aabfb1baadd3330082479aabe0d1d8",
+    "semantic_hash": "d4aabfb1baadd3330082479aabe0d1d8"
+  },
+  "plugins/security/header_injection/config_schema.json": {
+    "mtime": 1785092934.2249503,
+    "seen": 1789368578.8960044,
+    "ast_hash": "2ba310051b4e4dfd599c38fc2befa7d6",
+    "semantic_hash": "2ba310051b4e4dfd599c38fc2befa7d6"
+  },
+  "plugins/security/information_disclosure/config_schema.json": {
+    "mtime": 1785092934.2249503,
+    "seen": 1789368578.8960063,
+    "ast_hash": "4fdc3234683a84868e09179ffb994628",
+    "semantic_hash": "4fdc3234683a84868e09179ffb994628"
+  },
+  "plugins/security/ldap_injection/config_schema.json": {
+    "mtime": 1785092934.2249503,
+    "seen": 1789368578.896008,
+    "ast_hash": "7f51abcba24f9cdc75419783b1725ef4",
+    "semantic_hash": "7f51abcba24f9cdc75419783b1725ef4"
+  },
+  "plugins/security/path_traversal/config_schema.json": {
+    "mtime": 1785092934.22795,
+    "seen": 1789368578.8960094,
+    "ast_hash": "9922c5e7d78b61c6a16c766f34a47052",
+    "semantic_hash": "9922c5e7d78b61c6a16c766f34a47052"
+  },
+  "plugins/security/rate_limiting/config_schema.json": {
+    "mtime": 1785092934.22895,
+    "seen": 1789368578.8960114,
+    "ast_hash": "3e5139c8bea4b4d981571559693bd57e",
+    "semantic_hash": "3e5139c8bea4b4d981571559693bd57e"
+  },
+  "plugins/security/rest_api/config_schema.json": {
+    "mtime": 1785092934.22895,
+    "seen": 1789368578.8960128,
+    "ast_hash": "8aa411fa7ea5d556ef56864d480986bd",
+    "semantic_hash": "8aa411fa7ea5d556ef56864d480986bd"
+  },
+  "plugins/security/security_headers/config_schema.json": {
+    "mtime": 1785092934.22895,
+    "seen": 1789368578.8960147,
+    "ast_hash": "bb6de31bd62d06674e7c074b3d0d5cd5",
+    "semantic_hash": "bb6de31bd62d06674e7c074b3d0d5cd5"
+  },
+  "plugins/security/sensitive_info/config_schema.json": {
+    "mtime": 1785092934.22895,
+    "seen": 1789368578.8960161,
+    "ast_hash": "9f79e7da74327d3992ac751aee5b88a9",
+    "semantic_hash": "9f79e7da74327d3992ac751aee5b88a9"
+  },
+  "plugins/security/session_management/config_schema.json": {
+    "mtime": 1785092934.22895,
+    "seen": 1789368578.8960183,
+    "ast_hash": "58a5d4bcae8b042ad171422676622a8b",
+    "semantic_hash": "58a5d4bcae8b042ad171422676622a8b"
+  },
+  "plugins/security/xpath_injection/config_schema.json": {
+    "mtime": 1785092934.22895,
+    "seen": 1789368578.8960202,
+    "ast_hash": "242acdfb7f5ec9829e5288fe8a40e7ad",
+    "semantic_hash": "242acdfb7f5ec9829e5288fe8a40e7ad"
+  },
+  "plugins/security/xxe_injection/config_schema.json": {
+    "mtime": 1785092934.22995,
+    "seen": 1789368578.8960218,
+    "ast_hash": "0d828a8e520e090ffca6f11769116eaf",
+    "semantic_hash": "0d828a8e520e090ffca6f11769116eaf"
+  },
+  "python/example_security_analyst.py": {
+    "mtime": 1785975607.6528156,
+    "seen": 1789368578.8960235,
+    "ast_hash": "4cad118f2a13343c90d7d67697961846",
+    "semantic_hash": "4cad118f2a13343c90d7d67697961846"
+  },
+  "python/openre-bindings/Cargo.toml": {
+    "mtime": 1784790543.2757907,
+    "seen": 1789368578.8960254,
+    "ast_hash": "7ac0ed0c6c7c4165f7d76b89af53bcf2",
+    "semantic_hash": "7ac0ed0c6c7c4165f7d76b89af53bcf2"
+  },
+  "python/openre-bindings/src/analysis.rs": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.896027,
+    "ast_hash": "446aa7ab552f791b54145af60f063db1",
+    "semantic_hash": "446aa7ab552f791b54145af60f063db1"
+  },
+  "python/openre-bindings/src/client.rs": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.8960288,
+    "ast_hash": "f393b1d971e43481123c96365bc2aab1",
+    "semantic_hash": "f393b1d971e43481123c96365bc2aab1"
+  },
+  "python/openre-bindings/src/lib.rs": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.8960307,
+    "ast_hash": "6444095d283ee62028f0b5430648909c",
+    "semantic_hash": "6444095d283ee62028f0b5430648909c"
+  },
+  "python/openre-bindings/src/models.rs": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.8960323,
+    "ast_hash": "0d56cc34007135871c2de2bee018b42f",
+    "semantic_hash": "0d56cc34007135871c2de2bee018b42f"
+  },
+  "python/openre-bindings/src/plugins.rs": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.896034,
+    "ast_hash": "afd023682ba6c3e45a84164af13ddf26",
+    "semantic_hash": "afd023682ba6c3e45a84164af13ddf26"
+  },
+  "python/openre/__init__.py": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.896036,
+    "ast_hash": "541ab7138e9c64721c97b67338bf0678",
+    "semantic_hash": "541ab7138e9c64721c97b67338bf0678"
+  },
+  "python/openre/analysis.py": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.8960373,
+    "ast_hash": "34f2aa0e9988d39ed37ebb59fa75f4f9",
+    "semantic_hash": "34f2aa0e9988d39ed37ebb59fa75f4f9"
+  },
+  "python/openre/client.py": {
+    "mtime": 1788253119.372931,
+    "seen": 1789368578.8960392,
+    "ast_hash": "88aff95457012e52c536d49e5a1e4875",
+    "semantic_hash": "88aff95457012e52c536d49e5a1e4875"
+  },
+  "python/openre/models.py": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.896041,
+    "ast_hash": "4d57485836e0ddb846fccccb16192f47",
+    "semantic_hash": "4d57485836e0ddb846fccccb16192f47"
+  },
+  "python/openre/plugins.py": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.8960426,
+    "ast_hash": "53b666346e7104c8c1c38859a47506b3",
+    "semantic_hash": "53b666346e7104c8c1c38859a47506b3"
+  },
+  "scan-results.json": {
+    "mtime": 1788767122.5727386,
+    "seen": 1789368578.896044,
+    "ast_hash": "8337a64253b480266a9ff24b1ba888e7",
+    "semantic_hash": "8337a64253b480266a9ff24b1ba888e7"
+  },
+  "scripts/setup-dev.sh": {
+    "mtime": 1788767122.5487409,
+    "seen": 1789368578.896046,
+    "ast_hash": "2f3e26dd57a2aeb1f358be82bd270ed2",
+    "semantic_hash": "2f3e26dd57a2aeb1f358be82bd270ed2"
+  },
+  "tests/integration_tests.rs": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.8960476,
+    "ast_hash": "1eeacb5039c0121861af3e69263f8a05",
+    "semantic_hash": "1eeacb5039c0121861af3e69263f8a05"
+  },
+  "tests/targets/web-app/app.py": {
+    "mtime": 1788274199.4939454,
+    "seen": 1789368578.8960493,
+    "ast_hash": "eb485f2e17cdec72a46a049f79044ae7",
+    "semantic_hash": "eb485f2e17cdec72a46a049f79044ae7"
+  },
+  "tests/targets/web-app/expected_findings.json": {
+    "mtime": 1788274456.7184293,
+    "seen": 1789368578.896051,
+    "ast_hash": "77a78a18a80bcd1627ab35132bb40b53",
+    "semantic_hash": "77a78a18a80bcd1627ab35132bb40b53"
+  },
+  "tests/unit_tests.rs": {
+    "mtime": 1784790543.2767906,
+    "seen": 1789368578.8960526,
+    "ast_hash": "8d77a84aa7235bf3711365f948394eb7",
+    "semantic_hash": "8d77a84aa7235bf3711365f948394eb7"
+  }
+}

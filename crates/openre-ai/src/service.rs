@@ -87,46 +87,40 @@ impl AiService {
         let mut remote_providers_registered = 0;
         for provider_name in &config.allowed_remote_providers {
             match provider_name.as_str() {
-                "openai" => {
-                    match std::env::var("OPENAI_API_KEY") {
-                        Ok(api_key) => {
-                            registry.register(Box::new(
-                                crate::providers::remote::RemoteProvider::openai(api_key),
-                            ));
-                            remote_providers_registered += 1;
-                        }
-                        Err(_) => {
-                            tracing::warn!("OPENAI_API_KEY not set; skipping OpenAI provider");
-                        }
+                "openai" => match std::env::var("OPENAI_API_KEY") {
+                    Ok(api_key) => {
+                        registry.register(Box::new(
+                            crate::providers::remote::RemoteProvider::openai(api_key),
+                        ));
+                        remote_providers_registered += 1;
                     }
-                }
-                "vllm" => {
-                    match std::env::var("VLLM_BASE_URL") {
-                        Ok(base_url) => {
-                            let api_key = std::env::var("VLLM_API_KEY").ok();
-                            registry.register(Box::new(
-                                crate::providers::remote::RemoteProvider::vllm(base_url, api_key),
-                            ));
-                            remote_providers_registered += 1;
-                        }
-                        Err(_) => {
-                            tracing::warn!("VLLM_BASE_URL not set; skipping vLLM provider");
-                        }
+                    Err(_) => {
+                        tracing::warn!("OPENAI_API_KEY not set; skipping OpenAI provider");
                     }
-                }
-                "anthropic" => {
-                    match std::env::var("ANTHROPIC_API_KEY") {
-                        Ok(api_key) => {
-                            registry.register(Box::new(
-                                crate::providers::remote::RemoteProvider::anthropic(api_key),
-                            ));
-                            remote_providers_registered += 1;
-                        }
-                        Err(_) => {
-                            tracing::warn!("ANTHROPIC_API_KEY not set; skipping Anthropic provider");
-                        }
+                },
+                "vllm" => match std::env::var("VLLM_BASE_URL") {
+                    Ok(base_url) => {
+                        let api_key = std::env::var("VLLM_API_KEY").ok();
+                        registry.register(Box::new(
+                            crate::providers::remote::RemoteProvider::vllm(base_url, api_key),
+                        ));
+                        remote_providers_registered += 1;
                     }
-                }
+                    Err(_) => {
+                        tracing::warn!("VLLM_BASE_URL not set; skipping vLLM provider");
+                    }
+                },
+                "anthropic" => match std::env::var("ANTHROPIC_API_KEY") {
+                    Ok(api_key) => {
+                        registry.register(Box::new(
+                            crate::providers::remote::RemoteProvider::anthropic(api_key),
+                        ));
+                        remote_providers_registered += 1;
+                    }
+                    Err(_) => {
+                        tracing::warn!("ANTHROPIC_API_KEY not set; skipping Anthropic provider");
+                    }
+                },
                 _ => {
                     tracing::warn!("Unknown remote provider: {}", provider_name);
                 }

@@ -14,7 +14,6 @@ openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
 openre-telemetry = { path = "../openre-telemetry" }
 openre-storage = { path = "../openre-storage" }
-openre-queue = { path = "../openre-queue" }
 # openre-plugins = { path = "../openre-plugins" }  # Temporarily disabled
 
 # External dependencies

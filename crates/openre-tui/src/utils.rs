@@ -94,12 +94,13 @@ pub fn severity_icon(severity: &openre_core::result::Severity) -> &'static str {
 pub fn job_status_color(status: &crate::state::JobStatus, colors: &ThemeColors) -> Color {
     match status {
         crate::state::JobStatus::Pending => colors.muted,
-        crate::state::JobStatus::Queued => colors.info,
-        crate::state::JobStatus::Running => colors.accent,
-        crate::state::JobStatus::Completed => colors.success,
-        crate::state::JobStatus::Failed => colors.error,
-        crate::state::JobStatus::Cancelled => colors.warning,
-        crate::state::JobStatus::Scheduled => colors.info,
+        crate::state::JobStatus::Queued { .. } => colors.info,
+        crate::state::JobStatus::Running { .. } => colors.accent,
+        crate::state::JobStatus::Completed { .. } => colors.success,
+        crate::state::JobStatus::Failed { .. } => colors.error,
+        crate::state::JobStatus::Cancelled { .. } => colors.warning,
+        crate::state::JobStatus::Scheduled { .. } => colors.info,
+        crate::state::JobStatus::Retrying => colors.accent,
     }
 }
 
@@ -107,30 +108,33 @@ pub fn job_status_color(status: &crate::state::JobStatus, colors: &ThemeColors) 
 pub fn job_status_icon(status: &crate::state::JobStatus) -> &'static str {
     match status {
         crate::state::JobStatus::Pending => "⏳",
-        crate::state::JobStatus::Queued => "📋",
-        crate::state::JobStatus::Running => "🔄",
-        crate::state::JobStatus::Completed => "✅",
-        crate::state::JobStatus::Failed => "❌",
-        crate::state::JobStatus::Cancelled => "🚫",
-        crate::state::JobStatus::Scheduled => "📅",
+        crate::state::JobStatus::Queued { .. } => "📋",
+        crate::state::JobStatus::Running { .. } => "🔄",
+        crate::state::JobStatus::Completed { .. } => "✅",
+        crate::state::JobStatus::Failed { .. } => "❌",
+        crate::state::JobStatus::Cancelled { .. } => "🚫",
+        crate::state::JobStatus::Scheduled { .. } => "📅",
+        crate::state::JobStatus::Retrying => "🔄",
     }
 }
 
 /// Get color for priority
 pub fn priority_color(priority: &openre_core::Priority, colors: &ThemeColors) -> Color {
-    match priority {
-        openre_core::Priority::High => colors.error,
-        openre_core::Priority::Default => colors.info,
-        openre_core::Priority::Low => colors.muted,
+    match priority.0 {
+        n if n >= 100 => colors.error, // CRITICAL and above
+        n if n >= 10 => colors.error,  // HIGH and above (but below CRITICAL)
+        n if n >= 0 => colors.info,    // DEFAULT and above (but below HIGH)
+        _ => colors.muted,             // LOW and below
     }
 }
 
 /// Get icon for priority
 pub fn priority_icon(priority: &openre_core::Priority) -> &'static str {
-    match priority {
-        openre_core::Priority::High => "●",
-        openre_core::Priority::Default => "○",
-        openre_core::Priority::Low => "○",
+    match priority.0 {
+        n if n >= 100 => "●", // CRITICAL and above
+        n if n >= 10 => "●",  // HIGH and above (but below CRITICAL)
+        n if n >= 0 => "○",   // DEFAULT and above (but below HIGH)
+        _ => "○",             // LOW and below
     }
 }
 

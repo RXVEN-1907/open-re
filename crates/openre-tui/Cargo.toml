@@ -20,7 +20,7 @@ path = "src/main.rs"
 # Core crates
 openre-core = { path = "../openre-core" }
 openre-config = { path = "../openre-config" }
-openre-scan = { path = "../openre-scan", optional = true }
+openre-scanner = { path = "../openre-scanner", optional = true }
 openre-plugins = { path = "../openre-plugins", optional = true }
 openre-telemetry = { path = "../openre-telemetry", optional = true }
 openre-intelligence = { path = "../openre-intelligence", optional = true }
@@ -46,6 +46,9 @@ reqwest = { workspace = true, features = ["json", "rustls-tls", "gzip", "brotli"
 futures = { workspace = true }
 tokio-stream = { workspace = true }
 parking_lot = { workspace = true }
+redis = { workspace = true }
+rusqlite = { workspace = true, features = ["bundled"] }
+tokio-postgres = { workspace = true }
 notify = { workspace = true }
 dirs = { workspace = true }
 base64 = { workspace = true }
@@ -60,7 +63,7 @@ colored = { workspace = true }
 [features]
 default = ["full"]
 full = ["scan", "plugins", "telemetry", "intelligence", "storage"]
-scan = ["dep:openre-scan"]
+scan = ["dep:openre-scanner"]
 plugins = ["dep:openre-plugins"]
 telemetry = ["dep:openre-telemetry"]
 intelligence = ["dep:openre-intelligence"]

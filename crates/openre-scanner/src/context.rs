@@ -45,6 +45,7 @@ impl RateLimiter {
         }
     }
 
+    #[allow(clippy::await_holding_lock)]
     /// Acquire a token (blocking)
     pub async fn acquire(&self) {
         loop {
@@ -60,6 +61,8 @@ impl RateLimiter {
 
             if *tokens >= 1.0 {
                 *tokens -= 1.0;
+                drop(tokens);
+                drop(last_refill);
                 return;
             }
 

@@ -306,7 +306,7 @@ impl ScanStorage for MemoryScanStorage {
         _project_id: Option<ProjectId>,
     ) -> ScannerResult<Vec<ScanSession>> {
         let mut scans: Vec<ScanSession> = self.scans.iter().map(|s| s.clone()).collect();
-        scans.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        scans.sort_by_key(|b| std::cmp::Reverse(b.created_at));
         Ok(scans.into_iter().skip(offset).take(limit).collect())
     }
 
@@ -437,15 +437,25 @@ impl ScanStorage for MemoryScanStorage {
 
         // Sort
         match sort {
-            FindingSort::SeverityDesc => findings.sort_by(|a, b| b.severity.cmp(&a.severity)),
-            FindingSort::SeverityAsc => findings.sort_by(|a, b| a.severity.cmp(&b.severity)),
-            FindingSort::ConfidenceDesc => findings.sort_by(|a, b| b.confidence.cmp(&a.confidence)),
-            FindingSort::TimestampDesc => findings.sort_by(|a, b| b.timestamp.cmp(&a.timestamp)),
-            FindingSort::TimestampAsc => findings.sort_by(|a, b| a.timestamp.cmp(&b.timestamp)),
-            FindingSort::RiskScoreDesc => {
-                findings.sort_by(|a, b| b.risk_score.unwrap_or(0).cmp(&a.risk_score.unwrap_or(0)))
+            FindingSort::SeverityDesc => {
+                findings.sort_by_key(|a| a.severity);
+                findings.reverse();
             }
-            FindingSort::TargetAsc => findings.sort_by(|a, b| a.target.cmp(&b.target)),
+            FindingSort::SeverityAsc => findings.sort_by_key(|a| a.severity),
+            FindingSort::ConfidenceDesc => {
+                findings.sort_by_key(|a| a.confidence);
+                findings.reverse();
+            }
+            FindingSort::TimestampDesc => {
+                findings.sort_by_key(|a| a.timestamp);
+                findings.reverse();
+            }
+            FindingSort::TimestampAsc => findings.sort_by_key(|a| a.timestamp),
+            FindingSort::RiskScoreDesc => {
+                findings.sort_by_key(|a| a.risk_score.unwrap_or(0));
+                findings.reverse();
+            }
+            FindingSort::TargetAsc => findings.sort_by_key(|a| a.target.clone()),
         }
 
         Ok(findings.into_iter().skip(offset).take(limit).collect())
@@ -559,7 +569,7 @@ mod tests {
     #[tokio::test]
     async fn test_memory_storage() {
         let storage = MemoryScanStorage::new();
-        let scan_id = ScanId::new();
+        let _scan_id = ScanId::new();
         let target_id = TargetId::new();
 
         let target = Target::new(

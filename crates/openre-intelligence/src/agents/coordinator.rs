@@ -9,9 +9,9 @@ use crate::agents::types::{
     AgentCapability, AgentHealth, AgentMetadata, AgentResult, AgentStatus, AgentType,
 };
 use crate::error::IntelligenceError;
-use crate::job::{Job, JobStatus, Priority, QueueManager, QueueStats};
-use openre_core::ids::AgentId;
-use openre_core::ids::{FindingId, ScanId, WorkflowId};
+use crate::job::{Job, Priority, QueueManager, QueueStats};
+use chrono::Utc;
+use openre_core::ids::{AgentId, FindingId, JobStatus, ScanId, WorkflowId};
 use petgraph::algo::toposort;
 use petgraph::graph::{DiGraph, NodeIndex};
 use serde::{Deserialize, Serialize};
@@ -241,8 +241,7 @@ impl AgentCoordinator {
 
         let metadata = AgentMetadata::new(agent_id, name, agent_type);
 
-        let registered =
-            RegisteredAgent { agent, metadata };
+        let registered = RegisteredAgent { agent, metadata };
 
         let mut agents = self.registered_agents.write().await;
         agents.insert(agent_id, registered);
@@ -317,7 +316,7 @@ impl AgentCoordinator {
             .parse::<openre_core::ids::JobId>()
             .unwrap_or_else(|_| openre_core::ids::JobId::new());
         job.priority = task.priority;
-        job.status = JobStatus::Pending;
+        job.status = JobStatus::Queued { queued_at: Utc::now() };
 
         if let Some(scheduled) = task.scheduled_at {
             job.scheduled_at = Some(scheduled);

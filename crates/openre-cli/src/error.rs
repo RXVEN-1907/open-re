@@ -60,6 +60,15 @@ pub enum CliError {
 
     #[error("Not implemented: {0}")]
     NotImplemented(String),
+    #[error("Scan cancelled")]
+    ScanCancelled,
+    #[error("Scan failed")]
+    ScanFailed,
+    #[error("History error: {0}")]
+    HistoryError(String),
+
+    #[error("Not found: {0}")]
+    NotFound(String),
 
     #[error("Other: {0}")]
     Other(String),
@@ -83,6 +92,12 @@ impl From<&str> for CliError {
 impl From<openre_core::Error> for CliError {
     fn from(e: openre_core::Error) -> Self {
         CliError::Config(e.to_string())
+    }
+}
+
+impl From<openre_core::history::HistoryError> for CliError {
+    fn from(e: openre_core::history::HistoryError) -> Self {
+        CliError::HistoryError(e.to_string())
     }
 }
 

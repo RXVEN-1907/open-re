@@ -179,10 +179,7 @@ impl DependencyFileType {
             // Strip inline comments and environment markers
             let spec = line.split('#').next().unwrap_or(line).trim();
             let spec = spec.split(';').next().unwrap_or(spec).trim();
-            let name = spec
-                .split(&['=', '>', '<', '!', '~'])
-                .next()
-                .unwrap_or("");
+            let name = spec.split(&['=', '>', '<', '!', '~']).next().unwrap_or("");
             !name.trim().is_empty()
                 && name.chars().all(|c| {
                     c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '[' || c == ']'
@@ -378,16 +375,20 @@ impl DependencyAnalyzer {
             }
 
             // Entry header: "package@^1.2.3", package@^1.2.3:
-            if !trimmed.starts_with("version") && !trimmed.starts_with("dependencies") && trimmed.contains('@') && trimmed.ends_with(':') {
-                    // Strip quotes and trailing colon, then take the package name (before last @version spec)
-                    let entry = trimmed.trim_end_matches(':').trim_matches('"');
-                    if let Some(pos) = entry.rfind('@') {
-                        if pos > 0 {
-                            current_name = Some(entry[..pos].to_string());
-                        }
+            if !trimmed.starts_with("version")
+                && !trimmed.starts_with("dependencies")
+                && trimmed.contains('@')
+                && trimmed.ends_with(':')
+            {
+                // Strip quotes and trailing colon, then take the package name (before last @version spec)
+                let entry = trimmed.trim_end_matches(':').trim_matches('"');
+                if let Some(pos) = entry.rfind('@') {
+                    if pos > 0 {
+                        current_name = Some(entry[..pos].to_string());
                     }
-                    continue;
                 }
+                continue;
+            }
 
             // Version line: version "1.2.3"
             if trimmed.starts_with("version ") && trimmed.contains('"') {

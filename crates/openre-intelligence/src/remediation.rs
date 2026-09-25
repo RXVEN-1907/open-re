@@ -6,8 +6,8 @@
 use crate::{IntelligenceError, IntelligenceResult};
 use openre_core::ids::{FindingId, RecheckId, RemediationId, ScanId};
 use openre_core::remediation::{
-    RecheckStatus, RemediationResult, RemediationStatus, RemediationStatusType,
-    RemediationSummary, RemediationVerifierConfig, ScheduledRecheck,
+    RecheckStatus, RemediationResult, RemediationStatus, RemediationStatusType, RemediationSummary,
+    RemediationVerifierConfig, ScheduledRecheck,
     VerificationResult as RemediationVerificationResult,
 };
 use openre_core::result::Finding;

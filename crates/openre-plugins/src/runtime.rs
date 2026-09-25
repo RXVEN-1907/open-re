@@ -1,32 +1,32 @@
 //! WASM Plugin Runtime using Wasmtime
 
 use anyhow::Result;
+use wasmtime::component::{Component, Linker as ComponentLinker};
 use wasmtime::{Engine, Store};
-
-use wasmtime_wasi::{add_to_linker_sync, WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
 use crate::Capability;
 
 /// WASM Plugin Runtime with capability-based security
 pub struct WasmRuntime {
     engine: Engine,
-    component_linker: wasmtime::component::Linker<WasmRuntimeState>,
+    component_linker: ComponentLinker<WasmRuntimeState>,
 }
 
 struct WasmRuntimeState {
     _allowed_capabilities: Vec<Capability>,
     _plugin_id: String,
-    wasi_ctx: WasiCtx,
-    table: wasmtime::component::ResourceTable,
+    table: ResourceTable,
+    wasi: WasiCtx,
 }
 
 impl WasiView for WasmRuntimeState {
-    fn ctx(&mut self) -> &mut WasiCtx {
-        &mut self.wasi_ctx
+    fn table(&mut self) -> &mut ResourceTable {
+        &mut self.table
     }
 
-    fn table(&mut self) -> &mut wasmtime::component::ResourceTable {
-        &mut self.table
+    fn ctx(&mut self) -> &mut WasiCtx {
+        &mut self.wasi
     }
 }
 
@@ -35,33 +35,32 @@ impl WasmRuntime {
         let mut config = wasmtime::Config::new();
         config.wasm_component_model(true);
         config.async_support(true);
+        config.consume_fuel(true);
 
         let engine = Engine::new(&config)?;
 
-        let mut linker = wasmtime::component::Linker::new(&engine);
-        // Add WASI support
-        add_to_linker_sync(&mut linker)?;
+        let mut linker = ComponentLinker::new(&engine);
+        // Add WASI support (preview2 bindings are at the crate root in wasmtime-wasi 20)
+        wasmtime_wasi::add_to_linker_async(&mut linker)?;
 
         Ok(Self { engine, component_linker: linker })
     }
 
     pub async fn load_plugin(&self, wasm_bytes: &[u8], plugin_id: String) -> Result<LoadedPlugin> {
-        let component = wasmtime::component::Component::new(&self.engine, wasm_bytes)?;
-
-        let wasi_ctx = WasiCtxBuilder::new().inherit_stdio().build();
+        let component = Component::new(&self.engine, wasm_bytes)?;
 
         let mut store = Store::new(
             &self.engine,
             WasmRuntimeState {
                 _allowed_capabilities: vec![],
                 _plugin_id: plugin_id.clone(),
-                wasi_ctx,
-                table: wasmtime::component::ResourceTable::new(),
+                table: ResourceTable::new(),
+                wasi: WasiCtxBuilder::new().build(),
             },
         );
 
-        // Fuel limit would be set here if fuel feature was enabled
-        // store.add_fuel(10_000_000)?;
+        // Set fuel limit (10M instructions)
+        store.set_fuel(10_000_000)?;
 
         let instance = self.component_linker.instantiate_async(&mut store, &component).await?;
 

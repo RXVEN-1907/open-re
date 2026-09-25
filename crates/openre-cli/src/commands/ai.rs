@@ -8,6 +8,7 @@ use crate::intelligence_stubs::{CorrelationEngine, Finding};
 use crate::{print_output, CliError, Context, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
+use std::path::Path;
 use std::path::PathBuf;
 use tabled::{settings::Style, Table};
 
@@ -324,7 +325,11 @@ async fn run_test(ctx: &mut Context, args: TestArgs) -> Result<(), CliError> {
         println!("  Model: {}", result.model);
         println!("  Latency: {:.0}ms", result.latency_ms);
     } else {
-        println!("{} Connection failed: {}", "✗".red().bold(), result.error.unwrap_or_else(|| "Unknown error".to_string()));
+        println!(
+            "{} Connection failed: {}",
+            "✗".red().bold(),
+            result.error.unwrap_or_else(|| "Unknown error".to_string())
+        );
     }
     Ok(())
 }
@@ -340,7 +345,7 @@ fn load_finding(path: &str) -> Result<Finding, CliError> {
     }
 }
 
-fn load_findings_from_path(path: &PathBuf) -> Result<Vec<Finding>, CliError> {
+fn load_findings_from_path(path: &Path) -> Result<Vec<Finding>, CliError> {
     if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
         let content = std::fs::read_to_string(path)?;
         Ok(serde_json::from_str(&content)?)

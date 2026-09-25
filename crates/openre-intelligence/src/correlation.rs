@@ -775,7 +775,8 @@ impl CorrelationEngine {
         for i in 0..sorted_findings.len() {
             for j in (i + 1)..sorted_findings.len() {
                 let time_diff = (sorted_findings[j].timestamp - sorted_findings[i].timestamp)
-                    .num_seconds().unsigned_abs();
+                    .num_seconds()
+                    .unsigned_abs();
 
                 if time_diff <= self.config.temporal_window_seconds {
                     if sorted_findings[i].target == sorted_findings[j].target {
@@ -885,7 +886,6 @@ impl CorrelationEngine {
 
         Ok(relationships)
     }
-
 }
 
 impl Default for CorrelationEngine {

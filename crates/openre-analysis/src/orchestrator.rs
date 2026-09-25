@@ -712,15 +712,6 @@ pub struct Artifact {
 }
 
 /// Job priority
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Priority(pub i32);
-
-impl Priority {
-    pub const LOW: Priority = Priority(0);
-    pub const DEFAULT: Priority = Priority(5);
-    pub const HIGH: Priority = Priority(10);
-}
-
 /// Pipeline stage trait
 /// Create default 9-stage pipeline stages (uses stub implementations)
 pub fn default_pipeline_stages() -> Vec<Box<dyn crate::stages::PipelineStage>> {

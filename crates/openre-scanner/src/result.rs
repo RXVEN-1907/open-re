@@ -271,15 +271,25 @@ impl ResultAggregator {
     /// Sort findings
     fn sort_findings(&self, findings: &mut [Finding], sort: FindingSort) {
         match sort {
-            FindingSort::SeverityDesc => findings.sort_by(|a, b| b.severity.cmp(&a.severity)),
-            FindingSort::SeverityAsc => findings.sort_by(|a, b| a.severity.cmp(&b.severity)),
-            FindingSort::ConfidenceDesc => findings.sort_by(|a, b| b.confidence.cmp(&a.confidence)),
-            FindingSort::TimestampDesc => findings.sort_by(|a, b| b.timestamp.cmp(&a.timestamp)),
-            FindingSort::TimestampAsc => findings.sort_by(|a, b| a.timestamp.cmp(&b.timestamp)),
-            FindingSort::RiskScoreDesc => {
-                findings.sort_by(|a, b| b.risk_score.unwrap_or(0).cmp(&a.risk_score.unwrap_or(0)))
+            FindingSort::SeverityDesc => {
+                findings.sort_by_key(|a| a.severity);
+                findings.reverse();
             }
-            FindingSort::TargetAsc => findings.sort_by(|a, b| a.target.cmp(&b.target)),
+            FindingSort::SeverityAsc => findings.sort_by_key(|a| a.severity),
+            FindingSort::ConfidenceDesc => {
+                findings.sort_by_key(|a| a.confidence);
+                findings.reverse();
+            }
+            FindingSort::TimestampDesc => {
+                findings.sort_by_key(|a| a.timestamp);
+                findings.reverse();
+            }
+            FindingSort::TimestampAsc => findings.sort_by_key(|a| a.timestamp),
+            FindingSort::RiskScoreDesc => {
+                findings.sort_by_key(|a| a.risk_score.unwrap_or(0));
+                findings.reverse();
+            }
+            FindingSort::TargetAsc => findings.sort_by_key(|a| a.target.clone()),
         }
     }
 
@@ -447,10 +457,10 @@ impl ResultAggregator {
                 if let Some(mut existing) = self.findings.get_mut(existing_id) {
                     self.merge_findings(&mut existing, finding);
                 }
-                to_remove.push(entry.key().clone());
+                to_remove.push(*entry.key());
                 removed += 1;
             } else {
-                seen.insert(fingerprint, entry.key().clone());
+                seen.insert(fingerprint, *entry.key());
             }
         }
 
@@ -474,6 +484,7 @@ mod tests {
     use super::*;
 
     #[allow(dead_code)]
+    #[allow(clippy::too_many_arguments)]
     fn make_finding(
         title: String,
         description: String,

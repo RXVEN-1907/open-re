@@ -63,6 +63,9 @@ use commands::exploit::ExploitCommands;
 #[cfg(feature = "analysis")]
 use commands::remediate::RemediateCommands;
 
+#[cfg(feature = "report")]
+use commands::report::ReportCommands;
+
 #[cfg(feature = "queue")]
 use commands::queue::QueueCommands;
 
@@ -171,6 +174,11 @@ enum Commands {
     #[command(subcommand)]
     Remediate(RemediateCommands),
 
+    /// Report template management
+    #[cfg(feature = "report")]
+    #[command(subcommand)]
+    Report(ReportCommands),
+
     /// Configuration management
     #[command(subcommand)]
     Config(ConfigCommands),
@@ -225,6 +233,8 @@ async fn main() -> Result<()> {
         Commands::Exploit(cmd) => cmd.execute(ctx).await,
         #[cfg(feature = "analysis")]
         Commands::Remediate(cmd) => cmd.execute(ctx).await,
+        #[cfg(feature = "report")]
+        Commands::Report(cmd) => cmd.execute(ctx).await,
         #[cfg(feature = "queue")]
         Commands::Queue(cmd) => cmd.execute(ctx).await,
         Commands::Config(cmd) => cmd.execute(ctx).await,

@@ -121,6 +121,20 @@ pub trait HistoryStorage: Send + Sync {
     /// Delete workflow session
     async fn delete_workflow_session(&self, workflow_id: &WorkflowId)
         -> Result<bool, HistoryError>;
+
+    /// Save report template
+    async fn save_report_template(&self, template: &ReportTemplate) -> Result<(), HistoryError>;
+    /// Get report template by name
+    async fn get_report_template(&self, name: &str)
+        -> Result<Option<ReportTemplate>, HistoryError>;
+    /// List report templates
+    async fn list_report_templates(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ReportTemplate>, HistoryError>;
+    /// Delete report template by name
+    async fn delete_report_template(&self, name: &str) -> Result<bool, HistoryError>;
 }
 
 /// History error
@@ -203,6 +217,8 @@ pub struct ScanProgressSummary {
     pub endpoints_failed: usize,
     /// Percentage complete
     pub percentage: f32,
+    /// Checks that have been completed
+    pub completed_checks: Vec<String>,
 }
 
 /// Plugin execution summary
@@ -618,6 +634,23 @@ pub struct WorkflowArtifact {
     pub stage_index: usize,
 }
 
+/// Report template for custom report generation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportTemplate {
+    /// Template ID
+    pub id: String,
+    /// Template name
+    pub name: String,
+    /// Report format (Markdown, HTML, etc.)
+    pub format: ReportFormat,
+    /// Template content with placeholders
+    pub content: String,
+    /// Created timestamp
+    pub created_at: DateTime<Utc>,
+    /// Last updated timestamp
+    pub updated_at: DateTime<Utc>,
+}
+
 impl HistoryManager {
     /// Create a new history manager
     pub fn new(storage: Box<dyn HistoryStorage>) -> Self {
@@ -883,6 +916,7 @@ mod tests {
                 endpoints_scanned: 100,
                 endpoints_failed: 0,
                 percentage: 100.0,
+                completed_checks: vec![],
             },
             finding_stats: FindingStats {
                 total: 5,

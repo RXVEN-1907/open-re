@@ -20,6 +20,7 @@ openre-scan = { path = "../openre-scan", optional = true }
 openre-ai = { path = "../openre-ai", optional = true }
 openre-intelligence = { path = "../openre-intelligence", optional = true }
 openre-telemetry = { path = "../openre-telemetry", optional = true }
+openre-storage = { path = "../openre-storage", optional = true }
 
 clap = { version = "4.5", features = ["derive", "env", "wrap_help", "help", "usage", "suggestions", "cargo"] }
 clap_complete = "4.5"
@@ -51,10 +52,11 @@ sarif_rust = { version = "0.3", optional = true }
 
 [features]
 default = ["full"]
-full = ["analysis", "scan", "ai", "intelligence", "sarif"]
+full = ["analysis", "scan", "ai", "intelligence", "sarif", "report"]
 analysis = ["dep:openre-analysis"]
 scan = ["dep:openre-scan"]
 ai = ["dep:openre-ai"]
 intelligence = ["dep:openre-intelligence"]
 sarif = ["dep:sarif_rust"]
+report = ["dep:openre-storage"]
 minimal = []
