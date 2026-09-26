@@ -1,0 +1,1785 @@
+   Compiling openre-plugins-macros v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-plugins-macros)
+    Checking sentinel v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/sentinel)
+    Checking openre-core v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-core)
+    Checking openre-config v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-config)
+    Checking openre-disasm v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-disasm)
+    Checking openre-telemetry v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-telemetry)
+    Checking openre-intelligence v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-intelligence)
+    Checking openre-ai v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-ai)
+    Checking openre-analysis v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-analysis)
+    Checking openre-storage v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-storage)
+    Checking openre-plugins v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-plugins)
+    Checking openre-scanner v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-scanner)
+    Checking openre-scan v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-scan)
+    Checking openre-cli v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-cli)
+warning: unexpected `cfg` condition value: `queue`
+  --> crates/openre-cli/src/main.rs:69:7
+   |
+69 | #[cfg(feature = "queue")]
+   |       ^^^^^^^^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `ai`, `analysis`, `default`, `full`, `intelligence`, `minimal`, `openre-telemetry`, `report`, `sarif`, and `scan`
+   = help: consider adding `queue` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unexpected `cfg` condition value: `queue`
+   --> crates/openre-cli/src/main.rs:187:11
+    |
+187 |     #[cfg(feature = "queue")]
+    |           ^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `ai`, `analysis`, `default`, `full`, `intelligence`, `minimal`, `openre-telemetry`, `report`, `sarif`, and `scan`
+    = help: consider adding `queue` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unused import: `openre_config::Config`
+ --> crates/openre-cli/src/main.rs:9:5
+  |
+9 | use openre_config::Config;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::collections::HashMap`
+ --> crates/openre-cli/src/ai_stubs.rs:4:5
+  |
+4 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unexpected `cfg` condition value: `queue`
+  --> crates/openre-cli/src/commands/mod.rs:18:7
+   |
+18 | #[cfg(feature = "queue")]
+   |       ^^^^^^^^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `ai`, `analysis`, `default`, `full`, `intelligence`, `minimal`, `openre-telemetry`, `report`, `sarif`, and `scan`
+   = help: consider adding `queue` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unused import: `openre_core::error::OpenreResult`
+ --> crates/openre-cli/src/commands/scan.rs:6:5
+  |
+6 | use openre_core::error::OpenreResult;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `FindingId`
+ --> crates/openre-cli/src/commands/scan.rs:8:24
+  |
+8 | use openre_core::ids::{FindingId, ProjectId, ScanId};
+  |                        ^^^^^^^^^
+
+warning: unused import: `build_client_with_config`
+  --> crates/openre-cli/src/commands/scan.rs:12:41
+   |
+12 | use openre_scan::client::{build_client, build_client_with_config};
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `openre_scan::config::ScanConfig`
+  --> crates/openre-cli/src/commands/scan.rs:13:5
+   |
+13 | use openre_scan::config::ScanConfig;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `openre_scan::output::display_results`
+  --> crates/openre-cli/src/commands/scan.rs:14:5
+   |
+14 | use openre_scan::output::display_results;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Scanner`
+  --> crates/openre-cli/src/commands/scan.rs:15:56
+   |
+15 | use openre_scan::{ScanProfile, ScanResult, ScanTarget, Scanner};
+   |                                                        ^^^^^^^
+
+warning: unused import: `std::fs`
+  --> crates/openre-cli/src/commands/scan.rs:18:5
+   |
+18 | use std::fs;
+   |     ^^^^^^^
+
+warning: unused imports: `Arc`, `AtomicBool`, and `Ordering`
+  --> crates/openre-cli/src/commands/scan.rs:22:14
+   |
+22 |     atomic::{AtomicBool, Ordering},
+   |              ^^^^^^^^^^  ^^^^^^^^
+23 |     Arc,
+   |     ^^^
+
+warning: unused imports: `BinaryFormat`, `BinaryInfo`, `Disassembly`, `Function`, `PipelineResult`, and `PipelineStage`
+ --> crates/openre-cli/src/commands/analyze.rs:4:21
+  |
+4 |     BinaryAnalyzer, BinaryFormat, BinaryInfo, Disassembly, Function, PipelineResult, PipelineStage,
+  |                     ^^^^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^
+
+warning: unused imports: `AiClient`, `AiProvider`, `AnalysisType`, `Audience`, `ConnectionTestResult`, `ExplainDetail`, `FixType`, and `ProviderInfo`
+ --> crates/openre-cli/src/commands/ai.rs:4:5
+  |
+4 |     AiClient, AiProvider, AnalysisRequest, AnalysisType, Audience, ConnectionTestResult,
+  |     ^^^^^^^^  ^^^^^^^^^^                   ^^^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+5 |     ExplainDetail, FixType, ProviderInfo,
+  |     ^^^^^^^^^^^^^  ^^^^^^^  ^^^^^^^^^^^^
+
+warning: unused imports: `Category as VulnCategory`, `ExploitTemplateDetail`, `ExploitTemplate`, and `Language`
+ --> crates/openre-cli/src/commands/exploit.rs:4:5
+  |
+4 |     Category as VulnCategory, ExploitGenerator, ExploitTemplate, ExploitTemplateDetail, Finding,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^                    ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^
+5 |     Language,
+  |     ^^^^^^^^
+
+warning: unused imports: `ComplianceFramework`, `Environment`, `GroupBy`, `Language`, `RemediationItem`, `RemediationPlan`, `RemediationReport`, and `VerificationResult`
+ --> crates/openre-cli/src/commands/remediate.rs:4:5
+  |
+4 |     ComplianceFramework, Environment, Finding, GroupBy, Language, Priority, RemediationEngine,
+  |     ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^           ^^^^^^^  ^^^^^^^^
+5 |     RemediationItem, RemediationPlan, RemediationReport, VerificationResult,
+  |     ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `print_output`
+ --> crates/openre-cli/src/commands/remediate.rs:7:13
+  |
+7 | use crate::{print_output, CliError, Context, OutputFormat};
+  |             ^^^^^^^^^^^^
+
+warning: unused imports: `OutputFormat` and `print_output`
+ --> crates/openre-cli/src/commands/config.rs:3:13
+  |
+3 | use crate::{print_output, CliError, Context, OutputFormat};
+  |             ^^^^^^^^^^^^                     ^^^^^^^^^^^^
+
+warning: unused import: `default_config_path`
+ --> crates/openre-cli/src/commands/config.rs:6:21
+  |
+6 | use openre_config::{default_config_path, Config};
+  |                     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::path::PathBuf`
+ --> crates/openre-cli/src/commands/config.rs:7:5
+  |
+7 | use std::path::PathBuf;
+  |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `CliError`
+ --> crates/openre-cli/src/config.rs:3:13
+  |
+3 | use crate::{CliError, Result};
+  |             ^^^^^^^^
+
+warning: unused import: `default_config_path`
+ --> crates/openre-cli/src/config.rs:4:21
+  |
+4 | use openre_config::{default_config_path, Config as CoreConfig};
+  |                     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+ --> crates/openre-cli/src/intelligence_stubs.rs:6:5
+  |
+6 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `uuid::Uuid`
+ --> crates/openre-cli/src/intelligence_stubs.rs:8:5
+  |
+8 | use uuid::Uuid;
+  |     ^^^^^^^^^^
+
+warning: unused import: `openre_analysis::*`
+  --> crates/openre-cli/src/main.rs:23:13
+   |
+23 |     pub use openre_analysis::*;
+   |             ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `openre_ai::*`
+  --> crates/openre-cli/src/main.rs:33:13
+   |
+33 |     pub use openre_ai::*;
+   |             ^^^^^^^^^^^^
+
+warning: unused import: `openre_intelligence::*`
+  --> crates/openre-cli/src/main.rs:43:13
+   |
+43 |     pub use openre_intelligence::*;
+   |             ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unexpected `cfg` condition value: `queue`
+   --> crates/openre-cli/src/main.rs:238:15
+    |
+238 |         #[cfg(feature = "queue")]
+    |               ^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `ai`, `analysis`, `default`, `full`, `intelligence`, `minimal`, `openre-telemetry`, `report`, `sarif`, and `scan`
+    = help: consider adding `queue` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: variable does not need to be mutable
+   --> crates/openre-cli/src/commands/scan.rs:307:9
+    |
+307 |     let mut summary = ScanSummary {
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/openre-cli/src/commands/scan.rs:634:9
+    |
+634 |     let mut summary = ScanSummary {
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> crates/openre-cli/src/commands/config.rs:74:13
+   |
+74 |         let mut config = ctx.config.clone();
+   |             ----^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: unused variable: `scan_summary`
+    --> crates/openre-cli/src/commands/scan.rs:1014:9
+     |
+1014 |     let scan_summary = scan_summary_opt
+     |         ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_scan_summary`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `history`
+    --> crates/openre-cli/src/commands/scan.rs:1456:9
+     |
+1456 |     let history = get_history_storage(&ctx);
+     |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_history`
+
+warning: unused variable: `count`
+   --> crates/openre-cli/src/commands/scan.rs:971:19
+    |
+971 |         for (sev, count) in
+    |                   ^^^^^ help: if this is intentional, prefix it with an underscore: `_count`
+
+warning: unused variable: `client`
+   --> crates/openre-cli/src/commands/ai.rs:245:9
+    |
+245 |     let client = ctx.ai_client()?;
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_client`
+
+warning: unused variable: `section`
+   --> crates/openre-cli/src/commands/config.rs:198:21
+    |
+198 |         if let Some(section) = config.get_section(key) {
+    |                     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_section`
+
+warning: type `commands::scan::ScanArgs` is more private than the item `commands::scan::ScanCommands::Quick::0`
+  --> crates/openre-cli/src/commands/scan.rs:39:11
+   |
+39 |     Quick(ScanArgs),
+   |           ^^^^^^^^ field `commands::scan::ScanCommands::Quick::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::scan::ScanArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/scan.rs:59:1
+   |
+59 | struct ScanArgs {
+   | ^^^^^^^^^^^^^^^
+   = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `commands::scan::ScanArgs` is more private than the item `commands::scan::ScanCommands::Standard::0`
+  --> crates/openre-cli/src/commands/scan.rs:41:14
+   |
+41 |     Standard(ScanArgs),
+   |              ^^^^^^^^ field `commands::scan::ScanCommands::Standard::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::scan::ScanArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/scan.rs:59:1
+   |
+59 | struct ScanArgs {
+   | ^^^^^^^^^^^^^^^
+
+warning: type `commands::scan::ScanArgs` is more private than the item `commands::scan::ScanCommands::Full::0`
+  --> crates/openre-cli/src/commands/scan.rs:43:10
+   |
+43 |     Full(ScanArgs),
+   |          ^^^^^^^^ field `commands::scan::ScanCommands::Full::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::scan::ScanArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/scan.rs:59:1
+   |
+59 | struct ScanArgs {
+   | ^^^^^^^^^^^^^^^
+
+warning: type `commands::scan::CustomScanArgs` is more private than the item `commands::scan::ScanCommands::Custom::0`
+   --> crates/openre-cli/src/commands/scan.rs:45:12
+    |
+ 45 |     Custom(CustomScanArgs),
+    |            ^^^^^^^^^^^^^^ field `commands::scan::ScanCommands::Custom::0` is reachable at visibility `pub(crate)`
+    |
+note: but type `commands::scan::CustomScanArgs` is only usable at visibility `pub(self)`
+   --> crates/openre-cli/src/commands/scan.rs:105:1
+    |
+105 | struct CustomScanArgs {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::scan::PauseScanArgs` is more private than the item `commands::scan::ScanCommands::Pause::0`
+   --> crates/openre-cli/src/commands/scan.rs:47:11
+    |
+ 47 |     Pause(PauseScanArgs),
+    |           ^^^^^^^^^^^^^ field `commands::scan::ScanCommands::Pause::0` is reachable at visibility `pub(crate)`
+    |
+note: but type `commands::scan::PauseScanArgs` is only usable at visibility `pub(self)`
+   --> crates/openre-cli/src/commands/scan.rs:257:1
+    |
+257 | struct PauseScanArgs {
+    | ^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::scan::ResumeScanArgs` is more private than the item `commands::scan::ScanCommands::Resume::0`
+   --> crates/openre-cli/src/commands/scan.rs:49:12
+    |
+ 49 |     Resume(ResumeScanArgs),
+    |            ^^^^^^^^^^^^^^ field `commands::scan::ScanCommands::Resume::0` is reachable at visibility `pub(crate)`
+    |
+note: but type `commands::scan::ResumeScanArgs` is only usable at visibility `pub(self)`
+   --> crates/openre-cli/src/commands/scan.rs:263:1
+    |
+263 | struct ResumeScanArgs {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::scan::ExportCommands` is more private than the item `commands::scan::ScanCommands::Export::0`
+   --> crates/openre-cli/src/commands/scan.rs:52:12
+    |
+ 52 |     Export(ExportCommands),
+    |            ^^^^^^^^^^^^^^ field `commands::scan::ScanCommands::Export::0` is reachable at visibility `pub(crate)`
+    |
+note: but type `commands::scan::ExportCommands` is only usable at visibility `pub(self)`
+   --> crates/openre-cli/src/commands/scan.rs:149:1
+    |
+149 | enum ExportCommands {
+    | ^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::scan::ImportCommands` is more private than the item `commands::scan::ScanCommands::Import::0`
+   --> crates/openre-cli/src/commands/scan.rs:55:12
+    |
+ 55 |     Import(ImportCommands),
+    |            ^^^^^^^^^^^^^^ field `commands::scan::ScanCommands::Import::0` is reachable at visibility `pub(crate)`
+    |
+note: but type `commands::scan::ImportCommands` is only usable at visibility `pub(self)`
+   --> crates/openre-cli/src/commands/scan.rs:160:1
+    |
+160 | enum ImportCommands {
+    | ^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::AnalyzeArgs` is more private than the item `commands::analyze::AnalyzeCommands::Info::0`
+  --> crates/openre-cli/src/commands/analyze.rs:15:10
+   |
+15 |     Info(AnalyzeArgs),
+   |          ^^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Info::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::analyze::AnalyzeArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/analyze.rs:39:1
+   |
+39 | struct AnalyzeArgs {
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::AnalyzeArgs` is more private than the item `commands::analyze::AnalyzeCommands::Symbols::0`
+  --> crates/openre-cli/src/commands/analyze.rs:17:13
+   |
+17 |     Symbols(AnalyzeArgs),
+   |             ^^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Symbols::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::analyze::AnalyzeArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/analyze.rs:39:1
+   |
+39 | struct AnalyzeArgs {
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::AnalyzeArgs` is more private than the item `commands::analyze::AnalyzeCommands::Imports::0`
+  --> crates/openre-cli/src/commands/analyze.rs:19:13
+   |
+19 |     Imports(AnalyzeArgs),
+   |             ^^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Imports::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::analyze::AnalyzeArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/analyze.rs:39:1
+   |
+39 | struct AnalyzeArgs {
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::AnalyzeArgs` is more private than the item `commands::analyze::AnalyzeCommands::Exports::0`
+  --> crates/openre-cli/src/commands/analyze.rs:21:13
+   |
+21 |     Exports(AnalyzeArgs),
+   |             ^^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Exports::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::analyze::AnalyzeArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/analyze.rs:39:1
+   |
+39 | struct AnalyzeArgs {
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::StringsArgs` is more private than the item `commands::analyze::AnalyzeCommands::Strings::0`
+  --> crates/openre-cli/src/commands/analyze.rs:23:13
+   |
+23 |     Strings(StringsArgs),
+   |             ^^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Strings::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::analyze::StringsArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/analyze.rs:53:1
+   |
+53 | struct StringsArgs {
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::AnalyzeArgs` is more private than the item `commands::analyze::AnalyzeCommands::Sections::0`
+  --> crates/openre-cli/src/commands/analyze.rs:25:14
+   |
+25 |     Sections(AnalyzeArgs),
+   |              ^^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Sections::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::analyze::AnalyzeArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/analyze.rs:39:1
+   |
+39 | struct AnalyzeArgs {
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::AnalyzeArgs` is more private than the item `commands::analyze::AnalyzeCommands::Segments::0`
+  --> crates/openre-cli/src/commands/analyze.rs:27:14
+   |
+27 |     Segments(AnalyzeArgs),
+   |              ^^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Segments::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::analyze::AnalyzeArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/analyze.rs:39:1
+   |
+39 | struct AnalyzeArgs {
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::FunctionsArgs` is more private than the item `commands::analyze::AnalyzeCommands::Functions::0`
+  --> crates/openre-cli/src/commands/analyze.rs:29:15
+   |
+29 |     Functions(FunctionsArgs),
+   |               ^^^^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Functions::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::analyze::FunctionsArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/analyze.rs:71:1
+   |
+71 | struct FunctionsArgs {
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::DisasmArgs` is more private than the item `commands::analyze::AnalyzeCommands::Disasm::0`
+  --> crates/openre-cli/src/commands/analyze.rs:31:12
+   |
+31 |     Disasm(DisasmArgs),
+   |            ^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Disasm::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::analyze::DisasmArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/analyze.rs:93:1
+   |
+93 | struct DisasmArgs {
+   | ^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::DecompileArgs` is more private than the item `commands::analyze::AnalyzeCommands::Decompile::0`
+   --> crates/openre-cli/src/commands/analyze.rs:33:15
+    |
+ 33 |     Decompile(DecompileArgs),
+    |               ^^^^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Decompile::0` is reachable at visibility `pub(crate)`
+    |
+note: but type `commands::analyze::DecompileArgs` is only usable at visibility `pub(self)`
+   --> crates/openre-cli/src/commands/analyze.rs:127:1
+    |
+127 | struct DecompileArgs {
+    | ^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::analyze::PipelineArgs` is more private than the item `commands::analyze::AnalyzeCommands::Pipeline::0`
+   --> crates/openre-cli/src/commands/analyze.rs:35:14
+    |
+ 35 |     Pipeline(PipelineArgs),
+    |              ^^^^^^^^^^^^ field `commands::analyze::AnalyzeCommands::Pipeline::0` is reachable at visibility `pub(crate)`
+    |
+note: but type `commands::analyze::PipelineArgs` is only usable at visibility `pub(self)`
+   --> crates/openre-cli/src/commands/analyze.rs:145:1
+    |
+145 | struct PipelineArgs {
+    | ^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::ai::ChatArgs` is more private than the item `commands::ai::AiCommands::Chat::0`
+  --> crates/openre-cli/src/commands/ai.rs:18:10
+   |
+18 |     Chat(ChatArgs),
+   |          ^^^^^^^^ field `commands::ai::AiCommands::Chat::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::ai::ChatArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/ai.rs:34:1
+   |
+34 | struct ChatArgs {
+   | ^^^^^^^^^^^^^^^
+
+warning: type `commands::ai::AnalyzeArgs` is more private than the item `commands::ai::AiCommands::Analyze::0`
+  --> crates/openre-cli/src/commands/ai.rs:20:13
+   |
+20 |     Analyze(AnalyzeArgs),
+   |             ^^^^^^^^^^^ field `commands::ai::AiCommands::Analyze::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::ai::AnalyzeArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/ai.rs:52:1
+   |
+52 | struct AnalyzeArgs {
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::ai::ExplainArgs` is more private than the item `commands::ai::AiCommands::Explain::0`
+  --> crates/openre-cli/src/commands/ai.rs:22:13
+   |
+22 |     Explain(ExplainArgs),
+   |             ^^^^^^^^^^^ field `commands::ai::AiCommands::Explain::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::ai::ExplainArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/ai.rs:62:1
+   |
+62 | struct ExplainArgs {
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::ai::RemediateArgs` is more private than the item `commands::ai::AiCommands::Remediate::0`
+  --> crates/openre-cli/src/commands/ai.rs:24:15
+   |
+24 |     Remediate(RemediateArgs),
+   |               ^^^^^^^^^^^^^ field `commands::ai::AiCommands::Remediate::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::ai::RemediateArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/ai.rs:91:1
+   |
+91 | struct RemediateArgs {
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::ai::CorrelateArgs` is more private than the item `commands::ai::AiCommands::Correlate::0`
+   --> crates/openre-cli/src/commands/ai.rs:26:15
+    |
+ 26 |     Correlate(CorrelateArgs),
+    |               ^^^^^^^^^^^^^ field `commands::ai::AiCommands::Correlate::0` is reachable at visibility `pub(crate)`
+    |
+note: but type `commands::ai::CorrelateArgs` is only usable at visibility `pub(self)`
+   --> crates/openre-cli/src/commands/ai.rs:113:1
+    |
+113 | struct CorrelateArgs {
+    | ^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::ai::TestArgs` is more private than the item `commands::ai::AiCommands::Test::0`
+   --> crates/openre-cli/src/commands/ai.rs:30:10
+    |
+ 30 |     Test(TestArgs),
+    |          ^^^^^^^^ field `commands::ai::AiCommands::Test::0` is reachable at visibility `pub(crate)`
+    |
+note: but type `commands::ai::TestArgs` is only usable at visibility `pub(self)`
+   --> crates/openre-cli/src/commands/ai.rs:127:1
+    |
+127 | struct TestArgs {
+    | ^^^^^^^^^^^^^^^
+
+warning: type `commands::exploit::GenerateArgs` is more private than the item `commands::exploit::ExploitCommands::Generate::0`
+  --> crates/openre-cli/src/commands/exploit.rs:16:14
+   |
+16 |     Generate(GenerateArgs),
+   |              ^^^^^^^^^^^^ field `commands::exploit::ExploitCommands::Generate::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::exploit::GenerateArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/exploit.rs:26:1
+   |
+26 | struct GenerateArgs {
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::exploit::ListTemplatesArgs` is more private than the item `commands::exploit::ExploitCommands::Templates::0`
+  --> crates/openre-cli/src/commands/exploit.rs:18:15
+   |
+18 |     Templates(ListTemplatesArgs),
+   |               ^^^^^^^^^^^^^^^^^ field `commands::exploit::ExploitCommands::Templates::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::exploit::ListTemplatesArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/exploit.rs:52:1
+   |
+52 | struct ListTemplatesArgs {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::exploit::ValidateArgs` is more private than the item `commands::exploit::ExploitCommands::Validate::0`
+  --> crates/openre-cli/src/commands/exploit.rs:20:14
+   |
+20 |     Validate(ValidateArgs),
+   |              ^^^^^^^^^^^^ field `commands::exploit::ExploitCommands::Validate::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::exploit::ValidateArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/exploit.rs:63:1
+   |
+63 | struct ValidateArgs {
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::exploit::ShowArgs` is more private than the item `commands::exploit::ExploitCommands::Show::0`
+  --> crates/openre-cli/src/commands/exploit.rs:22:10
+   |
+22 |     Show(ShowArgs),
+   |          ^^^^^^^^ field `commands::exploit::ExploitCommands::Show::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::exploit::ShowArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/exploit.rs:77:1
+   |
+77 | struct ShowArgs {
+   | ^^^^^^^^^^^^^^^
+
+warning: type `commands::remediate::PlanArgs` is more private than the item `commands::remediate::RemediateCommands::Plan::0`
+  --> crates/openre-cli/src/commands/remediate.rs:16:10
+   |
+16 |     Plan(PlanArgs),
+   |          ^^^^^^^^ field `commands::remediate::RemediateCommands::Plan::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::remediate::PlanArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/remediate.rs:26:1
+   |
+26 | struct PlanArgs {
+   | ^^^^^^^^^^^^^^^
+
+warning: type `commands::remediate::QuickFixArgs` is more private than the item `commands::remediate::RemediateCommands::QuickFix::0`
+  --> crates/openre-cli/src/commands/remediate.rs:18:14
+   |
+18 |     QuickFix(QuickFixArgs),
+   |              ^^^^^^^^^^^^ field `commands::remediate::RemediateCommands::QuickFix::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::remediate::QuickFixArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/remediate.rs:44:1
+   |
+44 | struct QuickFixArgs {
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::remediate::ReportArgs` is more private than the item `commands::remediate::RemediateCommands::Report::0`
+  --> crates/openre-cli/src/commands/remediate.rs:20:12
+   |
+20 |     Report(ReportArgs),
+   |            ^^^^^^^^^^ field `commands::remediate::RemediateCommands::Report::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::remediate::ReportArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/remediate.rs:54:1
+   |
+54 | struct ReportArgs {
+   | ^^^^^^^^^^^^^^^^^
+
+warning: type `commands::remediate::VerifyArgs` is more private than the item `commands::remediate::RemediateCommands::Verify::0`
+  --> crates/openre-cli/src/commands/remediate.rs:22:12
+   |
+22 |     Verify(VerifyArgs),
+   |            ^^^^^^^^^^ field `commands::remediate::RemediateCommands::Verify::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::remediate::VerifyArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/remediate.rs:68:1
+   |
+68 | struct VerifyArgs {
+   | ^^^^^^^^^^^^^^^^^
+
+warning: type `commands::report::ReportListArgs` is more private than the item `commands::report::ReportCommands::List::0`
+  --> crates/openre-cli/src/commands/report.rs:27:10
+   |
+27 |     List(ReportListArgs),
+   |          ^^^^^^^^^^^^^^ field `commands::report::ReportCommands::List::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::report::ReportListArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/report.rs:37:1
+   |
+37 | struct ReportListArgs {
+   | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::report::ReportCreateArgs` is more private than the item `commands::report::ReportCommands::Create::0`
+  --> crates/openre-cli/src/commands/report.rs:29:12
+   |
+29 |     Create(ReportCreateArgs),
+   |            ^^^^^^^^^^^^^^^^ field `commands::report::ReportCommands::Create::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::report::ReportCreateArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/report.rs:48:1
+   |
+48 | struct ReportCreateArgs {
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::report::ReportDeleteArgs` is more private than the item `commands::report::ReportCommands::Delete::0`
+  --> crates/openre-cli/src/commands/report.rs:31:12
+   |
+31 |     Delete(ReportDeleteArgs),
+   |            ^^^^^^^^^^^^^^^^ field `commands::report::ReportCommands::Delete::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::report::ReportDeleteArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/report.rs:67:1
+   |
+67 | struct ReportDeleteArgs {
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::report::ReportUseArgs` is more private than the item `commands::report::ReportCommands::Use::0`
+  --> crates/openre-cli/src/commands/report.rs:33:9
+   |
+33 |     Use(ReportUseArgs),
+   |         ^^^^^^^^^^^^^ field `commands::report::ReportCommands::Use::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::report::ReportUseArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/report.rs:74:1
+   |
+74 | struct ReportUseArgs {
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: type `commands::config::ShowArgs` is more private than the item `commands::config::ConfigCommands::Show::0`
+  --> crates/openre-cli/src/commands/config.rs:13:10
+   |
+13 |     Show(ShowArgs),
+   |          ^^^^^^^^ field `commands::config::ConfigCommands::Show::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::config::ShowArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/config.rs:29:1
+   |
+29 | struct ShowArgs {
+   | ^^^^^^^^^^^^^^^
+
+warning: type `commands::config::SetArgs` is more private than the item `commands::config::ConfigCommands::Set::0`
+  --> crates/openre-cli/src/commands/config.rs:15:9
+   |
+15 |     Set(SetArgs),
+   |         ^^^^^^^ field `commands::config::ConfigCommands::Set::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::config::SetArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/config.rs:40:1
+   |
+40 | struct SetArgs {
+   | ^^^^^^^^^^^^^^
+
+warning: type `commands::config::GetArgs` is more private than the item `commands::config::ConfigCommands::Get::0`
+  --> crates/openre-cli/src/commands/config.rs:17:9
+   |
+17 |     Get(GetArgs),
+   |         ^^^^^^^ field `commands::config::ConfigCommands::Get::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::config::GetArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/config.rs:49:1
+   |
+49 | struct GetArgs {
+   | ^^^^^^^^^^^^^^
+
+warning: type `commands::config::ResetArgs` is more private than the item `commands::config::ConfigCommands::Reset::0`
+  --> crates/openre-cli/src/commands/config.rs:19:11
+   |
+19 |     Reset(ResetArgs),
+   |           ^^^^^^^^^ field `commands::config::ConfigCommands::Reset::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::config::ResetArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/config.rs:55:1
+   |
+55 | struct ResetArgs {
+   | ^^^^^^^^^^^^^^^^
+
+warning: type `commands::config::InitArgs` is more private than the item `commands::config::ConfigCommands::Init::0`
+  --> crates/openre-cli/src/commands/config.rs:25:10
+   |
+25 |     Init(InitArgs),
+   |          ^^^^^^^^ field `commands::config::ConfigCommands::Init::0` is reachable at visibility `pub(crate)`
+   |
+note: but type `commands::config::InitArgs` is only usable at visibility `pub(self)`
+  --> crates/openre-cli/src/commands/config.rs:66:1
+   |
+66 | struct InitArgs {
+   | ^^^^^^^^^^^^^^^
+
+warning: function `detect_format` is never used
+   --> crates/openre-cli/src/analysis_stubs.rs:259:8
+    |
+259 | pub fn detect_format(path: &PathBuf) -> anyhow::Result<BinaryFormat> {
+    |        ^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `ExploitTemplateDetail` is never constructed
+   --> crates/openre-cli/src/intelligence_stubs.rs:435:12
+    |
+435 | pub struct ExploitTemplateDetail {
+    |            ^^^^^^^^^^^^^^^^^^^^^
+
+warning: this `impl` can be derived
+  --> crates/openre-cli/src/analysis_stubs.rs:43:1
+   |
+43 | / impl Default for BinaryFormat {
+44 | |     fn default() -> Self {
+45 | |         BinaryFormat::Auto
+46 | |     }
+47 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#derivable_impls
+   = note: `#[warn(clippy::derivable_impls)]` on by default
+help: replace the manual implementation with a derive attribute and mark the default variant
+   |
+10 + #[derive(Default)]
+11 | pub enum BinaryFormat {
+12 |     Elf,
+...
+15 |     Wasm,
+16 ~     #[default]
+17 ~     Auto,
+   |
+
+warning: casting to the same type is unnecessary (`u64` -> `u64`)
+   --> crates/openre-cli/src/commands/scan.rs:519:43
+    |
+519 |     final_summary.duration_seconds = Some(duration.as_secs() as u64);
+    |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `duration.as_secs()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_cast
+    = note: `#[warn(clippy::unnecessary_cast)]` on by default
+
+warning: using `clone` on type `Severity` which implements the `Copy` trait
+   --> crates/openre-cli/src/commands/scan.rs:523:32
+    |
+523 |         *severity_counts.entry(f.severity.clone()).or_insert(0) += 1;
+    |                                ^^^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `f.severity`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#clone_on_copy
+    = note: `#[warn(clippy::clone_on_copy)]` on by default
+
+warning: casting to the same type is unnecessary (`u8` -> `u8`)
+   --> crates/openre-cli/src/commands/scan.rs:557:13
+    |
+557 | /             (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>()
+558 | |                 / all_findings.len() as u8) as u8
+    | |_________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_cast
+help: try
+    |
+557 ~             (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>()
+558 +                 / all_findings.len() as u8)
+    |
+
+warning: casting to the same type is unnecessary (`u8` -> `u8`)
+   --> crates/openre-cli/src/commands/scan.rs:557:42
+    |
+557 |             (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>()
+    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `f.risk_score.unwrap_or(0)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_cast
+
+warning: casting to the same type is unnecessary (`u8` -> `u8`)
+   --> crates/openre-cli/src/commands/scan.rs:564:46
+    |
+564 |                 (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>() as f32
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `f.risk_score.unwrap_or(0)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_cast
+
+warning: casting to the same type is unnecessary (`u64` -> `u64`)
+   --> crates/openre-cli/src/commands/scan.rs:830:43
+    |
+830 |     final_summary.duration_seconds = Some(duration.as_secs() as u64);
+    |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `duration.as_secs()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_cast
+
+warning: using `clone` on type `Severity` which implements the `Copy` trait
+   --> crates/openre-cli/src/commands/scan.rs:834:32
+    |
+834 |         *severity_counts.entry(f.severity.clone()).or_insert(0) += 1;
+    |                                ^^^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `f.severity`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#clone_on_copy
+
+warning: casting to the same type is unnecessary (`u8` -> `u8`)
+   --> crates/openre-cli/src/commands/scan.rs:868:13
+    |
+868 | /             (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>()
+869 | |                 / all_findings.len() as u8) as u8
+    | |_________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_cast
+help: try
+    |
+868 ~             (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>()
+869 +                 / all_findings.len() as u8)
+    |
+
+warning: casting to the same type is unnecessary (`u8` -> `u8`)
+   --> crates/openre-cli/src/commands/scan.rs:868:42
+    |
+868 |             (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>()
+    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `f.risk_score.unwrap_or(0)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_cast
+
+warning: casting to the same type is unnecessary (`u8` -> `u8`)
+   --> crates/openre-cli/src/commands/scan.rs:875:46
+    |
+875 |                 (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>() as f32
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `f.risk_score.unwrap_or(0)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_cast
+
+warning: using `clone` on type `Option<ProjectId>` which implements the `Copy` trait
+    --> crates/openre-cli/src/commands/scan.rs:1102:30
+     |
+1102 |         .list_scan_summaries(project_id.clone(), 1000, 0)
+     |                              ^^^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `project_id`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#clone_on_copy
+
+warning: using `clone` on type `ProjectId` which implements the `Copy` trait
+    --> crates/openre-cli/src/commands/scan.rs:1204:28
+     |
+1204 |             projects.entry(project_id.clone()).or_insert_with(|| {
+     |                            ^^^^^^^^^^^^^^^^^^ help: try dereferencing it: `*project_id`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#clone_on_copy
+
+warning: using `clone` on type `ProjectId` which implements the `Copy` trait
+    --> crates/openre-cli/src/commands/scan.rs:1206:25
+     |
+1206 |                     id: project_id.clone(),
+     |                         ^^^^^^^^^^^^^^^^^^ help: try dereferencing it: `*project_id`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#clone_on_copy
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+    --> crates/openre-cli/src/commands/scan.rs:1445:32
+     |
+1445 |             .save_scan_summary(&summary)
+     |                                ^^^^^^^^ help: change this to: `summary`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_borrow
+     = note: `#[warn(clippy::needless_borrow)]` on by default
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> crates/openre-cli/src/commands/analyze.rs:343:46
+    |
+343 |         let start_addr = u64::from_str_radix(&start.trim_start_matches("0x"), 16)
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `start.trim_start_matches("0x")`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_borrow
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+   --> crates/openre-cli/src/commands/analyze.rs:345:44
+    |
+345 |         let end_addr = u64::from_str_radix(&end.trim_start_matches("0x"), 16)
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: `end.trim_start_matches("0x")`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_borrow
+
+warning: useless conversion to the same type: `ai_stubs::ExplainDetail`
+   --> crates/openre-cli/src/commands/ai.rs:224:48
+    |
+224 |     let explanation = client.explain(&finding, args.detail.into(), args.audience.into()).await?;
+    |                                                ^^^^^^^^^^^^^^^^^^ help: consider removing `.into()`: `args.detail`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#useless_conversion
+    = note: `#[warn(clippy::useless_conversion)]` on by default
+
+warning: useless conversion to the same type: `ai_stubs::Audience`
+   --> crates/openre-cli/src/commands/ai.rs:224:68
+    |
+224 |     let explanation = client.explain(&finding, args.detail.into(), args.audience.into()).await?;
+    |                                                                    ^^^^^^^^^^^^^^^^^^^^ help: consider removing `.into()`: `args.audience`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#useless_conversion
+
+warning: useless conversion to the same type: `ai_stubs::FixType`
+   --> crates/openre-cli/src/commands/ai.rs:237:36
+    |
+237 |         client.remediate(&finding, args.fix_type.into(), args.language.as_deref()).await?;
+    |                                    ^^^^^^^^^^^^^^^^^^^^ help: consider removing `.into()`: `args.fix_type`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#useless_conversion
+
+warning: field assignment outside of initializer for an instance created with Default::default()
+   --> crates/openre-cli/src/commands/report.rs:238:5
+    |
+238 |     config.custom_template = Some(template.content.clone());
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: consider initializing the variable with `openre_core::ReportConfig { custom_template: Some(template.content.clone()), ..Default::default() }` and removing relevant reassignments
+   --> crates/openre-cli/src/commands/report.rs:237:5
+    |
+237 |     let mut config = ReportConfig::default();
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#field_reassign_with_default
+    = note: `#[warn(clippy::field_reassign_with_default)]` on by default
+
+warning: redundant closure
+  --> crates/openre-cli/src/context.rs:40:26
+   |
+40 |                 .map_err(|e| CliError::Anyhow(e))?;
+   |                          ^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the tuple variant itself: `CliError::Anyhow`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_closure
+   = note: `#[warn(clippy::redundant_closure)]` on by default
+
+warning: this `impl` can be derived
+  --> crates/openre-cli/src/output.rs:16:1
+   |
+16 | / impl Default for OutputFormat {
+17 | |     fn default() -> Self {
+18 | |         OutputFormat::Table
+19 | |     }
+20 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#derivable_impls
+help: replace the manual implementation with a derive attribute and mark the default variant
+   |
+ 8 + #[derive(Default)]
+ 9 | pub enum OutputFormat {
+10 ~     #[default]
+11 ~     Table,
+   |
+
+warning: useless use of `vec!`
+    --> crates/openre-cli/src/commands/scan.rs:1650:18
+     |
+1650 |     let levels = vec!["info", "low", "medium", "high", "critical"];
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: you can use an array directly: `["info", "low", "medium", "high", "critical"]`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#useless_vec
+     = note: `#[warn(clippy::useless_vec)]` on by default
+
+warning: `openre-cli` (bin "openre") generated 105 warnings (run `cargo clippy --fix --bin "openre" -p openre-cli -- ` to apply 56 suggestions)
+    Checking openre-tui v0.1.0 (/home/jupyter-24b11cs489@adityau-1219b/project/open-re/crates/openre-tui)
+warning: unused import: `WorkflowViewMode`
+ --> crates/openre-tui/src/actions.rs:5:48
+  |
+5 |     REViewMode, ReportType, ScanStatus, Theme, WorkflowViewMode,
+  |                                                ^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Job`
+ --> crates/openre-tui/src/actions.rs:9:32
+  |
+9 | use openre_intelligence::job::{Job, Priority};
+  |                                ^^^
+
+warning: unused imports: `Job` and `Priority`
+  --> crates/openre-tui/src/app.rs:24:32
+   |
+24 | use openre_intelligence::job::{Job, Priority};
+   |                                ^^^  ^^^^^^^^
+
+warning: unused import: `uuid::Uuid`
+  --> crates/openre-tui/src/app.rs:38:5
+   |
+38 | use uuid::Uuid;
+   |     ^^^^^^^^^^
+
+warning: unused import: `Job`
+ --> crates/openre-tui/src/components.rs:5:32
+  |
+5 | use openre_intelligence::job::{Job, Priority};
+  |                                ^^^
+
+warning: unused import: `Priority`
+  --> crates/openre-tui/src/events.rs:10:37
+   |
+10 | use openre_intelligence::job::{Job, Priority};
+   |                                     ^^^^^^^^
+
+warning: unused imports: `ScansState`, `WorkflowExecution`, and `Workflow`
+  --> crates/openre-tui/src/panels.rs:10:76
+   |
+10 |         ReportViewMode, ReportsState, ReverseEngineeringState, ScanStatus, ScansState, ThemeColors,
+   |                                                                            ^^^^^^^^^^
+11 |         Workflow, WorkflowExecution, WorkflowViewMode, WorkflowsState,
+   |         ^^^^^^^^  ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Category`, `Confidence`, and `Finding`
+  --> crates/openre-tui/src/panels.rs:15:27
+   |
+15 | use openre_core::result::{Category, Confidence, Finding, Severity};
+   |                           ^^^^^^^^  ^^^^^^^^^^  ^^^^^^^
+
+warning: unused imports: `Job` and `Priority`
+  --> crates/openre-tui/src/panels.rs:16:32
+   |
+16 | use openre_intelligence::job::{Job, Priority};
+   |                                ^^^  ^^^^^^^^
+
+warning: unused imports: `AIViewMode`, `ActiveScanInfo`, `ChatMessage`, `ChatRole`, `EvidenceDetail`, `FindingDetail`, `FindingsGroupBy`, `LogLevel`, `PluginViewMode`, `ProjectSortBy`, `REViewMode`, `RemediationDetail`, `ReportViewMode`, `ScanStatus`, `WorkflowExecution`, and `WorkflowViewMode`
+ --> crates/openre-tui/src/services.rs:4:17
+  |
+4 |     AIAnalysis, AIViewMode, ActiveScanInfo, ChatMessage, ChatRole, DisplayFinding, EvidenceDetail,
+  |                 ^^^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^                  ^^^^^^^^^^^^^^
+5 |     FindingDetail, FindingsGroupBy, FunctionSummary, JobStatus, LogEntry, LogLevel, PluginInfo,
+  |     ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^                                        ^^^^^^^^
+6 |     PluginViewMode, ProjectInfo, ProjectSortBy, QueueStats, REProject, REViewMode,
+  |     ^^^^^^^^^^^^^^               ^^^^^^^^^^^^^                         ^^^^^^^^^^
+7 |     RemediationDetail, ReportInfo, ReportType, ReportViewMode, ScanStatus, Workflow,
+  |     ^^^^^^^^^^^^^^^^^                          ^^^^^^^^^^^^^^  ^^^^^^^^^^
+8 |     WorkflowExecution, WorkflowViewMode,
+  |     ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused imports: `FileId` and `JobId`
+  --> crates/openre-tui/src/services.rs:11:24
+   |
+11 | use openre_core::ids::{FileId, JobId, ProjectId, ScanId};
+   |                        ^^^^^^  ^^^^^
+
+warning: unused imports: `Category`, `Confidence`, `Finding`, and `Severity`
+  --> crates/openre-tui/src/services.rs:12:27
+   |
+12 | use openre_core::result::{Category, Confidence, Finding, Severity};
+   |                           ^^^^^^^^  ^^^^^^^^^^  ^^^^^^^  ^^^^^^^^
+
+warning: unused imports: `Priority` and `QueueStats as QueueQueueStats`
+  --> crates/openre-tui/src/services.rs:13:37
+   |
+13 | use openre_intelligence::job::{Job, Priority, QueueManager, QueueStats as QueueQueueStats};
+   |                                     ^^^^^^^^                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ScanProgress` and `ScanSession`
+  --> crates/openre-tui/src/services.rs:16:35
+   |
+16 | use openre_scanner::{ScanManager, ScanProgress, ScanSession};
+   |                                   ^^^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: unused import: `rusqlite::Connection`
+  --> crates/openre-tui/src/services.rs:76:5
+   |
+76 | use rusqlite::Connection;
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Path`
+  --> crates/openre-tui/src/services.rs:78:17
+   |
+78 | use std::path::{Path, PathBuf};
+   |                 ^^^^
+
+warning: unused imports: `debug` and `error`
+  --> crates/openre-tui/src/services.rs:81:15
+   |
+81 | use tracing::{debug, error, info, warn};
+   |               ^^^^^  ^^^^^
+
+warning: unexpected `cfg` condition value: `postgres`
+   --> crates/openre-tui/src/services.rs:215:15
+    |
+215 |         #[cfg(feature = "postgres")]
+    |               ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `default`, `full`, `intelligence`, `plugins`, `scan`, `storage`, and `telemetry`
+    = help: consider adding `postgres` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unexpected `cfg` condition value: `postgres`
+   --> crates/openre-tui/src/services.rs:228:19
+    |
+228 |         #[cfg(not(feature = "postgres"))]
+    |                   ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `default`, `full`, `intelligence`, `plugins`, `scan`, `storage`, and `telemetry`
+    = help: consider adding `postgres` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unused import: `crate::app::App`
+ --> crates/openre-tui/src/state.rs:4:5
+  |
+4 | use crate::app::App;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `RwLock`
+  --> crates/openre-tui/src/state.rs:14:36
+   |
+14 | use tokio::sync::{broadcast, mpsc, RwLock};
+   |                                    ^^^^^^
+
+warning: ambiguous glob re-exports
+  --> crates/openre-tui/src/lib.rs:18:9
+   |
+18 | pub use components::*;
+   |         ^^^^^^^^^^^^^ the name `progress_line` in the value namespace is first re-exported here
+...
+31 | pub use utils::*;
+   |         -------- but the name `progress_line` in the value namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: variable does not need to be mutable
+  --> crates/openre-tui/src/app.rs:95:13
+   |
+95 |         let mut panels = get_all_panels();
+   |             ----^^^^^^
+   |             |
+   |             help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable pattern
+   --> crates/openre-tui/src/app.rs:655:13
+    |
+180 |             Action::SetTheme(theme) => {
+    |             ----------------------- matches all the relevant values
+...
+655 |             Action::SetTheme(theme) => {
+    |             ^^^^^^^^^^^^^^^^^^^^^^^ no value can reach this
+    |
+    = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `config`
+   --> crates/openre-tui/src/services.rs:214:35
+    |
+214 |     async fn connect_global_store(config: &Config) -> Option<Arc<GlobalStore>> {
+    |                                   ^^^^^^ help: if this is intentional, prefix it with an underscore: `_config`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `string_count`
+   --> crates/openre-tui/src/services.rs:312:45
+    |
+312 | ...                   let string_count: i64 = conn
+    |                           ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_string_count`
+
+warning: unused variable: `import_count`
+   --> crates/openre-tui/src/services.rs:317:45
+    |
+317 | ...                   let import_count: i64 = conn
+    |                           ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_import_count`
+
+warning: unused variable: `export_count`
+   --> crates/openre-tui/src/services.rs:320:45
+    |
+320 | ...                   let export_count: i64 = conn
+    |                           ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_export_count`
+
+warning: unused variable: `id`
+    --> crates/openre-tui/src/app.rs:1203:35
+     |
+1203 |             Event::ProjectCreated(id) => {
+     |                                   ^^ help: if this is intentional, prefix it with an underscore: `_id`
+
+warning: unused variable: `idx`
+   --> crates/openre-tui/src/app.rs:439:33
+    |
+439 |             Action::CopyFinding(idx) => {
+    |                                 ^^^ help: if this is intentional, prefix it with an underscore: `_idx`
+
+warning: unused variable: `idx`
+   --> crates/openre-tui/src/app.rs:485:37
+    |
+485 |             Action::ShowRemediation(idx) => {
+    |                                     ^^^ help: if this is intentional, prefix it with an underscore: `_idx`
+
+warning: unused variable: `name`
+   --> crates/openre-tui/src/app.rs:490:38
+    |
+490 |             Action::CreateWorkflow { name, description, stages } => {
+    |                                      ^^^^ help: try ignoring the field: `name: _`
+
+warning: unused variable: `description`
+   --> crates/openre-tui/src/app.rs:490:44
+    |
+490 |             Action::CreateWorkflow { name, description, stages } => {
+    |                                            ^^^^^^^^^^^ help: try ignoring the field: `description: _`
+
+warning: unused variable: `stages`
+   --> crates/openre-tui/src/app.rs:490:57
+    |
+490 |             Action::CreateWorkflow { name, description, stages } => {
+    |                                                         ^^^^^^ help: try ignoring the field: `stages: _`
+
+warning: unused variable: `wm`
+   --> crates/openre-tui/src/app.rs:492:33
+    |
+492 |                     if let Some(wm) = &svc.workflow_manager {
+    |                                 ^^ help: if this is intentional, prefix it with an underscore: `_wm`
+
+warning: unused variable: `name`
+   --> crates/openre-tui/src/services.rs:350:40
+    |
+350 |     pub async fn create_project(&self, name: String, path: String) -> anyhow::Result<ProjectId> {
+    |                                        ^^^^ help: if this is intentional, prefix it with an underscore: `_name`
+
+warning: unused variable: `path`
+   --> crates/openre-tui/src/services.rs:350:54
+    |
+350 |     pub async fn create_project(&self, name: String, path: String) -> anyhow::Result<ProjectId> {
+    |                                                      ^^^^ help: if this is intentional, prefix it with an underscore: `_path`
+
+warning: unused variable: `target`
+   --> crates/openre-tui/src/services.rs:398:9
+    |
+398 |         target: String,
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_target`
+
+warning: unused variable: `profile`
+   --> crates/openre-tui/src/services.rs:399:9
+    |
+399 |         profile: String,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_profile`
+
+warning: unused variable: `project_id`
+   --> crates/openre-tui/src/services.rs:400:9
+    |
+400 |         project_id: Option<ProjectId>,
+    |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_project_id`
+
+warning: unused variable: `sm`
+   --> crates/openre-tui/src/services.rs:402:21
+    |
+402 |         if let Some(sm) = &self.scan_manager {
+    |                     ^^ help: if this is intentional, prefix it with an underscore: `_sm`
+
+warning: unused variable: `target_id`
+   --> crates/openre-tui/src/services.rs:404:17
+    |
+404 |             let target_id = openre_scanner::target::TargetId::new();
+    |                 ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_target_id`
+
+warning: unused variable: `workflow_id`
+   --> crates/openre-tui/src/services.rs:529:42
+    |
+529 |     pub async fn execute_workflow(&self, workflow_id: String) -> anyhow::Result<String> {
+    |                                          ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_workflow_id`
+
+warning: unused variable: `wm`
+   --> crates/openre-tui/src/services.rs:530:21
+    |
+530 |         if let Some(wm) = &self.workflow_manager {
+    |                     ^^ help: if this is intentional, prefix it with an underscore: `_wm`
+
+warning: unused variable: `wm`
+   --> crates/openre-tui/src/services.rs:516:21
+    |
+516 |         if let Some(wm) = &self.workflow_manager {
+    |                     ^^ help: if this is intentional, prefix it with an underscore: `_wm`
+
+warning: unused variable: `panel_type`
+    --> crates/openre-tui/src/app.rs:1229:13
+     |
+1229 |         let panel_type = {
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_panel_type`
+
+warning: unused variable: `active`
+    --> crates/openre-tui/src/app.rs:1237:25
+     |
+1237 |             if let Some(active) = &mut state.scans_state.active_scan {
+     |                         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_active`
+
+warning: unused variable: `state`
+  --> crates/openre-tui/src/panels.rs:43:28
+   |
+43 |     fn on_focus(&mut self, state: &mut AppState) {}
+   |                            ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+warning: unused variable: `state`
+  --> crates/openre-tui/src/panels.rs:44:27
+   |
+44 |     fn on_blur(&mut self, state: &mut AppState) {}
+   |                           ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+warning: unused variable: `id`
+   --> crates/openre-tui/src/panels.rs:870:35
+    |
+870 |             Action::LoadREProject(id) => {
+    |                                   ^^ help: if this is intentional, prefix it with an underscore: `_id`
+
+warning: unused variable: `sev_badge`
+    --> crates/openre-tui/src/panels.rs:1399:21
+     |
+1399 |                 let sev_badge = severity_badge(finding.finding.severity, colors);
+     |                     ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_sev_badge`
+
+warning: unused variable: `i`
+    --> crates/openre-tui/src/panels.rs:2393:20
+     |
+2393 |             .map(|(i, (name, provider, selected))| {
+     |                    ^ help: if this is intentional, prefix it with an underscore: `_i`
+
+warning: unused variable: `status`
+    --> crates/openre-tui/src/panels.rs:2627:21
+     |
+2627 |                 let status = if plugin.enabled {
+     |                     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_status`
+
+warning: unused variable: `scan_ids`
+    --> crates/openre-tui/src/panels.rs:3013:51
+     |
+3013 |             Action::GenerateReport { report_type, scan_ids, project_ids } => {
+     |                                                   ^^^^^^^^ help: try ignoring the field: `scan_ids: _`
+
+warning: unused variable: `project_ids`
+    --> crates/openre-tui/src/panels.rs:3013:61
+     |
+3013 |             Action::GenerateReport { report_type, scan_ids, project_ids } => {
+     |                                                             ^^^^^^^^^^^ help: try ignoring the field: `project_ids: _`
+
+warning: unused variable: `type_badge`
+    --> crates/openre-tui/src/panels.rs:3111:21
+     |
+3111 |                 let type_badge = report_type_badge(report.report_type, colors);
+     |                     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_type_badge`
+
+warning: fields `services` and `data_fetcher` are never read
+  --> crates/openre-tui/src/app.rs:53:5
+   |
+41 | pub struct App {
+   |            --- fields in this struct
+...
+53 |     services: Option<Arc<Services>>,
+   |     ^^^^^^^^
+54 |     data_fetcher: Option<DataFetcher>,
+   |     ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: large size difference between variants
+   --> crates/openre-tui/src/actions.rs:14:1
+    |
+ 14 | / pub enum Action {
+ 15 | |     // Navigation
+ 16 | |     NavigateToPanel(PanelType),
+ 17 | |     NavigateNextPanel,
+...   |
+192 | |     UpdateKeyBindings(KeyBindings),
+    | |     ------------------------------ the largest variant contains at least 528 bytes
+193 | |     ShowNotification(Notification),
+    | |     ------------------------------ the second-largest variant contains at least 96 bytes
+...   |
+196 | |     Shutdown,
+197 | | }
+    | |_^ the entire enum is at least 528 bytes
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#large_enum_variant
+    = note: `#[warn(clippy::large_enum_variant)]` on by default
+help: consider boxing the large fields or introducing indirection in some other way to reduce the total size of the enum
+    |
+192 -     UpdateKeyBindings(KeyBindings),
+192 +     UpdateKeyBindings(Box<KeyBindings>),
+    |
+
+warning: the `Err`-variant returned from this function is very large
+   --> crates/openre-tui/src/actions.rs:227:10
+    |
+227 |     ) -> Result<(), tokio::sync::mpsc::error::SendError<Action>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the `Err`-variant is at least 528 bytes
+    |
+    = help: try reducing the size of `tokio::sync::mpsc::error::SendError<actions::Action>`, for example by boxing large elements or replacing it with `Box<tokio::sync::mpsc::error::SendError<actions::Action>>`
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#result_large_err
+    = note: `#[warn(clippy::result_large_err)]` on by default
+
+warning: deref which would be done by auto-deref
+   --> crates/openre-tui/src/app.rs:734:52
+    |
+734 |                         panel.render(f, chunks[1], &mut *state, &colors, true);
+    |                                                    ^^^^^^^^^^^ help: try: `&mut state`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#explicit_auto_deref
+    = note: `#[warn(clippy::explicit_auto_deref)]` on by default
+
+warning: this function has too many arguments (9/7)
+   --> crates/openre-tui/src/components.rs:254:1
+    |
+254 | / pub fn render_table<'a>(
+255 | |     f: &mut Frame,
+256 | |     area: Rect,
+257 | |     header: Row<'a>,
+...   |
+263 | |     focused: bool,
+264 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#too_many_arguments
+    = note: `#[warn(clippy::too_many_arguments)]` on by default
+
+warning: called `map(..).flatten()` on `Iterator`
+   --> crates/openre-tui/src/components.rs:374:10
+    |
+374 |           .map(|(key, desc)| {
+    |  __________^
+375 | |             vec![
+376 | |                 Span::styled(
+377 | |                     format!(" {} ", key),
+...   |
+385 | |         })
+386 | |         .flatten()
+    | |__________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#map_flatten
+    = note: `#[warn(clippy::map_flatten)]` on by default
+help: try replacing `map` with `flat_map` and remove the `.flatten()`
+    |
+374 ~         .flat_map(|(key, desc)| {
+375 +             vec![
+376 +                 Span::styled(
+377 +                     format!(" {} ", key),
+378 +                     Style::default()
+379 +                         .fg(colors.accent_bold)
+380 +                         .bg(colors.selected_bg)
+381 +                         .add_modifier(Modifier::BOLD),
+382 +                 ),
+383 +                 Span::styled(format!(" {} ", desc), Style::default().fg(colors.muted)),
+384 +             ]
+385 +         })
+    |
+
+warning: this function has too many arguments (8/7)
+   --> crates/openre-tui/src/components.rs:470:1
+    |
+470 | / pub fn render_confirmation_dialog(
+471 | |     f: &mut Frame,
+472 | |     area: Rect,
+473 | |     title: &str,
+...   |
+478 | |     selected_yes: bool,
+479 | | ) {
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#too_many_arguments
+
+warning: large size difference between variants
+   --> crates/openre-tui/src/events.rs:15:1
+    |
+ 15 | / pub enum Event {
+ 16 | |     // Panel navigation
+ 17 | |     PanelChanged(PanelType),
+ 18 | |     PanelFocused(PanelType),
+...   |
+ 29 | |     JobCreated(Job),
+    | |     --------------- the second-largest variant contains at least 264 bytes
+...   |
+109 | |     KeyBindingsChanged(KeyBindings),
+    | |     ------------------------------- the largest variant contains at least 528 bytes
+...   |
+113 | |     ShutdownRequested,
+114 | | }
+    | |_^ the entire enum is at least 528 bytes
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#large_enum_variant
+help: consider boxing the large fields or introducing indirection in some other way to reduce the total size of the enum
+    |
+109 -     KeyBindingsChanged(KeyBindings),
+109 +     KeyBindingsChanged(Box<KeyBindings>),
+    |
+
+warning: the `Err`-variant returned from this function is very large
+   --> crates/openre-tui/src/events.rs:173:10
+    |
+173 |     ) -> Result<usize, tokio::sync::broadcast::error::SendError<Event>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the `Err`-variant is at least 528 bytes
+    |
+    = help: try reducing the size of `tokio::sync::broadcast::error::SendError<events::Event>`, for example by boxing large elements or replacing it with `Box<tokio::sync::broadcast::error::SendError<events::Event>>`
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#result_large_err
+
+warning: useless conversion to the same type: `ratatui::text::Line<'_>`
+   --> crates/openre-tui/src/panels.rs:580:17
+    |
+580 | /                 Line::from(progress_line(
+581 | |                     active.progress as f32 / active.total.max(1) as f32,
+582 | |                     (chunks[0].width.saturating_sub(4)) as u16,
+583 | |                     colors,
+584 | |                 )),
+    | |__________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#useless_conversion
+    = note: `#[warn(clippy::useless_conversion)]` on by default
+help: consider removing `Line::from()`
+    |
+580 ~                 progress_line(
+581 +                     active.progress as f32 / active.total.max(1) as f32,
+582 +                     (chunks[0].width.saturating_sub(4)) as u16,
+583 +                     colors,
+584 ~                 ),
+    |
+
+warning: casting to the same type is unnecessary (`u16` -> `u16`)
+   --> crates/openre-tui/src/panels.rs:582:21
+    |
+582 |                     (chunks[0].width.saturating_sub(4)) as u16,
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `(chunks[0].width.saturating_sub(4))`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_cast
+    = note: `#[warn(clippy::unnecessary_cast)]` on by default
+
+warning: this `if` can be collapsed into the outer `match`
+   --> crates/openre-tui/src/panels.rs:731:17
+    |
+731 | /                 if len > 0 {
+732 | |                     scans_state.selected_index = len - 1;
+733 | |                 }
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#collapsible_match
+    = note: `#[warn(clippy::collapsible_match)]` on by default
+help: collapse nested if block
+    |
+730 ~             KeyCode::Char('G')
+731 ~                 if len > 0 => {
+732 |                     scans_state.selected_index = len - 1;
+733 ~                 }
+    |
+
+warning: this `if` can be collapsed into the outer `match`
+   --> crates/openre-tui/src/panels.rs:943:17
+    |
+943 | /                 if re_state.selected_index > 0 {
+944 | |                     re_state.selected_index -= 1;
+945 | |                 }
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#collapsible_match
+help: collapse nested if block
+    |
+942 ~             KeyCode::Up | KeyCode::Char('k')
+943 ~                 if re_state.selected_index > 0 => {
+944 |                     re_state.selected_index -= 1;
+945 ~                 }
+    |
+
+warning: you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`
+    --> crates/openre-tui/src/panels.rs:1764:9
+     |
+1764 | /         match action {
+1765 | |             Action::ExecuteWorkflow(id) => {
+1766 | |                 state.add_notification(Notification {
+1767 | |                     id: uuid::Uuid::new_v4().to_string(),
+...    |
+1775 | |             _ => {}
+1776 | |         }
+     | |_________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#single_match
+     = note: `#[warn(clippy::single_match)]` on by default
+help: try
+     |
+1764 ~         if let Action::ExecuteWorkflow(id) = action {
+1765 +             state.add_notification(Notification {
+1766 +                 id: uuid::Uuid::new_v4().to_string(),
+1767 +                 level: crate::state::NotificationLevel::Info,
+1768 +                 title: "Workflow Started".to_string(),
+1769 +                 message: format!("Executing workflow {}", id),
+1770 +                 timestamp: chrono::Utc::now(),
+1771 +                 duration_ms: 3000,
+1772 +             });
+1773 +         }
+     |
+
+warning: this `if` can be collapsed into the outer `match`
+    --> crates/openre-tui/src/panels.rs:1806:17
+     |
+1806 | /                 if workflows_state.selected_index > 0 {
+1807 | |                     workflows_state.selected_index -= 1;
+1808 | |                 }
+     | |_________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#collapsible_match
+help: collapse nested if block
+     |
+1805 ~             KeyCode::Up | KeyCode::Char('k')
+1806 ~                 if workflows_state.selected_index > 0 => {
+1807 |                     workflows_state.selected_index -= 1;
+1808 ~                 }
+     |
+
+warning: this `if` can be collapsed into the outer `match`
+    --> crates/openre-tui/src/panels.rs:2193:17
+     |
+2193 | /                 if ai_state.view_mode == AIViewMode::Chat {
+2194 | |                     ai_state.current_prompt.pop();
+2195 | |                 }
+     | |_________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#collapsible_match
+help: collapse nested if block
+     |
+2192 ~             KeyCode::Backspace
+2193 ~                 if ai_state.view_mode == AIViewMode::Chat => {
+2194 |                     ai_state.current_prompt.pop();
+2195 ~                 }
+     |
+
+warning: this `if` can be collapsed into the outer `match`
+    --> crates/openre-tui/src/panels.rs:2572:17
+     |
+2572 | /                 if plugins_state.selected_index > 0 {
+2573 | |                     plugins_state.selected_index -= 1;
+2574 | |                 }
+     | |_________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#collapsible_match
+help: collapse nested if block
+     |
+2571 ~             KeyCode::Up | KeyCode::Char('k')
+2572 ~                 if plugins_state.selected_index > 0 => {
+2573 |                     plugins_state.selected_index -= 1;
+2574 ~                 }
+     |
+
+warning: you seem to be trying to use `match` for destructuring a single pattern. Consider using `if let`
+    --> crates/openre-tui/src/panels.rs:3012:9
+     |
+3012 | /         match action {
+3013 | |             Action::GenerateReport { report_type, scan_ids, project_ids } => {
+3014 | |                 state.add_notification(Notification {
+3015 | |                     id: uuid::Uuid::new_v4().to_string(),
+...    |
+3023 | |             _ => {}
+3024 | |         }
+     | |_________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#single_match
+help: try
+     |
+3012 ~         if let Action::GenerateReport { report_type, scan_ids, project_ids } = action {
+3013 +             state.add_notification(Notification {
+3014 +                 id: uuid::Uuid::new_v4().to_string(),
+3015 +                 level: crate::state::NotificationLevel::Info,
+3016 +                 title: "Report Generation".to_string(),
+3017 +                 message: format!("Generating {} report...", report_type),
+3018 +                 timestamp: chrono::Utc::now(),
+3019 +                 duration_ms: 3000,
+3020 +             });
+3021 +         }
+     |
+
+warning: this `if` can be collapsed into the outer `match`
+    --> crates/openre-tui/src/panels.rs:3056:17
+     |
+3056 | /                 if reports_state.selected_index > 0 {
+3057 | |                     reports_state.selected_index -= 1;
+3058 | |                 }
+     | |_________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#collapsible_match
+help: collapse nested if block
+     |
+3055 ~             KeyCode::Up | KeyCode::Char('k')
+3056 ~                 if reports_state.selected_index > 0 => {
+3057 |                     reports_state.selected_index -= 1;
+3058 ~                 }
+     |
+
+warning: useless use of `vec!`
+    --> crates/openre-tui/src/panels.rs:2376:22
+     |
+2376 |           let models = vec![
+     |  ______________________^
+2377 | |             ("GPT-4", "OpenAI", true),
+2378 | |             ("GPT-3.5-Turbo", "OpenAI", false),
+2379 | |             ("Claude-3-Opus", "Anthropic", false),
+2380 | |             ("Claude-3-Sonnet", "Anthropic", false),
+2381 | |             ("Local-Llama-3", "Local", false),
+2382 | |         ];
+     | |_________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#useless_vec
+     = note: `#[warn(clippy::useless_vec)]` on by default
+help: you can use an array directly
+     |
+2376 ~         let models = [("GPT-4", "OpenAI", true),
+2377 +             ("GPT-3.5-Turbo", "OpenAI", false),
+2378 +             ("Claude-3-Opus", "Anthropic", false),
+2379 +             ("Claude-3-Sonnet", "Anthropic", false),
+2380 ~             ("Local-Llama-3", "Local", false)];
+     |
+
+warning: `openre-tui` (lib) generated 76 warnings (run `cargo clippy --fix --lib -p openre-tui -- ` to apply 65 suggestions)
+warning: unused import: `App`
+ --> crates/openre-tui/src/main.rs:5:27
+  |
+5 | use openre_tui::{run_tui, App};
+  |                           ^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `openre-tui` (bin "openre-tui") generated 1 warning (run `cargo clippy --fix --bin "openre-tui" -p openre-tui -- ` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.42s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1, sqlx-postgres v0.8.0
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 11`
