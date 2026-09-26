@@ -2,7 +2,15 @@
 
 use chrono::{DateTime, Utc};
 use openre_core::ids::{FindingId, ScanId};
-pub use openre_core::result::{AssetCriticality, AttackComplexity, AttackVector, BusinessImpactAssessment, Category, CertificateInfo, CodeExample, Confidence, Evidence, EvidenceType, ExploitabilityAssessment, Finding, FindingConfig, FindingFilter, FindingSort, FindingStats, HttpRequestEvidence, HttpResponseEvidence, ImpactLevel, PayloadEvidence, PrivilegesRequired, Reference, ReferenceType, RegulatoryImpact, RemediationEffort, RemediationGuidance, RemediationPriority, ReproductionDifficulty, ReproductionSteps, Scope, Severity, TimingEvidence, TlsInfo, UserInteraction};
+pub use openre_core::result::{
+    AssetCriticality, AttackComplexity, AttackVector, BusinessImpactAssessment, Category,
+    CertificateInfo, CodeExample, Confidence, Evidence, EvidenceType, ExploitabilityAssessment,
+    Finding, FindingConfig, FindingFilter, FindingSort, FindingStats, HttpRequestEvidence,
+    HttpResponseEvidence, ImpactLevel, PayloadEvidence, PrivilegesRequired, Reference,
+    ReferenceType, RegulatoryImpact, RemediationEffort, RemediationGuidance, RemediationPriority,
+    ReproductionDifficulty, ReproductionSteps, Scope, Severity, TimingEvidence, TlsInfo,
+    UserInteraction,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -32,10 +40,6 @@ pub enum IntelligenceError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 }
-
-/// Finding structure (matches openre_core::result::Finding)
-/// Note: We re-export the real Finding from openre_core::result above, so this is just for documentation
-/// The actual Finding type is imported and re-exported via `pub use openre_core::result::Finding;`
 
 /// Correlation engine stub
 #[derive(Debug, Clone)]

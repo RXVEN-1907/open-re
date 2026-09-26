@@ -92,13 +92,10 @@ impl AiClient {
         // Stub implementation - we can note if ultrathink is enabled
         let mut summary = "AI analysis not implemented - requires openre-ai crate".to_string();
         if request.ultrathink {
-            summary = "AI analysis not implemented - requires openre-ai crate (ultrathink mode)".to_string();
+            summary = "AI analysis not implemented - requires openre-ai crate (ultrathink mode)"
+                .to_string();
         }
-        Ok(AnalysisResult {
-            summary,
-            details: vec![],
-            recommendations: vec![],
-        })
+        Ok(AnalysisResult { summary, details: vec![], recommendations: vec![] })
     }
 
     pub async fn explain(

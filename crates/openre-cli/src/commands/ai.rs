@@ -215,8 +215,11 @@ async fn run_analyze(ctx: &mut Context, args: AnalyzeArgs) -> Result<(), CliErro
                 "Ultrathink mode enabled: maximum thinking budget applied".to_string()
             } else {
                 "".to_string()
-            }
-        ].into_iter().filter(|s| !s.is_empty()).collect(),
+            },
+        ]
+        .into_iter()
+        .filter(|s| !s.is_empty())
+        .collect(),
         recommendations: vec![
             "Consult with a security expert for detailed analysis".to_string(),
             "Review the finding manually for accuracy".to_string(),
@@ -255,7 +258,7 @@ async fn run_correlate(ctx: &mut Context, args: CorrelateArgs) -> Result<(), Cli
     let client = ctx.ai_client()?;
     let engine = CorrelationEngine::new();
 
-    let spinner = ctx.spinner("Correlating findings...");
+    let spinner = ctx.spinner("Correlate findings...");
     let findings = load_findings_from_path(&args.path)?;
     let correlations = engine.correlate(&findings).await?;
     spinner.finish_and_clear();
