@@ -384,7 +384,7 @@ async fn serve_openapi() -> impl IntoResponse {
 async fn create_scan(
     State(state): State<ApiState>,
     Json(request): Json<CreateScanRequest>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     // Validate request
     if let Err(e) = request.validate() {
         return Err((
@@ -472,7 +472,7 @@ async fn create_scan(
 async fn get_scan(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
         (
             StatusCode::NOT_FOUND,
@@ -529,7 +529,7 @@ async fn update_scan(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
     Json(request): Json<UpdateScanRequest>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let _scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
         (
             StatusCode::NOT_FOUND,
@@ -630,7 +630,7 @@ async fn update_scan(
 async fn cancel_scan(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     state.scan_manager.cancel_scan(&id).await.map_err(|e| {
         (
             StatusCode::NOT_FOUND,
@@ -675,7 +675,7 @@ async fn cancel_scan(
 async fn pause_scan(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     state.scan_manager.pause_scan(&id).await.map_err(|e| {
         (
             StatusCode::BAD_REQUEST,
@@ -720,7 +720,7 @@ async fn pause_scan(
 async fn resume_scan(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     state.scan_manager.resume_scan(&id).await.map_err(|e| {
         (
             StatusCode::BAD_REQUEST,
@@ -764,7 +764,7 @@ async fn resume_scan(
 async fn get_scan_progress(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let progress = state.scan_manager.get_progress(&id).ok_or_else(|| {
         (
             StatusCode::NOT_FOUND,
@@ -798,7 +798,7 @@ async fn get_scan_findings(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
     Query(params): Query<FindingQueryParams>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     // Verify scan exists
     if state.scan_manager.get_scan(&id).is_none() {
         return Err((
@@ -872,7 +872,7 @@ async fn get_scan_logs(
     State(state): State<ApiState>,
     Path(id): Path<ScanId>,
     Query(params): Query<PaginationParams>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let logs = state.scan_manager.get_logs(&id);
     let logs: Vec<crate::scan::ScanLogEntry> =
         logs.into_iter().skip(params.offset).take(params.limit).collect();
@@ -894,7 +894,7 @@ async fn get_scan_logs(
 async fn create_target(
     State(state): State<ApiState>,
     Json(request): Json<CreateTargetRequest>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     if let Err(e) = request.validate() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -1001,7 +1001,7 @@ async fn create_target(
 async fn get_target(
     State(state): State<ApiState>,
     Path(id): Path<TargetId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let target = state.target_manager.get(&id).ok_or_else(|| {
         (
             StatusCode::NOT_FOUND,
@@ -1062,7 +1062,7 @@ async fn update_target(
     State(state): State<ApiState>,
     Path(id): Path<TargetId>,
     Json(request): Json<UpdateTargetRequest>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let mut target = state.target_manager.get(&id).ok_or_else(|| {
         (
             StatusCode::NOT_FOUND,
@@ -1162,7 +1162,7 @@ async fn update_target(
 async fn delete_target(
     State(state): State<ApiState>,
     Path(id): Path<TargetId>,
-) -> Result<impl IntoResponse, Response> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let deleted = state.target_manager.delete(&id);
     if !deleted {
         return Err((
@@ -1200,7 +1200,9 @@ async fn delete_target(
     ),
     tag = "plugins"
 )]
-async fn list_plugins(State(state): State<ApiState>) -> Result<impl IntoResponse, Response> {
+async fn list_plugins(
+    State(state): State<ApiState>,
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     let plugins = state.plugin_manager.list_plugins().await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
