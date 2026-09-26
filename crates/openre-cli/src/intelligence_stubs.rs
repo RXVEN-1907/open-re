@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use openre_core::ids::{FindingId, ScanId};
+pub use openre_core::result::{AssetCriticality, AttackComplexity, AttackVector, BusinessImpactAssessment, Category, CertificateInfo, CodeExample, Confidence, Evidence, EvidenceType, ExploitabilityAssessment, Finding, FindingConfig, FindingFilter, FindingSort, FindingStats, HttpRequestEvidence, HttpResponseEvidence, ImpactLevel, PayloadEvidence, PrivilegesRequired, Reference, ReferenceType, RegulatoryImpact, RemediationEffort, RemediationGuidance, RemediationPriority, ReproductionDifficulty, ReproductionSteps, Scope, Severity, TimingEvidence, TlsInfo, UserInteraction};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -33,90 +34,8 @@ pub enum IntelligenceError {
 }
 
 /// Finding structure (matches openre_core::result::Finding)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Finding {
-    pub id: FindingId,
-    pub scan_id: ScanId,
-    pub title: String,
-    pub description: String,
-    pub severity: Severity,
-    pub category: Category,
-    pub confidence: Confidence,
-    pub location: Option<String>,
-    pub evidence: serde_json::Value,
-    pub remediation: Option<String>,
-    pub remediation_effort: Option<String>,
-    pub remediation_priority: Option<String>,
-    pub references: Vec<String>,
-    pub cwe_ids: Vec<String>,
-    pub capec_ids: Vec<String>,
-    pub owasp_ids: Vec<String>,
-    pub mitre_ids: Vec<String>,
-    pub cvss_score: Option<f32>,
-    pub risk_score: Option<f32>,
-    pub exploitability: Option<String>,
-    pub is_verified: bool,
-    pub false_positive: bool,
-    pub tags: Vec<String>,
-    pub metadata: serde_json::Value,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Severity {
-    Critical,
-    High,
-    Medium,
-    Low,
-    Info,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Category {
-    Injection,
-    BrokenAuth,
-    SensitiveData,
-    Xxe,
-    BrokenAccess,
-    SecurityMisconfig,
-    Xss,
-    InsecureDeserialization,
-    VulnerableComponents,
-    InsufficientLogging,
-    Ssrf,
-    Csrf,
-    Idor,
-    OpenRedirect,
-    PathTraversal,
-    CommandInjection,
-    LdapInjection,
-    TemplateInjection,
-    Deserialization,
-    JwtIssues,
-    OAuthIssues,
-    WebsocketIssues,
-    GraphqlIssues,
-    RateLimiting,
-    Cors,
-    Csp,
-    CookieSecurity,
-    InfoDisclosure,
-    TechFingerprint,
-    TlsIssues,
-    HttpMethods,
-    SslConfig,
-    Other,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Confidence {
-    VeryHigh,
-    High,
-    Medium,
-    Low,
-    VeryLow,
-}
+/// Note: We re-export the real Finding from openre_core::result above, so this is just for documentation
+/// The actual Finding type is imported and re-exported via `pub use openre_core::result::Finding;`
 
 /// Correlation engine stub
 #[derive(Debug, Clone)]

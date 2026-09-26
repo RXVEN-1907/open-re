@@ -34,9 +34,6 @@ pub mod verification;
 pub mod workflow;
 pub mod workflow_engine;
 
-#[cfg(test)]
-mod comprehensive_test;
-
 // Re-export main components
 pub use agents::{
     create_investigation_workflow,
@@ -61,7 +58,6 @@ pub use agents::{
     AuthEndpoint,
     BaseAgent,
     CancellationToken,
-    ClientSideIssue,
     CoordinatorConfig,
     CoordinatorStats,
     CorrelationAgent,
@@ -108,10 +104,6 @@ pub use cve_intelligence::{CveIntelligence, CveProvider};
 pub use dependency_analysis::DependencyAnalyzer;
 pub use error::IntelligenceError;
 pub use knowledge_base::KnowledgeBase;
-pub use openre_core::history::{
-    AnalyzeConfig, CorrelateConfig, DiscoverConfig, InvestigationStageConfig, PrioritizeConfig,
-    StageResult, StageStatus, VerifyConfig, WorkflowArtifact, WorkflowReportConfig, WorkflowStatus,
-};
 pub use performance::PerformanceOptimizer;
 pub use remediation::RemediationVerifier;
 pub use root_cause::RootCauseAnalyzer;

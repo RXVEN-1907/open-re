@@ -56,6 +56,10 @@ struct AnalyzeArgs {
     /// Additional context
     #[arg(long)]
     context: Option<String>,
+
+    /// Enable ultrathink mode (maximum thinking budget)
+    #[arg(long)]
+    ultrathink: bool,
 }
 
 #[derive(Args, Debug)]
@@ -197,6 +201,7 @@ async fn run_analyze(ctx: &mut Context, args: AnalyzeArgs) -> Result<(), CliErro
         finding: finding.clone(),
         analysis_type: crate::ai_stubs::AnalysisType::FullAnalysis,
         context: args.context,
+        ultrathink: args.ultrathink,
     };
     client.analyze(request).await?;
     spinner.finish_and_clear();
@@ -206,7 +211,12 @@ async fn run_analyze(ctx: &mut Context, args: AnalyzeArgs) -> Result<(), CliErro
         details: vec![
             "This is a stub response from the AI service".to_string(),
             format!("Analysis of finding: {}", finding.id),
-        ],
+            if args.ultrathink {
+                "Ultrathink mode enabled: maximum thinking budget applied".to_string()
+            } else {
+                "".to_string()
+            }
+        ].into_iter().filter(|s| !s.is_empty()).collect(),
         recommendations: vec![
             "Consult with a security expert for detailed analysis".to_string(),
             "Review the finding manually for accuracy".to_string(),

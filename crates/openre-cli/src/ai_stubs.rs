@@ -1,7 +1,6 @@
 //! Stub AI types (replacing openre-ai)
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use thiserror::Error;
 
 /// AI provider type
@@ -89,9 +88,14 @@ impl AiClient {
         Ok(response)
     }
 
-    pub async fn analyze(&self, _request: AnalysisRequest) -> anyhow::Result<AnalysisResult> {
+    pub async fn analyze(&self, request: AnalysisRequest) -> anyhow::Result<AnalysisResult> {
+        // Stub implementation - we can note if ultrathink is enabled
+        let mut summary = "AI analysis not implemented - requires openre-ai crate".to_string();
+        if request.ultrathink {
+            summary = "AI analysis not implemented - requires openre-ai crate (ultrathink mode)".to_string();
+        }
         Ok(AnalysisResult {
-            summary: "AI analysis not implemented - requires openre-ai crate".to_string(),
+            summary,
             details: vec![],
             recommendations: vec![],
         })
@@ -159,6 +163,8 @@ pub struct AnalysisRequest {
     pub finding: crate::intelligence_stubs::Finding,
     pub analysis_type: AnalysisType,
     pub context: Option<String>,
+    /// Enable ultrathink mode (maximum thinking budget)
+    pub ultrathink: bool,
 }
 
 /// Analysis type
