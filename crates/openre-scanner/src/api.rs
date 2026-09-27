@@ -8,7 +8,7 @@ use crate::target::{ScanConfig, Target, TargetId, TargetMetadata, TargetType};
 use axum::{
     extract::{Json, Path, Query, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     routing::{get, post},
     Router,
 };
@@ -394,8 +394,7 @@ async fn create_scan(
                 message: e.to_string(),
                 details: None,
             }),
-        )
-            .into_response());
+        ));
     }
 
     // Get target
@@ -408,7 +407,6 @@ async fn create_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     // Build scan config
@@ -437,7 +435,6 @@ async fn create_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     // Get created scan
@@ -450,7 +447,6 @@ async fn create_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok((StatusCode::CREATED, Json(ScanResponse::from(scan))).into_response())
@@ -482,7 +478,6 @@ async fn get_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok(Json(ScanResponse::from(scan)).into_response())
@@ -539,7 +534,6 @@ async fn update_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     // Handle status changes
@@ -555,7 +549,6 @@ async fn update_scan(
                             details: None,
                         }),
                     )
-                        .into_response()
                 })?;
             }
             ScanStatus::Paused => {
@@ -568,7 +561,6 @@ async fn update_scan(
                             details: None,
                         }),
                     )
-                        .into_response()
                 })?;
             }
             ScanStatus::Running => {
@@ -581,7 +573,6 @@ async fn update_scan(
                             details: None,
                         }),
                     )
-                        .into_response()
                 })?;
             }
             _ => {
@@ -592,8 +583,7 @@ async fn update_scan(
                         message: "Cannot set this status via update".to_string(),
                         details: None,
                     }),
-                )
-                    .into_response());
+                ));
             }
         }
     }
@@ -608,7 +598,6 @@ async fn update_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok(Json(ScanResponse::from(scan)).into_response())
@@ -640,7 +629,6 @@ async fn cancel_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
@@ -652,7 +640,6 @@ async fn cancel_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok(Json(ScanResponse::from(scan)).into_response())
@@ -685,7 +672,6 @@ async fn pause_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
@@ -697,7 +683,6 @@ async fn pause_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok(Json(ScanResponse::from(scan)).into_response())
@@ -730,7 +715,6 @@ async fn resume_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     let scan = state.scan_manager.get_scan(&id).ok_or_else(|| {
@@ -742,7 +726,6 @@ async fn resume_scan(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok(Json(ScanResponse::from(scan)).into_response())
@@ -774,7 +757,6 @@ async fn get_scan_progress(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok(Json(progress).into_response())
@@ -808,8 +790,7 @@ async fn get_scan_findings(
                 message: format!("Scan {} not found", id),
                 details: None,
             }),
-        )
-            .into_response());
+        ));
     }
 
     // Build filter
@@ -847,7 +828,6 @@ async fn get_scan_findings(
                     details: None,
                 }),
             )
-                .into_response()
         })?;
 
     let findings: Vec<FindingResponse> = findings.into_iter().map(FindingResponse::from).collect();
@@ -903,8 +883,7 @@ async fn create_target(
                 message: e.to_string(),
                 details: None,
             }),
-        )
-            .into_response());
+        ));
     }
 
     let base_url = request.base_url.parse().map_err(|e| {
@@ -916,7 +895,6 @@ async fn create_target(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     let mut metadata = TargetMetadata::new(request.name, base_url);
@@ -966,7 +944,6 @@ async fn create_target(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     // Save to storage
@@ -979,7 +956,6 @@ async fn create_target(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok((StatusCode::CREATED, Json(TargetResponse::from(target))).into_response())
@@ -1011,7 +987,6 @@ async fn get_target(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok(Json(TargetResponse::from(target)).into_response())
@@ -1072,7 +1047,6 @@ async fn update_target(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     if let Some(name) = request.name {
@@ -1091,7 +1065,6 @@ async fn update_target(
                     details: None,
                 }),
             )
-                .into_response()
         })?;
     }
     if let Some(headers) = request.headers {
@@ -1128,7 +1101,6 @@ async fn update_target(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     state.storage.save_target(&target).await.map_err(|e| {
@@ -1140,7 +1112,6 @@ async fn update_target(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok(Json(TargetResponse::from(target)).into_response())
@@ -1172,8 +1143,7 @@ async fn delete_target(
                 message: format!("Target {} not found", id),
                 details: None,
             }),
-        )
-            .into_response());
+        ));
     }
 
     state.storage.delete_target(&id).await.map_err(|e| {
@@ -1185,7 +1155,6 @@ async fn delete_target(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     Ok(StatusCode::NO_CONTENT.into_response())
@@ -1212,7 +1181,6 @@ async fn list_plugins(
                 details: None,
             }),
         )
-            .into_response()
     })?;
 
     let plugins: Vec<PluginResponse> = plugins.into_iter().map(PluginResponse::from).collect();
