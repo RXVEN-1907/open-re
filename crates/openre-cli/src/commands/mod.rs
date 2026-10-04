@@ -15,10 +15,12 @@ pub mod exploit;
 #[cfg(feature = "analysis")]
 pub mod remediate;
 
-#[cfg(feature = "queue")]
-pub mod queue;
-
 #[cfg(feature = "report")]
 pub mod report;
 
 pub mod config;
+#[cfg(feature = "schedule")]
+pub mod schedule;
+
+#[cfg(feature = "hunt")]
+pub mod hunt;

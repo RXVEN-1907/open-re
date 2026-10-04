@@ -63,7 +63,7 @@ impl SqliteHistoryStorage {
     }
 
     /// Get a connection guard for database operations
-    async fn conn(&self) -> tokio::sync::MutexGuard<'_, Connection> {
+    pub async fn conn(&self) -> tokio::sync::MutexGuard<'_, Connection> {
         self.conn.lock().await
     }
 }

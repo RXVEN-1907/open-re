@@ -3527,6 +3527,7 @@ dependencies = [
  "openre-telemetry",
  "regex",
  "reqwest",
+ "rusqlite",
  "sarif_rust",
  "scroll",
  "serde",
