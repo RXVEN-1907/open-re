@@ -1,6 +1,8 @@
 //! Web vulnerability scanning commands
 
-use crate::{print_output, CliError, Context, OutputFormat};
+use crate::output::{print_output, OutputFormat};
+use crate::error::CliError;
+use crate::context::Context;
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
 use openre_core::error::OpenreResult;
@@ -22,7 +24,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use tabled::{settings::Style, Table};
+use tabled::{Table, Tabled, Style};
 use tokio::time::{sleep, Duration};
 
 fn get_history_storage(ctx: &Context) -> SqliteHistoryStorage {

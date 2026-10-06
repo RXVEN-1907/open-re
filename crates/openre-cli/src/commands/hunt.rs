@@ -1,5 +1,6 @@
 //! Instant security assessment with AI-powered PoC generation and viral sharing mechanics
 
+use crate::error::CliError;
 use clap::{Args, Subcommand};
 use std::path::PathBuf;
 
@@ -23,7 +24,7 @@ pub struct HuntArgs {
     open: bool,
 
     /// Show technical details in output
-    #[arg(short, long)]
+    #[arg(short = 'T', long)]
     technical: bool,
 
     /// Enable viral sharing features (badges, social media ready output)
@@ -35,7 +36,7 @@ pub struct HuntArgs {
     achievements: bool,
 
     /// Custom output directory
-    #[arg(short, long)]
+    #[arg(short = 'O', long)]
     output: Option<PathBuf>,
 
     /// Skip confirmation prompts
@@ -43,54 +44,51 @@ pub struct HuntArgs {
     yes: bool,
 }
 
-#[derive(Subcommand, Debug)]
-pub enum HuntSubcommands {
-    /// Run instant security assessment with AI-powered PoC generation and viral sharing
-    Hunt(HuntArgs),
-}
 
 /// Execute the hunt command
-pub async fn execute(subcommand: HuntSubcommands) -> Result<(), Box<dyn std::error::Error>> {
-    match subcommand {
-        HuntSubcommands::Hunt(args) => {
-            println!("🔍 OpenRe Hunt: Instant Security Assessment");
-            println!("   Target: {}", args.target);
-            println!("   Depth: {}", args.depth);
-            println!("   Format: {}", args.format);
-            
-            // Step 1: Scan - Quickly discovers vulnerabilities using built-in scanners
-            println!("\n📡 Step 1/4: Scanning for vulnerabilities...");
-            let scan_results = scan_target(&args.target, &args.depth).await?;
-            
-            // Step 2: Analyze - Uses AI to understand exploitability and impact
-            println!("\n🧠 Step 2/4: Analyzing exploitability and impact...");
-            let analyzed_results = analyze_vulnerabilities(&scan_results).await?;
-            
-            // Step 3: PoC - Generates working proof-of-concept code for critical findings
-            println!("\n💥 Step 3/4: Generating working proof-of-concepts...");
-            let poc_results = generate_pocs(&analyzed_results).await?;
-            
-            // Step 4: Report - Creates a beautiful, shareable HTML executive report with built-in viral loops
-            println!("\n📊 Step 4/4: Generating shareable executive report...");
-            let report_path = generate_report(&analyzed_results, &poc_results, &args).await?;
-            
-            println!("\n✅ Hunt complete! Results saved to: {}", report_path.display());
-            
-            if args.open {
-                println!("🌐 Opening results in browser...");
-                // In a real implementation, this would open the browser
-                println!("   (Browser opening simulated)");
-            }
-            
-            println!("\n🚀 Share your results: openre share --file {}", report_path.display());
-            
-            Ok(())
-        }
+pub async fn execute(args: HuntArgs) -> Result<(), CliError> {
+    println!("🔍 OpenRe Hunt: Instant Security Assessment");
+    println!("   Target: {}", args.target);
+    println!("   Depth: {}", args.depth);
+    println!("   Format: {}", args.format);
+    
+    // Step 1: Scan - Quickly discovers vulnerabilities using built-in scanners
+    println!("
+📡 Step 1/4: Scanning for vulnerabilities...");
+    let scan_results = scan_target(&args.target, &args.depth).await?;
+    
+    // Step 2: Analyze - Uses AI to understand exploitability and impact
+    println!("
+🧠 Step 2/4: Analyzing exploitability and impact...");
+    let analyzed_results = analyze_vulnerabilities(&scan_results).await?;
+    
+    // Step 3: PoC - Generates working proof-of-concept code for critical findings
+    println!("
+💥 Step 3/4: Generating working proof-of-concepts...");
+    let poc_results = generate_pocs(&analyzed_results).await?;
+    
+    // Step 4: Report - Creates a beautiful, shareable HTML executive report with built-in viral loops
+    println!("
+📊 Step 4/4: Generating shareable executive report...");
+    let report_path = generate_report(&analyzed_results, &poc_results, &args).await?;
+    
+    println!("
+✅ Hunt complete! Results saved to: {}", report_path.display());
+    
+    if args.open {
+        println!("🌐 Opening results in browser...");
+        // In a real implementation, this would open the browser
+        println!("   (Browser opening simulated)");
     }
+    
+    println!("
+🚀 Share your results: openre share --file {}", report_path.display());
+    
+    Ok(())
 }
 
 /// Scan target for vulnerabilities
-async fn scan_target(target: &str, depth: &str) -> Result<Vec<Vulnerability>, Box<dyn std::error::Error>> {
+async fn scan_target(target: &str, depth: &str) -> Result<Vec<Vulnerability>, CliError> {
     // In a real implementation, this would use various scanning techniques
     // For now, we'll simulate some results
     
@@ -165,7 +163,7 @@ async fn scan_target(target: &str, depth: &str) -> Result<Vec<Vulnerability>, Bo
 }
 
 /// Analyze vulnerabilities for exploitability and impact
-async fn analyze_vulnerabilities(vulnerabilities: &[Vulnerability]) -> Result<Vec<AnalyzedVulnerability>, Box<dyn std::error::Error>> {
+async fn analyze_vulnerabilities(vulnerabilities: &[Vulnerability]) -> Result<Vec<AnalyzedVulnerability>, CliError> {
     let mut analyzed = Vec::new();
     
     for vuln in vulnerabilities {
@@ -183,7 +181,7 @@ async fn analyze_vulnerabilities(vulnerabilities: &[Vulnerability]) -> Result<Ve
 }
 
 /// Generate proof-of-concept code for critical findings
-async fn generate_pocs(analyzed_vulns: &[AnalyzedVulnerability]) -> Result<Vec<PoCResult>, Box<dyn std::error::Error>> {
+async fn generate_pocs(analyzed_vulns: &[AnalyzedVulnerability]) -> Result<Vec<PoCResult>, CliError> {
     let mut poc_results = Vec::new();
     
     for analyzed_vuln in analyzed_vulns {
@@ -199,17 +197,17 @@ async fn generate_pocs(analyzed_vulns: &[AnalyzedVulnerability]) -> Result<Vec<P
 
 /// Generate a shareable HTML report
 async fn generate_report(
-    analyzed_vulns: &[AnalyzedVulnerability>,
-    poc_results: &[PoCResult>,
+    analyzed_vulns: &[AnalyzedVulnerability],
+    poc_results: &[PoCResult],
     args: &HuntArgs,
-) -> Result<PathBuf, Box<dyn std::error::Error>> {
+) -> Result<PathBuf, CliError> {
     // Determine output path
-    let output_dir = args.output.as_ref().unwrap_or(&std::env::current_dir()?);
+    let output_dir = args.output.clone().unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
     let report_path = output_dir.join("openre-hunt-report.html");
     
     // In a real implementation, this would generate a beautiful HTML report
     // For now, we'll just create a placeholder
-    std::fs::write(&report_path, "<!-- OpenRe Hunt Report -->\n<html><body><h1>OpenRe Hunt Results</h1></body></html>")?;
+        std::fs::write(&report_path, "<!-- OpenRe Hunt Report --><html><body><h1>OpenRe Hunt Results</h1></body></html>").map_err(|e| CliError::Io(e))?;
     
     Ok(report_path)
 }
@@ -306,7 +304,7 @@ fn generate_remediation_suggestion(vuln: &Vulnerability) -> String {
 }
 
 /// Generate proof-of-concept code for a specific vulnerability
-async fn generate_poc_for_vulnerability(vuln: &Vulnerability) -> Result<PoCResult, Box<dyn std::error::Error>> {
+async fn generate_poc_for_vulnerability(vuln: &Vulnerability) -> Result<PoCResult, CliError> {
     // In a real implementation, this would generate actual working PoC code
     // For now, we'll return a placeholder
     

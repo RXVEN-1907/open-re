@@ -6,16 +6,14 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 mod commands;
-use commands::{
-    ai::AiCommands,
-    analyze::AnalyzeCommands,
-    config::ConfigCommands,
-    exploit::ExploitCommands,
-    remediate::RemediateCommands,
-    report::ReportCommands,
-    schedule::ScheduleCommands,
-    hunt::HuntSubcommands,  // New import for hunt command
-};
+mod analysis_stubs;
+mod ai_stubs;
+mod intelligence_stubs;
+mod output;
+mod error;
+mod context;
+
+use crate::commands::hunt::HuntArgs;
 
 /// OpenRe - Unified Reverse Engineering & Offensive Security CLI Tool
 #[derive(Parser, Debug)]
@@ -32,26 +30,12 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// AI-powered analysis and remediation suggestions
-    Ai(AiCommands),
-    /// Analyze files, binaries, and network traffic
-    Analyze(AnalyzeCommands),
-    /// Configure OpenRe settings
-    Config(ConfigCommands),
-    /// Generate exploit code and proof-of-concepts
-    Exploit(ExploitCommands),
-    /// Remediate vulnerabilities with AI-generated fixes
-    Remediate(RemediateCommands),
-    /// Generate reports in various formats
-    Report(ReportCommands),
-    /// Schedule recurring scans and monitoring
-    Schedule(ScheduleCommands),
     /// Instant security assessment with AI-powered PoC generation and viral sharing
-    Hunt(HuntSubcommands),  // New hunt command
+    Hunt(HuntArgs),  // New hunt command
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), crate::error::CliError> {
     // Initialize tracing subscriber
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "openre=info".into());
@@ -73,29 +57,8 @@ async fn main() {
     }
 
     match args.command {
-        Commands::Ai(command) => {
-            commands::ai::execute(command).await?;
-        }
-        Commands::Analyze(command) => {
-            commands::analyze::execute(command).await?;
-        }
-        Commands::Config(command) => {
-            commands::config::execute(command).await?;
-        }
-        Commands::Exploit(command) => {
-            commands::exploit::execute(command).await?;
-        }
-        Commands::Remediate(command) => {
-            commands::remediate::execute(command).await?;
-        }
-        Commands::Report(command) => {
-            commands::report::execute(command).await?;
-        }
-        Commands::Schedule(command) => {
-            commands::schedule::execute(command).await?;
-        }
         Commands::Hunt(command) => {
-            commands::hunt::execute(command).await?;
+            commands::hunt::execute(command).await
         }
     }
 }

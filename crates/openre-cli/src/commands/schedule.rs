@@ -1,10 +1,13 @@
+use serde::{Deserialize, Serialize};
 #![allow(clippy::too_many_lines)]
 
 //! Schedule management commands for continuous monitoring
 //!
 //! This module provides commands to manage scheduled scans for continuous monitoring.
 
-use crate::{print_output, CliError, Context, OutputFormat};
+use crate::output::{print_output, OutputFormat};
+use crate::error::CliError;
+use crate::context::Context;
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
 use openre_core::error::OpenreResult;
@@ -26,7 +29,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use tabled::{settings::Style, Table};
+use tabled::{Table, Tabled, Style};
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
@@ -119,9 +122,9 @@ pub struct ScanSchedule {
     pub target: String,
     pub profile: String,
     pub interval_minutes: u64,
-    pub checks: Option<Vec<String>>,
-    pub exclude_checks: Option<Vec<String>>,
-    pub headers: Option<Vec<(String, String)>>,
+    pub checks: Option<String>,
+    pub exclude_checks: Option<String>,
+    pub headers: Option<String>,
     pub user_agent: Option<String>,
     pub proxy: Option<String>,
     pub timeout: Option<u64>,
@@ -294,20 +297,6 @@ impl From<ScheduleProfileArg> for ScanProfile {
     }
 }
 
-impl ScheduleCommands {
-    pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
-        match self {
-            ScheduleCommands::Add(args) => add_schedule(ctx, args).await,
-            ScheduleCommands::List(args) => list_schedules(ctx, args).await,
-            ScheduleCommands::Remove(args) => remove_schedule(ctx, args).await,
-            ScheduleCommands::Pause(args) => pause_schedule(ctx, args).await,
-            ScheduleCommands::Resume(args) => resume_schedule(ctx, args).await,
-            ScheduleCommands::Show(args) => show_schedule(ctx, args).await,
-            ScheduleCommands::Daemon(args) => run_scheduler_daemon(ctx, args).await,
-        }
-    }
-}
-
 /// Add a new scan schedule
 async fn add_schedule(ctx: Context, args: ScheduleAddArgs) -> Result<(), CliError> {
     let storage = init_schedule_storage(&ctx).await?;
@@ -334,23 +323,26 @@ async fn add_schedule(ctx: Context, args: ScheduleAddArgs) -> Result<(), CliErro
             ScheduleProfileArg::Quick => "quick".to_string(),
             ScheduleProfileArg::Standard => "standard".to_string(),
             ScheduleProfileArg::Full => "full".to_string(),
+        target: args.target,
         },
         interval_minutes: args.interval,
-        checks: if args.checks.is_empty() { None } else { Some(args.checks) },
-        exclude_checks: if args.exclude.is_empty() { None } else { Some(args.exclude) },
-        headers: if headers.is_empty() { None } else { Some(headers) },
+        checks: if args.checks.is_empty() { None } else { Some(serde_json::to_string(checks: if args.checks.is_empty() { None } else { Some(args.checks) },args.checks).unwrap()) },
+        exclude_checks: if args.exclude.is_empty() { None } else { Some(serde_json::to_string(exclude_checks: if args.exclude.is_empty() { None } else { Some(args.exclude) },args.exclude).unwrap()) },
+        headers: if headers.is_empty() { None } else { Some(serde_json::to_string(headers: if headers.is_empty() { None } else { Some(headers) },headers).unwrap()) },
         user_agent: args.user_agent,
         proxy: args.proxy,
         timeout: args.timeout,
         rate_limit: args.rate_limit,
         max_redirects: args.max_redirects,
-        follow_redirects: args.follow_redirects,
         no_tls_verify: args.no_tls_verify,
         enabled: true,
         last_run: None,
         next_run: Some(next_run),
         created_at: now,
         updated_at: now,
+    };
+
+    let mut conn = storage.conn().await;
 
     conn.execute(
         r#"
@@ -368,40 +360,42 @@ async fn add_schedule(ctx: Context, args: ScheduleAddArgs) -> Result<(), CliErro
             &schedule.name,
             &schedule.target,
             &schedule.profile,
-            schedule.interval_minutes as i64,
-            &serde_json::to_string(&schedule.checks)?,
-            &serde_json::to_string(&schedule.exclude_checks)?,
-            &serde_json::to_string(&schedule.headers)?,
-            schedule.user_agent.as_deref(),
-            schedule.proxy.as_deref(),
-            schedule.timeout.map(|v| v as i64),
-            schedule.rate_limit,
-            schedule.max_redirects.map(|v| v as i64),
-            schedule.follow_redirects.map(|v| v as i64),
-            schedule.no_tls_verify as i64,
-            schedule.enabled as i64,
-            schedule.last_run.map(|dt| dt.to_rfc3339()).as_deref(),
-            schedule.next_run.map(|dt| dt.to_rfc3339()).as_deref(),
-            &schedule.created_at.to_rfc3339(),
-            &schedule.updated_at.to_rfc3339(),
+            &schedule.interval_minutes,
+            &schedule.checks,
+            &schedule.exclude_checks,
+            &schedule.headers,
+            &schedule.user_agent,
+            &schedule.proxy,
+            &schedule.timeout,
+            &schedule.rate_limit,
+            &schedule.max_redirects,
+            &schedule.follow_redirects,
+            &schedule.no_tls_verify,
+            &schedule.enabled,
+            &schedule.last_run,
+            &schedule.next_run,
+            &schedule.created_at,
+            &schedule.updated_at,
         ]
     )?;
 
-    println!("  {} {}", "Next run:".bold(), next_run.to_rfc3339());
-    println!("  {} {}", "Target:".bold(), args.target);
-    let profile_str = match args.profile {
-        ScheduleProfileArg::Quick => "quick".to_string(),
-        ScheduleProfileArg::Standard => "standard".to_string(),
-        ScheduleProfileArg::Full => "full".to_string(),
-    };
-    println!("  {} {}", "Profile:".bold(), profile_str);
-    println!("  {} {}", "Interval:".bold(), format!("{} minutes", args.interval));
-    println!("  {} {}", "Next run:".bold(), next_run.to_rfc3339());
-
     Ok(())
 }
+impl ScheduleCommands {
+    pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
+        match self {
+            ScheduleCommands::Add(args) => add_schedule(ctx, args).await,
+            ScheduleCommands::List(args) => list_schedules(ctx, args).await,
+            ScheduleCommands::Remove(args) => remove_schedule(ctx, args).await,
+            ScheduleCommands::Pause(args) => pause_schedule(ctx, args).await,
+            ScheduleCommands::Resume(args) => resume_schedule(ctx, args).await,
+            ScheduleCommands::Show(args) => show_schedule(ctx, args).await,
+            ScheduleCommands::Daemon(args) => run_scheduler_daemon(ctx, args).await,
+        }
+    }
+}
 
-/// List all scan schedules
+/// Add a new scan schedule
 async fn list_schedules(ctx: Context, args: ScheduleListArgs) -> Result<(), CliError> {
     let storage = init_schedule_storage(&ctx).await?;
 

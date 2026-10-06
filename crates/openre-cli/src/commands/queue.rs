@@ -9,7 +9,7 @@ use openre_core::traits::JobType;
 use openre_queue::queue_manager::QueueStats;
 use openre_queue::{Job, JobStatus, Priority, QueueManager};
 use std::path::PathBuf;
-use tabled::{settings::Style, Table};
+use tabled::{Table, Tabled, Style};
 use tracing::{info, warn};
 
 #[derive(Subcommand, Debug)]

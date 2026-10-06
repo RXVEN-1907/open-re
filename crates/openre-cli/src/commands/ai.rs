@@ -5,12 +5,14 @@ use crate::ai_stubs::{
     ExplainDetail, FixType, ProviderInfo,
 };
 use crate::intelligence_stubs::{CorrelationEngine, Finding};
-use crate::{print_output, CliError, Context, OutputFormat};
+use crate::output::{print_output, OutputFormat};
+use crate::error::CliError;
+use crate::context::Context;
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
 use std::path::Path;
 use std::path::PathBuf;
-use tabled::{settings::Style, Table};
+use tabled::{Table, Tabled, Style};
 
 #[derive(Subcommand, Debug)]
 pub enum AiCommands {
@@ -139,19 +141,19 @@ struct TestArgs {
 }
 
 impl AiCommands {
-    pub async fn execute(self, mut ctx: Context) -> Result<(), CliError> {
+    pub async fn execute(self, ctx: &mut Context) -> Result<(), CliError> {
         if ctx.no_ai {
             return Err(CliError::InvalidArgs("AI features disabled with --no-ai".into()));
         }
 
         match self {
-            AiCommands::Chat(args) => run_chat(&mut ctx, args).await,
-            AiCommands::Analyze(args) => run_analyze(&mut ctx, args).await,
-            AiCommands::Explain(args) => run_explain(&mut ctx, args).await,
-            AiCommands::Remediate(args) => run_remediate(&mut ctx, args).await,
-            AiCommands::Correlate(args) => run_correlate(&mut ctx, args).await,
-            AiCommands::Providers => run_providers(&mut ctx).await,
-            AiCommands::Test(args) => run_test(&mut ctx, args).await,
+            AiCommands::Chat(args) => run_chat(ctx, args).await,
+            AiCommands::Analyze(args) => run_analyze(ctx, args).await,
+            AiCommands::Explain(args) => run_explain(ctx, args).await,
+            AiCommands::Remediate(args) => run_remediate(ctx, args).await,
+            AiCommands::Correlate(args) => run_correlate(ctx, args).await,
+            AiCommands::Providers => run_providers(ctx).await,
+            AiCommands::Test(args) => run_test(ctx, args).await,
         }
     }
 }

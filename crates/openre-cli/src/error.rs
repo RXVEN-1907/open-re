@@ -2,6 +2,7 @@
 
 use crate::ai_stubs::AiError;
 use crate::analysis_stubs::AnalysisError;
+use dialoguer;
 use crate::intelligence_stubs::IntelligenceError;
 #[cfg(feature = "scan")]
 use openre_scan::ScanError;
@@ -51,9 +52,6 @@ pub enum CliError {
 
     #[error("Anyhow error: {0}")]
     Anyhow(#[from] anyhow::Error),
-
-    #[error("Dialoguer error: {0}")]
-    Dialoguer(#[from] dialoguer::Error),
 
     #[error("AI features disabled")]
     AiDisabled,

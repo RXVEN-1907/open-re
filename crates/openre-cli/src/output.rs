@@ -1,4 +1,5 @@
-//! Output formatting
+use crate::error::Result;
+/// Output formatting
 
 use clap::ValueEnum;
 use serde::Serialize;
@@ -23,7 +24,7 @@ pub fn print_output<T: Serialize>(
     data: &T,
     format: OutputFormat,
     path: Option<&Path>,
-) -> crate::Result<()> {
+) -> Result<()> {
     match format {
         OutputFormat::Table => {
             // Table output is handled by individual commands
@@ -48,7 +49,7 @@ pub fn print_output<T: Serialize>(
     Ok(())
 }
 
-fn write_json<T: Serialize>(data: &T, path: Option<&Path>) -> crate::Result<()> {
+fn write_json<T: Serialize>(data: &T, path: Option<&Path>) -> Result<()> {
     let json = serde_json::to_string_pretty(data)?;
     if let Some(p) = path {
         std::fs::write(p, json)?;
@@ -58,12 +59,12 @@ fn write_json<T: Serialize>(data: &T, path: Option<&Path>) -> crate::Result<()> 
     Ok(())
 }
 
-fn write_sarif<T: Serialize>(data: &T, path: Option<&Path>) -> crate::Result<()> {
+fn write_sarif<T: Serialize>(data: &T, path: Option<&Path>) -> Result<()> {
     // SARIF output not fully implemented yet, fall back to JSON
     write_json(data, path)
 }
 
-fn write_yaml<T: Serialize>(data: &T, path: Option<&Path>) -> crate::Result<()> {
+fn write_yaml<T: Serialize>(data: &T, path: Option<&Path>) -> Result<()> {
     let yaml = serde_yaml::to_string(data)?;
     if let Some(p) = path {
         std::fs::write(p, yaml)?;
@@ -73,7 +74,7 @@ fn write_yaml<T: Serialize>(data: &T, path: Option<&Path>) -> crate::Result<()> 
     Ok(())
 }
 
-fn write_csv<T: Serialize>(data: &T, path: Option<&Path>) -> crate::Result<()> {
+fn write_csv<T: Serialize>(data: &T, path: Option<&Path>) -> Result<()> {
     // Simple CSV for arrays of objects
     let json = serde_json::to_value(data)?;
     if let Some(arr) = json.as_array() {
