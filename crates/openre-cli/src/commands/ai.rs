@@ -4,15 +4,15 @@ use crate::ai_stubs::{
     AiClient, AiProvider, AnalysisRequest, AnalysisType, Audience, ConnectionTestResult,
     ExplainDetail, FixType, ProviderInfo,
 };
+use crate::context::Context;
+use crate::error::CliError;
 use crate::intelligence_stubs::{CorrelationEngine, Finding};
 use crate::output::{print_output, OutputFormat};
-use crate::error::CliError;
-use crate::context::Context;
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
 use std::path::Path;
 use std::path::PathBuf;
-use tabled::{Table, Tabled, Style};
+use tabled::{Style, Table, Tabled};
 
 #[derive(Subcommand, Debug)]
 pub enum AiCommands {

@@ -1,10 +1,10 @@
 //! Stub binary analysis types (replacing openre-analysis)
 
+use anyhow::Result;
 use goblin::Object;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use anyhow::Result;
 
 /// Binary format
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,16 +1,16 @@
 //! Remediation guidance commands
 
+use crate::context::Context;
+use crate::error::CliError;
 use crate::intelligence_stubs::{
     ComplianceFramework, Environment, Finding, GroupBy, Language, Priority, RemediationEngine,
     RemediationItem, RemediationPlan, RemediationReport, VerificationResult,
 };
 use crate::output::{print_output, OutputFormat};
-use crate::error::CliError;
-use crate::context::Context;
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
 use std::path::{Path, PathBuf};
-use tabled::{Table, Tabled, Style};
+use tabled::{Style, Table, Tabled};
 
 #[derive(Subcommand, Debug)]
 pub enum RemediateCommands {

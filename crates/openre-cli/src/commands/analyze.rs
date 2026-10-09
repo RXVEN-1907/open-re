@@ -3,13 +3,13 @@
 use crate::analysis_stubs::{
     BinaryAnalyzer, BinaryFormat, BinaryInfo, Disassembly, Function, PipelineResult, PipelineStage,
 };
-use crate::output::{print_output, OutputFormat};
-use crate::error::CliError;
 use crate::context::Context;
+use crate::error::CliError;
+use crate::output::{print_output, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
 use std::path::PathBuf;
-use tabled::{Table, Tabled, Style};
+use tabled::{Style, Table, Tabled};
 
 #[derive(Subcommand, Debug)]
 pub enum AnalyzeCommands {

@@ -1,6 +1,6 @@
 use crate::error::CliError;
-use std::sync::Arc;
 use indicatif::{ProgressBar, ProgressStyle};
+use std::sync::Arc;
 
 /// CLI execution context
 pub struct Context;

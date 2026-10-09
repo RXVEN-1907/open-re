@@ -1,18 +1,19 @@
-use serde::{Deserialize, Serialize};
-#![allow(clippy::too_many_lines)]
-
 //! Schedule management commands for continuous monitoring
 //!
 //! This module provides commands to manage scheduled scans for continuous monitoring.
 
-use crate::output::{print_output, OutputFormat};
-use crate::error::CliError;
+#![allow(clippy::too_many_lines)]
+
+use serde::{Deserialize, Serialize};
+
 use crate::context::Context;
+use crate::error::CliError;
+use crate::output::{print_output, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
 use openre_core::error::OpenreResult;
-use openre_core::ids::{ProjectId, ScanId, TargetId};
 use openre_core::history::{HistoryStorage, ScanConfigSummary, ScanProgressSummary, ScanSummary};
+use openre_core::ids::{ProjectId, ScanId, TargetId};
 use openre_core::result::Finding;
 use openre_core::result::Severity;
 use openre_scan::checks::get_all_checks;
@@ -29,7 +30,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use tabled::{Table, Tabled, Style};
+use tabled::{Style, Table, Tabled};
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
@@ -323,12 +324,24 @@ async fn add_schedule(ctx: Context, args: ScheduleAddArgs) -> Result<(), CliErro
             ScheduleProfileArg::Quick => "quick".to_string(),
             ScheduleProfileArg::Standard => "standard".to_string(),
             ScheduleProfileArg::Full => "full".to_string(),
-        target: args.target,
         },
+        target: args.target,
         interval_minutes: args.interval,
-        checks: if args.checks.is_empty() { None } else { Some(serde_json::to_string(checks: if args.checks.is_empty() { None } else { Some(args.checks) },args.checks).unwrap()) },
-        exclude_checks: if args.exclude.is_empty() { None } else { Some(serde_json::to_string(exclude_checks: if args.exclude.is_empty() { None } else { Some(args.exclude) },args.exclude).unwrap()) },
-        headers: if headers.is_empty() { None } else { Some(serde_json::to_string(headers: if headers.is_empty() { None } else { Some(headers) },headers).unwrap()) },
+        checks: if args.checks.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(&args.checks).unwrap())
+        },
+        exclude_checks: if args.exclude.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(&args.exclude).unwrap())
+        },
+        headers: if headers.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(&headers).unwrap())
+        },
         user_agent: args.user_agent,
         proxy: args.proxy,
         timeout: args.timeout,
@@ -423,12 +436,12 @@ async fn list_schedules(ctx: Context, args: ScheduleListArgs) -> Result<(), CliE
     let mut stmt = conn.prepare(&query)?;
     let rows = stmt.query_map([], |row| {
         Ok((
-            row.get::<_, String>(0)?, // id
-            row.get::<_, String>(1)?, // name
-            row.get::<_, String>(2)?, // target
-            row.get::<_, String>(3)?, // profile
-            row.get::<_, i64>(4)?,    // interval_minutes
-            row.get::<_, i64>(5)?,    // enabled
+            row.get::<_, String>(0)?,         // id
+            row.get::<_, String>(1)?,         // name
+            row.get::<_, String>(2)?,         // target
+            row.get::<_, String>(3)?,         // profile
+            row.get::<_, i64>(4)?,            // interval_minutes
+            row.get::<_, i64>(5)?,            // enabled
             row.get::<_, Option<String>>(6)?, // last_run
             row.get::<_, Option<String>>(7)?, // next_run
         ))
@@ -444,11 +457,14 @@ async fn list_schedules(ctx: Context, args: ScheduleListArgs) -> Result<(), CliE
             profile,
             interval as u64,
             enabled == 1,
-            last_run.map(|s| chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)),
-            next_run.map(|s| chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)),
+            last_run.map(|s| {
+                chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)
+            }),
+            next_run.map(|s| {
+                chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)
+            }),
         ));
     }
-
 
     if schedules.is_empty() {
         println!("{} No schedules found", "ℹ".blue().bold());
@@ -457,7 +473,8 @@ async fn list_schedules(ctx: Context, args: ScheduleListArgs) -> Result<(), CliE
 
     // Create table for display
     let mut table = Table::new(
-        schedules.iter()
+        schedules
+            .iter()
             .map(|(id, name, target, profile, interval, enabled, last_run, next_run)| {
                 ScheduleListRow {
                     id: id.clone(),
@@ -465,9 +482,17 @@ async fn list_schedules(ctx: Context, args: ScheduleListArgs) -> Result<(), CliE
                     target: target.clone(),
                     profile: profile.clone(),
                     interval: format!("{}m", interval),
-                    status: if *enabled { "Enabled".green().to_string() } else { "Disabled".red().to_string() },
-                    last_run: last_run.map(|dt| dt.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "Never".to_string()),
-                    next_run: next_run.map(|dt| dt.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "Not scheduled".to_string()),
+                    status: if *enabled {
+                        "Enabled".green().to_string()
+                    } else {
+                        "Disabled".red().to_string()
+                    },
+                    last_run: last_run
+                        .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                        .unwrap_or_else(|| "Never".to_string()),
+                    next_run: next_run
+                        .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                        .unwrap_or_else(|| "Not scheduled".to_string()),
                 }
             })
             .collect::<Vec<_>>(),
@@ -485,28 +510,22 @@ async fn remove_schedule(ctx: Context, args: ScheduleRemoveArgs) -> Result<(), C
     // Check if schedule exists
     let mut conn = storage.conn().await;
 
-    let exists: bool = conn.query_row(
-        "SELECT COUNT(*) FROM schedules WHERE id = ?1",
-        params![&args.id],
-        |row| row.get(0),
-    )?.unwrap_or(0) > 0;
+    let exists: bool = conn
+        .query_row("SELECT COUNT(*) FROM schedules WHERE id = ?1", params![&args.id], |row| {
+            row.get(0)
+        })?
+        .unwrap_or(0)
+        > 0;
 
     if !exists {
         return Err(CliError::NotFound(format!("Schedule not found: {}", args.id)));
     }
 
     // Delete the schedule
-    conn.execute(
-        "DELETE FROM schedules WHERE id = ?1",
-        params![&args.id],
-    )?;
+    conn.execute("DELETE FROM schedules WHERE id = ?1", params![&args.id])?;
 
     // Also delete associated schedule runs
-    conn.execute(
-        "DELETE FROM schedule_runs WHERE schedule_id = ?1",
-        params![&args.id],
-    )?;
-
+    conn.execute("DELETE FROM schedule_runs WHERE schedule_id = ?1", params![&args.id])?;
 
     println!("{} Schedule removed: {}", "✓".green().bold(), args.id);
 
@@ -589,13 +608,8 @@ async fn pause_schedule(ctx: Context, args: SchedulePauseArgs) -> Result<(), Cli
             updated_at = ?2
         WHERE id = ?3
         "#,
-        params![
-            schedule.enabled as i64,
-            &schedule.updated_at.to_rfc3339(),
-            &schedule.id
-        ]
+        params![schedule.enabled as i64, &schedule.updated_at.to_rfc3339(), &schedule.id],
     )?;
-
 
     println!("{} Schedule paused: {}", "✓".green().bold(), args.id);
 
@@ -693,9 +707,8 @@ async fn resume_schedule(ctx: Context, args: ScheduleResumeArgs) -> Result<(), C
             schedule.next_run.map(|dt| dt.to_rfc3339()).as_deref(),
             &schedule.updated_at.to_rfc3339(),
             &schedule.id
-        ]
+        ],
     )?;
-
 
     println!("{} Schedule resumed: {}", "✓".green().bold(), args.id);
     println!("  {} {}", "Next run:".bold(), schedule.next_run.unwrap().to_rfc3339());
@@ -759,7 +772,6 @@ async fn show_schedule(ctx: Context, args: ScheduleShowArgs) -> Result<(), CliEr
         },
     )?;
 
-
     if schedule.is_none() {
         return Err(CliError::NotFound(format!("Schedule not found: {}", args.id)));
     }
@@ -773,7 +785,11 @@ async fn show_schedule(ctx: Context, args: ScheduleShowArgs) -> Result<(), CliEr
     println!("  {} {}", "Target:".bold(), schedule.target);
     println!("  {} {}", "Profile:".bold(), schedule.profile);
     println!("  {} {}", "Interval:".bold(), format!("{} minutes", schedule.interval_minutes));
-    println!("  {} {}", "Status:".bold(), if schedule.enabled { "Enabled".green() } else { "Disabled".red() });
+    println!(
+        "  {} {}",
+        "Status:".bold(),
+        if schedule.enabled { "Enabled".green() } else { "Disabled".red() }
+    );
     println!("  {} {}", "Created:".bold(), schedule.created_at.to_rfc3339());
     println!("  {} {}", "Updated:".bold(), schedule.updated_at.to_rfc3339());
 
@@ -858,7 +874,10 @@ async fn run_scheduler_daemon(ctx: Context, args: ScheduleDaemonArgs) -> Result<
 }
 
 /// Run one iteration of the scheduler
-async fn run_scheduler_iteration(ctx: &Context, storage: &SqliteHistoryStorage) -> Result<(), CliError> {
+async fn run_scheduler_iteration(
+    ctx: &Context,
+    storage: &SqliteHistoryStorage,
+) -> Result<(), CliError> {
     let now = chrono::Utc::now();
 
     // Get schedules that are due to run
@@ -905,14 +924,14 @@ async fn run_scheduler_iteration(ctx: &Context, storage: &SqliteHistoryStorage) 
                     None => Vec::new(),
                 }
             },
-            row.get::<_, Option<String>>(8)?, // user_agent
-            row.get::<_, Option<String>>(9)?, // proxy
-            row.get::<_, Option<i64>>(10)?, // timeout
-            row.get::<_, Option<f64>>(11)?, // rate_limit
-            row.get::<_, Option<i64>>(12)?, // max_redirects
-            row.get::<_, Option<i64>>(13)?, // follow_redirects
-            row.get::<_, i64>(14)?, // no_tls_verify
-            row.get::<_, i64>(15)?, // enabled
+            row.get::<_, Option<String>>(8)?,  // user_agent
+            row.get::<_, Option<String>>(9)?,  // proxy
+            row.get::<_, Option<i64>>(10)?,    // timeout
+            row.get::<_, Option<f64>>(11)?,    // rate_limit
+            row.get::<_, Option<i64>>(12)?,    // max_redirects
+            row.get::<_, Option<i64>>(13)?,    // follow_redirects
+            row.get::<_, i64>(14)?,            // no_tls_verify
+            row.get::<_, i64>(15)?,            // enabled
             row.get::<_, Option<String>>(16)?, // last_run
             row.get::<_, Option<String>>(17)?, // next_run
         ))
@@ -920,7 +939,26 @@ async fn run_scheduler_iteration(ctx: &Context, storage: &SqliteHistoryStorage) 
 
     let mut schedules_to_run = Vec::new();
     for row in rows {
-        let (id, name, target, profile, interval, checks, exclude, headers, user_agent, proxy, timeout, rate_limit, max_redirects, follow_redirects, no_tls_verify, enabled, last_run, next_run) = row?;
+        let (
+            id,
+            name,
+            target,
+            profile,
+            interval,
+            checks,
+            exclude,
+            headers,
+            user_agent,
+            proxy,
+            timeout,
+            rate_limit,
+            max_redirects,
+            follow_redirects,
+            no_tls_verify,
+            enabled,
+            last_run,
+            next_run,
+        ) = row?;
         schedules_to_run.push((
             id,
             name,
@@ -938,15 +976,37 @@ async fn run_scheduler_iteration(ctx: &Context, storage: &SqliteHistoryStorage) 
             follow_redirects.map(|v| v != 0),
             no_tls_verify != 0,
             enabled != 0,
-            last_run.map(|s| chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)),
-            next_run.map(|s| chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)),
+            last_run.map(|s| {
+                chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)
+            }),
+            next_run.map(|s| {
+                chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)
+            }),
         ));
     }
 
-
     // Run each scheduled scan
     for schedule in schedules_to_run {
-        let (id, name, target, profile, interval, checks, exclude, headers, user_agent, proxy, timeout, rate_limit, max_redirects, follow_redirects, no_tls_verify, enabled, last_run, next_run) = schedule;
+        let (
+            id,
+            name,
+            target,
+            profile,
+            interval,
+            checks,
+            exclude,
+            headers,
+            user_agent,
+            proxy,
+            timeout,
+            rate_limit,
+            max_redirects,
+            follow_redirects,
+            no_tls_verify,
+            enabled,
+            last_run,
+            next_run,
+        ) = schedule;
 
         if !enabled {
             continue; // Skip if somehow got disabled
@@ -976,12 +1036,28 @@ async fn run_scheduler_iteration(ctx: &Context, storage: &SqliteHistoryStorage) 
                 new_next_run.to_rfc3339().as_str(),
                 now.to_rfc3339().as_str(),
                 &id
-            ]
+            ],
         )?;
 
-
         // Run the scan
-        let scan_result = run_scheduled_scan(ctx, &storage, &id, &target, profile, checks, exclude, headers, user_agent, proxy, timeout, rate_limit, max_redirects, follow_redirects, no_tls_verify).await?;
+        let scan_result = run_scheduled_scan(
+            ctx,
+            &storage,
+            &id,
+            &target,
+            profile,
+            checks,
+            exclude,
+            headers,
+            user_agent,
+            proxy,
+            timeout,
+            rate_limit,
+            max_redirects,
+            follow_redirects,
+            no_tls_verify,
+        )
+        .await?;
 
         // Record the run
         let mut guard = storage.conn.lock().await;
@@ -1005,9 +1081,8 @@ async fn run_scheduler_iteration(ctx: &Context, storage: &SqliteHistoryStorage) 
                 scan_result.findings_count,
                 scan_result.new_findings,
                 scan_result.fixed_findings
-            ]
+            ],
         )?;
-
 
         // Show results
         println!("{} Scan completed: {}", "✓".green().bold(), name);
@@ -1015,10 +1090,18 @@ async fn run_scheduler_iteration(ctx: &Context, storage: &SqliteHistoryStorage) 
         println!("  {} {}", "Duration:".bold(), format!("{:.2}s", scan_result.duration_secs));
         println!("  {} {}", "Findings:".bold(), scan_result.findings_count);
         if scan_result.new_findings > 0 {
-            println!("  {} {}", "New Findings:".bold(), format!("{} {}", scan_result.new_findings, "🆕".green()));
+            println!(
+                "  {} {}",
+                "New Findings:".bold(),
+                format!("{} {}", scan_result.new_findings, "🆕".green())
+            );
         }
         if scan_result.fixed_findings > 0 {
-            println!("  {} {}", "Fixed Findings:".bold(), format!("{} {}", scan_result.fixed_findings, "✅".yellow()));
+            println!(
+                "  {} {}",
+                "Fixed Findings:".bold(),
+                format!("{} {}", scan_result.fixed_findings, "✅".yellow())
+            );
         }
     }
 
@@ -1069,7 +1152,8 @@ async fn run_scheduled_scan(
         max_redirects,
         follow_redirects,
         no_tls_verify,
-    ).await?;
+    )
+    .await?;
 
     let end_time = chrono::Utc::now();
     let duration = start_instant.elapsed();
@@ -1120,7 +1204,6 @@ async fn get_baseline_scan_for_target(
         |row| row.get(0),
     )?;
 
-
     if let Some(scan_id_str) = result {
         Ok(Some(ScanId::from_uuid(Uuid::parse_str(&scan_id_str)?)))
     } else {
@@ -1146,7 +1229,9 @@ async fn perform_scan(
     // Build scan target
     let mut target_obj =
         ScanTarget::new(target).map_err(|e| CliError::InvalidArgs(e.to_string()))?;
-    target_obj = target_obj.with_timeout(timeout.unwrap_or(30)).with_max_redirects(max_redirects.unwrap_or(10));
+    target_obj = target_obj
+        .with_timeout(timeout.unwrap_or(30))
+        .with_max_redirects(max_redirects.unwrap_or(10));
 
     // Parse headers
     let mut header_vec = Vec::new();
@@ -1200,21 +1285,18 @@ async fn perform_scan(
     let checks_to_run: Vec<openre_scan::checks::Check> = all_checks
         .into_iter()
         .filter(|check| {
-            let should_run = checks.as_ref().map_or(true, |opt_checks| {
-                opt_checks.iter().any(|s| s == check.name())
-            });
-            let should_exclude = exclude.as_ref().map_or(false, |opt_exclude| {
-                opt_exclude.iter().any(|s| s == check.name())
-            });
+            let should_run = checks
+                .as_ref()
+                .map_or(true, |opt_checks| opt_checks.iter().any(|s| s == check.name()));
+            let should_exclude = exclude
+                .as_ref()
+                .map_or(false, |opt_exclude| opt_exclude.iter().any(|s| s == check.name()));
             should_run && !should_exclude
         })
         .collect();
     // If no checks specified, run all (excluding sensitive-files to match original behavior)
     let checks_to_run = if checks.is_none() && exclude.is_none() {
-        get_all_checks(&profile)
-            .into_iter()
-            .filter(|c| c.name() != "sensitive-files")
-            .collect()
+        get_all_checks(&profile).into_iter().filter(|c| c.name() != "sensitive-files").collect()
     } else {
         checks_to_run
     };

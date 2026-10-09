@@ -5,13 +5,13 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-mod commands;
-mod analysis_stubs;
 mod ai_stubs;
+mod analysis_stubs;
+mod commands;
+mod context;
+mod error;
 mod intelligence_stubs;
 mod output;
-mod error;
-mod context;
 
 use crate::commands::hunt::HuntArgs;
 
@@ -31,7 +31,7 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Instant security assessment with AI-powered PoC generation and viral sharing
-    Hunt(HuntArgs),  // New hunt command
+    Hunt(HuntArgs), // New hunt command
 }
 
 #[tokio::main]
@@ -40,9 +40,7 @@ async fn main() -> Result<(), crate::error::CliError> {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "openre=info".into());
 
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     let args = Args::parse();
 
@@ -51,21 +49,20 @@ async fn main() -> Result<(), crate::error::CliError> {
             tracing_subscriber::FmtSubscriber::builder()
                 .with_max_level(tracing::Level::TRACE)
                 .with_env_filter(tracing_subscriber::EnvFilter::new("debug"))
-                .finish()
+                .finish(),
         )
         .expect("Unable to set global default subscriber");
     }
 
     match args.command {
-        Commands::Hunt(command) => {
-            commands::hunt::execute(command).await
-        }
+        Commands::Hunt(command) => commands::hunt::execute(command).await,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::CommandFactory;
 
     #[test]
     fn verify_cli() {

@@ -18,7 +18,8 @@ pub mod remediate;
 #[cfg(feature = "report")]
 pub mod report;
 
-#[cfg(feature = "config")] pub mod config;
+#[cfg(feature = "config")]
+pub mod config;
 #[cfg(feature = "schedule")]
 pub mod schedule;
 

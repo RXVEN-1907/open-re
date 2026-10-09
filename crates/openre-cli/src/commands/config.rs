@@ -1,13 +1,13 @@
 //! Configuration management commands
 
-use crate::output::{print_output, OutputFormat};
-use crate::error::CliError;
 use crate::context::Context;
+use crate::error::CliError;
+use crate::output::{print_output, OutputFormat};
 use clap::{Args, Subcommand};
 use colored::Colorize;
 use openre_config::{default_config_path, Config};
 use std::path::PathBuf;
-use tabled::{Table, Tabled, Style};
+use tabled::{Style, Table, Tabled};
 
 #[derive(Subcommand, Debug)]
 pub enum ConfigCommands {

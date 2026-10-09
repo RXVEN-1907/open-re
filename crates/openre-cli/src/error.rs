@@ -2,8 +2,8 @@
 
 use crate::ai_stubs::AiError;
 use crate::analysis_stubs::AnalysisError;
-use dialoguer;
 use crate::intelligence_stubs::IntelligenceError;
+use dialoguer;
 #[cfg(feature = "scan")]
 use openre_scan::ScanError;
 use thiserror::Error;

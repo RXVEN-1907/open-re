@@ -26,22 +26,6 @@ updates:
           - "minor"
           - "patch"
 
-  # Docker (for CI containers)
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "UTC"
-    labels:
-      - "dependencies"
-      - "docker"
-    commit-message:
-      prefix: "ci"
-      prefix-development: "ci"
-      include: "scope"
-
   # Rust (when Cargo.toml exists)
   # - package-ecosystem: "cargo"
   #   directory: "/"

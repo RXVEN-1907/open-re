@@ -1,6 +1,5 @@
 use crate::error::Result;
 /// Output formatting
-
 use clap::ValueEnum;
 use serde::Serialize;
 use std::path::Path;

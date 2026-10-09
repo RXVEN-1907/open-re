@@ -1,8 +1,8 @@
 //! Report template management commands
 
-use crate::output::{print_output, OutputFormat};
-use crate::error::CliError;
 use crate::context::Context;
+use crate::error::CliError;
+use crate::output::{print_output, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
 use openre_core::history::{HistoryStorage, ReportTemplate};
@@ -12,7 +12,7 @@ use openre_storage::history::SqliteHistoryStorage;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
-use tabled::{Table, Tabled, Style};
+use tabled::{Style, Table, Tabled};
 use uuid::Uuid;
 
 fn get_history_storage(ctx: &Context) -> SqliteHistoryStorage {
