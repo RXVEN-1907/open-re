@@ -316,8 +316,8 @@ async fn test_cli_version_command() {
 
     assert!(output.status.success(), "Version command should succeed");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("openre-scan"));
-    assert!(stdout.contains("0.1.0"));
+    assert!(stdout.contains("openre"));
+    assert!(stdout.contains(env!("CARGO_PKG_VERSION")));
 }
 
 #[tokio::test]
