@@ -20,17 +20,17 @@ def hx(c: str) -> tuple:
     return tuple(int(c[i:i + 2], 16) for i in (0, 2, 4))
 
 
-# the one line each mode "shows" - same shape, different accent moment
+# each mode banner shows its workflow: (headline, tagline, terminal lines)
 LINES = {
-    "exploit": [("$ openre exploit FND-7f2a", "dim"),
-                ("  poc written to ./poc/FND-7f2a.py  ", "text"),
-                ("  reproduction: verified", "accent")],
-    "recon": [("$ openre scan https://target --profile standard", "dim"),
-              ("  28 checks  6 findings  ", "text"),
-              ("  surface mapped", "accent")],
-    "defend": [("$ openre remediate FND-7f2a", "dim"),
-               ("  3 fixes applied  ", "text"),
-               ("  regression test added", "accent")],
+    "exploit": ("find it. prove it.", "from finding to reproducible proof in one command",
+                [("$ openre exploit FND-7f2a", "dim"),
+                 ("poc/FND-7f2a.py  reproducible, verified", "text")]),
+    "recon": ("map the surface.", "eighteen checks, three profiles, one binary",
+              [("$ openre scan standard https://target", "dim"),
+               ("28 checks · 6 findings · 1.31s", "text")]),
+    "defend": ("fix it. verify it.", "remediation with proof it worked",
+               [("$ openre remediate FND-7f2a", "dim"),
+                ("3 fixes applied · regression test added", "text")]),
 }
 
 
@@ -44,25 +44,25 @@ def render(mode: str, light: bool, out: Path) -> None:
     sans_b = lambda s: ImageFont.truetype(SANS_B, s)
     mono = ImageFont.truetype(MONO, 30)
 
-    # mode name as the header: lavender platform, single accent mode
+    # mode name as the header pill
     d.rounded_rectangle((84, 96, 336, 176), radius=40, fill=hx(p["accent"]))
     name = MODES[mode]["name"]
     nw = d.textlength(name, font=mono_b(44))
     d.text((84 + (252 - nw) / 2, 112), name, font=mono_b(44), fill=hx(p["canvas"]))
 
-    d.text((84, 220), "mode", font=sans_b(30), fill=hx(p["dim"]))
-    d.text((84, 262), "lavender + one accent,", font=sans_b(46), fill=hx(p["text"]))
-    d.text((84, 318), "never two.", font=sans_b(46), fill=hx(p["lavender"]))
+    # the workflow headline + tagline + terminal strip
+    headline, tagline, terms = LINES[mode]
+    d.text((84, 230), headline, font=sans_b(52), fill=hx(p["text"]))
+    d.text((86, 300), tagline, font=sans_b(34), fill=hx(p["lavender"]))
 
-    # the terminal strip with this mode's moment
     y = 430
-    d.rounded_rectangle((84, y - 22, 1196, y + 132), radius=16, fill=hx(p["panel"]),
+    d.rounded_rectangle((84, y - 22, 1196, y + 122), radius=16, fill=hx(p["panel"]),
                         outline=hx(p["edge"]), width=2)
     yy = y
-    for text, role in LINES[mode]:
+    for text, role in terms:
         color = {"dim": p["dim"], "text": p["text"], "accent": p["accent"]}[role]
         d.text((116, yy), text, font=mono, fill=hx(color))
-        yy += 48
+        yy += 50
 
     out.parent.mkdir(parents=True, exist_ok=True)
     img.save(out, optimize=True)
