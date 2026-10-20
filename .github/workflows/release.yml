@@ -169,9 +169,12 @@ jobs:
 
       - name: Build
         run: |
+          # rustls/ring everywhere on i686 and windows: vendored openssl
+          # needs libgcc/libatomic symbols zig's 32-bit libc stubs do not
+          # ship, and aws-lc (rustls's default provider) needs NASM.
           tls_flags="--features reqwest/native-tls-vendored"
           case "${{ matrix.target }}" in
-            *windows*) tls_flags="" ;;
+            *windows*|i686-*) tls_flags="" ;;
           esac
           cargo zigbuild --release --target ${{ matrix.target }} \
             $tls_flags -p openre-cli -p openre-tui -p sentinel
