@@ -9,8 +9,8 @@ name = "openre"
 path = "src/main.rs"
 
 [dependencies]
-openre-core = { version = "0.1.0", path = "../openre-core" }
-openre-intelligence = { version = "0.1.0", path = "../openre-intelligence" }
+openre-core = { path = "../openre-core" }
+openre-intelligence = { path = "../openre-intelligence" }
 clap = { version = "4.0", features = ["derive"] }
 clap_complete = "4.5"
 serde = { version = "1.0", features = ["derive"] }
@@ -27,12 +27,12 @@ reqwest = { version = "0.11", features = ["json"] }
 colored = "2.0"
 tabled = { version = "0.9", features = ["derive"] }
 select = { version = "0.6.1", default-features = false }
-openre-scan = { version = "0.1.0", path = "../openre-scan" }
-openre-analysis = { version = "0.1.0", path = "../openre-analysis" }
-openre-ai = { version = "0.1.0", path = "../openre-ai" }
-openre-disasm = { version = "0.1.0", path = "../openre-disasm" }
-openre-config = { version = "0.1.0", path = "../openre-config" }
-openre-storage = { version = "0.1.0", path = "../openre-storage" }
+openre-scan = { path = "../openre-scan" }
+openre-analysis = { path = "../openre-analysis" }
+openre-ai = { path = "../openre-ai" }
+openre-disasm = { path = "../openre-disasm" }
+openre-config = { path = "../openre-config" }
+openre-storage = { path = "../openre-storage" }
 thiserror = "1.0"
 anyhow = "1.0"
 serde_yaml = "0.9"
