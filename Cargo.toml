@@ -62,12 +62,16 @@ rusqlite = { version = "0.31", features = ["chrono"] }
 colored = "2.0"
 urlencoding = { version = "1.0", features = [] }
 metrics = "0.21"
-metrics-exporter-prometheus = "0.13"
+# http-listener only: the default push-gateway feature drags
+# hyper-tls -> native-tls -> openssl into every build.
+metrics-exporter-prometheus = { version = "0.13", default-features = false, features = ["http-listener"] }
 prometheus = "0.13"
 tokio-postgres = { version = "0.7" }
 
 # HTTP
-reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multipart", "gzip", "brotli", "cookies"] }
+# default-features off: default-tls (native-tls -> openssl) must not
+# enter the graph uninvited; rustls on ring is the default TLS stack.
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "multipart", "gzip", "brotli", "cookies"] }
 url = "2.5"
 http = "0.2"
 http-body = "0.4"
