@@ -61,8 +61,6 @@ toml = "0.8"
 tracing-subscriber = { workspace = true }
 
 # For plugin system
-wasmtime = { workspace = true }
-wasmparser = { workspace = true }
 
 # For TUI
 ratatui = { workspace = true }

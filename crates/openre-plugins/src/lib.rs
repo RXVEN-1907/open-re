@@ -3,6 +3,7 @@
 pub mod lifecycle;
 pub mod manifest;
 pub mod registry;
+#[cfg(feature = "wasm")]
 pub mod runtime;
 pub mod sandbox;
 pub mod sdk;
@@ -17,6 +18,7 @@ pub use manifest::{
     UiConfig, ViewExtension,
 };
 pub use registry::*;
+#[cfg(feature = "wasm")]
 pub use runtime::*;
 pub use sandbox::*;
 pub use sdk::*;

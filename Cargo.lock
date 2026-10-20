@@ -3800,8 +3800,6 @@ dependencies = [
  "utoipa",
  "uuid",
  "validator",
- "wasmparser 0.215.0",
- "wasmtime",
  "webpki-roots 0.25.4",
 ]
 

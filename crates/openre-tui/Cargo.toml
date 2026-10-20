@@ -62,7 +62,7 @@ colored = { workspace = true }
 
 [features]
 default = ["full"]
-full = ["scan", "plugins", "telemetry", "intelligence", "storage"]
+full = ["scan", "telemetry", "intelligence", "storage"]
 scan = ["dep:openre-scanner"]
 plugins = ["dep:openre-plugins"]
 telemetry = ["dep:openre-telemetry"]
