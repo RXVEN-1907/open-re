@@ -141,3 +141,4 @@ parsed_warnings.json
 scan-results*
 openre-*-report.html
 graphify-out/
+__pycache__/
