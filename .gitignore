@@ -132,3 +132,12 @@ junit.xml
 *.rej
 .patch
 .diff
+# Workflow debris that must never come back
+*.bak
+*.bak2
+.ipynb_checkpoints/
+clippy_*.txt
+parsed_warnings.json
+scan-results*
+openre-*-report.html
+graphify-out/
