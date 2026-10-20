@@ -4,13 +4,18 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[[bin]]
+name = "openre"
+path = "src/main.rs"
+
 [dependencies]
 openre-core = { version = "0.1.0", path = "../openre-core" }
 openre-intelligence = { version = "0.1.0", path = "../openre-intelligence" }
 clap = { version = "4.0", features = ["derive"] }
+clap_complete = "4.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "sync", "time"] }
 async-trait = "0.1"
 indicatif = "0.17"
 rusqlite = { version = "0.31", features = ["bundled"] }
@@ -22,17 +27,14 @@ reqwest = { version = "0.11", features = ["json"] }
 colored = "2.0"
 tabled = { version = "0.9", features = ["derive"] }
 select = { version = "0.6.1", default-features = false }
-openre-scan = { version = "0.1.0", path = "../openre-scan", optional = true }
-openre-analysis = { version = "0.1.0", path = "../openre-analysis", optional = true }
-openre-ai = { version = "0.1.0", path = "../openre-ai", optional = true }
+openre-scan = { version = "0.1.0", path = "../openre-scan" }
+openre-analysis = { version = "0.1.0", path = "../openre-analysis" }
+openre-ai = { version = "0.1.0", path = "../openre-ai" }
+openre-disasm = { version = "0.1.0", path = "../openre-disasm" }
 openre-config = { version = "0.1.0", path = "../openre-config" }
-openre-storage = { version = "0.1.0", path = "../openre-storage", optional = true }
+openre-storage = { version = "0.1.0", path = "../openre-storage" }
 thiserror = "1.0"
 anyhow = "1.0"
 serde_yaml = "0.9"
 goblin = "0.4"
 dialoguer = "0.10"
-
-[features]
-default = ["hunt"]
-hunt = []

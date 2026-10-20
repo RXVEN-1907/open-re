@@ -15,12 +15,14 @@ use std::str::FromStr;
 use tabled::{Style, Table, Tabled};
 use uuid::Uuid;
 
-fn get_history_storage(ctx: &Context) -> SqliteHistoryStorage {
+async fn get_history_storage(ctx: &Context) -> SqliteHistoryStorage {
     let db_path = ctx.config.storage.local_path.join("history.db");
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).expect("Failed to create history directory");
     }
-    SqliteHistoryStorage::new(&db_path).expect("Failed to create history storage")
+    let storage = SqliteHistoryStorage::new(&db_path).expect("Failed to create history storage");
+    storage.ensure_schema().await.expect("Failed to initialize history schema");
+    storage
 }
 
 #[derive(Subcommand, Debug)]
@@ -36,7 +38,7 @@ pub enum ReportCommands {
 }
 
 #[derive(Args, Debug)]
-struct ReportListArgs {
+pub(crate) struct ReportListArgs {
     /// Maximum number of templates to list
     #[arg(long, default_value = "100")]
     limit: usize,
@@ -47,7 +49,7 @@ struct ReportListArgs {
 }
 
 #[derive(Args, Debug)]
-struct ReportCreateArgs {
+pub(crate) struct ReportCreateArgs {
     /// Template name
     #[arg(short, long)]
     name: String,
@@ -66,14 +68,14 @@ struct ReportCreateArgs {
 }
 
 #[derive(Args, Debug)]
-struct ReportDeleteArgs {
+pub(crate) struct ReportDeleteArgs {
     /// Template name to delete
     #[arg(short, long)]
     name: String,
 }
 
 #[derive(Args, Debug)]
-struct ReportUseArgs {
+pub(crate) struct ReportUseArgs {
     /// Template name to use
     #[arg(short, long)]
     name: String,
@@ -119,7 +121,7 @@ impl ReportCommands {
 
 async fn list_templates(ctx: Context, args: ReportListArgs) -> Result<(), CliError> {
     let templates =
-        get_history_storage(&ctx).list_report_templates(args.limit, args.offset).await?;
+        get_history_storage(&ctx).await.list_report_templates(args.limit, args.offset).await?;
 
     if templates.is_empty() {
         println!("{}", "No report templates found.".yellow());
@@ -194,7 +196,7 @@ async fn create_template(ctx: Context, args: ReportCreateArgs) -> Result<(), Cli
     };
 
     // Save template
-    get_history_storage(&ctx).save_report_template(&template).await?;
+    get_history_storage(&ctx).await.save_report_template(&template).await?;
 
     println!("{} Report template '{}' created successfully.", "✓".green().bold(), args.name);
 
@@ -203,7 +205,7 @@ async fn create_template(ctx: Context, args: ReportCreateArgs) -> Result<(), Cli
 
 async fn delete_template(ctx: Context, args: ReportDeleteArgs) -> Result<(), CliError> {
     // Delete template
-    let deleted = get_history_storage(&ctx).delete_report_template(&args.name).await?;
+    let deleted = get_history_storage(&ctx).await.delete_report_template(&args.name).await?;
 
     if deleted {
         println!("{} Report template '{}' deleted successfully.", "✓".green().bold(), args.name);
@@ -222,7 +224,7 @@ async fn use_template(ctx: Context, args: ReportUseArgs) -> Result<(), CliError>
     );
 
     // Get template
-    let storage = get_history_storage(&ctx);
+    let storage = get_history_storage(&ctx).await;
 
     let template_opt = storage.get_report_template(&args.name).await?;
 
@@ -236,8 +238,8 @@ async fn use_template(ctx: Context, args: ReportUseArgs) -> Result<(), CliError>
         .ok_or_else(|| CliError::NotFound(format!("Scan with ID '{}' not found", args.scan_id)))?;
 
     // Create a report config with the custom template
-    let mut config = ReportConfig::default();
-    config.custom_template = Some(template.content.clone());
+    let config =
+        ReportConfig { custom_template: Some(template.content.clone()), ..ReportConfig::default() };
 
     // Generate report using the template
     // For simplicity, we'll create a basic report with just the scan summary

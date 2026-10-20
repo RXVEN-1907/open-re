@@ -21,7 +21,6 @@ use crossterm::{
 };
 use openre_config::Config;
 use openre_core::ids::{StageName, WorkerId};
-use openre_intelligence::job::{Job, Priority};
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -35,7 +34,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tracing::{error, info, warn};
-use uuid::Uuid;
 
 /// Main application struct
 pub struct App {
@@ -50,8 +48,6 @@ pub struct App {
     tick_rate: Duration,
     show_help: bool,
     help_scroll: usize,
-    services: Option<Arc<Services>>,
-    data_fetcher: Option<DataFetcher>,
 }
 
 impl App {
@@ -78,12 +74,10 @@ impl App {
         let event_bus = EventBus::new(1024);
         let action_dispatcher = ActionDispatcher::new(action_tx.clone());
 
-        // Create data fetcher if services are available
-        let data_fetcher = services.as_ref().map(|s| {
-            let fetcher = DataFetcher::new(s.clone(), event_bus.sender());
-            fetcher.start();
-            fetcher
-        });
+        // Start the background data fetcher when services are available
+        if let Some(s) = &services {
+            DataFetcher::new(s.clone(), event_bus.sender()).start();
+        }
 
         let state = Arc::new(RwLock::new(AppState::new(
             event_tx.clone(),
@@ -92,7 +86,7 @@ impl App {
         )));
 
         // Load initial data
-        let mut panels = get_all_panels();
+        let panels = get_all_panels();
 
         // Load initial projects if services available
         if let Some(svc) = &services {
@@ -122,8 +116,6 @@ impl App {
             tick_rate: Duration::from_millis(50),
             show_help: false,
             help_scroll: 0,
-            services,
-            data_fetcher,
         })
     }
 
@@ -436,7 +428,7 @@ impl App {
                 });
                 let _ = event_tx.send(Event::FindingsExported(path));
             }
-            Action::CopyFinding(idx) => {
+            Action::CopyFinding(_) => {
                 // Would copy finding details to clipboard
             }
             Action::OpenFindingDetail(idx) => {
@@ -482,17 +474,13 @@ impl App {
                     let _ = event_tx.send(Event::FindingDetailOpened(idx));
                 }
             }
-            Action::ShowRemediation(idx) => {
+            Action::ShowRemediation(_) => {
                 // Would show remediation detail
             }
             // Workflow actions (require intelligence feature)
             #[cfg(feature = "intelligence")]
-            Action::CreateWorkflow { name, description, stages } => {
-                if let Some(svc) = &state_guard.services {
-                    if let Some(wm) = &svc.workflow_manager {
-                        // Would need to add create_workflow to WorkflowManager
-                    }
-                }
+            Action::CreateWorkflow { .. } => {
+                // Would need to add create_workflow to WorkflowManager
             }
             #[cfg(feature = "intelligence")]
             Action::ExecuteWorkflow(id) => {
@@ -618,19 +606,21 @@ impl App {
                             timestamp: chrono::Utc::now(),
                             duration_ms: 3000,
                         });
-                        let _ = event_tx.send(Event::ReportGenerated(crate::state::ReportInfo {
-                            id: report_id,
-                            title: format!("{:?} Report", report_type),
-                            report_type,
-                            status: JobStatus::Running {
-                                worker_id: WorkerId::from_uuid(uuid::Uuid::nil()),
-                                started_at: chrono::Utc::now(),
-                                stage: StageName::Identification,
+                        let _ = event_tx.send(Event::ReportGenerated(Box::new(
+                            crate::state::ReportInfo {
+                                id: report_id,
+                                title: format!("{:?} Report", report_type),
+                                report_type,
+                                status: JobStatus::Running {
+                                    worker_id: WorkerId::from_uuid(uuid::Uuid::nil()),
+                                    started_at: chrono::Utc::now(),
+                                    stage: StageName::Identification,
+                                },
+                                created_at: chrono::Utc::now(),
+                                file_path: None,
+                                size_bytes: None,
                             },
-                            created_at: chrono::Utc::now(),
-                            file_path: None,
-                            size_bytes: None,
-                        }));
+                        )));
                     }
                 }
             }
@@ -652,12 +642,8 @@ impl App {
                 }
             }
             // Global actions
-            Action::SetTheme(theme) => {
-                state_guard.theme = theme;
-                let _ = event_tx.send(Event::ThemeChanged(theme));
-            }
             Action::UpdateKeyBindings(key_bindings) => {
-                state_guard.key_bindings = key_bindings.clone();
+                state_guard.key_bindings = (*key_bindings).clone();
                 let _ = event_tx.send(Event::KeyBindingsChanged(key_bindings));
             }
             _ => {}
@@ -731,7 +717,7 @@ impl App {
                     // Render active panel - need mutable state
                     if let Some(panel) = self.panels.iter_mut().find(|p| p.panel_type() == active_panel) {
                         let mut state = self.state.blocking_write();
-                        panel.render(f, chunks[1], &mut *state, &colors, true);
+                        panel.render(f, chunks[1], &mut state, &colors, true);
                     }
 
                     // Render status bar
@@ -1200,7 +1186,7 @@ impl App {
                     }
                 }
             }
-            Event::ProjectCreated(id) => {
+            Event::ProjectCreated(_) => {
                 // Project will be added on next refresh
             }
             Event::ProjectDeleted(id) => {
@@ -1225,20 +1211,7 @@ impl App {
 
     /// Tick - periodic updates
     async fn tick(&mut self) -> anyhow::Result<()> {
-        // Update active panel if it has periodic updates
-        let panel_type = {
-            let state = self.state.read().await;
-            state.active_panel
-        };
-
-        // Update scan progress if active
-        {
-            let mut state = self.state.write().await;
-            if let Some(active) = &mut state.scans_state.active_scan {
-                // Progress updates come from ScanProgress events
-            }
-        }
-
+        // Scan progress arrives via ScanProgress events; no periodic work yet
         Ok(())
     }
 

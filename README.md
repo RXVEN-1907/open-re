@@ -1,223 +1,202 @@
-# openre
-
-```
- ██████╗ ██████╗ ███████╗███╗   ██╗         ██████╗ ███████╗
-██╔═══██╗██╔══██╗██╔════╝████╗  ██║         ██╔══██╗██╔════╝
-██║   ██║██████╔╝█████╗  ██╔██╗ ██║ ██████╗ ██████╔╝█████╗
-██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║ ╚═════╝ ██╔══██╗██╔══╝
-╚██████╔╝██║     ███████╗██║ ╚████║         ██║  ██║███████╗
- ╚═════╝ ╚═╝     ╚══════╝╚════════╝         ╚══════╝╚══════╝
-```
-
-**Open-source Reverse Engineering & Security Platform**
-
-Modern security tools + LLMs for automated analysis of binaries, websites, APIs, and applications — discover vulnerabilities, generate reproducible PoC exploits, and get actionable remediation guidance.
-
-All in a single cross-platform binary. No database, no server, no Docker, no external dependencies. Works like `nmap`.
-
----
-
-## Quick Start
-
-### Install (Pre-built Binaries)
-
-```bash
-# Linux / macOS / FreeBSD
-curl -L https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-$(uname -s)-$(uname -m) -o openre
-chmod +x openre
-
-# Windows (PowerShell)
-irm https://github.com/RXVEN-1907/open-re/releases/latest/download/openre-windows-x86_64.exe -o openre.exe
-```
-
-### Build from Source
-
-```bash
-git clone https://github.com/RXVEN-1907/open-re.git
-cd open-re
-cargo build --release --package openre --package openre-scan --package openre-tui
-# Binaries at ./target/release/
-```
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/social-preview.png">
+    <img src=".github/social-preview-light.png" alt="openre: a scanner-eye badge over a byte matrix, the wordmark, and a live scan line" width="100%">
+  </picture>
+  <h1>openre</h1>
+  <p><strong>Open-source reverse engineering &amp; offensive security platform</strong></p>
+  <p>
+    <a href="https://github.com/RXVEN-1907/open-re/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/RXVEN-1907/open-re/actions/workflows/ci.yml/badge.svg"></a>
+    <a href="https://github.com/RXVEN-1907/open-re/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/RXVEN-1907/open-re?sort=semver"></a>
+    <a href="https://github.com/RXVEN-1907/open-re/releases/latest"><img alt="platforms" src="https://img.shields.io/badge/platforms-linux%20%7C%20windows%20%7C%20macos%20%7C%20freebsd-8a63d2"></a>
+    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+    <a href="https://www.rust-lang.org"><img alt="Rust" src="https://img.shields.io/badge/rust-stable-dea584.svg"></a>
+  </p>
+</div>
 
 ---
 
-## What is it?
+Modern security tooling + LLMs, compiled into **one static binary**: scan
+websites and APIs for vulnerabilities, analyze any binary (ELF, PE, Mach-O,
+WASM) down to its control-flow graph, correlate findings with an AI research
+layer, generate reproducible PoC exploits, and get actionable remediation —
+no database, no server, no Docker, no external dependencies. Works like
+`nmap`: download it, point it at a target, read the answer.
 
-**openre** is a unified platform combining:
-- **Web vulnerability scanning** (18+ security checks)
-- **Binary analysis** (ELF, PE, Mach-O, WASM with CFG/DFG recovery)
-- **AI-powered vulnerability research** (local: Ollama, llama.cpp, ONNX | cloud: OpenAI, Anthropic)
-- **PoC exploit generation** & **actionable remediation guidance**
+<div align="center"><img src="docs/demo.gif" alt="animated terminal: openre scan standard against a deliberately vulnerable fixture - fifteen checks tick past, then the summary: 15 checks, 17 findings, 1.31s" width="780"></div>
 
-All in a single cross-platform binary (~15-20MB). No database, no server, no Docker required.
+*Real output: a standard scan against the deliberately-vulnerable fixture
+that ships in `crates/openre-scan/tests/` — 15 checks, 17 findings, 1.31s.*
 
----
+## One tool, three lights
 
-## Usage
+Lavender is the soul of openre — it is on every screen. Each **mode** pairs
+it with exactly one accent; the three never share a screen:
 
-### Web Security Scanning
+<div align="center">
+  <table><tr>
+    <td align="center" width="33%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/mode-exploit.png">
+        <img src="docs/mode-exploit-light.png" alt="EXPLOIT mode: lavender with crimson" width="100%">
+      </picture>
+      <strong>EXPLOIT</strong> · crimson<br>
+      <sub>reproducible PoC generation</sub>
+    </td>
+    <td align="center" width="33%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/mode-recon.png">
+        <img src="docs/mode-recon-light.png" alt="RECON mode: lavender with amber" width="100%">
+      </picture>
+      <strong>RECON</strong> · amber<br>
+      <sub>scanning and fingerprinting</sub>
+    </td>
+    <td align="center" width="33%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/mode-defend.png">
+        <img src="docs/mode-defend-light.png" alt="DEFEND mode: lavender with slate green" width="100%">
+      </picture>
+      <strong>DEFEND</strong> · slate green<br>
+      <sub>remediation and hardening</sub>
+    </td>
+  </tr></table>
+</div>
 
-```bash
-# Quick scan (~2-3s) — essential checks for CI/CD
-openre scan https://example.com --profile quick
+## Quickstart
 
-# Standard scan (~10-15s) — recommended for general use
-openre scan https://example.com --profile standard
+Prebuilt binaries for Linux, Windows, macOS, and FreeBSD — unpack and run:
 
-# Full audit (~30-60s) — comprehensive
-openre scan https://example.com --profile full --format sarif --output audit.sarif
+```console
+$ openre scan standard https://your-target.example
+$ openre analyze ./some-binary --format json
+$ openre hunt --target https://your-target.example   # one command: scan → correlate → PoC
 ```
 
-### Binary Analysis
+Or build from source (Rust stable):
 
-```bash
-# Analyze any binary (ELF, PE, Mach-O, WASM)
-openre analyze ./binary --format json
-
-# With AI-enhanced analysis
-openre ai "analyze this function for vulnerabilities" --binary ./binary
+```console
+$ git clone https://github.com/RXVEN-1907/open-re.git && cd open-re
+$ cargo build --release
+$ ./target/release/openre --help
 ```
 
-### AI-Powered Features
+## What it does
 
-```bash
-# Generate PoC exploit for a finding
-openre exploit <finding-id>
+**Web & API scanning** — 18 security checks across three profiles, from a
+2-second CI gate to a full audit, with SARIF output for GitHub code
+scanning:
 
-# Get actionable remediation guidance
-openre remediate <finding-id>
-
-# Chat with AI about vulnerabilities
-openre ai "explain this buffer overflow" --binary ./vulnerable_binary
+```console
+$ openre scan quick https://target --format sarif --output results.sarif
 ```
 
-### Interactive TUI
+| check | quick | standard | full |
+|-------|:-----:|:--------:|:----:|
+| HTTP headers, security headers, cookies, TLS cert | ✅ | ✅ | ✅ |
+| information disclosure, technology fingerprinting | ✅ | ✅ | ✅ |
+| CSP analysis, CORS, robots.txt, sitemap.xml | | ✅ | ✅ |
+| directory listing, sensitive files (20+ paths) | | ✅ | ✅ |
+| form, link, script, and meta-tag analysis | | ✅ | ✅ |
+| HTTP methods, SSL/TLS configuration | | | ✅ |
 
-```bash
-# Full-screen terminal UI with 10 panels
-openre tui
+**Binary analysis** — format identification, metadata, symbols, imports and
+exports, sections and segments, string extraction, and capstone
+disassembly down to functions and ranges; CFG and dataflow recovery in the
+analysis pipeline:
+
+```console
+$ openre analyze ./binary symbols     # 193k symbols parsed from the openre binary itself
+$ openre analyze ./binary disasm --function main
+$ openre analyze ./binary pipeline    # identify → load → disassemble → cfg → dataflow
 ```
 
-**TUI Panels:** Projects, Jobs, Scans, Reverse Engineering, Findings, Workflows, AI, Plugins, Logs, Reports
+**AI research layer** — local-first (Ollama, llama.cpp, ONNX Runtime) with
+cloud fallback (OpenAI, Anthropic, vLLM). The CLI is honest about it: with
+no provider configured, `openre ai chat` says so and everything else stays
+fully functional. When one *is* configured:
 
----
+```console
+$ openre ai "analyze this function for vulnerabilities" --binary ./target
+$ openre exploit <finding-id>      # reproducible PoC for a finding
+$ openre remediate <finding-id>    # fix guidance, verified against the KnowledgeBase
+```
 
-## 18 Security Checks (Web Scanner)
+**All ten subcommands**: `hunt` (scan → correlate → PoC in one shot) ·
+`scan` · `analyze` · `ai` · `exploit` · `remediate` · `report` ·
+`config` · `queue` · `schedule` — plus `completions` for
+bash/zsh/fish/PowerShell. Every human table colors itself (lavender, one
+accent) and respects `NO_COLOR`; every command has machine-readable
+output. Full reference: [`docs/cli.md`](docs/cli.md).
 
-| Check | Quick | Standard | Full |
-|-------|-------|----------|------|
-| HTTP Headers | ✅ | ✅ | ✅ |
-| Security Headers (HSTS, CSP, etc.) | ✅ | ✅ | ✅ |
-| Cookie Security | ✅ | ✅ | ✅ |
-| TLS Certificate | ✅ | ✅ | ✅ |
-| Information Disclosure | ✅ | ✅ | ✅ |
-| Technology Fingerprinting | ✅ | ✅ | ✅ |
-| CSP Analysis | | ✅ | ✅ |
-| CORS Configuration | | ✅ | ✅ |
-| robots.txt | | ✅ | ✅ |
-| sitemap.xml | | ✅ | ✅ |
-| Directory Listing | | ✅ | ✅ |
-| Sensitive Files (20+ paths) | | ✅ | ✅ |
-| Form Analysis | | ✅ | ✅ |
-| Link Analysis | | ✅ | ✅ |
-| Script Analysis | | ✅ | ✅ |
-| Meta Tags | | ✅ | ✅ |
-| HTTP Methods | | | ✅ |
-| SSL/TLS Configuration | | | ✅ |
+## Lean by design
 
----
+One binary, ~2 MB, no runtime dependencies. The release profile is tuned
+fat: LTO across the workspace, one codegen unit, symbols stripped, and
+tokio's feature set trimmed from `full` to the features the code actually
+exercises — measured, not vibes:
 
-## Cross-Platform Support
+| binary | before | after |
+|---|---|---|
+| `openre` | 2,435,968 B | 1,954,000 B (**−19.8%**) |
+| `openre-tui` | 7,070,176 B | 5,930,008 B (**−16.1%**) |
+| `sentinel` | 806,760 B | 603,728 B (**−25.2%**) |
+| resolved tokio features | 22 | 18 |
 
-| OS | Architectures |
-|----|---------------|
-| Linux | x86_64, aarch64, armv7 |
-| macOS | x86_64, arm64 |
-| Windows | x86_64 |
-| FreeBSD | x86_64, aarch64 |
-
----
+Numbers and method: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md). The
+companion `openre-tui` renders the whole platform as a 10-panel terminal
+dashboard, and `sentinel` is a minimal TUI scanner for constrained boxes.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              open-re Platform                               │
-│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │ CLI (openre) │  │ TUI (openre-tui) │  │ Library API  │  │   Plugins    │ │
-│  └──────┬───────┘  └────────┬─────────┘  └──────┬───────┘  └──────┬───────┘ │
-│         │                   │                   │                 │         │
-│         └───────────────────┴───────────────────┴─────────────────┘         │
-│                             ▼                   ▼                           │
-│              ┌─────────────────────────────────────────┐                    │
-│              │               openre-core               │                    │
-│              │   Types, Errors, Traits, Results, IDs   │                    │
-│              └──────────────────┬──────────────────────┘                    │
-│                                 │                                           │
-│        ┌────────────────────────┼────────────────────────┐                  │
-│        ▼                        ▼                        ▼                  │
-│   ┌─────────────┐        ┌──────────────────┐       ┌─────────────┐         │
-│   │ openre-scan │        │ openre-analysis  │       │  openre-ai  │         │
-│   │ Web Scanner │        │ Binary Analyzer  │       │  AI Engine  │         │
-│   │ 18+ checks  │        │ ELF/PE/Mach-O/   │       │ Local/Cloud │         │
-│   │ SARIF/JSON  │        │  WASM + CFG/DFG  │       │  LLM + RAG  │         │
-│   └──────┬──────┘        └────────┬─────────┘       └──────┬──────┘         │
-│          │                        │                        │                │
-│          └────────────────────────┼────────────────────────┘                │
-│                                   ▼                                         │
-│                      ┌────────────────────────┐                             │
-│                      │  openre-intelligence   │                             │
-│                      │  Coordinator Agent     │                             │
-│                      │  Vuln Research → PoC   │                             │
-│                      │ Exploit Gen → Remediate│                             │
-│                      └────────────────────────┘                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    CLI["openre<br/>ten subcommands"] --> SCAN["openre-scan<br/>18 checks"]
+    CLI --> ANALYSIS["openre-analysis<br/>ELF · PE · Mach-O · WASM"]
+    CLI --> AI["openre-ai<br/>local + cloud LLMs"]
+    CLI --> INTEL["openre-intelligence<br/>correlate → PoC → remediate"]
+    CLI --> DISASM["openre-disasm<br/>capstone"]
+    SCAN --> CORE["openre-core"]
+    ANALYSIS --> CORE
+    AI --> CORE
+    INTEL --> CORE
+    CLI --> STORAGE["openre-storage<br/>sqlite"]
+    TUI["openre-tui"] --> INTEL
 ```
 
----
+Fourteen crates behind one front door — the map, crate by crate:
+[`docs/architecture.md`](docs/architecture.md).
 
-## AI Providers
+## Releases
 
-| Type | Providers |
-|------|-----------|
-| **Local** | Ollama, llama.cpp, ONNX Runtime (CPU/CUDA/CoreML) |
-| **Cloud** | OpenAI, Anthropic, vLLM |
-| **Hybrid** | Local-first with cloud fallback |
+Tag a version and the pipeline builds **17 artifacts**: Linux (x86-64
+glibc/musl/32-bit, aarch64, armv7/armv6, riscv64, loongarch64,
+powerpc64le, s390x), Windows (MSVC + GNU, x86-64/32-bit/ARM64), macOS
+(aarch64, x86-64, universal2), and FreeBSD — each a self-contained archive
+with shell completions, published with a combined sha256 checksums file.
+Windows and macOS test suites run in CI on every push.
 
----
+## Documentation
 
-## Output Formats
+[`docs/architecture.md`](docs/architecture.md) ·
+[`docs/cli.md`](docs/cli.md) ·
+[`docs/checks.md`](docs/checks.md) ·
+[`docs/ai-providers.md`](docs/ai-providers.md) ·
+[`docs/sarif.md`](docs/sarif.md) ·
+[`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) ·
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)
 
-- **table** (default) — Human-readable colored tables
-- **json** — For automation and scripting
-- **sarif** — CI/CD integration (GitHub Code Scanning, Azure DevOps)
-- **yaml** — For configuration
+## Contributing
 
----
-
-## CI/CD Integration
-
-```yaml
-# GitHub Actions example
-- name: Security Scan
-  run: |
-    ./openre scan https://staging.example.com --profile quick --format sarif --output results.sarif
-- name: Upload SARIF
-  uses: github/codeql-action/upload-sarif@v3
-  with:
-    sarif_file: results.sarif
-```
-
----
+The workspace builds with `cargo build --release`; CI gates fmt, clippy
+(`-D warnings`, all targets), and the full test suite on three operating
+systems. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
-
----
+MIT — see [LICENSE](LICENSE).
 
 ## Security
 
-Only scan targets you own or have explicit written permission to test. Unauthorized scanning may violate laws and terms of service.
-
-No telemetry. No data collection. Ever.
+Only scan targets you own or have explicit written permission to test.
+Unauthorized scanning may violate laws and terms of service. No telemetry.
+No data collection. Ever.

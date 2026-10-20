@@ -667,7 +667,7 @@ impl HistoryStorage for SqliteHistoryStorage {
             r#"INSERT OR REPLACE INTO report_artifacts (
                 id, scan_id, project_id, format, title, storage_path, size_bytes, checksum,
                 generated_at, generated_by, config_json, metadata_json
-            ) VALUES (?1, ?2, ?3, &4, &5, &6, &7, &8, &9, &10, &11, &12)"#,
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"#,
             params![
                 &artifact.id,
                 artifact.scan_id.to_string(),
@@ -767,7 +767,7 @@ impl HistoryStorage for SqliteHistoryStorage {
                 id, finding_id, scan_id, evidence_type, description, data, location, metadata_json,
                 http_request_json, http_response_json, timing_json, payload_json, reproduction_steps_json,
                 captured_at, plugin_source
-            ) VALUES (?1, ?2, ?3, &4, &5, &6, &7, &8, &9, &10, &11, &12, &13, &14, &15)"#,
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"#,
             params![
                 &evidence.id, evidence.finding_id.to_string(), evidence.scan_id.to_string(),
                 evidence_type_str, &evidence.description, evidence.data.as_deref(),
@@ -858,7 +858,7 @@ impl HistoryStorage for SqliteHistoryStorage {
         let data_json = serde_json::to_string(comparison).map_err(HistoryError::Serialization)?;
 
         cn.execute(
-            r#"INSERT OR REPLACE INTO scan_comparisons (id, baseline_scan_id, current_scan_id, data_json) VALUES (?1, ?2, ?3, &4)"#,
+            r#"INSERT OR REPLACE INTO scan_comparisons (id, baseline_scan_id, current_scan_id, data_json) VALUES (?1, ?2, ?3, ?4)"#,
             params![id_str, comparison.baseline_scan_id.to_string(), comparison.current_scan_id.to_string(), data_json],
         )
         .map_err(|e| HistoryError::Storage(e.to_string()))?;
@@ -925,7 +925,7 @@ impl HistoryStorage for SqliteHistoryStorage {
                 by_category_json, avg_risk_score, max_risk_score, critical_count, high_count, medium_count,
                 low_count, info_count, verified_count, false_positive_count, exploit_available_count,
                 exploited_in_wild_count, top_cwes_json, top_owasp_json, remediation_priority_json, trends_json
-            ) VALUES (?1, ?2, ?3, &4, &5, &6, &7, &8, &9, &10, &11, &12, &13, &14, &15, &16, &17, &18, &19, &20, &21, &22, &23)"#,
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)"#,
             params![
                 &metrics.id, metrics.project_id.to_string(),
                 metrics.scan_id.map(|s| s.to_string()), metrics.timestamp, metrics.overall_risk_score as i64,
@@ -989,7 +989,7 @@ impl HistoryStorage for SqliteHistoryStorage {
             r#"INSERT OR REPLACE INTO workflow_sessions (
                 id, name, target, scan_id, stages_json, current_stage_index, status,
                 stage_results_json, artifacts_json, config_json, error, created_at, updated_at, completed_at
-            ) VALUES (?1, ?2, &3, &4, &5, &6, &7, &8, &9, &10, &11, &12, &13, &14)"#,
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"#,
             params![
                 &session.id.to_string(),
                 &session.name,
@@ -1091,7 +1091,7 @@ impl HistoryStorage for SqliteHistoryStorage {
         cn.execute(
             r#"INSERT OR REPLACE INTO report_templates (
                 id, name, format, content, created_at, updated_at
-            ) VALUES (?1, ?2, &3, &4, &5, &6)"#,
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"#,
             params![
                 id_str,
                 &template.name,

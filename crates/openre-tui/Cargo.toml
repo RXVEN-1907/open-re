@@ -68,5 +68,7 @@ plugins = ["dep:openre-plugins"]
 telemetry = ["dep:openre-telemetry"]
 intelligence = ["dep:openre-intelligence"]
 storage = ["dep:openre-storage"]
+# Gates the TUI's direct GlobalStore (PostgreSQL) connection attempt; off by default
+postgres = []
 
 

@@ -7,7 +7,7 @@ use crate::state::{
 };
 use openre_core::ids::{JobId, ProjectId, ScanId};
 use openre_core::result::{Category, Confidence, Finding, Severity};
-use openre_intelligence::job::{Job, Priority};
+use openre_intelligence::job::Job;
 use serde::{Deserialize, Serialize};
 
 /// Events that can be sent through the event bus
@@ -26,8 +26,8 @@ pub enum Event {
     ProjectsRefreshed(Vec<ProjectInfo>),
 
     // Job events
-    JobCreated(Job),
-    JobUpdated(Job),
+    JobCreated(Box<Job>),
+    JobUpdated(Box<Job>),
     JobDeleted(JobId),
     JobStatusChanged(JobId, JobStatus),
     JobProgressUpdated(JobId, f32, String),
@@ -71,7 +71,7 @@ pub enum Event {
     WorkflowSelected(String),
 
     // AI events
-    AIAnalysisStarted(AIAnalysis),
+    AIAnalysisStarted(Box<AIAnalysis>),
     AIAnalysisProgress(String, f32, String),
     AIAnalysisCompleted(String, serde_json::Value),
     AIAnalysisFailed(String, String),
@@ -80,7 +80,7 @@ pub enum Event {
     AIViewModeChanged(AIViewMode),
 
     // Plugin events
-    PluginLoaded(PluginInfo),
+    PluginLoaded(Box<PluginInfo>),
     PluginEnabled(String),
     PluginDisabled(String),
     PluginUnloaded(String),
@@ -93,7 +93,7 @@ pub enum Event {
     LogFollowToggled(bool),
 
     // Report events
-    ReportGenerated(ReportInfo),
+    ReportGenerated(Box<ReportInfo>),
     ReportGenerationProgress(String, f32),
     ReportGenerationCompleted(String, String),
     ReportGenerationFailed(String, String),
@@ -106,7 +106,7 @@ pub enum Event {
 
     // Global events
     ThemeChanged(Theme),
-    KeyBindingsChanged(KeyBindings),
+    KeyBindingsChanged(Box<KeyBindings>),
     NotificationAdded(Notification),
     ErrorOccurred(String),
     RefreshRequested,

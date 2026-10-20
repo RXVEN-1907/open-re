@@ -5,34 +5,28 @@ use crate::error::CliError;
 use crate::output::{print_output, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
-use openre_core::error::OpenreResult;
 use openre_core::history::{HistoryStorage, ScanProgressSummary, ScanSummary};
-use openre_core::ids::{FindingId, ProjectId, ScanId};
+use openre_core::ids::{ProjectId, ScanId};
 use openre_core::result::Finding;
 use openre_core::result::Severity;
 use openre_scan::checks::get_all_checks;
-use openre_scan::client::{build_client, build_client_with_config};
-use openre_scan::config::ScanConfig;
-use openre_scan::output::display_results;
-use openre_scan::{ScanProfile, ScanResult, ScanTarget, Scanner};
+use openre_scan::client::build_client;
+use openre_scan::{ScanProfile, ScanResult, ScanTarget};
 use openre_storage::history::SqliteHistoryStorage;
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
 use tabled::{Style, Table, Tabled};
 use tokio::time::{sleep, Duration};
 
-fn get_history_storage(ctx: &Context) -> SqliteHistoryStorage {
+async fn get_history_storage(ctx: &Context) -> SqliteHistoryStorage {
     let db_path = ctx.config.storage.local_path.join("history.db");
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).expect("Failed to create history directory");
     }
-    SqliteHistoryStorage::new(&db_path).expect("Failed to create history storage")
+    let storage = SqliteHistoryStorage::new(&db_path).expect("Failed to create history storage");
+    storage.ensure_schema().await.expect("Failed to initialize history schema");
+    storage
 }
 
 #[derive(Subcommand, Debug)]
@@ -58,7 +52,7 @@ pub enum ScanCommands {
 }
 
 #[derive(Args, Debug)]
-struct ScanArgs {
+pub(crate) struct ScanArgs {
     /// Target URL or domain
     target: String,
 
@@ -104,7 +98,7 @@ struct ScanArgs {
 }
 
 #[derive(Args, Debug)]
-struct CustomScanArgs {
+pub(crate) struct CustomScanArgs {
     /// Target URL or domain
     target: String,
 
@@ -148,7 +142,7 @@ enum ExportFormat {
 
 /// Export commands
 #[derive(Subcommand, Debug)]
-enum ExportCommands {
+pub(crate) enum ExportCommands {
     /// Export findings for a specific scan
     Findings(ExportFindingsArgs),
     /// Export scan summaries with optional filters
@@ -159,7 +153,7 @@ enum ExportCommands {
 
 /// Import commands
 #[derive(Subcommand, Debug)]
-enum ImportCommands {
+pub(crate) enum ImportCommands {
     /// Import findings from a file
     Findings(ImportFindingsArgs),
     /// Import scan summaries from a file
@@ -170,7 +164,7 @@ enum ImportCommands {
 
 /// Arguments for exporting findings
 #[derive(Args, Debug)]
-struct ExportFindingsArgs {
+pub(crate) struct ExportFindingsArgs {
     /// Scan ID to export findings for
     scan_id: String,
 
@@ -185,7 +179,7 @@ struct ExportFindingsArgs {
 
 /// Arguments for exporting scan summaries
 #[derive(Args, Debug)]
-struct ExportScansArgs {
+pub(crate) struct ExportScansArgs {
     /// Filter by project ID (optional)
     #[arg(long)]
     project_id: Option<String>,
@@ -220,7 +214,7 @@ struct ExportScansArgs {
 
 /// Arguments for exporting projects
 #[derive(Args, Debug)]
-struct ExportProjectsArgs {
+pub(crate) struct ExportProjectsArgs {
     /// Output format
     #[arg(long, value_enum, default_value = "json")]
     format: ExportFormat,
@@ -232,7 +226,7 @@ struct ExportProjectsArgs {
 
 /// Arguments for importing findings
 #[derive(Args, Debug)]
-struct ImportFindingsArgs {
+pub(crate) struct ImportFindingsArgs {
     /// Input file path
     input: PathBuf,
 
@@ -243,26 +237,26 @@ struct ImportFindingsArgs {
 
 /// Arguments for importing scan summaries
 #[derive(Args, Debug)]
-struct ImportScansArgs {
+pub(crate) struct ImportScansArgs {
     /// Input file path
     input: PathBuf,
 }
 
 /// Arguments for importing projects
 #[derive(Args, Debug)]
-struct ImportProjectsArgs {
+pub(crate) struct ImportProjectsArgs {
     /// Input file path
     input: PathBuf,
 }
 
 #[derive(Args, Debug)]
-struct PauseScanArgs {
+pub(crate) struct PauseScanArgs {
     /// Scan ID to pause
     scan_id: String,
 }
 
 #[derive(Args, Debug)]
-struct ResumeScanArgs {
+pub(crate) struct ResumeScanArgs {
     /// Scan ID to resume
     scan_id: String,
 }
@@ -303,10 +297,10 @@ async fn run_scan(ctx: Context, profile: ScanProfile, args: ScanArgs) -> Result<
     let scan_id = ScanId::new();
 
     // Get history storage
-    let history = get_history_storage(&ctx);
+    let history = get_history_storage(&ctx).await;
 
     // Create initial scan summary with pending status
-    let mut summary = ScanSummary {
+    let summary = ScanSummary {
         scan_id,
         project_id: None, // We don't have project ID in CLI scan context
         target_id: openre_core::ids::TargetId::from_uuid(uuid::Uuid::new_v4()), // We'll set this properly later
@@ -518,11 +512,11 @@ async fn run_scan(ctx: Context, profile: ScanProfile, args: ScanArgs) -> Result<
         history.get_scan_summary(&scan_id).await?.expect("Scan summary should exist");
     final_summary.status = "completed".to_string();
     final_summary.completed_at = Some(chrono::Utc::now());
-    final_summary.duration_seconds = Some(duration.as_secs() as u64);
+    final_summary.duration_seconds = Some(duration.as_secs());
     // Update finding stats
     let mut severity_counts = std::collections::HashMap::new();
     for f in &all_findings {
-        *severity_counts.entry(f.severity.clone()).or_insert(0) += 1;
+        *severity_counts.entry(f.severity).or_insert(0) += 1;
     }
     final_summary.finding_stats = openre_core::result::FindingStats {
         total: all_findings.len(),
@@ -556,16 +550,16 @@ async fn run_scan(ctx: Context, profile: ScanProfile, args: ScanArgs) -> Result<
         overall_risk_score: if all_findings.is_empty() {
             0
         } else {
-            (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>()
-                / all_findings.len() as u8) as u8
+            all_findings.iter().map(|f| f.risk_score.unwrap_or(0)).sum::<u8>()
+                / all_findings.len() as u8
         },
         risk_level: if all_findings.is_empty() {
             openre_core::reporting::RiskLevel::Low
         } else {
-            let avg_score =
-                (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>() as f32
-                    / all_findings.len() as f32)
-                    .round() as u8;
+            let avg_score = (all_findings.iter().map(|f| f.risk_score.unwrap_or(0)).sum::<u8>()
+                as f32
+                / all_findings.len() as f32)
+                .round() as u8;
             match avg_score {
                 0..=25 => openre_core::reporting::RiskLevel::Low,
                 26..=50 => openre_core::reporting::RiskLevel::Medium,
@@ -623,7 +617,7 @@ async fn run_custom_scan(ctx: Context, args: CustomScanArgs) -> Result<(), CliEr
     let scan_id = ScanId::new();
 
     // Get history storage
-    let history = get_history_storage(&ctx);
+    let history = get_history_storage(&ctx).await;
 
     // Determine profile
     let profile = match args.profile {
@@ -633,7 +627,7 @@ async fn run_custom_scan(ctx: Context, args: CustomScanArgs) -> Result<(), CliEr
     };
 
     // Create initial scan summary with pending status
-    let mut summary = ScanSummary {
+    let summary = ScanSummary {
         scan_id,
         project_id: None, // We don't have project ID in CLI scan context
         target_id: openre_core::ids::TargetId::from_uuid(uuid::Uuid::new_v4()), // We'll set this properly later
@@ -829,11 +823,11 @@ async fn run_custom_scan(ctx: Context, args: CustomScanArgs) -> Result<(), CliEr
         history.get_scan_summary(&scan_id).await?.expect("Scan summary should exist");
     final_summary.status = "completed".to_string();
     final_summary.completed_at = Some(chrono::Utc::now());
-    final_summary.duration_seconds = Some(duration.as_secs() as u64);
+    final_summary.duration_seconds = Some(duration.as_secs());
     // Update finding stats
     let mut severity_counts = std::collections::HashMap::new();
     for f in &all_findings {
-        *severity_counts.entry(f.severity.clone()).or_insert(0) += 1;
+        *severity_counts.entry(f.severity).or_insert(0) += 1;
     }
     final_summary.finding_stats = openre_core::result::FindingStats {
         total: all_findings.len(),
@@ -867,16 +861,16 @@ async fn run_custom_scan(ctx: Context, args: CustomScanArgs) -> Result<(), CliEr
         overall_risk_score: if all_findings.is_empty() {
             0
         } else {
-            (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>()
-                / all_findings.len() as u8) as u8
+            all_findings.iter().map(|f| f.risk_score.unwrap_or(0)).sum::<u8>()
+                / all_findings.len() as u8
         },
         risk_level: if all_findings.is_empty() {
             openre_core::reporting::RiskLevel::Low
         } else {
-            let avg_score =
-                (all_findings.iter().map(|f| f.risk_score.unwrap_or(0) as u8).sum::<u8>() as f32
-                    / all_findings.len() as f32)
-                    .round() as u8;
+            let avg_score = (all_findings.iter().map(|f| f.risk_score.unwrap_or(0)).sum::<u8>()
+                as f32
+                / all_findings.len() as f32)
+                .round() as u8;
             match avg_score {
                 0..=25 => openre_core::reporting::RiskLevel::Low,
                 26..=50 => openre_core::reporting::RiskLevel::Medium,
@@ -970,7 +964,7 @@ fn print_scan_summary(result: &ScanResult) {
         for f in &result.findings {
             *counts.entry(f.severity).or_insert(0) += 1;
         }
-        for (sev, count) in
+        for (sev, _count) in
             [("critical", "🔴"), ("high", "🟠"), ("medium", "🟡"), ("low", "🔵"), ("info", "⚪")]
         {
             if let Some(c) = counts.get(&Severity::from_str(sev).unwrap_or(Severity::Info)) {
@@ -1001,7 +995,7 @@ fn print_scan_summary(result: &ScanResult) {
 
 // Export functions
 async fn export_findings(ctx: Context, args: ExportFindingsArgs) -> Result<(), CliError> {
-    let history = get_history_storage(&ctx);
+    let history = get_history_storage(&ctx).await;
     let scan_id = ScanId::from_uuid(
         uuid::Uuid::parse_str(&args.scan_id)
             .map_err(|e| CliError::InvalidArgs(format!("Invalid scan ID: {}", e)))?,
@@ -1013,7 +1007,7 @@ async fn export_findings(ctx: Context, args: ExportFindingsArgs) -> Result<(), C
         .await
         .map_err(|e| CliError::HistoryError(e.to_string()))?;
 
-    let scan_summary = scan_summary_opt
+    let _scan_summary = scan_summary_opt
         .ok_or_else(|| CliError::NotFound(format!("Scan not found: {}", args.scan_id)))?;
 
     // Get deduplicated findings for the scan
@@ -1060,7 +1054,7 @@ async fn export_findings(ctx: Context, args: ExportFindingsArgs) -> Result<(), C
 }
 
 async fn export_scans(ctx: Context, args: ExportScansArgs) -> Result<(), CliError> {
-    let history = get_history_storage(&ctx);
+    let history = get_history_storage(&ctx).await;
 
     // Parse optional filters
     let project_id = args
@@ -1101,7 +1095,7 @@ async fn export_scans(ctx: Context, args: ExportScansArgs) -> Result<(), CliErro
 
     // Get scan summaries with filters
     let mut summaries = history
-        .list_scan_summaries(project_id.clone(), 1000, 0)
+        .list_scan_summaries(project_id, 1000, 0)
         .await
         .map_err(|e| CliError::HistoryError(e.to_string()))?;
 
@@ -1191,7 +1185,7 @@ async fn export_scans(ctx: Context, args: ExportScansArgs) -> Result<(), CliErro
 }
 
 async fn export_projects(ctx: Context, args: ExportProjectsArgs) -> Result<(), CliError> {
-    let history = get_history_storage(&ctx);
+    let history = get_history_storage(&ctx).await;
     // For now, we'll export unique project IDs from scan summaries
     // In a full implementation, we might have a dedicated project storage
     let summaries = history
@@ -1203,9 +1197,9 @@ async fn export_projects(ctx: Context, args: ExportProjectsArgs) -> Result<(), C
     let mut projects = HashMap::new();
     for summary in &summaries {
         if let Some(project_id) = &summary.project_id {
-            projects.entry(project_id.clone()).or_insert_with(|| {
+            projects.entry(*project_id).or_insert_with(|| {
                 ProjectInfo {
-                    id: project_id.clone(),
+                    id: *project_id,
                     name: format!("Project {}", project_id), // Placeholder
                     scan_count: 0,
                     last_scan: summary.created_at,
@@ -1264,7 +1258,7 @@ async fn export_projects(ctx: Context, args: ExportProjectsArgs) -> Result<(), C
 
 // Import functions
 async fn import_findings(ctx: Context, args: ImportFindingsArgs) -> Result<(), CliError> {
-    let history = get_history_storage(&ctx);
+    let history = get_history_storage(&ctx).await;
     // Read the input file
     let data = std::fs::read_to_string(&args.input)
         .map_err(|e| CliError::Other(format!("Failed to read file: {}", e)))?;
@@ -1360,7 +1354,7 @@ async fn import_findings(ctx: Context, args: ImportFindingsArgs) -> Result<(), C
 }
 
 async fn import_scans(ctx: Context, args: ImportScansArgs) -> Result<(), CliError> {
-    let history = get_history_storage(&ctx);
+    let history = get_history_storage(&ctx).await;
     // Read the input file
     let data = std::fs::read_to_string(&args.input)
         .map_err(|e| CliError::Other(format!("Failed to read file: {}", e)))?;
@@ -1444,7 +1438,7 @@ async fn import_scans(ctx: Context, args: ImportScansArgs) -> Result<(), CliErro
     // Import each scan summary
     for summary in &summaries {
         history
-            .save_scan_summary(&summary)
+            .save_scan_summary(summary)
             .await
             .map_err(|e| CliError::HistoryError(e.to_string()))?;
     }
@@ -1455,7 +1449,7 @@ async fn import_scans(ctx: Context, args: ImportScansArgs) -> Result<(), CliErro
 }
 
 async fn import_projects(ctx: Context, args: ImportProjectsArgs) -> Result<(), CliError> {
-    let history = get_history_storage(&ctx);
+    let _history = get_history_storage(&ctx).await;
     // For now, projects are derived from scan summaries, so importing projects
     // would mean importing scan summaries that contain those projects.
     // We'll delegate to import_scans for now.
@@ -1649,7 +1643,7 @@ fn severity_meets_min(sev: &Severity, min_sev: &str) -> bool {
     let min_sev_lower = min_sev.to_lowercase();
 
     // Define severity levels in order of increasing severity
-    let levels = vec!["info", "low", "medium", "high", "critical"];
+    let levels = ["info", "low", "medium", "high", "critical"];
 
     let sev_index = levels.iter().position(|&l| l == sev_str.as_str()).unwrap_or(0);
     let min_index = levels.iter().position(|&l| l == min_sev_lower.as_str()).unwrap_or(0);
@@ -1658,7 +1652,7 @@ fn severity_meets_min(sev: &Severity, min_sev: &str) -> bool {
 }
 
 async fn pause_scan(ctx: Context, scan_id: &str) -> Result<(), CliError> {
-    let history = get_history_storage(&ctx);
+    let history = get_history_storage(&ctx).await;
     let scan_id_uuid = ScanId::from_uuid(
         uuid::Uuid::parse_str(scan_id)
             .map_err(|e| CliError::InvalidArgs(format!("Invalid scan ID: {}", e)))?,
@@ -1684,7 +1678,7 @@ async fn pause_scan(ctx: Context, scan_id: &str) -> Result<(), CliError> {
 }
 
 async fn resume_scan(ctx: Context, scan_id: &str) -> Result<(), CliError> {
-    let history = get_history_storage(&ctx);
+    let history = get_history_storage(&ctx).await;
     let scan_id_uuid = ScanId::from_uuid(
         uuid::Uuid::parse_str(scan_id)
             .map_err(|e| CliError::InvalidArgs(format!("Invalid scan ID: {}", e)))?,

@@ -7,13 +7,12 @@ use crate::{
     state::{
         AIState, AIViewMode, AppState, ChatMessage, ChatRole, FindingsGroupBy, JobStatus, LogEntry,
         Notification, PanelType, PluginViewMode, PluginsState, REViewMode, ReportType,
-        ReportViewMode, ReportsState, ReverseEngineeringState, ScanStatus, ScansState, ThemeColors,
-        Workflow, WorkflowExecution, WorkflowViewMode, WorkflowsState,
+        ReportViewMode, ReportsState, ReverseEngineeringState, ScanStatus, ThemeColors,
+        WorkflowViewMode, WorkflowsState,
     },
 };
 use openre_core::ids::ScanId;
-use openre_core::result::{Category, Confidence, Finding, Severity};
-use openre_intelligence::job::{Job, Priority};
+use openre_core::result::Severity;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
@@ -40,8 +39,8 @@ pub trait Panel: Send + Sync {
         key: crossterm::event::KeyEvent,
         state: &mut AppState,
     ) -> anyhow::Result<Vec<Action>>;
-    fn on_focus(&mut self, state: &mut AppState) {}
-    fn on_blur(&mut self, state: &mut AppState) {}
+    fn on_focus(&mut self, _state: &mut AppState) {}
+    fn on_blur(&mut self, _state: &mut AppState) {}
 }
 
 /// Projects panel
@@ -577,11 +576,11 @@ impl Panel for ScansPanel {
                     Span::styled(&active.current_check, Style::default().fg(colors.fg)),
                 ]),
                 Line::from(""),
-                Line::from(progress_line(
+                progress_line(
                     active.progress as f32 / active.total.max(1) as f32,
-                    (chunks[0].width.saturating_sub(4)) as u16,
+                    chunks[0].width.saturating_sub(4),
                     colors,
-                )),
+                ),
                 Line::from(vec![
                     Span::styled("Findings: ", Style::default().fg(colors.muted)),
                     Span::styled(
@@ -727,10 +726,8 @@ impl Panel for ScansPanel {
             KeyCode::Char('g') => {
                 scans_state.selected_index = 0;
             }
-            KeyCode::Char('G') => {
-                if len > 0 {
-                    scans_state.selected_index = len - 1;
-                }
+            KeyCode::Char('G') if len > 0 => {
+                scans_state.selected_index = len - 1;
             }
             _ => {}
         }
@@ -867,7 +864,7 @@ impl Panel for ReverseEngineeringPanel {
         state: &mut AppState,
     ) -> anyhow::Result<Vec<Event>> {
         match action {
-            Action::LoadREProject(id) => {
+            Action::LoadREProject(_) => {
                 // TODO: Load project from storage
             }
             Action::StartREAnalysis(id) => {
@@ -939,10 +936,8 @@ impl Panel for ReverseEngineeringPanel {
                     re_state.selected_index = (re_state.selected_index + 1).min(len - 1);
                 }
             }
-            KeyCode::Up | KeyCode::Char('k') => {
-                if re_state.selected_index > 0 {
-                    re_state.selected_index -= 1;
-                }
+            KeyCode::Up | KeyCode::Char('k') if re_state.selected_index > 0 => {
+                re_state.selected_index -= 1;
             }
             _ => {}
         }
@@ -1396,7 +1391,6 @@ impl Panel for FindingsPanel {
                     Style::default().fg(colors.fg)
                 };
 
-                let sev_badge = severity_badge(finding.finding.severity, colors);
                 let title = crate::utils::truncate(&finding.finding.title, 50);
                 let category = format!("{:?}", finding.finding.category);
                 let check = crate::utils::truncate(&finding.finding.plugin_source, 20);
@@ -1761,18 +1755,15 @@ impl Panel for WorkflowsPanel {
         action: Action,
         state: &mut AppState,
     ) -> anyhow::Result<Vec<Event>> {
-        match action {
-            Action::ExecuteWorkflow(id) => {
-                state.add_notification(Notification {
-                    id: uuid::Uuid::new_v4().to_string(),
-                    level: crate::state::NotificationLevel::Info,
-                    title: "Workflow Started".to_string(),
-                    message: format!("Executing workflow {}", id),
-                    timestamp: chrono::Utc::now(),
-                    duration_ms: 3000,
-                });
-            }
-            _ => {}
+        if let Action::ExecuteWorkflow(id) = action {
+            state.add_notification(Notification {
+                id: uuid::Uuid::new_v4().to_string(),
+                level: crate::state::NotificationLevel::Info,
+                title: "Workflow Started".to_string(),
+                message: format!("Executing workflow {}", id),
+                timestamp: chrono::Utc::now(),
+                duration_ms: 3000,
+            });
         }
         Ok(vec![])
     }
@@ -1802,10 +1793,8 @@ impl Panel for WorkflowsPanel {
                         .min(workflows_state.workflows.len() - 1);
                 }
             }
-            KeyCode::Up | KeyCode::Char('k') => {
-                if workflows_state.selected_index > 0 {
-                    workflows_state.selected_index -= 1;
-                }
+            KeyCode::Up | KeyCode::Char('k') if workflows_state.selected_index > 0 => {
+                workflows_state.selected_index -= 1;
             }
             _ => {}
         }
@@ -2189,10 +2178,8 @@ impl Panel for AIPanel {
                     ai_state.current_prompt.push(c);
                 }
             }
-            KeyCode::Backspace => {
-                if ai_state.view_mode == AIViewMode::Chat {
-                    ai_state.current_prompt.pop();
-                }
+            KeyCode::Backspace if ai_state.view_mode == AIViewMode::Chat => {
+                ai_state.current_prompt.pop();
             }
             _ => {}
         }
@@ -2373,7 +2360,7 @@ impl AIPanel {
         colors: &ThemeColors,
         focused: bool,
     ) {
-        let models = vec![
+        let models = [
             ("GPT-4", "OpenAI", true),
             ("GPT-3.5-Turbo", "OpenAI", false),
             ("Claude-3-Opus", "Anthropic", false),
@@ -2389,8 +2376,7 @@ impl AIPanel {
 
         let rows: Vec<Row> = models
             .iter()
-            .enumerate()
-            .map(|(i, (name, provider, selected))| {
+            .map(|(name, provider, selected)| {
                 let sel_style = if ai_state.model == *name {
                     Style::default()
                         .fg(colors.selected_fg)
@@ -2568,10 +2554,8 @@ impl Panel for PluginsPanel {
                         (plugins_state.selected_index + 1).min(plugins_state.plugins.len() - 1);
                 }
             }
-            KeyCode::Up | KeyCode::Char('k') => {
-                if plugins_state.selected_index > 0 {
-                    plugins_state.selected_index -= 1;
-                }
+            KeyCode::Up | KeyCode::Char('k') if plugins_state.selected_index > 0 => {
+                plugins_state.selected_index -= 1;
             }
             _ => {}
         }
@@ -2622,15 +2606,6 @@ impl PluginsPanel {
                         .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(colors.fg)
-                };
-
-                let status = if plugin.enabled {
-                    Span::styled(
-                        "✅ Enabled",
-                        Style::default().fg(colors.success).add_modifier(Modifier::BOLD),
-                    )
-                } else {
-                    Span::styled("❌ Disabled", Style::default().fg(colors.muted))
                 };
 
                 Row::new(vec![
@@ -3009,18 +2984,15 @@ impl Panel for ReportsPanel {
         action: Action,
         state: &mut AppState,
     ) -> anyhow::Result<Vec<Event>> {
-        match action {
-            Action::GenerateReport { report_type, scan_ids, project_ids } => {
-                state.add_notification(Notification {
-                    id: uuid::Uuid::new_v4().to_string(),
-                    level: crate::state::NotificationLevel::Info,
-                    title: "Report Generation".to_string(),
-                    message: format!("Generating {} report...", report_type),
-                    timestamp: chrono::Utc::now(),
-                    duration_ms: 3000,
-                });
-            }
-            _ => {}
+        if let Action::GenerateReport { report_type, .. } = action {
+            state.add_notification(Notification {
+                id: uuid::Uuid::new_v4().to_string(),
+                level: crate::state::NotificationLevel::Info,
+                title: "Report Generation".to_string(),
+                message: format!("Generating {} report...", report_type),
+                timestamp: chrono::Utc::now(),
+                duration_ms: 3000,
+            });
         }
         Ok(vec![])
     }
@@ -3052,10 +3024,8 @@ impl Panel for ReportsPanel {
                         (reports_state.selected_index + 1).min(reports_state.reports.len() - 1);
                 }
             }
-            KeyCode::Up | KeyCode::Char('k') => {
-                if reports_state.selected_index > 0 {
-                    reports_state.selected_index -= 1;
-                }
+            KeyCode::Up | KeyCode::Char('k') if reports_state.selected_index > 0 => {
+                reports_state.selected_index -= 1;
             }
             _ => {}
         }
@@ -3108,7 +3078,6 @@ impl ReportsPanel {
                     Style::default().fg(colors.fg)
                 };
 
-                let type_badge = report_type_badge(report.report_type, colors);
                 let size =
                     report.size_bytes.map(crate::utils::format_bytes).unwrap_or("—".to_string());
 

@@ -37,7 +37,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run clippy
-        run: cargo clippy --all-targets --all-features --workspace --exclude openre-cli --exclude openre-tui -- -D warnings
+        run: cargo clippy --all-targets --all-features --workspace -- -D warnings
 
   test:
     name: Run tests
@@ -87,3 +87,47 @@ jobs:
 
       - name: Build all crates
         run: cargo build --all-targets --workspace --exclude openre-tui
+
+  rust-windows:
+    name: Rust (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Tests
+        run: cargo test --all
+
+      - name: Release build
+        run: cargo build --release -p openre-cli -p openre-tui -p sentinel
+
+      - name: Binary smoke
+        run: |
+          ./target/release/openre.exe --help
+          ./target/release/openre-tui.exe --help
+          ./target/release/sentinel.exe --help
+
+  rust-macos:
+    name: Rust (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Tests
+        run: cargo test --all
+
+      - name: Release build
+        run: cargo build --release -p openre-cli -p openre-tui -p sentinel
+
+      - name: Binary smoke
+        run: |
+          ./target/release/openre --help
+          ./target/release/openre-tui --help
+          ./target/release/sentinel --help

@@ -28,7 +28,8 @@ keywords = ["security", "scanner", "vulnerability", "web", "binary", "reverse-en
 
 [workspace.dependencies]
 # Core
-tokio = { version = "1.53", features = ["full", "tracing", "macros", "rt-multi-thread"] }
+# rt-multi-thread implies rt; process is required by openre-scan integration tests
+tokio = { version = "1.53", features = ["rt", "rt-multi-thread", "macros", "fs", "io-util", "sync", "time", "process"] }
 anyhow = "1.0"
 thiserror = "1.0"
 serde = { version = "1.0.229", features = ["derive"] }
@@ -181,10 +182,10 @@ rust_2021_idioms = "warn"
 
 [profile.release]
 opt-level = 3
-lto = "thin"
+lto = "fat"
 codegen-units = 1
 panic = "abort"
-strip = "debuginfo"
+strip = true
 debug = false
 
 [profile.release-lto]

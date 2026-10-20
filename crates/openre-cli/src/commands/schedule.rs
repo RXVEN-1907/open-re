@@ -4,34 +4,24 @@
 
 #![allow(clippy::too_many_lines)]
 
-use serde::{Deserialize, Serialize};
-
 use crate::context::Context;
 use crate::error::CliError;
-use crate::output::{print_output, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
 use openre_core::error::OpenreResult;
-use openre_core::history::{HistoryStorage, ScanConfigSummary, ScanProgressSummary, ScanSummary};
-use openre_core::ids::{ProjectId, ScanId, TargetId};
+use openre_core::history::HistoryStorage;
+use openre_core::ids::ScanId;
 use openre_core::result::Finding;
-use openre_core::result::Severity;
 use openre_scan::checks::get_all_checks;
-use openre_scan::client::{build_client, build_client_with_config};
-use openre_scan::config::ScanConfig;
-use openre_scan::{ScanProfile, ScanResult, ScanTarget, Scanner};
+use openre_scan::client::build_client_with_config;
+use openre_scan::{ScanProfile, ScanTarget};
 use openre_storage::history::SqliteHistoryStorage;
-use rusqlite::{params, params_from_iter, Connection};
-use std::collections::{HashMap, HashSet};
-use std::fs;
+use rusqlite::params;
+use rusqlite::OptionalExtension;
+use std::collections::HashSet;
 use std::path::PathBuf;
-use std::str::FromStr;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
 use tabled::{Style, Table, Tabled};
-use tokio::time::{sleep, Duration};
+use tokio::time::Duration;
 use uuid::Uuid;
 
 /// Get history storage for scan operations
@@ -58,7 +48,7 @@ async fn init_schedule_storage(ctx: &Context) -> OpenreResult<SqliteHistoryStora
     let storage = SqliteHistoryStorage::new(&db_path)?;
 
     // Create schedules table if it doesn't exist
-    let mut conn = storage.conn().await;
+    let conn = storage.conn().await;
 
     // Schedules table
 
@@ -142,6 +132,9 @@ pub struct ScanSchedule {
 
 /// Schedule run record
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+// Persisted row shape for the runs table; construction lands with the
+// scheduler worker.
+#[allow(dead_code)]
 pub struct ScheduleRun {
     pub id: i64,
     pub schedule_id: String,
@@ -155,6 +148,9 @@ pub struct ScheduleRun {
 }
 
 /// Schedule-related commands
+// clap subcommand enums hold their Args by value; one variant being
+// larger than the others is expected here.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand, Debug)]
 pub enum ScheduleCommands {
     /// Add a new scan schedule
@@ -175,7 +171,7 @@ pub enum ScheduleCommands {
 
 /// Arguments for adding a schedule
 #[derive(Args, Debug)]
-struct ScheduleAddArgs {
+pub(crate) struct ScheduleAddArgs {
     /// Target URL or domain
     target: String,
 
@@ -234,7 +230,7 @@ struct ScheduleAddArgs {
 
 /// Arguments for listing schedules
 #[derive(Args, Debug)]
-struct ScheduleListArgs {
+pub(crate) struct ScheduleListArgs {
     /// Show only enabled schedules
     #[arg(long)]
     enabled_only: bool,
@@ -246,35 +242,35 @@ struct ScheduleListArgs {
 
 /// Arguments for removing a schedule
 #[derive(Args, Debug)]
-struct ScheduleRemoveArgs {
+pub(crate) struct ScheduleRemoveArgs {
     /// Schedule ID to remove
     id: String,
 }
 
 /// Arguments for pausing a schedule
 #[derive(Args, Debug)]
-struct SchedulePauseArgs {
+pub(crate) struct SchedulePauseArgs {
     /// Schedule ID to pause
     id: String,
 }
 
 /// Arguments for resuming a schedule
 #[derive(Args, Debug)]
-struct ScheduleResumeArgs {
+pub(crate) struct ScheduleResumeArgs {
     /// Schedule ID to resume
     id: String,
 }
 
 /// Arguments for showing schedule details
 #[derive(Args, Debug)]
-struct ScheduleShowArgs {
+pub(crate) struct ScheduleShowArgs {
     /// Schedule ID to show
     id: String,
 }
 
 /// Arguments for the scheduler daemon
 #[derive(Args, Debug)]
-struct ScheduleDaemonArgs {
+pub(crate) struct ScheduleDaemonArgs {
     /// Run once and exit (don't daemonize)
     #[arg(long)]
     once: bool,
@@ -355,7 +351,7 @@ async fn add_schedule(ctx: Context, args: ScheduleAddArgs) -> Result<(), CliErro
         updated_at: now,
     };
 
-    let mut conn = storage.conn().await;
+    let conn = storage.conn().await;
 
     conn.execute(
         r#"
@@ -431,7 +427,7 @@ async fn list_schedules(ctx: Context, args: ScheduleListArgs) -> Result<(), CliE
     query.push_str(" ORDER BY created_at DESC");
 
     // Execute query
-    let mut conn = storage.conn().await;
+    let conn = storage.conn().await;
 
     let mut stmt = conn.prepare(&query)?;
     let rows = stmt.query_map([], |row| {
@@ -508,14 +504,14 @@ async fn remove_schedule(ctx: Context, args: ScheduleRemoveArgs) -> Result<(), C
     let storage = init_schedule_storage(&ctx).await?;
 
     // Check if schedule exists
-    let mut conn = storage.conn().await;
+    let conn = storage.conn().await;
 
-    let exists: bool = conn
+    let exists = conn
         .query_row("SELECT COUNT(*) FROM schedules WHERE id = ?1", params![&args.id], |row| {
-            row.get(0)
-        })?
-        .unwrap_or(0)
-        > 0;
+            row.get::<_, i64>(0)
+        })
+        .map(|count| count > 0)
+        .unwrap_or(false);
 
     if !exists {
         return Err(CliError::NotFound(format!("Schedule not found: {}", args.id)));
@@ -536,9 +532,9 @@ async fn remove_schedule(ctx: Context, args: ScheduleRemoveArgs) -> Result<(), C
 async fn pause_schedule(ctx: Context, args: SchedulePauseArgs) -> Result<(), CliError> {
     let storage = init_schedule_storage(&ctx).await?;
 
-    let mut conn = storage.conn().await;
+    let conn = storage.conn().await;
 
-    let mut schedule: Option<ScanSchedule> = conn.query_row(
+    let schedule: Option<ScanSchedule> = conn.query_row(
         "SELECT id, name, target, profile, interval_minutes, checks, exclude_checks, headers, user_agent, proxy, timeout, rate_limit, max_redirects, follow_redirects, no_tls_verify, enabled, last_run, next_run, created_at, updated_at FROM schedules WHERE id = ?1",
         params![&args.id],
         |row| {
@@ -547,7 +543,7 @@ async fn pause_schedule(ctx: Context, args: SchedulePauseArgs) -> Result<(), Cli
                 name: row.get(1)?,
                 target: row.get(2)?,
                 profile: row.get(3)?,
-                interval_minutes: row.get(4)? as u64,
+                interval_minutes: row.get::<_, i64>(4)? as u64,
                 checks: {
                     let opt = row.get::<_, Option<String>>(5)?;
                     match opt {
@@ -574,19 +570,20 @@ async fn pause_schedule(ctx: Context, args: SchedulePauseArgs) -> Result<(), Cli
                 },
                 user_agent: row.get(8)?,
                 proxy: row.get(9)?,
-                timeout: row.get(10)?.map(|v| v as u64),
-                rate_limit: row.get(11)?,
-                max_redirects: row.get(12)?.map(|v| v as usize),
-                follow_redirects: row.get(13)?.map(|v| v != 0),
-                no_tls_verify: row.get(14)? != 0,
-                enabled: row.get(15)? != 0,
+                timeout: row.get::<_, Option<i64>>(10)?.map(|v| v as u64),
+                rate_limit: row.get::<_, Option<f64>>(11)?,
+                max_redirects: row.get::<_, Option<i64>>(12)?.map(|v| v as usize),
+                follow_redirects: row.get::<_, Option<i64>>(13)?.map(|v| v != 0),
+                no_tls_verify: row.get::<_, i64>(14)? != 0,
+                enabled: row.get::<_, i64>(15)? != 0,
                 last_run: row.get::<_, Option<String>>(16)?.map(|s| chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)),
                 next_run: row.get::<_, Option<String>>(17)?.map(|s| chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)),
-                created_at: chrono::DateTime::parse_from_rfc3339(&row.get(18)?).unwrap().with_timezone(&chrono::Utc),
-                updated_at: chrono::DateTime::parse_from_rfc3339(&row.get(19)?).unwrap().with_timezone(&chrono::Utc),
+                created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(18)?).unwrap().with_timezone(&chrono::Utc),
+                updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(19)?).unwrap().with_timezone(&chrono::Utc),
             })
         },
-    )?;
+    )
+    .optional()?;
 
     if schedule.is_none() {
         return Err(CliError::NotFound(format!("Schedule not found: {}", args.id)));
@@ -620,9 +617,9 @@ async fn pause_schedule(ctx: Context, args: SchedulePauseArgs) -> Result<(), Cli
 async fn resume_schedule(ctx: Context, args: ScheduleResumeArgs) -> Result<(), CliError> {
     let storage = init_schedule_storage(&ctx).await?;
 
-    let mut conn = storage.conn().await;
+    let conn = storage.conn().await;
 
-    let mut schedule: Option<ScanSchedule> = conn.query_row(
+    let schedule: Option<ScanSchedule> = conn.query_row(
         "SELECT id, name, target, profile, interval_minutes, checks, exclude_checks, headers, user_agent, proxy, timeout, rate_limit, max_redirects, follow_redirects, no_tls_verify, enabled, last_run, next_run, created_at, updated_at FROM schedules WHERE id = ?1",
         params![&args.id],
         |row| {
@@ -631,7 +628,7 @@ async fn resume_schedule(ctx: Context, args: ScheduleResumeArgs) -> Result<(), C
                 name: row.get(1)?,
                 target: row.get(2)?,
                 profile: row.get(3)?,
-                interval_minutes: row.get(4)? as u64,
+                interval_minutes: row.get::<_, i64>(4)? as u64,
                 checks: {
                     let opt = row.get::<_, Option<String>>(5)?;
                     match opt {
@@ -658,19 +655,20 @@ async fn resume_schedule(ctx: Context, args: ScheduleResumeArgs) -> Result<(), C
                 },
                 user_agent: row.get(8)?,
                 proxy: row.get(9)?,
-                timeout: row.get(10)?.map(|v| v as u64),
-                rate_limit: row.get(11)?,
-                max_redirects: row.get(12)?.map(|v| v as usize),
-                follow_redirects: row.get(13)?.map(|v| v != 0),
-                no_tls_verify: row.get(14)? != 0,
-                enabled: row.get(15)? != 0,
+                timeout: row.get::<_, Option<i64>>(10)?.map(|v| v as u64),
+                rate_limit: row.get::<_, Option<f64>>(11)?,
+                max_redirects: row.get::<_, Option<i64>>(12)?.map(|v| v as usize),
+                follow_redirects: row.get::<_, Option<i64>>(13)?.map(|v| v != 0),
+                no_tls_verify: row.get::<_, i64>(14)? != 0,
+                enabled: row.get::<_, i64>(15)? != 0,
                 last_run: row.get::<_, Option<String>>(16)?.map(|s| chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)),
                 next_run: row.get::<_, Option<String>>(17)?.map(|s| chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)),
-                created_at: chrono::DateTime::parse_from_rfc3339(&row.get(18)?).unwrap().with_timezone(&chrono::Utc),
-                updated_at: chrono::DateTime::parse_from_rfc3339(&row.get(19)?).unwrap().with_timezone(&chrono::Utc),
+                created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(18)?).unwrap().with_timezone(&chrono::Utc),
+                updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(19)?).unwrap().with_timezone(&chrono::Utc),
             })
         },
-    )?;
+    )
+    .optional()?;
 
     if schedule.is_none() {
         return Err(CliError::NotFound(format!("Schedule not found: {}", args.id)));
@@ -720,7 +718,7 @@ async fn resume_schedule(ctx: Context, args: ScheduleResumeArgs) -> Result<(), C
 async fn show_schedule(ctx: Context, args: ScheduleShowArgs) -> Result<(), CliError> {
     let storage = init_schedule_storage(&ctx).await?;
 
-    let mut conn = storage.conn().await;
+    let conn = storage.conn().await;
 
     let schedule: Option<ScanSchedule> = conn.query_row(
         "SELECT id, name, target, profile, interval_minutes, checks, exclude_checks, headers, user_agent, proxy, timeout, rate_limit, max_redirects, follow_redirects, no_tls_verify, enabled, last_run, next_run, created_at, updated_at FROM schedules WHERE id = ?1",
@@ -731,7 +729,7 @@ async fn show_schedule(ctx: Context, args: ScheduleShowArgs) -> Result<(), CliEr
                 name: row.get(1)?,
                 target: row.get(2)?,
                 profile: row.get(3)?,
-                interval_minutes: row.get(4)? as u64,
+                interval_minutes: row.get::<_, i64>(4)? as u64,
                 checks: {
                     let opt = row.get::<_, Option<String>>(5)?;
                     match opt {
@@ -758,19 +756,20 @@ async fn show_schedule(ctx: Context, args: ScheduleShowArgs) -> Result<(), CliEr
                 },
                 user_agent: row.get(8)?,
                 proxy: row.get(9)?,
-                timeout: row.get(10)?.map(|v| v as u64),
-                rate_limit: row.get(11)?,
-                max_redirects: row.get(12)?.map(|v| v as usize),
-                follow_redirects: row.get(13)?.map(|v| v != 0),
-                no_tls_verify: row.get(14)? != 0,
-                enabled: row.get(15)? != 0,
+                timeout: row.get::<_, Option<i64>>(10)?.map(|v| v as u64),
+                rate_limit: row.get::<_, Option<f64>>(11)?,
+                max_redirects: row.get::<_, Option<i64>>(12)?.map(|v| v as usize),
+                follow_redirects: row.get::<_, Option<i64>>(13)?.map(|v| v != 0),
+                no_tls_verify: row.get::<_, i64>(14)? != 0,
+                enabled: row.get::<_, i64>(15)? != 0,
                 last_run: row.get::<_, Option<String>>(16)?.map(|s| chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)),
                 next_run: row.get::<_, Option<String>>(17)?.map(|s| chrono::DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&chrono::Utc)),
-                created_at: chrono::DateTime::parse_from_rfc3339(&row.get(18)?).unwrap().with_timezone(&chrono::Utc),
-                updated_at: chrono::DateTime::parse_from_rfc3339(&row.get(19)?).unwrap().with_timezone(&chrono::Utc),
+                created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(18)?).unwrap().with_timezone(&chrono::Utc),
+                updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(19)?).unwrap().with_timezone(&chrono::Utc),
             })
         },
-    )?;
+    )
+    .optional()?;
 
     if schedule.is_none() {
         return Err(CliError::NotFound(format!("Schedule not found: {}", args.id)));
@@ -784,7 +783,7 @@ async fn show_schedule(ctx: Context, args: ScheduleShowArgs) -> Result<(), CliEr
     println!("  {} {}", "Name:".bold(), schedule.name);
     println!("  {} {}", "Target:".bold(), schedule.target);
     println!("  {} {}", "Profile:".bold(), schedule.profile);
-    println!("  {} {}", "Interval:".bold(), format!("{} minutes", schedule.interval_minutes));
+    println!("  {} {}", "Interval:".bold(), format_args!("{} minutes", schedule.interval_minutes));
     println!(
         "  {} {}",
         "Status:".bold(),
@@ -796,29 +795,34 @@ async fn show_schedule(ctx: Context, args: ScheduleShowArgs) -> Result<(), CliEr
     if let Some(last_run) = schedule.last_run {
         println!("  {} {}", "Last Run:".bold(), last_run.to_rfc3339());
     } else {
-        println!("  {} {}", "Last Run:".bold(), "Never");
+        println!("  {} Never", "Last Run:".bold());
     }
 
     if let Some(next_run) = schedule.next_run {
         println!("  {} {}", "Next Run:".bold(), next_run.to_rfc3339());
     } else {
-        println!("  {} {}", "Next Run:".bold(), "Not scheduled");
+        println!("  {} Not scheduled", "Next Run:".bold());
     }
 
     if let Some(checks) = &schedule.checks {
-        println!("  {} {}", "Checks:".bold(), checks.join(", "));
+        println!("  {} {}", "Checks:".bold(), checks);
     } else {
-        println!("  {} {}", "Checks:".bold(), "All (profile default)");
+        println!("  {} All (profile default)", "Checks:".bold());
     }
 
     if let Some(exclude) = &schedule.exclude_checks {
-        println!("  {} {}", "Excluded Checks:".bold(), exclude.join(", "));
+        println!("  {} {}", "Excluded Checks:".bold(), exclude);
     }
 
     if let Some(headers) = &schedule.headers {
         println!("  {}", "Headers:".bold());
-        for (k, v) in headers {
-            println!("    {}: {}", k, v);
+        match serde_json::from_str::<Vec<(String, String)>>(headers) {
+            Ok(pairs) => {
+                for (k, v) in pairs {
+                    println!("    {}: {}", k, v);
+                }
+            }
+            Err(_) => println!("    {}", headers),
         }
     }
 
@@ -831,11 +835,11 @@ async fn show_schedule(ctx: Context, args: ScheduleShowArgs) -> Result<(), CliEr
     }
 
     if let Some(timeout) = &schedule.timeout {
-        println!("  {} {}", "Timeout:".bold(), format!("{}s", timeout));
+        println!("  {} {}", "Timeout:".bold(), format_args!("{}s", timeout));
     }
 
     if let Some(rate_limit) = &schedule.rate_limit {
-        println!("  {} {}", "Rate Limit:".bold(), format!("{} req/s", rate_limit));
+        println!("  {} {}", "Rate Limit:".bold(), format_args!("{} req/s", rate_limit));
     }
 
     if let Some(max_redirects) = &schedule.max_redirects {
@@ -881,7 +885,7 @@ async fn run_scheduler_iteration(
     let now = chrono::Utc::now();
 
     // Get schedules that are due to run
-    let mut conn = storage.conn().await;
+    let conn = storage.conn().await;
 
     let mut stmt = conn.prepare(
         r#"
@@ -1004,7 +1008,7 @@ async fn run_scheduler_iteration(
             follow_redirects,
             no_tls_verify,
             enabled,
-            last_run,
+            _last_run,
             next_run,
         ) = schedule;
 
@@ -1014,12 +1018,11 @@ async fn run_scheduler_iteration(
 
         println!("\n{} Running scheduled scan: {}", "⏰".blue().bold(), name);
         println!("  {} {}", "Target:".bold(), target);
-        println!("  {} {}", "Scheduled for:".bold(), next_run.unwrap_or_else(|| now).to_rfc3339());
+        println!("  {} {}", "Scheduled for:".bold(), next_run.unwrap_or(now).to_rfc3339());
         println!("  {} {}", "Actual start:".bold(), now.to_rfc3339());
 
         // Update last_run and calculate next_run
-        let mut guard = storage.conn.lock().await;
-        let conn = guard.as_mut().expect("Connection not available");
+        let conn = storage.conn().await;
 
         let new_next_run = now + chrono::Duration::minutes(interval as i64);
 
@@ -1040,15 +1043,17 @@ async fn run_scheduler_iteration(
         )?;
 
         // Run the scan
+        let profile_parsed = <ScanProfile as std::str::FromStr>::from_str(&profile)
+            .map_err(|e| CliError::InvalidArgs(format!("Invalid profile '{}': {}", profile, e)))?;
         let scan_result = run_scheduled_scan(
             ctx,
-            &storage,
+            storage,
             &id,
             &target,
-            profile,
-            checks,
-            exclude,
-            headers,
+            profile_parsed,
+            if checks.is_empty() { None } else { Some(checks) },
+            if exclude.is_empty() { None } else { Some(exclude) },
+            if headers.is_empty() { None } else { Some(headers) },
             user_agent,
             proxy,
             timeout,
@@ -1060,8 +1065,7 @@ async fn run_scheduler_iteration(
         .await?;
 
         // Record the run
-        let mut guard = storage.conn.lock().await;
-        let conn = guard.as_mut().expect("Connection not available");
+        let conn = storage.conn().await;
 
         conn.execute(
             r#"
@@ -1087,20 +1091,20 @@ async fn run_scheduler_iteration(
         // Show results
         println!("{} Scan completed: {}", "✓".green().bold(), name);
         println!("  {} {}", "Scan ID:".bold(), scan_result.scan_id);
-        println!("  {} {}", "Duration:".bold(), format!("{:.2}s", scan_result.duration_secs));
+        println!("  {} {}", "Duration:".bold(), format_args!("{:.2}s", scan_result.duration_secs));
         println!("  {} {}", "Findings:".bold(), scan_result.findings_count);
         if scan_result.new_findings > 0 {
             println!(
                 "  {} {}",
                 "New Findings:".bold(),
-                format!("{} {}", scan_result.new_findings, "🆕".green())
+                format_args!("{} {}", scan_result.new_findings, "🆕".green())
             );
         }
         if scan_result.fixed_findings > 0 {
             println!(
                 "  {} {}",
                 "Fixed Findings:".bold(),
-                format!("{} {}", scan_result.fixed_findings, "✅".yellow())
+                format_args!("{} {}", scan_result.fixed_findings, "✅".yellow())
             );
         }
     }
@@ -1109,6 +1113,7 @@ async fn run_scheduler_iteration(
 }
 
 /// Run a scheduled scan and compare with baseline
+#[allow(clippy::too_many_arguments)] // the scan context, threaded
 async fn run_scheduled_scan(
     ctx: &Context,
     storage: &SqliteHistoryStorage,
@@ -1136,7 +1141,7 @@ async fn run_scheduled_scan(
     let scan_id = ScanId::new();
 
     // Get the most recent scan for this target to use as baseline
-    let baseline_scan_id = get_baseline_scan_for_target(&storage, schedule_id, target).await?;
+    let baseline_scan_id = get_baseline_scan_for_target(storage, schedule_id, target).await?;
 
     // Run the actual scan
     let findings = perform_scan(
@@ -1167,7 +1172,7 @@ async fn run_scheduled_scan(
     };
 
     // Save this scan as the new baseline for future comparisons
-    save_as_baseline(&storage, schedule_id, target, &scan_id).await?;
+    save_as_baseline(storage, schedule_id, target, &scan_id).await?;
 
     Ok(ScheduleScanResult {
         schedule_id: schedule_id.to_string(),
@@ -1186,9 +1191,9 @@ async fn run_scheduled_scan(
 async fn get_baseline_scan_for_target(
     storage: &SqliteHistoryStorage,
     schedule_id: &str,
-    target: &str,
+    _target: &str,
 ) -> Result<Option<ScanId>, CliError> {
-    let mut conn = storage.conn().await;
+    let conn = storage.conn().await;
 
     // Find the most recent successful scan for this target/schedule
     let result: Option<String> = conn.query_row(
@@ -1212,6 +1217,7 @@ async fn get_baseline_scan_for_target(
 }
 
 /// Perform an actual scan and return findings
+#[allow(clippy::too_many_arguments)] // the scan context, threaded
 async fn perform_scan(
     target: &str,
     profile: ScanProfile,
@@ -1235,34 +1241,17 @@ async fn perform_scan(
 
     // Parse headers
     let mut header_vec = Vec::new();
-    if let Some(header_list) = headers {
+    if let Some(header_list) = &headers {
         for (k, v) in header_list {
-            header_vec.push((k, v));
+            header_vec.push((k.clone(), v.clone()));
         }
     }
 
-    if let Some(ua) = user_agent {
-        target_obj = target_obj.with_user_agent(ua);
+    if let Some(ua) = &user_agent {
+        target_obj = target_obj.with_user_agent(ua.clone());
     }
-    if let Some(proxy_url) = proxy {
-        target_obj = target_obj.with_proxy(proxy_url);
-    }
-    if let Some(rate) = rate_limit {
-        target_obj = target_obj.with_rate_limit(rate);
-    }
-    // Parse headers
-    let mut header_vec = Vec::new();
-    if let Some(header_list) = headers {
-        for (k, v) in header_list {
-            header_vec.push((k, v));
-        }
-    }
-
-    if let Some(ua) = user_agent {
-        target_obj = target_obj.with_user_agent(ua);
-    }
-    if let Some(proxy_url) = proxy {
-        target_obj = target_obj.with_proxy(proxy_url);
+    if let Some(proxy_url) = &proxy {
+        target_obj = target_obj.with_proxy(proxy_url.clone());
     }
     if let Some(rate) = rate_limit {
         target_obj = target_obj.with_rate_limit(rate);
@@ -1287,10 +1276,10 @@ async fn perform_scan(
         .filter(|check| {
             let should_run = checks
                 .as_ref()
-                .map_or(true, |opt_checks| opt_checks.iter().any(|s| s == check.name()));
+                .is_none_or(|opt_checks| opt_checks.iter().any(|s| s == check.name()));
             let should_exclude = exclude
                 .as_ref()
-                .map_or(false, |opt_exclude| opt_exclude.iter().any(|s| s == check.name()));
+                .is_some_and(|opt_exclude| opt_exclude.iter().any(|s| s == check.name()));
             should_run && !should_exclude
         })
         .collect();
@@ -1335,7 +1324,7 @@ async fn perform_scan(
 async fn compare_with_baseline(
     history: &SqliteHistoryStorage,
     baseline_scan_id: &ScanId,
-    current_scan_id: &ScanId,
+    _current_scan_id: &ScanId,
     current_findings: &[Finding],
 ) -> Result<(usize, usize), CliError> {
     // Get baseline findings
@@ -1357,16 +1346,16 @@ async fn compare_with_baseline(
 /// Save a scan as the new baseline for future comparisons
 async fn save_as_baseline(
     storage: &SqliteHistoryStorage,
-    schedule_id: &str,
-    target: &str,
-    scan_id: &ScanId,
+    _schedule_id: &str,
+    _target: &str,
+    _scan_id: &ScanId,
 ) -> Result<(), CliError> {
     // For now, we just rely on the schedule_runs table to track baseline
     // In a more sophisticated implementation, we might have a separate baselines table
     // or update a baseline_scan_id field in the schedules table
 
     // Update the schedule to record this scan as the baseline for next comparison
-    let mut conn = storage.conn().await;
+    let _conn = storage.conn().await;
 
     // We could update a baseline_scan_id column here, but for simplicity
     // we'll just rely on the most recent completed run in schedule_runs
@@ -1376,6 +1365,8 @@ async fn save_as_baseline(
 
 /// Result of a scheduled scan
 #[derive(Debug, Clone)]
+// schedule_id rides along in the persisted/serialized result.
+#[allow(dead_code)]
 struct ScheduleScanResult {
     schedule_id: String,
     scan_id: String,

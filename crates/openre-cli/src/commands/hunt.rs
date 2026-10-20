@@ -1,7 +1,7 @@
 //! Instant security assessment with AI-powered PoC generation and viral sharing mechanics
 
 use crate::error::CliError;
-use clap::{Args, Subcommand};
+use clap::Args;
 use std::path::PathBuf;
 
 /// Instant security assessment with AI-powered PoC generation and viral sharing mechanics
@@ -101,7 +101,7 @@ pub async fn execute(args: HuntArgs) -> Result<(), CliError> {
 }
 
 /// Scan target for vulnerabilities
-async fn scan_target(target: &str, depth: &str) -> Result<Vec<Vulnerability>, CliError> {
+async fn scan_target(_target: &str, depth: &str) -> Result<Vec<Vulnerability>, CliError> {
     // In a real implementation, this would use various scanning techniques
     // For now, we'll simulate some results
 
@@ -214,8 +214,8 @@ async fn generate_pocs(
 
 /// Generate a shareable HTML report
 async fn generate_report(
-    analyzed_vulns: &[AnalyzedVulnerability],
-    poc_results: &[PoCResult],
+    _analyzed_vulns: &[AnalyzedVulnerability],
+    _poc_results: &[PoCResult],
     args: &HuntArgs,
 ) -> Result<PathBuf, CliError> {
     // Determine output path
@@ -230,7 +230,7 @@ async fn generate_report(
         &report_path,
         "<!-- OpenRe Hunt Report --><html><body><h1>OpenRe Hunt Results</h1></body></html>",
     )
-    .map_err(|e| CliError::Io(e))?;
+    .map_err(CliError::Io)?;
 
     Ok(report_path)
 }
@@ -238,6 +238,9 @@ async fn generate_report(
 // Helper functions and data structures
 
 #[derive(Debug, Clone)]
+// The full schema ships in the generated report; the terminal path
+// reads a subset.
+#[allow(dead_code)]
 struct Vulnerability {
     id: String,
     title: String,
@@ -249,6 +252,9 @@ struct Vulnerability {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
+// The severity ladder is complete by definition; hunt reports never
+// emit the lowest two rungs today.
+#[allow(dead_code)]
 enum Severity {
     Info = 0,
     Low = 1,
@@ -258,6 +264,8 @@ enum Severity {
 }
 
 #[derive(Debug, Clone)]
+// Report-schema member; the terminal path reads a subset.
+#[allow(dead_code)]
 struct AnalyzedVulnerability {
     vulnerability: Vulnerability,
     exploitability: Exploitability,
@@ -266,6 +274,8 @@ struct AnalyzedVulnerability {
 }
 
 #[derive(Debug, Clone)]
+// Report-schema member; the terminal path reads a subset.
+#[allow(dead_code)]
 struct Exploitability {
     likelihood: String,          // "Low", "Medium", "High"
     complexity: String,          // "Low", "Medium", "High"
@@ -274,6 +284,8 @@ struct Exploitability {
 }
 
 #[derive(Debug, Clone)]
+// Report-schema member; the terminal path reads a subset.
+#[allow(dead_code)]
 struct PoCResult {
     vulnerability_id: String,
     poc_code: String,

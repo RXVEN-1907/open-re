@@ -1,15 +1,14 @@
 //! AI-powered analysis commands
 
-use crate::ai_stubs::{
-    AiClient, AiProvider, AnalysisRequest, AnalysisType, Audience, ConnectionTestResult,
-    ExplainDetail, FixType, ProviderInfo,
-};
 use crate::context::Context;
 use crate::error::CliError;
-use crate::intelligence_stubs::{CorrelationEngine, Finding};
 use crate::output::{print_output, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
+use openre_ai::providers::{CompletionRequest, Message, MessageRole};
+use openre_core::result::Finding;
+use openre_intelligence::CorrelationEngine;
+use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use tabled::{Style, Table, Tabled};
@@ -33,7 +32,7 @@ pub enum AiCommands {
 }
 
 #[derive(Args, Debug)]
-struct ChatArgs {
+pub(crate) struct ChatArgs {
     /// Message to send (if not provided, starts interactive chat)
     message: Option<String>,
 
@@ -51,7 +50,7 @@ struct ChatArgs {
 }
 
 #[derive(Args, Debug)]
-struct AnalyzeArgs {
+pub(crate) struct AnalyzeArgs {
     /// Finding ID or JSON file with finding
     finding: String,
 
@@ -65,27 +64,27 @@ struct AnalyzeArgs {
 }
 
 #[derive(Args, Debug)]
-struct ExplainArgs {
+pub(crate) struct ExplainArgs {
     /// Finding ID or JSON file with finding
     finding: String,
 
     /// Detail level
     #[arg(long, value_enum, default_value = "standard")]
-    detail: crate::ai_stubs::ExplainDetail,
+    detail: DetailArg,
 
     /// Target audience
     #[arg(long, value_enum, default_value = "developer")]
-    audience: crate::ai_stubs::Audience,
+    audience: AudienceArg,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
-enum ExplainDetailArg {
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum DetailArg {
     Brief,
     Standard,
     Deep,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 enum AudienceArg {
     Developer,
     SecurityTeam,
@@ -94,20 +93,20 @@ enum AudienceArg {
 }
 
 #[derive(Args, Debug)]
-struct RemediateArgs {
+pub(crate) struct RemediateArgs {
     /// Finding ID or JSON file with finding
     finding: String,
 
     /// Preferred fix type
     #[arg(long, value_enum, default_value = "code")]
-    fix_type: crate::ai_stubs::FixType,
+    fix_type: FixTypeArg,
 
     /// Language/framework context
     #[arg(long)]
     language: Option<String>,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 enum FixTypeArg {
     Code,
     Config,
@@ -116,7 +115,7 @@ enum FixTypeArg {
 }
 
 #[derive(Args, Debug)]
-struct CorrelateArgs {
+pub(crate) struct CorrelateArgs {
     /// Project directory or scan results directory
     path: PathBuf,
 
@@ -130,10 +129,10 @@ struct CorrelateArgs {
 }
 
 #[derive(Args, Debug)]
-struct TestArgs {
-    /// Provider to test
-    #[arg(long, value_enum)]
-    provider: Option<crate::ai_stubs::AiProvider>,
+pub(crate) struct TestArgs {
+    /// Provider type to test (e.g. openai, anthropic, vllm)
+    #[arg(long)]
+    provider: Option<String>,
 
     /// Model to test
     #[arg(long)]
@@ -141,31 +140,73 @@ struct TestArgs {
 }
 
 impl AiCommands {
-    pub async fn execute(self, ctx: &mut Context) -> Result<(), CliError> {
+    pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
         if ctx.no_ai {
             return Err(CliError::InvalidArgs("AI features disabled with --no-ai".into()));
         }
 
         match self {
-            AiCommands::Chat(args) => run_chat(ctx, args).await,
-            AiCommands::Analyze(args) => run_analyze(ctx, args).await,
-            AiCommands::Explain(args) => run_explain(ctx, args).await,
-            AiCommands::Remediate(args) => run_remediate(ctx, args).await,
-            AiCommands::Correlate(args) => run_correlate(ctx, args).await,
-            AiCommands::Providers => run_providers(ctx).await,
-            AiCommands::Test(args) => run_test(ctx, args).await,
+            AiCommands::Chat(args) => run_chat(&ctx, args).await,
+            AiCommands::Analyze(args) => run_analyze(&ctx, args).await,
+            AiCommands::Explain(args) => run_explain(&ctx, args).await,
+            AiCommands::Remediate(args) => run_remediate(&ctx, args).await,
+            AiCommands::Correlate(args) => run_correlate(&ctx, args).await,
+            AiCommands::Providers => run_providers(&ctx).await,
+            AiCommands::Test(args) => run_test(&ctx, args).await,
         }
     }
 }
 
-async fn run_chat(ctx: &mut Context, args: ChatArgs) -> Result<(), CliError> {
-    let client = ctx.ai_client()?;
+fn completion_request(
+    system: Option<&str>,
+    user: &str,
+    temperature: f32,
+    max_tokens: Option<u32>,
+) -> CompletionRequest {
+    let mut messages = Vec::new();
+    if let Some(system) = system {
+        messages.push(Message {
+            role: MessageRole::System,
+            content: Some(system.to_string()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        });
+    }
+    messages.push(Message {
+        role: MessageRole::User,
+        content: Some(user.to_string()),
+        tool_calls: None,
+        tool_call_id: None,
+        name: None,
+    });
+    CompletionRequest {
+        messages,
+        tools: None,
+        tool_choice: None,
+        temperature: Some(temperature),
+        max_tokens,
+        top_p: None,
+        stop: None,
+        response_format: None,
+        stream: false,
+        metadata: HashMap::new(),
+    }
+}
+
+fn response_text(response: &openre_ai::providers::CompletionResponse) -> String {
+    response.choices.first().and_then(|c| c.message.content.clone()).unwrap_or_default()
+}
+
+async fn run_chat(ctx: &Context, args: ChatArgs) -> Result<(), CliError> {
+    let client = ctx.ai_client().await?;
 
     if let Some(msg) = args.message {
         // Single message mode
-        let response =
-            client.chat(&msg, args.system.as_deref(), args.temperature, args.max_tokens).await?;
-        println!("{}", response);
+        let request =
+            completion_request(args.system.as_deref(), &msg, args.temperature, args.max_tokens);
+        let response = client.complete(request).await?;
+        println!("{}", response_text(&response));
     } else {
         // Interactive chat mode
         println!("{}", "openre AI Chat (type 'exit' to quit)".bold().cyan());
@@ -182,169 +223,237 @@ async fn run_chat(ctx: &mut Context, args: ChatArgs) -> Result<(), CliError> {
             }
 
             let spinner = ctx.spinner("Thinking...");
-            let response = client
-                .chat(&input, args.system.as_deref(), args.temperature, args.max_tokens)
-                .await?;
+            let request = completion_request(
+                args.system.as_deref(),
+                &input,
+                args.temperature,
+                args.max_tokens,
+            );
+            let response = client.complete(request).await;
             spinner.finish_and_clear();
+            let response = response?;
 
-            println!("{} {}", "AI".bold().green(), response);
+            println!("{} {}", "AI".bold().green(), response_text(&response));
             println!();
         }
     }
     Ok(())
 }
 
-async fn run_analyze(ctx: &mut Context, args: AnalyzeArgs) -> Result<(), CliError> {
-    let client = ctx.ai_client()?;
+fn finding_prompt(finding: &Finding, task: &str, extras: &[(String, String)]) -> String {
+    let mut prompt = format!(
+        "{}\n\nFinding:\n- Title: {}\n- Severity: {:?}\n- Category: {:?}\n- Target: {}\n- Description: {}\n- CWEs: {}\n- CAPECs: {}\n- OWASP: {}\n",
+        task,
+        finding.title,
+        finding.severity,
+        finding.category,
+        finding.target,
+        finding.description,
+        if finding.cwe_ids.is_empty() { "-".to_string() } else { finding.cwe_ids.join(", ") },
+        if finding.capec_ids.is_empty() { "-".to_string() } else { finding.capec_ids.join(", ") },
+        finding.owasp_category.clone().unwrap_or_else(|| "-".to_string()),
+    );
+    for (label, value) in extras {
+        prompt.push_str(&format!("- {}: {}\n", label, value));
+    }
+    prompt
+}
+
+async fn run_analyze(ctx: &Context, args: AnalyzeArgs) -> Result<(), CliError> {
+    let client = ctx.ai_client().await?;
     let finding = load_finding(&args.finding)?;
+
+    let mut extras: Vec<(String, String)> = vec![(
+        "Analysis depth".to_string(),
+        if args.ultrathink { "maximum thinking budget" } else { "standard" }.to_string(),
+    )];
+    if let Some(context) = &args.context {
+        extras.push(("Additional context".to_string(), context.clone()));
+    }
+    let request = completion_request(
+        Some("You are a security analyst. Analyze the finding for exploitability, impact, and false-positive indicators. Be concrete."),
+        &finding_prompt(&finding, "Analyze the following security finding.", &extras),
+        0.3,
+        None,
+    );
 
     let spinner = ctx.spinner("Analyzing with AI...");
-    let request = AnalysisRequest {
-        finding: finding.clone(),
-        analysis_type: crate::ai_stubs::AnalysisType::FullAnalysis,
-        context: args.context,
-        ultrathink: args.ultrathink,
-    };
-    client.analyze(request).await?;
+    let response = client.complete(request).await;
     spinner.finish_and_clear();
+    let response = response?;
 
-    let result = crate::ai_stubs::AnalysisResult {
-        summary: "AI analysis completed (stub implementation)".to_string(),
-        details: vec![
-            "This is a stub response from the AI service".to_string(),
-            format!("Analysis of finding: {}", finding.id),
-            if args.ultrathink {
-                "Ultrathink mode enabled: maximum thinking budget applied".to_string()
-            } else {
-                "".to_string()
-            },
-        ]
-        .into_iter()
-        .filter(|s| !s.is_empty())
-        .collect(),
-        recommendations: vec![
-            "Consult with a security expert for detailed analysis".to_string(),
-            "Review the finding manually for accuracy".to_string(),
-        ],
+    let analysis = AiAnalysis {
+        summary: response_text(&response),
+        model: response.model.clone(),
+        finding_title: finding.title.clone(),
     };
-    print_output(&result, ctx.format, None)?;
+    print_output(&analysis, ctx.format, None)?;
     Ok(())
 }
 
-async fn run_explain(ctx: &mut Context, args: ExplainArgs) -> Result<(), CliError> {
-    let client = ctx.ai_client()?;
+async fn run_explain(ctx: &Context, args: ExplainArgs) -> Result<(), CliError> {
+    let client = ctx.ai_client().await?;
     let finding = load_finding(&args.finding)?;
+
+    let extras = vec![
+        ("Detail level".to_string(), format!("{:?}", args.detail)),
+        ("Audience".to_string(), format!("{:?}", args.audience)),
+    ];
+    let task = match args.audience {
+        AudienceArg::Executive | AudienceArg::Management => {
+            "Explain the business risk of the following security finding in plain language."
+        }
+        _ => "Explain the following security finding technically: root cause, exploitation path, and impact.",
+    };
+    let request = completion_request(
+        Some("You are a security educator. Adapt depth to the requested audience."),
+        &finding_prompt(&finding, task, &extras),
+        0.5,
+        None,
+    );
 
     let spinner = ctx.spinner("Generating explanation...");
-    let explanation = client.explain(&finding, args.detail.into(), args.audience.into()).await?;
+    let response = client.complete(request).await;
     spinner.finish_and_clear();
+    let response = response?;
 
-    println!("\n{}", explanation);
+    println!("\n{}", response_text(&response));
     Ok(())
 }
 
-async fn run_remediate(ctx: &mut Context, args: RemediateArgs) -> Result<(), CliError> {
-    let client = ctx.ai_client()?;
+async fn run_remediate(ctx: &Context, args: RemediateArgs) -> Result<(), CliError> {
+    let client = ctx.ai_client().await?;
     let finding = load_finding(&args.finding)?;
 
-    let spinner = ctx.spinner("Generating remediation guidance...");
-    let remediation =
-        client.remediate(&finding, args.fix_type.into(), args.language.as_deref()).await?;
-    spinner.finish_and_clear();
+    let mut extras = vec![("Fix type".to_string(), format!("{:?}", args.fix_type))];
+    if let Some(language) = &args.language {
+        extras.push(("Language/framework".to_string(), language.clone()));
+    }
+    let request = completion_request(
+        Some("You are a remediation engineer. Provide actionable, testable fixes with code where applicable."),
+        &finding_prompt(&finding, "Provide remediation guidance for the following finding.", &extras),
+        0.3,
+        None,
+    );
 
-    println!("\n{}", remediation);
+    let spinner = ctx.spinner("Generating remediation guidance...");
+    let response = client.complete(request).await;
+    spinner.finish_and_clear();
+    let response = response?;
+
+    println!("\n{}", response_text(&response));
     Ok(())
 }
 
-async fn run_correlate(ctx: &mut Context, args: CorrelateArgs) -> Result<(), CliError> {
-    let client = ctx.ai_client()?;
+async fn run_correlate(ctx: &Context, args: CorrelateArgs) -> Result<(), CliError> {
     let engine = CorrelationEngine::new();
 
     let spinner = ctx.spinner("Correlate findings...");
     let findings = load_findings_from_path(&args.path)?;
-    let correlations = engine.correlate(&findings).await?;
+    let relationships = engine.correlate_findings(&findings).await?;
     spinner.finish_and_clear();
 
-    if correlations.is_empty() {
+    let titles: HashMap<String, String> =
+        findings.iter().map(|f| (f.id.to_string(), f.title.clone())).collect();
+
+    let rows: Vec<CorrelationRow> = relationships
+        .iter()
+        .filter(|r| r.confidence >= args.min_confidence)
+        .map(|r| CorrelationRow {
+            source: titles
+                .get(&r.source_finding.to_string())
+                .cloned()
+                .unwrap_or_else(|| r.source_finding.to_string()),
+            target: titles
+                .get(&r.target_finding.to_string())
+                .cloned()
+                .unwrap_or_else(|| r.target_finding.to_string()),
+            relationship_type: format!("{:?}", r.relationship_type),
+            confidence: format!("{:.0}%", r.confidence * 100.0),
+            description: r.explanation.clone(),
+        })
+        .collect();
+
+    if rows.is_empty() {
         println!("{} No correlations found", "ℹ".blue());
         return Ok(());
     }
 
     if args.format == OutputFormat::Table {
-        let mut table = Table::new(
-            correlations
-                .iter()
-                .map(|c| CorrelationRow {
-                    finding_a: c.finding_a.title.clone(),
-                    finding_b: c.finding_b.title.clone(),
-                    correlation_type: format!("{:?}", c.correlation_type),
-                    confidence: format!("{:.0}%", c.confidence * 100.0),
-                    description: c.description.clone(),
-                })
-                .collect::<Vec<_>>(),
-        );
+        let mut table = Table::new(rows);
         table.with(Style::modern());
         println!("{}", table);
     } else {
-        print_output(&correlations, args.format, None)?;
+        let correlated: Vec<openre_core::relationships::FindingRelationship> =
+            relationships.into_iter().filter(|r| r.confidence >= args.min_confidence).collect();
+        print_output(&correlated, args.format, None)?;
     }
     Ok(())
 }
 
-async fn run_providers(ctx: &mut Context) -> Result<(), CliError> {
-    let client = ctx.ai_client()?;
-    client.list_providers().await?;
+async fn run_providers(ctx: &Context) -> Result<(), CliError> {
+    let client = ctx.ai_client().await?;
+    let health = client.health_check().await;
 
-    println!("\n{}", "Available AI Providers:".bold().cyan());
-    // Stub implementation - show hardcoded providers
-    let stub_providers = vec![
-        crate::ai_stubs::ProviderInfo {
-            name: "OpenAI".to_string(),
-            provider_type: "cloud".to_string(),
-            available: false,
-            models: vec!["gpt-4".to_string(), "gpt-3.5-turbo".to_string()],
-        },
-        crate::ai_stubs::ProviderInfo {
-            name: "Anthropic".to_string(),
-            provider_type: "cloud".to_string(),
-            available: false,
-            models: vec!["claude-3-opus".to_string(), "claude-3-sonnet".to_string()],
-        },
-        crate::ai_stubs::ProviderInfo {
-            name: "Ollama".to_string(),
-            provider_type: "local".to_string(),
-            available: false,
-            models: vec!["llama3".to_string(), "codellama".to_string()],
-        },
-    ];
-    for p in stub_providers {
-        let status = if p.available { "✓".green() } else { "✗".red() };
-        println!("  {} {} ({})", status, p.name.bold(), p.provider_type);
-        for m in &p.models {
-            println!("    • {}", m);
-        }
+    println!("\n{}", "Registered AI Providers:".bold().cyan());
+    let ids = client.list_provider_ids();
+    if ids.is_empty() {
+        println!(
+            "  {} No providers registered. Set API keys (e.g. OPENAI_API_KEY) or allowed providers in config.",
+            "✗".red()
+        );
+        return Ok(());
+    }
+    for id in ids {
+        let status = match health.get(&id) {
+            Some(h) if h.healthy => "✓".green(),
+            Some(_) => "✗".red(),
+            None => "?".yellow(),
+        };
+        println!("  {} {}", status, id);
     }
     Ok(())
 }
 
-async fn run_test(ctx: &mut Context, args: TestArgs) -> Result<(), CliError> {
-    let client = ctx.ai_client()?;
+async fn run_test(ctx: &Context, args: TestArgs) -> Result<(), CliError> {
+    let client = ctx.ai_client().await?;
 
     let spinner = ctx.spinner("Testing AI connection...");
-    let result = client.test_connection(args.provider, args.model.as_deref()).await?;
+    let health = client.health_check().await;
     spinner.finish_and_clear();
 
-    if result.success {
-        println!("{} Connection successful!", "✓".green().bold());
-        println!("  Provider: {}", result.provider);
-        println!("  Model: {}", result.model);
-        println!("  Latency: {:.0}ms", result.latency_ms);
-    } else {
-        println!(
-            "{} Connection failed: {}",
-            "✗".red().bold(),
-            result.error.unwrap_or_else(|| "Unknown error".to_string())
-        );
+    let mut tested = 0;
+    let mut ok = 0;
+    for (id, status) in &health {
+        if let Some(provider) = &args.provider {
+            if id.provider_type != *provider {
+                continue;
+            }
+        }
+        if let Some(model) = &args.model {
+            if id.model_name != *model {
+                continue;
+            }
+        }
+        tested += 1;
+        if status.healthy {
+            ok += 1;
+            println!("{} {}/{} reachable", "✓".green().bold(), id.provider_type, id.model_name);
+        } else {
+            println!(
+                "{} {}/{} unreachable: {}",
+                "✗".red().bold(),
+                id.provider_type,
+                id.model_name,
+                status.message.clone().unwrap_or_else(|| "unknown error".to_string())
+            );
+        }
+    }
+
+    if tested == 0 {
+        println!("{} No registered provider matches the given filters", "⚠".yellow().bold());
+    } else if ok == 0 {
+        return Err(CliError::Internal("No provider answered successfully".into()));
     }
     Ok(())
 }
@@ -381,48 +490,23 @@ fn load_findings_from_path(path: &Path) -> Result<Vec<Finding>, CliError> {
     }
 }
 
+#[derive(serde::Serialize)]
+struct AiAnalysis {
+    summary: String,
+    model: String,
+    finding_title: String,
+}
+
 #[derive(tabled::Tabled)]
 struct CorrelationRow {
-    #[tabled(rename = "FINDING A")]
-    finding_a: String,
-    #[tabled(rename = "FINDING B")]
-    finding_b: String,
+    #[tabled(rename = "SOURCE")]
+    source: String,
+    #[tabled(rename = "TARGET")]
+    target: String,
     #[tabled(rename = "TYPE")]
-    correlation_type: String,
+    relationship_type: String,
     #[tabled(rename = "CONFIDENCE")]
     confidence: String,
     #[tabled(rename = "DESCRIPTION")]
     description: String,
-}
-
-impl From<ExplainDetailArg> for crate::ai_stubs::ExplainDetail {
-    fn from(d: ExplainDetailArg) -> Self {
-        match d {
-            ExplainDetailArg::Brief => crate::ai_stubs::ExplainDetail::Brief,
-            ExplainDetailArg::Standard => crate::ai_stubs::ExplainDetail::Standard,
-            ExplainDetailArg::Deep => crate::ai_stubs::ExplainDetail::Deep,
-        }
-    }
-}
-
-impl From<AudienceArg> for crate::ai_stubs::Audience {
-    fn from(a: AudienceArg) -> Self {
-        match a {
-            AudienceArg::Developer => crate::ai_stubs::Audience::Developer,
-            AudienceArg::SecurityTeam => crate::ai_stubs::Audience::SecurityTeam,
-            AudienceArg::Management => crate::ai_stubs::Audience::Management,
-            AudienceArg::Executive => crate::ai_stubs::Audience::Executive,
-        }
-    }
-}
-
-impl From<FixTypeArg> for crate::ai_stubs::FixType {
-    fn from(f: FixTypeArg) -> Self {
-        match f {
-            FixTypeArg::Code => crate::ai_stubs::FixType::Code,
-            FixTypeArg::Config => crate::ai_stubs::FixType::Config,
-            FixTypeArg::Architecture => crate::ai_stubs::FixType::Architecture,
-            FixTypeArg::Process => crate::ai_stubs::FixType::Process,
-        }
-    }
 }

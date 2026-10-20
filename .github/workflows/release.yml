@@ -1,376 +1,471 @@
+# Release pipeline: a pushed v* tag builds the three release binaries
+# (openre, openre-tui, sentinel) for every supported platform and publishes
+# all archives (plus sha256 checksums) on a GitHub release.
+#
+# Matrix, one job per build host:
+#   prep    - ubuntu x86_64: the host GNU build (also generates the shell
+#             completions every other job packages, since a cross binary
+#             cannot run on its build host)
+#   linux   - 10 more Linux targets (glibc, musl, arm, riscv64, loongarch64,
+#             powerpc64le, s390x) plus 3 Windows targets via cargo-zigbuild
+#   macos   - aarch64 + x86_64 + a universal2 fat binary per tool, natively
+#             linked against Apple's SDK
+#   windows - x86_64-pc-windows-msvc, natively on a Windows runner, smoked
+#             for real (unpack + run --version)
+#   bsd     - x86_64 FreeBSD via cross-rs (zig cannot supply a BSD libc,
+#             and the cross image ships the real thing; NetBSD waits on a
+#             libc kevent-binding fix in the cross image, so it is not
+#             shipped rather than shipped red)
+#
+# Why cargo-zigbuild for the cross matrix: zig only has to link, and
+# compile the C dependencies (vendored OpenSSL, bundled SQLite, ring); one
+# tool covers glibc, musl, and mingw, needs no Docker, and is pinned to the
+# zig the matrix was verified with. BSD keeps cross-rs because zig ships no
+# FreeBSD/NetBSD libc.
+#
+# TLS on Linux targets: reqwest's default native-tls resolves to OpenSSL
+# and no runner carries a cross OpenSSL, so every Linux build enables
+# reqwest/native-tls-vendored; the crate graph has a single openssl build
+# (feature unification), so one flag covers all three binaries. macOS and
+# Windows targets use Security.framework and Schannel and need no flag.
+#
+# Every archive is staged deterministically by scripts/package_release.py
+# (epoch mtimes, root owner, sorted entries, timestamp-free gzip), and each
+# archive is one self-contained directory: three binaries, shell
+# completions, docs. Unpack, run.
+
 name: Release
 
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag (e.g., v0.1.0)'
-        required: true
-        type: string
+      - "v*"
 
 permissions:
   contents: write
-  packages: write
-  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
 
 env:
-  CARGO_TERM_COLOR: always
-  REGISTRY: ghcr.io
-  IMAGE_ORG: rxven-1907
+  COMPLETIONS_ARTIFACT: completions
 
 jobs:
-  build:
-    name: Build binaries (${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
+  prep:
+    name: Build (x86_64-linux-gnu) + completions
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: |
+          cargo build --release --features reqwest/native-tls-vendored \
+            -p openre-cli -p openre-tui -p sentinel
+
+      - name: Generate shell completions
+        run: |
+          mkdir completions-gen
+          for shell in bash zsh fish powershell; do
+            case "$shell" in
+              zsh)        out="_openre" ;;
+              powershell) out="openre.ps1" ;;
+              *)          out="openre.$shell" ;;
+            esac
+            ./target/release/openre completions "$shell" > "completions-gen/$out"
+          done
+          ls completions-gen
+
+      - name: Package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python3 scripts/package_release.py \
+            --name "openre-$version-x86_64-unknown-linux-gnu" \
+            --binary target/release/openre \
+            --binary target/release/openre-tui \
+            --binary target/release/sentinel \
+            --completions-dir completions-gen \
+            --out dist
+
+      - name: Smoke the packaged tarball
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          tarball="dist/openre-$version-x86_64-unknown-linux-gnu.tar.gz"
+          name="openre-$version-x86_64-unknown-linux-gnu"
+          unpacked="/tmp/dist-check/$name"
+          rm -rf /tmp/dist-check && mkdir /tmp/dist-check
+          tar -xzf "$tarball" -C /tmp/dist-check
+          # The released binaries must run from an unpacked directory with
+          # no repo files beside them.
+          ( cd /tmp && "$unpacked/openre" --version \
+              && "$unpacked/openre-tui" --version \
+              && "$unpacked/sentinel" --version )
+          for f in openre openre-tui sentinel \
+                   completions/openre.bash completions/_openre \
+                   completions/openre.fish completions/openre.ps1 \
+                   completions/README README.md LICENSE \
+                   docs/INSTALLATION.md; do
+            test -f "$unpacked/$f"
+          done
+          ( cd dist && sha256sum -c "openre-$version-x86_64-unknown-linux-gnu.tar.gz.sha256" )
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: completions
+          path: completions-gen/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-x86_64-unknown-linux-gnu
+          path: dist/*
+          if-no-files-found: error
+
+  linux:
+    name: Build (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: prep
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Linux x86_64
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_prefix: openre-linux-x86_64
-            cross_compile: false
-            zigbuild: false
-          # Linux ARM64 (cross-compile via cargo-zigbuild)
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact_prefix: openre-linux-arm64
-            cross_compile: true
-            zigbuild: true
-          # macOS x86_64 (run on macos-13 for true x86_64)
-          - os: macos-13
-            target: x86_64-apple-darwin
-            artifact_prefix: openre-macos-x86_64
-            cross_compile: false
-            zigbuild: false
-          # macOS ARM64 (native on arm64 runner)
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact_prefix: openre-macos-arm64
-            cross_compile: false
-            zigbuild: false
-          # Windows x86_64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_prefix: openre-windows-x86_64
-            cross_compile: false
-            zigbuild: false
-
+          - target: x86_64-unknown-linux-musl
+          - target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
+          - target: armv7-unknown-linux-gnueabihf
+          - target: arm-unknown-linux-gnueabihf
+          - target: i686-unknown-linux-gnu
+          - target: riscv64gc-unknown-linux-gnu
+          - target: loongarch64-unknown-linux-gnu
+          - target: powerpc64le-unknown-linux-gnu.2.19
+            build: powerpc64le-unknown-linux-gnu
+          - target: s390x-unknown-linux-gnu
+          - target: x86_64-pc-windows-gnu
+          - target: i686-pc-windows-gnu
+          - target: aarch64-pc-windows-gnullvm
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.build || matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.build || matrix.target }}
+
+      - name: Install cargo-zigbuild and zig
+        run: |
+          # zig is pinned to the version the matrix was verified with:
+          # 0.14.1's powerpc64le glibc stubs resolve the ieee128 redirect
+          # symbols that newer zig releases drop.
+          pip install cargo-zigbuild "ziglang==0.14.1"
+          zigdir="$(python3 -c 'import ziglang, pathlib; print(pathlib.Path(ziglang.__file__).parent)')"
+          sudo ln -sf "$zigdir/zig" /usr/local/bin/zig
+          zig version
+
+      - name: Build
+        run: |
+          tls_flags="--features reqwest/native-tls-vendored"
+          case "${{ matrix.target }}" in
+            *windows*) tls_flags="" ;;
+          esac
+          cargo zigbuild --release --target ${{ matrix.target }} \
+            $tls_flags -p openre-cli -p openre-tui -p sentinel
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.COMPLETIONS_ARTIFACT }}
+          path: completions-gen
+
+      - name: Package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          format=tar.gz
+          exe=""
+          # zig names the build dir after the base triple; the glibc pin
+          # (powerpc64le only) lives in matrix.target but not on disk.
+          build="${{ matrix.build || matrix.target }}"
+          case "${{ matrix.target }}" in
+            *windows*) format=zip; exe=".exe" ;;
+          esac
+          python3 scripts/package_release.py \
+            --name "openre-$version-${{ matrix.target }}" \
+            --binary "target/$build/release/openre$exe" \
+            --binary "target/$build/release/openre-tui$exe" \
+            --binary "target/$build/release/sentinel$exe" \
+            --completions-dir completions-gen \
+            --format "$format" \
+            --out dist
+
+      - name: Smoke (x86_64 musl is static and runs here)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          unpacked="/tmp/dist-check/openre-$version-x86_64-unknown-linux-musl"
+          rm -rf /tmp/dist-check && mkdir -p /tmp/dist-check
+          tar -xzf "dist/openre-$version-x86_64-unknown-linux-musl.tar.gz" -C /tmp/dist-check
+          ( cd /tmp && "$unpacked/openre" --version \
+              && "$unpacked/openre-tui" --version \
+              && "$unpacked/sentinel" --version )
+
+      - name: Architecture check (cross binaries)
+        if: matrix.target != 'x86_64-unknown-linux-musl'
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          case "${{ matrix.target }}" in
+            *windows*)
+              f="dist/openre-$version-${{ matrix.target }}.zip"
+              python3 -c "import sys, zipfile; names = zipfile.ZipFile(sys.argv[1]).namelist(); assert all(any(n.endswith('/%s' % b) for n in names) for b in ('openre.exe', 'openre-tui.exe', 'sentinel.exe')), 'missing exe in zip'" "$f"
+              ;;
+            *)
+              f="dist/openre-$version-${{ matrix.target }}.tar.gz"
+              rm -rf /tmp/dist-check && mkdir /tmp/dist-check
+              tar -xzf "$f" -C /tmp/dist-check
+              bin="/tmp/dist-check/openre-$version-${{ matrix.target }}/openre"
+              mach="$(readelf -h "$bin" | awk -F: '/Machine:/{gsub(/^ +/,"",$2); print $2}')"
+              echo "readelf machine: $mach"
+              case "${{ matrix.target }}" in
+                x86_64-*)      expect="Advanced Micro Devices X86-64" ;;
+                aarch64-*)     expect="AArch64" ;;
+                armv7-*|arm-*) expect="ARM" ;;
+                i686-*)        expect="Intel 80386" ;;
+                riscv64*)      expect="RISC-V" ;;
+                loongarch64*)  expect="LoongArch" ;;
+                powerpc64le*)  expect="PowerPC64" ;;
+                s390x*)        expect="IBM S/390" ;;
+                *)             echo "unexpected target"; exit 1 ;;
+              esac
+              echo "$mach" | grep -qF "$expect"
+              ;;
+          esac
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  macos:
+    name: Build (macOS aarch64 + x86_64 + universal2)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    needs: prep
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: macos
+
+      - name: Build all three tools for both architectures
+        run: |
+          cargo build --release --target aarch64-apple-darwin \
+            -p openre-cli -p openre-tui -p sentinel
+          cargo build --release --target x86_64-apple-darwin \
+            -p openre-cli -p openre-tui -p sentinel
+          lipo -create \
+            target/aarch64-apple-darwin/release/openre \
+            target/x86_64-apple-darwin/release/openre \
+            -output openre-universal2
+          lipo -create \
+            target/aarch64-apple-darwin/release/openre-tui \
+            target/x86_64-apple-darwin/release/openre-tui \
+            -output openre-tui-universal2
+          lipo -create \
+            target/aarch64-apple-darwin/release/sentinel \
+            target/x86_64-apple-darwin/release/sentinel \
+            -output sentinel-universal2
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.COMPLETIONS_ARTIFACT }}
+          path: completions-gen
+
+      - name: Package all three
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for variant in aarch64 x86_64 universal2; do
+            case "$variant" in
+              aarch64)    dir="target/aarch64-apple-darwin/release"; suffix="" ;;
+              x86_64)     dir="target/x86_64-apple-darwin/release";  suffix="" ;;
+              universal2) dir=".";                                    suffix="-universal2" ;;
+            esac
+            python3 scripts/package_release.py \
+              --name "openre-$version-$variant-apple-darwin" \
+              --binary "$dir/openre$suffix" \
+              --binary "$dir/openre-tui$suffix" \
+              --binary "$dir/sentinel$suffix" \
+              --completions-dir completions-gen \
+              --out dist
+          done
+
+      - name: Smoke (host arch runs)
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          unpacked="/tmp/dist-check/openre-$version-aarch64-apple-darwin"
+          rm -rf /tmp/dist-check && mkdir -p /tmp/dist-check
+          tar -xzf "dist/openre-$version-aarch64-apple-darwin.tar.gz" -C /tmp/dist-check
+          ( cd /tmp && "$unpacked/openre" --version \
+              && "$unpacked/openre-tui" --version \
+              && "$unpacked/sentinel" --version )
+          file openre-universal2 | grep -q "universal"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-macos
+          path: dist/*
+          if-no-files-found: error
+
+  windows:
+    name: Build (x86_64-windows-msvc)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    needs: prep
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-msvc
+
+      - name: Build
+        run: cargo build --release -p openre-cli -p openre-tui -p sentinel
+
+      - name: Run the test suite
+        run: cargo test --all
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.COMPLETIONS_ARTIFACT }}
+          path: completions-gen
+
+      - name: Package
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python3 scripts/package_release.py \
+            --name "openre-$version-x86_64-pc-windows-msvc" \
+            --binary target/release/openre.exe \
+            --binary target/release/openre-tui.exe \
+            --binary target/release/sentinel.exe \
+            --completions-dir completions-gen \
+            --format zip \
+            --out dist
+
+      - name: Smoke (run the packaged exes for real)
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          rm -rf /tmp/dist-check && mkdir -p /tmp/dist-check
+          # git-bash's tar is GNU tar, which cannot read zip; python's
+          # zipfile is the portable extractor on the runner.
+          python3 -m zipfile -e "dist/openre-$version-x86_64-pc-windows-msvc.zip" /tmp/dist-check
+          "/tmp/dist-check/openre-$version-x86_64-pc-windows-msvc/openre.exe" --version
+          "/tmp/dist-check/openre-$version-x86_64-pc-windows-msvc/openre-tui.exe" --version
+          "/tmp/dist-check/openre-$version-x86_64-pc-windows-msvc/sentinel.exe" --version
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-x86_64-pc-windows-msvc
+          path: dist/*
+          if-no-files-found: error
+
+  bsd:
+    name: Build (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: prep
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-freebsd
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.target }}
 
-      - name: Install system dependencies (Linux)
-        if: runner.os == 'Linux'
+      - name: Install cross
+        run: cargo install cross --locked --version 0.2.5
+
+      - name: Build
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev clang lld
+          cross build --release --target ${{ matrix.target }} \
+            --features reqwest/native-tls-vendored \
+            -p openre-cli -p openre-tui -p sentinel
 
-      - name: Install system dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install pkg-config openssl
-
-      - name: Setup cross-compilation (Linux ARM64)
-        if: matrix.zigbuild && runner.os == 'Linux'
-        run: |
-          cargo install cargo-zigbuild --locked
-          rustup target add aarch64-unknown-linux-gnu
-
-      - name: Build release binaries (zigbuild)
-        if: matrix.zigbuild == 'true'
-        shell: bash
-        run: |
-          cargo zigbuild --release -p openre-cli -p openre-scan --target ${{ matrix.target }}
-
-      - name: Build release binaries (standard)
-        if: matrix.zigbuild != 'true'
-        shell: bash
-        run: |
-          cargo build --release -p openre-cli -p openre-scan --target ${{ matrix.target }}
-
-      - name: Quality checks (format, clippy, tests)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: |
-          cargo fmt --all -- --check
-          cargo clippy -p openre-cli -p openre-scan --all-targets --all-features -- -D warnings
-          cargo test -p openre-cli -p openre-scan --locked
-
-      - name: Prepare artifacts (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          mkdir -p artifacts
-          BIN_NAME_OPENRE="openre"
-          BIN_NAME_SCAN="openre-scan"
-
-          # Copy openre binary
-          EXT_OPENRE="${BIN_NAME_OPENRE#openre}"
-          cp target/${{ matrix.target }}/release/${BIN_NAME_OPENRE} artifacts/${{ matrix.artifact_prefix }}-openre${EXT_OPENRE}
-          # Copy openre-scan binary
-          EXT_SCAN="${BIN_NAME_SCAN#openre-scan}"
-          cp target/${{ matrix.target }}/release/${BIN_NAME_SCAN} artifacts/${{ matrix.artifact_prefix }}-openre-scan${EXT_SCAN}
-
-          cd artifacts
-          # Generate SHA256 checksums
-          for f in *; do
-            if [[ -f "$f" && "$f" != *.sha256 ]]; then
-              sha256sum "$f" > "$f.sha256"
-            fi
-          done
-          # Create combined checksums file (exclude .sha256 files)
-          sha256sum -- * | grep -v '\.sha256$' > checksums.txt
-
-      - name: Prepare artifacts (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          $BIN_NAME_OPENRE = "openre.exe"
-          $BIN_NAME_SCAN = "openre-scan.exe"
-
-          # Copy openre binary
-          $EXT_OPENRE = $BIN_NAME_OPENRE.Substring("openre".Length)
-          Copy-Item "target/${{ matrix.target }}/release/$BIN_NAME_OPENRE" "artifacts/${{ matrix.artifact_prefix }}-openre$EXT_OPENRE"
-          # Copy openre-scan binary
-          $EXT_SCAN = $BIN_NAME_SCAN.Substring("openre-scan".Length)
-          Copy-Item "target/${{ matrix.target }}/release/$BIN_NAME_SCAN" "artifacts/${{ matrix.artifact_prefix }}-openre-scan$EXT_SCAN"
-
-          Set-Location artifacts
-          # Generate SHA256 checksums
-          Get-ChildItem | Where-Object { -not $_.Name.EndsWith('.sha256') -and -not $_.PSIsContainer } | ForEach-Object {
-            Get-FileHash -Algorithm SHA256 -Path $_.FullName | Select-Object -ExpandProperty Hash | Out-File "$($_.Name).sha256"
-          }
-          # Create combined checksums file (exclude .sha256 files)
-          Get-ChildItem | Where-Object { -not $_.Name.EndsWith('.sha256') -and -not $_.PSIsContainer } | ForEach-Object {
-            $hash = Get-FileHash -Algorithm SHA256 -Path $_.FullName | Select-Object -ExpandProperty Hash
-            "$hash  $($_.Name)" | Out-File -Encoding utf8 checksums.txt -Append
-          }
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
-          name: ${{ matrix.artifact_prefix }}
-          path: artifacts/
-          retention-days: 7
+          name: ${{ env.COMPLETIONS_ARTIFACT }}
+          path: completions-gen
 
-  sbom:
-    name: Generate SBOM
+      - name: Package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python3 scripts/package_release.py \
+            --name "openre-$version-${{ matrix.target }}" \
+            --binary "target/${{ matrix.target }}/release/openre" \
+            --binary "target/${{ matrix.target }}/release/openre-tui" \
+            --binary "target/${{ matrix.target }}/release/sentinel" \
+            --completions-dir completions-gen \
+            --out dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: [prep, linux, macos, windows, bsd]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 15
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install cargo-cyclonedx
-        run: cargo install cargo-cyclonedx --locked
-
-      - name: Generate SBOM (CycloneDX) for openre-scan
-        run: |
-          cargo cyclonedx --manifest-path crates/openre-scan/Cargo.toml --all-features --output-format json --output-file sbom-cyclonedx.json
-          cargo cyclonedx --manifest-path crates/openre-scan/Cargo.toml --all-features --output-format xml --output-file sbom-cyclonedx.xml
-
-      - name: Install cargo-spdx
-        run: cargo install cargo-spdx --locked
-
-      - name: Generate SBOM (SPDX) for openre-scan
-        run: |
-          cargo spdx --manifest-path crates/openre-scan/Cargo.toml --all-features --output-file sbom-spdx.json
-
-      - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
-          name: sbom
-          path: |
-            sbom-cyclonedx.json
-            sbom-cyclonedx.xml
-            sbom-spdx.json
-          retention-days: 30
-
-  docker:
-    name: Build & Push Docker Images
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: openre-api
-            dockerfile: docker/Dockerfile.api
-            context: .
-            platforms: linux/amd64,linux/arm64
-          - name: openre-worker
-            dockerfile: docker/Dockerfile.worker
-            context: .
-            platforms: linux/amd64,linux/arm64
-          - name: openre-frontend
-            dockerfile: docker/Dockerfile.frontend
-            context: .
-            platforms: linux/amd64,linux/arm64
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata for ${{ matrix.name }}
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_ORG }}/${{ matrix.name }}
-          tags: |
-            type=ref,event=tag
-            type=sha,prefix=
-            type=raw,value=latest,enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
-
-      - name: Build and push ${{ matrix.name }}
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          platforms: ${{ matrix.platforms }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  release:
-    name: Create GitHub Release
-    needs: [build, sbom]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
+          pattern: dist-*
           merge-multiple: true
+          path: dist
 
-      - name: Organize artifacts
+      - name: Resolve the body's version placeholder from the tag
         run: |
-          cd artifacts
-          mkdir -p release
-          # Find all openre-* files recursively (merge-multiple creates subdirs)
-          find . -type f -name "openre-*" ! -path "./release/*" -print0 | xargs -0 -I {} mv {} release/
-          # Find all sbom-* files recursively
-          find . -type f -name "sbom-*" ! -path "./release/*" -print0 | xargs -0 -I {} mv {} release/
-          cd release
-          # Verify all expected files exist
-          ls -la
-          # Create final combined checksums (exclude .sha256 files)
-          sha256sum -- * | grep -v '\.sha256$' > CHECKSUMS.txt
-          cat CHECKSUMS.txt
+          version="${GITHUB_REF_NAME#v}"
+          sed "s/@VERSION@/$version/g" .github/release-body.md > release-body.md
 
-      - name: Verify CHANGELOG.md has version entry
+      - name: Combined checksums
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          if ! grep -q "## \[$VERSION\]" CHANGELOG.md; then
-            echo "ERROR: CHANGELOG.md does not contain entry for version $VERSION"
-            exit 1
-          fi
+          cd dist
+          rm -f *.sha256
+          ls *.tar.gz *.zip | sort | xargs sha256sum > "sha256sums-${GITHUB_REF_NAME}.txt"
+          cat "sha256sums-${GITHUB_REF_NAME}.txt"
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Publish the release
+        uses: softprops/action-gh-release@v3
         with:
+          body_path: release-body.md
+          fail_on_unmatched_files: true
           files: |
-            artifacts/release/*
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  publish-crates:
-    name: Publish to crates.io
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      # Publish in dependency order: core crates first, then dependents
-      - name: Publish openre-core to crates.io
-        run: cargo publish --locked -p openre-core
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish openre-config to crates.io
-        run: cargo publish --locked -p openre-config
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish openre-telemetry to crates.io
-        run: cargo publish --locked -p openre-telemetry
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish openre-storage to crates.io
-        run: cargo publish --locked -p openre-storage
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish openre-queue to crates.io
-        run: cargo publish --locked -p openre-queue
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish openre-analysis to crates.io
-        run: cargo publish --locked -p openre-analysis
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish openre-ai to crates.io
-        run: cargo publish --locked -p openre-ai
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish openre-api to crates.io
-        run: cargo publish --locked -p openre-api
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish openre-scan to crates.io
-        run: cargo publish --locked -p openre-scan
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish openre-cli to crates.io
-        run: cargo publish --locked -p openre-cli
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+            dist/*.tar.gz
+            dist/*.zip
+            dist/sha256sums-*.txt

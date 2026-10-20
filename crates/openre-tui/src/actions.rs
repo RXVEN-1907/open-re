@@ -2,11 +2,11 @@
 
 use crate::state::{
     AIViewMode, FindingsGroupBy, JobStatus, KeyBindings, LogLevel, Notification, PanelType,
-    REViewMode, ReportType, ScanStatus, Theme, WorkflowViewMode,
+    REViewMode, ReportType, ScanStatus, Theme,
 };
 use openre_core::ids::{JobId, ProjectId, ScanId};
 use openre_core::result::{Category, Confidence, Severity};
-use openre_intelligence::job::{Job, Priority};
+use openre_intelligence::job::Priority;
 use serde::{Deserialize, Serialize};
 
 /// Actions that can be dispatched to the application
@@ -189,7 +189,7 @@ pub enum Action {
 
     // Global actions
     SetTheme(Theme),
-    UpdateKeyBindings(KeyBindings),
+    UpdateKeyBindings(Box<KeyBindings>),
     ShowNotification(Notification),
     DismissNotification(String),
     RequestRefresh,

@@ -4,19 +4,14 @@ use clap::ValueEnum;
 use serde::Serialize;
 use std::path::Path;
 
-#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
 pub enum OutputFormat {
+    #[default]
     Table,
     Json,
     Sarif,
     Yaml,
     Csv,
-}
-
-impl Default for OutputFormat {
-    fn default() -> Self {
-        OutputFormat::Table
-    }
 }
 
 pub fn print_output<T: Serialize>(

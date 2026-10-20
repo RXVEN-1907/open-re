@@ -146,31 +146,6 @@ pub fn progress_segments(progress: f32, width: u16) -> (u16, u16) {
     (filled, empty)
 }
 
-/// Create a progress line
-pub fn progress_line(
-    progress: f32,
-    width: u16,
-    colors: &ThemeColors,
-) -> ratatui::text::Line<'static> {
-    let (filled, empty) = progress_segments(progress, width);
-    ratatui::text::Line::from(vec![
-        ratatui::text::Span::styled(
-            "█".repeat(filled as usize),
-            ratatui::style::Style::default().fg(colors.accent),
-        ),
-        ratatui::text::Span::styled(
-            "░".repeat(empty as usize),
-            ratatui::style::Style::default().fg(colors.muted),
-        ),
-        ratatui::text::Span::styled(
-            format!(" {:.0}%", progress * 100.0),
-            ratatui::style::Style::default()
-                .fg(colors.fg)
-                .add_modifier(ratatui::style::Modifier::BOLD),
-        ),
-    ])
-}
-
 /// Parse key event to action
 pub fn key_to_action(
     key: crossterm::event::KeyEvent,

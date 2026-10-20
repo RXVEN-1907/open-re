@@ -2,11 +2,9 @@
 
 use crate::context::Context;
 use crate::error::CliError;
-use crate::output::{print_output, OutputFormat};
 use clap::{Args, Subcommand};
 use colored::Colorize;
-use openre_config::{default_config_path, Config};
-use std::path::PathBuf;
+use openre_config::Config;
 use tabled::{Style, Table, Tabled};
 
 #[derive(Subcommand, Debug)]
@@ -28,7 +26,7 @@ pub enum ConfigCommands {
 }
 
 #[derive(Args, Debug)]
-struct ShowArgs {
+pub(crate) struct ShowArgs {
     /// Show only specific section
     #[arg(long)]
     section: Option<String>,
@@ -39,7 +37,7 @@ struct ShowArgs {
 }
 
 #[derive(Args, Debug)]
-struct SetArgs {
+pub(crate) struct SetArgs {
     /// Key (dot notation: ai.provider, scan.timeout, etc.)
     key: String,
 
@@ -48,13 +46,13 @@ struct SetArgs {
 }
 
 #[derive(Args, Debug)]
-struct GetArgs {
+pub(crate) struct GetArgs {
     /// Key (dot notation)
     key: String,
 }
 
 #[derive(Args, Debug)]
-struct ResetArgs {
+pub(crate) struct ResetArgs {
     /// Specific section to reset (optional)
     #[arg(long)]
     section: Option<String>,
@@ -65,7 +63,7 @@ struct ResetArgs {
 }
 
 #[derive(Args, Debug)]
-struct InitArgs {
+pub(crate) struct InitArgs {
     /// Overwrite existing config
     #[arg(long)]
     force: bool,
@@ -73,7 +71,7 @@ struct InitArgs {
 
 impl ConfigCommands {
     pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
-        let mut config = ctx.config.clone();
+        let config = ctx.config.clone();
 
         match self {
             ConfigCommands::Show(args) => run_show(config, args).await,
@@ -197,7 +195,7 @@ fn print_full_config(config: &Config) -> Result<(), CliError> {
     ];
 
     for (key, title) in sections {
-        if let Some(section) = config.get_section(key) {
+        if let Some(_section) = config.get_section(key) {
             println!("\n{} {}", "▸".bold(), title.bold());
             print_section(config, key)?;
         }

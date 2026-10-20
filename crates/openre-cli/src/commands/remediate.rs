@@ -2,13 +2,13 @@
 
 use crate::context::Context;
 use crate::error::CliError;
-use crate::intelligence_stubs::{
-    ComplianceFramework, Environment, Finding, GroupBy, Language, Priority, RemediationEngine,
-    RemediationItem, RemediationPlan, RemediationReport, VerificationResult,
-};
 use crate::output::{print_output, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
+use openre_core::evidence::VerificationStatus;
+use openre_core::result::{Finding, RemediationEffort, RemediationPriority, Severity};
+use openre_intelligence::{KnowledgeBase, VerificationEngine};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tabled::{Style, Table, Tabled};
 
@@ -25,7 +25,7 @@ pub enum RemediateCommands {
 }
 
 #[derive(Args, Debug)]
-struct PlanArgs {
+pub(crate) struct PlanArgs {
     /// Finding ID or JSON file with finding
     finding: String,
 
@@ -43,7 +43,7 @@ struct PlanArgs {
 }
 
 #[derive(Args, Debug)]
-struct QuickFixArgs {
+pub(crate) struct QuickFixArgs {
     /// Finding ID or JSON file with finding
     finding: String,
 
@@ -53,7 +53,7 @@ struct QuickFixArgs {
 }
 
 #[derive(Args, Debug)]
-struct ReportArgs {
+pub(crate) struct ReportArgs {
     /// Directory with findings (JSON files)
     path: PathBuf,
 
@@ -67,7 +67,7 @@ struct ReportArgs {
 }
 
 #[derive(Args, Debug)]
-struct VerifyArgs {
+pub(crate) struct VerifyArgs {
     /// Finding ID or JSON file with finding
     finding: String,
 
@@ -76,7 +76,7 @@ struct VerifyArgs {
     target: Option<String>,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 enum EnvironmentArg {
     Development,
     Staging,
@@ -84,7 +84,18 @@ enum EnvironmentArg {
     CiCd,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+impl EnvironmentArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            EnvironmentArg::Development => "development",
+            EnvironmentArg::Staging => "staging",
+            EnvironmentArg::Production => "production",
+            EnvironmentArg::CiCd => "ci/cd",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
 enum ComplianceArg {
     Owasp,
     PciDss,
@@ -95,7 +106,21 @@ enum ComplianceArg {
     Nist,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+impl ComplianceArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            ComplianceArg::Owasp => "OWASP Top 10",
+            ComplianceArg::PciDss => "PCI DSS",
+            ComplianceArg::Hipaa => "HIPAA",
+            ComplianceArg::Gdpr => "GDPR",
+            ComplianceArg::Soc2 => "SOC 2",
+            ComplianceArg::Iso27001 => "ISO 27001",
+            ComplianceArg::Nist => "NIST CSF",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
 enum LanguageArg {
     Python,
     Javascript,
@@ -108,7 +133,23 @@ enum LanguageArg {
     Rust,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+impl LanguageArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            LanguageArg::Python => "python",
+            LanguageArg::Javascript => "javascript",
+            LanguageArg::Typescript => "typescript",
+            LanguageArg::Go => "go",
+            LanguageArg::Java => "java",
+            LanguageArg::Csharp => "csharp",
+            LanguageArg::Php => "php",
+            LanguageArg::Ruby => "ruby",
+            LanguageArg::Rust => "rust",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum GroupByArg {
     Severity,
     Category,
@@ -127,46 +168,122 @@ impl RemediateCommands {
     }
 }
 
+/// Priority derived from severity when the finding carries no explicit priority.
+fn priority_from_severity(severity: Severity) -> RemediationPriority {
+    match severity {
+        Severity::Critical => RemediationPriority::Immediate,
+        Severity::High => RemediationPriority::High,
+        Severity::Medium => RemediationPriority::Medium,
+        Severity::Low | Severity::Info => RemediationPriority::Low,
+    }
+}
+
+fn effort_label(effort: Option<RemediationEffort>) -> String {
+    match effort {
+        Some(RemediationEffort::Trivial) => "trivial".to_string(),
+        Some(RemediationEffort::Low) => "low".to_string(),
+        Some(RemediationEffort::Medium) => "medium".to_string(),
+        Some(RemediationEffort::High) => "high".to_string(),
+        Some(RemediationEffort::VeryHigh) => "very high".to_string(),
+        None => "unestimated".to_string(),
+    }
+}
+
 async fn run_plan(ctx: Context, args: PlanArgs) -> Result<(), CliError> {
-    let finding = load_finding(&args.finding)?;
-    let engine = RemediationEngine::new();
+    let mut finding = load_finding(&args.finding)?;
 
     let spinner = ctx.spinner("Generating remediation plan...");
-    let plan = engine
-        .generate_plan(&finding, args.environment.into(), args.compliance.map(|c| c.into()))
-        .await?;
+    // Knowledge base enrichment adds CWE/CAPEC references and OWASP mapping.
+    let kb = KnowledgeBase::new();
+    let _kb_entry = kb.enrich_single_finding(&mut finding)?;
     spinner.finish_and_clear();
+
+    let guidance = finding.remediation.clone();
+    let priority = guidance
+        .as_ref()
+        .map(|g| g.priority)
+        .unwrap_or_else(|| priority_from_severity(finding.severity));
+
+    let plan = RemediationPlan {
+        title: finding.title.clone(),
+        severity: format!("{:?}", finding.severity),
+        priority: format!("{:?}", priority),
+        environment: args.environment.as_str().to_string(),
+        compliance: args.compliance.map(|c| c.as_str().to_string()),
+        summary: guidance.as_ref().map(|g| g.summary.clone()).unwrap_or_else(|| {
+            format!("Remediate {:?} finding on {}", finding.category, finding.target)
+        }),
+        steps: guidance.as_ref().map(|g| g.steps.clone()).unwrap_or_else(|| {
+            vec![
+                format!("Reproduce the finding on {} using the recorded evidence", finding.target),
+                format!(
+                    "Apply the fix for {:?} (CWE: {})",
+                    finding.category,
+                    if finding.cwe_ids.is_empty() {
+                        "unmapped".to_string()
+                    } else {
+                        finding.cwe_ids.join(", ")
+                    }
+                ),
+                format!("Re-scan {} and confirm the finding no longer fires", finding.target),
+            ]
+        }),
+        code_examples: guidance
+            .as_ref()
+            .map(|g| {
+                g.code_examples
+                    .iter()
+                    .map(|c| {
+                        format!(
+                            "Language: {}\nVulnerable:\n{}\nFixed:\n{}\n{}",
+                            c.language, c.vulnerable, c.fixed, c.explanation
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
+        effort: guidance
+            .as_ref()
+            .map(|g| effort_label(Some(g.effort)))
+            .unwrap_or_else(|| effort_label(None)),
+        references: finding.references.iter().map(|r| format!("{}: {}", r.title, r.url)).collect(),
+    };
 
     println!("\n{}", "Remediation Plan".bold().cyan());
     println!("{}", "═".repeat(50).dimmed());
+    println!("{} (severity {}, priority {})", plan.title.bold(), plan.severity, plan.priority);
+    println!("Environment: {}", plan.environment);
+    if let Some(compliance) = &plan.compliance {
+        println!("Compliance lens: {}", compliance);
+    }
+    println!("Estimated effort: {}", plan.effort);
+    println!();
     println!("{}", plan.summary);
     println!();
 
     if !plan.steps.is_empty() {
         println!("{}", "Steps:".bold());
         for (i, step) in plan.steps.iter().enumerate() {
-            let priority_icon = match step.priority {
-                Priority::Critical => "🔴",
-                Priority::High => "🟠",
-                Priority::Medium => "🟡",
-                Priority::Low => "🔵",
+            let priority_icon = match priority {
+                RemediationPriority::Immediate => "🔴",
+                RemediationPriority::High => "🟠",
+                RemediationPriority::Medium => "🟡",
+                RemediationPriority::Low | RemediationPriority::Deferred => "🔵",
             };
-            println!(
-                "  {}. {} {} {}",
-                i + 1,
-                priority_icon,
-                step.title.bold(),
-                format!("({})", step.effort).dimmed()
-            );
-            println!("     {}", step.description);
-            if let Some(code) = &step.code_example {
-                println!("\n     {}:", "Example".bold());
-                for line in code.lines() {
-                    println!("       {}", line);
-                }
-            }
-            println!();
+            println!("  {}. {} {}", i + 1, priority_icon, step);
         }
+        println!();
+    }
+
+    if !plan.code_examples.is_empty() {
+        println!("{}", "Examples:".bold());
+        for example in &plan.code_examples {
+            println!("{}", "─".repeat(40).dimmed());
+            for line in example.lines() {
+                println!("  {}", line);
+            }
+        }
+        println!();
     }
 
     if !plan.references.is_empty() {
@@ -186,11 +303,38 @@ async fn run_plan(ctx: Context, args: PlanArgs) -> Result<(), CliError> {
 
 async fn run_quick_fix(ctx: Context, args: QuickFixArgs) -> Result<(), CliError> {
     let finding = load_finding(&args.finding)?;
-    let engine = RemediationEngine::new();
 
     let spinner = ctx.spinner("Generating quick fix...");
-    let fix = engine.quick_fix(&finding, args.language.map(|l| l.into())).await?;
+    let kb = KnowledgeBase::new();
+    let mut enriched = finding.clone();
+    let _ = kb.enrich_single_finding(&mut enriched);
     spinner.finish_and_clear();
+
+    let guidance = finding.remediation.clone();
+    let fix = QuickFix {
+        description: guidance.as_ref().map(|g| g.summary.clone()).unwrap_or_else(|| {
+            format!("Apply the {:?} fix on {}", finding.category, finding.target)
+        }),
+        code: guidance
+            .as_ref()
+            .and_then(|g| {
+                g.code_examples
+                    .iter()
+                    .find(|c| match &args.language {
+                        Some(lang) => c.language.eq_ignore_ascii_case(lang.as_str()),
+                        None => true,
+                    })
+                    .map(|c| c.fixed.clone())
+            })
+            .or_else(|| {
+                // Fall back to the vulnerable/fixed pair of the first example.
+                finding
+                    .remediation
+                    .as_ref()
+                    .and_then(|g| g.code_examples.first().map(|c| c.fixed.clone()))
+            }),
+        commands: None,
+    };
 
     println!("\n{}", "Quick Fix".bold().green());
     println!("{}", "═".repeat(50).dimmed());
@@ -200,11 +344,11 @@ async fn run_quick_fix(ctx: Context, args: QuickFixArgs) -> Result<(), CliError>
     if let Some(code) = fix.code {
         println!("{}", "Code:".bold());
         println!("{}", code);
-    }
-
-    if let Some(config) = fix.config {
-        println!("\n{}", "Config:".bold());
-        println!("{}", config);
+    } else {
+        println!(
+            "{} No code example attached to this finding. Run `openre remediate plan` for the full plan.",
+            "ℹ".blue()
+        );
     }
 
     if let Some(commands) = fix.commands {
@@ -217,17 +361,19 @@ async fn run_quick_fix(ctx: Context, args: QuickFixArgs) -> Result<(), CliError>
 }
 
 async fn run_report(ctx: Context, args: ReportArgs) -> Result<(), CliError> {
-    let findings = load_findings_from_path(&args.path)?;
-    let engine = RemediationEngine::new();
+    let mut findings = load_findings_from_path(&args.path)?;
+
+    let kb = KnowledgeBase::new();
+    let _ = kb.enrich_findings(&mut findings);
 
     let spinner =
         ctx.spinner(format!("Generating remediation report for {} findings...", findings.len()));
-    let report = engine.generate_report(&findings, args.group_by.into()).await?;
+    let report = build_report(&findings, args.group_by);
     spinner.finish_and_clear();
 
     println!("\n{}", "Remediation Report".bold().cyan());
     println!("{}", "═".repeat(50).dimmed());
-    println!("Total Findings: {}", findings.len());
+    println!("Total Findings: {}", report.total);
     println!("Estimated Effort: {}", report.total_effort);
     println!("Critical Path: {}", report.critical_path.join(" → "));
     println!();
@@ -241,7 +387,7 @@ async fn run_report(ctx: Context, args: ReportArgs) -> Result<(), CliError> {
                     .iter()
                     .map(|i| RemediationItemRow {
                         finding: i.finding_title.clone(),
-                        priority: format!("{:?}", i.priority),
+                        priority: i.priority.clone(),
                         effort: i.effort.clone(),
                         summary: i.summary.clone(),
                     })
@@ -250,6 +396,9 @@ async fn run_report(ctx: Context, args: ReportArgs) -> Result<(), CliError> {
             table.with(Style::modern());
             println!("{}", table);
         }
+    } else {
+        print_output(&report, ctx.format, args.output.as_deref())?;
+        return Ok(());
     }
 
     if let Some(path) = args.output {
@@ -261,24 +410,105 @@ async fn run_report(ctx: Context, args: ReportArgs) -> Result<(), CliError> {
 }
 
 async fn run_verify(ctx: Context, args: VerifyArgs) -> Result<(), CliError> {
-    let finding = load_finding(&args.finding)?;
-    let engine = RemediationEngine::new();
+    let mut finding = load_finding(&args.finding)?;
 
-    if let Some(target) = args.target {
-        let spinner = ctx.spinner("Verifying remediation...");
-        let result = engine.verify(&finding, &target).await?;
-        spinner.finish_and_clear();
-
-        if result.remediated {
-            println!("{} Finding appears remediated!", "✓".green().bold());
+    let Some(target) = args.target.or_else(|| {
+        if finding.target.is_empty() {
+            None
         } else {
-            println!("{} Finding NOT remediated", "✗".red().bold());
+            Some(finding.target.clone())
         }
-        println!("  Evidence: {}", result.evidence);
-    } else {
+    }) else {
         println!("{} Target required for verification. Use --target <url>", "ℹ".blue());
+        return Ok(());
+    };
+    finding.target = target;
+
+    let engine = VerificationEngine::new();
+    let spinner = ctx.spinner("Verifying remediation...");
+    let result = engine.verify_finding(&finding).await;
+    spinner.finish_and_clear();
+    let result = result?;
+
+    match result.status {
+        VerificationStatus::Confirmed | VerificationStatus::Likely => {
+            println!(
+                "{} Finding still reproduces on {} — NOT remediated",
+                "✗".red().bold(),
+                finding.target
+            );
+        }
+        VerificationStatus::NotReproducible => {
+            println!("{} Finding no longer reproduces — appears remediated", "✓".green().bold());
+        }
+        VerificationStatus::Unconfirmed
+        | VerificationStatus::Error
+        | VerificationStatus::Skipped => {
+            println!(
+                "{} Could not determine remediation state on {}",
+                "⚠".yellow().bold(),
+                finding.target
+            );
+        }
+    }
+    println!("  Status: {:?} (confidence {:.0}%)", result.status, result.confidence * 100.0);
+    if !result.notes.is_empty() {
+        println!("  Notes: {}", result.notes);
     }
     Ok(())
+}
+
+fn build_report(findings: &[Finding], group_by: GroupByArg) -> RemediationReport {
+    let mut groups_map: HashMap<String, Vec<&Finding>> = HashMap::new();
+    for finding in findings {
+        let key = match group_by {
+            GroupByArg::Severity => format!("{:?}", finding.severity),
+            GroupByArg::Category => format!("{:?}", finding.category),
+            GroupByArg::Component => finding.target.clone(),
+            GroupByArg::Compliance => {
+                finding.owasp_category.clone().unwrap_or_else(|| "unmapped".to_string())
+            }
+        };
+        groups_map.entry(key).or_default().push(finding);
+    }
+
+    let mut groups: Vec<RemediationGroup> = groups_map
+        .into_iter()
+        .map(|(name, items)| {
+            let count = items.len();
+            RemediationGroup {
+                name,
+                count,
+                items: items
+                    .into_iter()
+                    .map(|f| RemediationItem {
+                        finding_title: f.title.clone(),
+                        priority: format!("{:?}", priority_from_severity(f.severity)),
+                        effort: effort_label(f.remediation.as_ref().map(|g| g.effort)),
+                        summary: f.remediation.as_ref().map(|g| g.summary.clone()).unwrap_or_else(
+                            || f.description.lines().next().unwrap_or("").to_string(),
+                        ),
+                    })
+                    .collect(),
+            }
+        })
+        .collect();
+    groups.sort_by_key(|g| std::cmp::Reverse(g.count));
+
+    let estimated = findings.iter().filter(|f| f.remediation.is_some()).count();
+    let critical_path: Vec<String> = findings
+        .iter()
+        .filter(|f| matches!(f.severity, Severity::Critical | Severity::High))
+        .map(|f| f.title.clone())
+        .take(10)
+        .collect();
+
+    RemediationReport {
+        total: findings.len(),
+        groups,
+        total_effort: format!("{}/{} findings carry an effort estimate", estimated, findings.len()),
+        critical_path,
+    }
 }
 
 fn load_finding(path: &str) -> Result<Finding, CliError> {
@@ -295,7 +525,7 @@ fn load_finding(path: &str) -> Result<Finding, CliError> {
 fn load_findings_from_path(path: &Path) -> Result<Vec<Finding>, CliError> {
     if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
         let content = std::fs::read_to_string(path)?;
-        Ok(serde_json::from_str(&content)?)
+        Ok(vec![serde_json::from_str(&content)?])
     } else if path.is_dir() {
         let mut findings = Vec::new();
         for entry in std::fs::read_dir(path)? {
@@ -313,6 +543,50 @@ fn load_findings_from_path(path: &Path) -> Result<Vec<Finding>, CliError> {
     }
 }
 
+#[derive(serde::Serialize)]
+struct RemediationPlan {
+    title: String,
+    severity: String,
+    priority: String,
+    environment: String,
+    compliance: Option<String>,
+    summary: String,
+    steps: Vec<String>,
+    code_examples: Vec<String>,
+    effort: String,
+    references: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+struct QuickFix {
+    description: String,
+    code: Option<String>,
+    commands: Option<Vec<String>>,
+}
+
+#[derive(serde::Serialize)]
+struct RemediationReport {
+    total: usize,
+    groups: Vec<RemediationGroup>,
+    total_effort: String,
+    critical_path: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+struct RemediationGroup {
+    name: String,
+    count: usize,
+    items: Vec<RemediationItem>,
+}
+
+#[derive(serde::Serialize)]
+struct RemediationItem {
+    finding_title: String,
+    priority: String,
+    effort: String,
+    summary: String,
+}
+
 #[derive(tabled::Tabled)]
 struct RemediationItemRow {
     #[tabled(rename = "FINDING")]
@@ -323,56 +597,4 @@ struct RemediationItemRow {
     effort: String,
     #[tabled(rename = "SUMMARY")]
     summary: String,
-}
-
-impl From<EnvironmentArg> for crate::intelligence_stubs::Environment {
-    fn from(e: EnvironmentArg) -> Self {
-        match e {
-            EnvironmentArg::Development => crate::intelligence_stubs::Environment::Development,
-            EnvironmentArg::Staging => crate::intelligence_stubs::Environment::Staging,
-            EnvironmentArg::Production => crate::intelligence_stubs::Environment::Production,
-            EnvironmentArg::CiCd => crate::intelligence_stubs::Environment::CiCd,
-        }
-    }
-}
-
-impl From<ComplianceArg> for crate::intelligence_stubs::ComplianceFramework {
-    fn from(c: ComplianceArg) -> Self {
-        match c {
-            ComplianceArg::Owasp => crate::intelligence_stubs::ComplianceFramework::Owasp,
-            ComplianceArg::PciDss => crate::intelligence_stubs::ComplianceFramework::PciDss,
-            ComplianceArg::Hipaa => crate::intelligence_stubs::ComplianceFramework::Hipaa,
-            ComplianceArg::Gdpr => crate::intelligence_stubs::ComplianceFramework::Gdpr,
-            ComplianceArg::Soc2 => crate::intelligence_stubs::ComplianceFramework::Soc2,
-            ComplianceArg::Iso27001 => crate::intelligence_stubs::ComplianceFramework::Iso27001,
-            ComplianceArg::Nist => crate::intelligence_stubs::ComplianceFramework::Nist,
-        }
-    }
-}
-
-impl From<LanguageArg> for crate::intelligence_stubs::Language {
-    fn from(l: LanguageArg) -> Self {
-        match l {
-            LanguageArg::Python => crate::intelligence_stubs::Language::Python,
-            LanguageArg::Javascript => crate::intelligence_stubs::Language::JavaScript,
-            LanguageArg::Typescript => crate::intelligence_stubs::Language::TypeScript,
-            LanguageArg::Go => crate::intelligence_stubs::Language::Go,
-            LanguageArg::Java => crate::intelligence_stubs::Language::Java,
-            LanguageArg::Csharp => crate::intelligence_stubs::Language::CSharp,
-            LanguageArg::Php => crate::intelligence_stubs::Language::Php,
-            LanguageArg::Ruby => crate::intelligence_stubs::Language::Ruby,
-            LanguageArg::Rust => crate::intelligence_stubs::Language::Rust,
-        }
-    }
-}
-
-impl From<GroupByArg> for crate::intelligence_stubs::GroupBy {
-    fn from(g: GroupByArg) -> Self {
-        match g {
-            GroupByArg::Severity => crate::intelligence_stubs::GroupBy::Severity,
-            GroupByArg::Category => crate::intelligence_stubs::GroupBy::Category,
-            GroupByArg::Component => crate::intelligence_stubs::GroupBy::Component,
-            GroupByArg::Compliance => crate::intelligence_stubs::GroupBy::Compliance,
-        }
-    }
 }

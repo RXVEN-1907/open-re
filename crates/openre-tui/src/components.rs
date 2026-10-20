@@ -2,7 +2,7 @@
 
 use crate::state::{JobStatus, LogLevel, ReportType, ScanStatus, ThemeColors};
 use openre_core::result::Severity;
-use openre_intelligence::job::{Job, Priority};
+use openre_intelligence::job::Priority;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
@@ -251,6 +251,9 @@ pub fn progress_line(progress: f32, width: u16, colors: &ThemeColors) -> Line<'s
 }
 
 /// Render a table with selection
+// Nine parameters mirror the ratatui Table surface (frame, area, header, rows,
+// widths, state) plus theming; a params struct would obscure the single-shape call.
+#[allow(clippy::too_many_arguments)]
 pub fn render_table<'a>(
     f: &mut Frame,
     area: Rect,
@@ -371,7 +374,7 @@ pub fn render_help_bar(
 ) {
     let help_text = shortcuts
         .iter()
-        .map(|(key, desc)| {
+        .flat_map(|(key, desc)| {
             vec![
                 Span::styled(
                     format!(" {} ", key),
@@ -383,7 +386,6 @@ pub fn render_help_bar(
                 Span::styled(format!(" {} ", desc), Style::default().fg(colors.muted)),
             ]
         })
-        .flatten()
         .collect::<Vec<_>>();
 
     let paragraph = Paragraph::new(Line::from(help_text))
@@ -467,6 +469,9 @@ pub fn render_input_overlay(
 }
 
 /// Render a confirmation dialog
+// Title, message, and both button labels are each required; a config struct
+// would add indirection without a second call shape.
+#[allow(clippy::too_many_arguments)]
 pub fn render_confirmation_dialog(
     f: &mut Frame,
     area: Rect,

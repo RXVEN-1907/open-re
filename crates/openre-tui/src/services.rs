@@ -1,19 +1,15 @@
 //! Service connections for the TUI - connects to real backend services
 
 use crate::state::{
-    AIAnalysis, AIViewMode, ActiveScanInfo, ChatMessage, ChatRole, DisplayFinding, EvidenceDetail,
-    FindingDetail, FindingsGroupBy, FunctionSummary, JobStatus, LogEntry, LogLevel, PluginInfo,
-    PluginViewMode, ProjectInfo, ProjectSortBy, QueueStats, REProject, REViewMode,
-    RemediationDetail, ReportInfo, ReportType, ReportViewMode, ScanStatus, Workflow,
-    WorkflowExecution, WorkflowViewMode,
+    AIAnalysis, DisplayFinding, FunctionSummary, JobStatus, LogEntry, PluginInfo, ProjectInfo,
+    QueueStats, REProject, ReportInfo, ReportType, Workflow,
 };
 use openre_config::Config;
-use openre_core::ids::{FileId, JobId, ProjectId, ScanId};
-use openre_core::result::{Category, Confidence, Finding, Severity};
-use openre_intelligence::job::{Job, Priority, QueueManager, QueueStats as QueueQueueStats};
+use openre_core::ids::{ProjectId, ScanId};
+use openre_intelligence::job::{Job, QueueManager};
 #[cfg(feature = "intelligence")]
 use openre_intelligence::{InvestigationWorkflowEngine, KnowledgeBase, WorkflowManager};
-use openre_scanner::{ScanManager, ScanProgress, ScanSession};
+use openre_scanner::ScanManager;
 #[cfg(feature = "storage")]
 use openre_storage::project::ProjectStore;
 #[cfg(not(feature = "storage"))]
@@ -73,12 +69,11 @@ mod dummy_storage {
 #[cfg(not(feature = "storage"))]
 use dummy_storage::ProjectStore;
 use redis::Client as RedisClient;
-use rusqlite::Connection;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{info, warn};
 
 /// Service connections for the TUI
 pub struct Services {
@@ -94,7 +89,6 @@ pub struct Services {
     pub workflow_engine: Option<Arc<InvestigationWorkflowEngine>>,
     #[cfg(feature = "intelligence")]
     pub knowledge_base: Option<Arc<KnowledgeBase>>,
-    #[cfg(feature = "storage")]
     #[cfg(feature = "storage")]
     pub project_stores: Arc<RwLock<HashMap<ProjectId, Arc<ProjectStore>>>>,
 }
@@ -211,24 +205,24 @@ impl Services {
     }
 
     /// Connect to global store (PostgreSQL) - optional
+    #[cfg(feature = "postgres")]
     async fn connect_global_store(config: &Config) -> Option<Arc<GlobalStore>> {
-        #[cfg(feature = "postgres")]
-        {
-            match GlobalStore::new(&config.database).await {
-                Ok(store) => {
-                    info!("Connected to PostgreSQL database");
-                    Some(Arc::new(store))
-                }
-                Err(e) => {
-                    warn!("Failed to connect to PostgreSQL: {}", e);
-                    None
-                }
+        match GlobalStore::new(&config.database).await {
+            Ok(store) => {
+                info!("Connected to PostgreSQL database");
+                Some(Arc::new(store))
+            }
+            Err(e) => {
+                warn!("Failed to connect to PostgreSQL: {}", e);
+                None
             }
         }
-        #[cfg(not(feature = "postgres"))]
-        {
-            None
-        }
+    }
+
+    /// Connect to global store (PostgreSQL) - optional
+    #[cfg(not(feature = "postgres"))]
+    async fn connect_global_store(_config: &Config) -> Option<Arc<GlobalStore>> {
+        None
     }
 
     #[cfg(feature = "storage")]
@@ -309,17 +303,6 @@ impl Services {
                                                 r.get(0)
                                             })
                                             .unwrap_or(0);
-                                        let string_count: i64 = conn
-                                            .query_row("SELECT COUNT(*) FROM strings", [], |r| {
-                                                r.get(0)
-                                            })
-                                            .unwrap_or(0);
-                                        let import_count: i64 = conn
-                                            .query_row("SELECT COUNT(*) FROM annotations WHERE annotation_type = 'import'", [], |r| r.get(0))
-                                            .unwrap_or(0);
-                                        let export_count: i64 = conn
-                                            .query_row("SELECT COUNT(*) FROM annotations WHERE annotation_type = 'export'", [], |r| r.get(0))
-                                            .unwrap_or(0);
                                         store.put_conn(conn).await;
 
                                         projects.push(ProjectInfo {
@@ -347,7 +330,7 @@ impl Services {
 
     #[cfg(feature = "storage")]
     /// Create a new project
-    pub async fn create_project(&self, name: String, path: String) -> anyhow::Result<ProjectId> {
+    pub async fn create_project(&self, _name: String, _path: String) -> anyhow::Result<ProjectId> {
         let project_id = ProjectId::new();
         let base_path = PathBuf::from(&self.config.storage.local_path);
         let store = ProjectStore::new(project_id, &base_path)?;
@@ -395,16 +378,11 @@ impl Services {
     /// Start a new scan
     pub async fn start_scan(
         &self,
-        target: String,
-        profile: String,
-        project_id: Option<ProjectId>,
+        _target: String,
+        _profile: String,
+        _project_id: Option<ProjectId>,
     ) -> anyhow::Result<ScanId> {
-        if let Some(sm) = &self.scan_manager {
-            // Create a scan target
-            let target_id = openre_scanner::target::TargetId::new();
-            // This would need proper target creation
-            return Ok(ScanId::new());
-        }
+        // Target creation needs scan-manager integration not yet wired up
         Ok(ScanId::new())
     }
 
@@ -513,9 +491,7 @@ impl Services {
     /// Get workflows
     #[cfg(feature = "intelligence")]
     pub async fn get_workflows(&self) -> anyhow::Result<Vec<Workflow>> {
-        if let Some(wm) = &self.workflow_manager {
-            // Would need to add list_workflows to WorkflowManager
-        }
+        // Would need to add list_workflows to WorkflowManager
         Ok(Vec::new())
     }
 
@@ -526,10 +502,8 @@ impl Services {
 
     /// Execute a workflow
     #[cfg(feature = "intelligence")]
-    pub async fn execute_workflow(&self, workflow_id: String) -> anyhow::Result<String> {
-        if let Some(wm) = &self.workflow_manager {
-            // Would need to add execute_workflow to WorkflowManager
-        }
+    pub async fn execute_workflow(&self, _workflow_id: String) -> anyhow::Result<String> {
+        // Would need to add execute_workflow to WorkflowManager
         Ok(uuid::Uuid::new_v4().to_string())
     }
 

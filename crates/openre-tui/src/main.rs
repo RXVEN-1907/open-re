@@ -2,7 +2,7 @@
 
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use openre_tui::{run_tui, App};
+use openre_tui::run_tui;
 use std::path::PathBuf;
 use tracing::Level;
 use tracing_subscriber::{fmt, EnvFilter};

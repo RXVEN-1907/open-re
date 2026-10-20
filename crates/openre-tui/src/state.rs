@@ -1,7 +1,6 @@
 //! Application state management
 
 use crate::actions::Action;
-use crate::app::App;
 use crate::events::Event;
 use crate::services::Services;
 use chrono::{DateTime, Utc};
@@ -11,7 +10,7 @@ use openre_intelligence::job::{Job, Priority};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc};
 
 /// Main panel types in the TUI
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

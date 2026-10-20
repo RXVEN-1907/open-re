@@ -3543,6 +3543,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "clap",
+ "clap_complete",
  "colored",
  "dialoguer",
  "goblin 0.4.3",
@@ -3551,6 +3552,7 @@ dependencies = [
  "openre-analysis",
  "openre-config",
  "openre-core",
+ "openre-disasm",
  "openre-intelligence",
  "openre-scan",
  "openre-storage",
@@ -6442,12 +6444,10 @@ dependencies = [
  "bytes",
  "libc",
  "mio 1.2.3",
- "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2 0.6.5",
  "tokio-macros",
- "tracing",
  "windows-sys 0.61.2",
 ]
 

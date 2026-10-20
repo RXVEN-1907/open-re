@@ -4,8 +4,8 @@ use openre_scan::{
     build_client, run_scan_internal, Check, Confidence, OutputFormat, ScanProfile, Severity,
 };
 use std::env;
-use std::time::Duration;
 use std::path::Path;
+use std::time::Duration;
 use tokio::process::Command;
 use tokio::sync::OnceCell;
 use url::Url;
@@ -25,11 +25,7 @@ async fn get_test_server() -> &'static TestServer {
         .get_or_init(|| async {
             let child = Command::new("python3")
                 .arg("test_server.py")
-                .current_dir(
-                    Path::new(env!("CARGO_MANIFEST_DIR"))
-                        .join("tests")
-                        .as_path(),
-                )
+                .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").as_path())
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .spawn()

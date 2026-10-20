@@ -1,0 +1,31 @@
+# Auto-generated release notes for `open-re`.
+#
+# Categories key off labels matching the repository's conventional commit
+# prefixes (feat, fix, robust, docs, ci, chore, build; see `git log --oneline`).
+# Label pull requests with the matching prefix label so they land in the right
+# section; unlabeled pull requests fall through to Other.
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+  categories:
+    - title: Features
+      labels:
+        - feat
+    - title: Fixed
+      labels:
+        - fix
+    - title: Robustness
+      labels:
+        - robust
+    - title: Documentation
+      labels:
+        - docs
+    - title: Tooling and CI
+      labels:
+        - ci
+        - chore
+        - build
+    - title: Other
+      labels:
+        - "*"
