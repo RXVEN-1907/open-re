@@ -661,7 +661,7 @@ impl App {
             if let Some(terminal) = &mut self.terminal {
                 // Draw UI - extract data needed for rendering
                 let (active_panel, theme, queue_stats, notifications, size) = {
-                    let state = self.state.blocking_read();
+                    let state = self.state.read().await;
                     let size = terminal.size()?;
                     (
                         state.active_panel,
@@ -681,6 +681,9 @@ impl App {
                     ])
                     .split(size);
 
+                // The draw closure is sync; take the state lock on the
+                // async path and hand the guard in.
+                let mut draw_state = self.state.write().await;
                 terminal.draw(|f| {
                     // Render tab bar
                     let tabs: Vec<Line> = PanelType::ALL
@@ -716,8 +719,7 @@ impl App {
 
                     // Render active panel - need mutable state
                     if let Some(panel) = self.panels.iter_mut().find(|p| p.panel_type() == active_panel) {
-                        let mut state = self.state.blocking_write();
-                        panel.render(f, chunks[1], &mut state, &colors, true);
+                        panel.render(f, chunks[1], &mut draw_state, &colors, true);
                     }
 
                     // Render status bar
