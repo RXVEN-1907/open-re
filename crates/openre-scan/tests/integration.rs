@@ -5,6 +5,7 @@ use openre_scan::{
 };
 use std::env;
 use std::time::Duration;
+use std::path::Path;
 use tokio::process::Command;
 use tokio::sync::OnceCell;
 use url::Url;
@@ -22,19 +23,13 @@ static TEST_SERVER: OnceCell<TestServer> = OnceCell::const_new();
 async fn get_test_server() -> &'static TestServer {
     TEST_SERVER
         .get_or_init(|| async {
-            // Use workspace root (two levels up from crate manifest dir)
-            let workspace_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .parent()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string();
-
             let child = Command::new("python3")
                 .arg("test_server.py")
-                .current_dir(&workspace_root)
+                .current_dir(
+                    Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("tests")
+                        .as_path(),
+                )
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .spawn()
