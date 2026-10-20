@@ -6,8 +6,8 @@
 #   prep    - ubuntu x86_64: the host GNU build (also generates the shell
 #             completions every other job packages, since a cross binary
 #             cannot run on its build host)
-#   linux   - 10 more Linux targets (glibc, musl, arm, riscv64, loongarch64,
-#             powerpc64le, s390x) plus 3 Windows targets via cargo-zigbuild
+#   linux   - 9 more Linux targets (glibc, musl, arm, riscv64, loongarch64,
+#             s390x) plus 3 Windows targets via cargo-zigbuild
 #   macos   - aarch64 + x86_64 + a universal2 fat binary per tool, natively
 #             linked against Apple's SDK
 #   windows - x86_64-pc-windows-msvc, natively on a Windows runner, smoked
@@ -142,8 +142,6 @@ jobs:
           - target: i686-unknown-linux-gnu
           - target: riscv64gc-unknown-linux-gnu
           - target: loongarch64-unknown-linux-gnu
-          - target: powerpc64le-unknown-linux-gnu.2.19
-            build: powerpc64le-unknown-linux-gnu
           - target: s390x-unknown-linux-gnu
           - target: x86_64-pc-windows-gnu
           - target: i686-pc-windows-gnu
@@ -162,8 +160,8 @@ jobs:
       - name: Install cargo-zigbuild and zig
         run: |
           # zig is pinned to the version the matrix was verified with:
-          # 0.14.1's powerpc64le glibc stubs resolve the ieee128 redirect
-          # symbols that newer zig releases drop.
+          # zig is pinned: 0.14.1 was the version the whole matrix was
+          # verified against.
           pip install cargo-zigbuild "ziglang==0.14.1"
           zigdir="$(python3 -c 'import ziglang, pathlib; print(pathlib.Path(ziglang.__file__).parent)')"
           sudo ln -sf "$zigdir/zig" /usr/local/bin/zig
@@ -188,8 +186,6 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           format=tar.gz
           exe=""
-          # zig names the build dir after the base triple; the glibc pin
-          # (powerpc64le only) lives in matrix.target but not on disk.
           build="${{ matrix.build || matrix.target }}"
           case "${{ matrix.target }}" in
             *windows*) format=zip; exe=".exe" ;;

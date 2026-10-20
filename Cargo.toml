@@ -73,7 +73,8 @@ http = "0.2"
 http-body = "0.4"
 hyper = { version = "1.0", features = ["full", "client", "http1", "http2"] }
 hyper-rustls = "0.24"
-rustls = "0.23"
+# ring provider: aws-lc-rs does not cross-compile for all release targets
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 rustls-pemfile = "1.0"
 rustls-pki-types = "1.0"
 webpki-roots = "0.25"

@@ -24,7 +24,7 @@ with the presentation it deserved.
 - `openre completions <bash|zsh|fish|powershell>` via clap_complete.
 - A 17-artifact release pipeline (`.github/workflows/release.yml` +
   `scripts/package_release.py`): Linux (x86-64 glibc/musl/i686, aarch64
-  glibc/musl, armv7, armv6, riscv64, loongarch64, powerpc64le, s390x),
+  glibc/musl, armv7, armv6, riscv64, loongarch64, s390x),
   Windows (MSVC + GNU x86-64/i686 + arm64), macOS (aarch64, x86_64, and a
   universal2 fat binary), and FreeBSD x86-64. Every archive carries the
   three binaries plus shell completions, staged deterministically, with

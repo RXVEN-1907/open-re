@@ -10,8 +10,8 @@ against binaries, websites, APIs, and applications.
 - **Self-contained archives.** Unpack anywhere and run; each archive ships
   shell completions for bash/zsh/fish/PowerShell and the platform docs
   alongside the binaries.
-- **19 platform archives.** Linux (glibc and musl) across x86-64, aarch64,
-  armv7/armv6, i686, riscv64, loongarch64, powerpc64le, and s390x; Windows
+- **15 platform archives.** Linux (glibc and musl) across x86-64, aarch64,
+  armv7/armv6, i686, riscv64, loongarch64, and s390x; Windows
   (MSVC, GNU x86-64/i686, arm64); macOS (Apple silicon, Intel, and a
   universal2 fat binary); FreeBSD x86-64.
 - **Deterministic packaging.** Archives are staged with epoch mtimes,
@@ -32,7 +32,7 @@ and docs.
 | Linux x86-64 (32-bit) | `openre-@VERSION@-i686-unknown-linux-gnu.tar.gz` |
 | Linux aarch64 (glibc / musl) | `openre-@VERSION@-aarch64-unknown-linux-{gnu,musl}.tar.gz` |
 | Linux armv7 / armv6 (32-bit) | `openre-@VERSION@-armv7-unknown-linux-gnueabihf.tar.gz` / `openre-@VERSION@-arm-unknown-linux-gnueabihf.tar.gz` |
-| Linux riscv64 / loongarch64 / powerpc64le / s390x | `openre-@VERSION@-<triple>.tar.gz` |
+| Linux riscv64 / loongarch64 / s390x | `openre-@VERSION@-<triple>.tar.gz` |
 | Windows x86-64 (MSVC) | `openre-@VERSION@-x86_64-pc-windows-msvc.zip` |
 | Windows x86-64 / arm64 (GNU) | `openre-@VERSION@-x86_64-pc-windows-gnu.zip` / `openre-@VERSION@-aarch64-pc-windows-gnullvm.zip` |
 | Windows x86-64 (32-bit) | `openre-@VERSION@-i686-pc-windows-gnu.zip` |

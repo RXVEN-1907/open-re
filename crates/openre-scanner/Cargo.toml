@@ -35,7 +35,6 @@ reqwest = { workspace = true }
 validator = { workspace = true }
 urlencoding = { workspace = true }
 sha2 = { workspace = true }
-blake3 = { workspace = true }
 figment = { workspace = true }
 config = { workspace = true }
 serde_yaml = { workspace = true }

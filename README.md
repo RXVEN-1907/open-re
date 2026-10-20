@@ -293,7 +293,7 @@ The SARIF contract: [`docs/sarif.md`](docs/sarif.md).
 
 Tag a version and the pipeline builds **17 artifacts**: Linux (x86-64
 glibc/musl/32-bit, aarch64 glibc/musl, armv7/armv6, riscv64, loongarch64,
-powerpc64le, s390x), Windows (MSVC, GNU x86-64/32-bit, ARM64), macOS
+s390x), Windows (MSVC, GNU x86-64/32-bit, ARM64), macOS
 (Apple silicon, Intel, universal2), and FreeBSD — each archive carries
 `openre`, `openre-tui`, `sentinel`, and shell completions, staged
 deterministically with a combined sha256 checksums file. The Windows and
