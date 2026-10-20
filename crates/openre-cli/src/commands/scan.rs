@@ -5,7 +5,7 @@ use crate::error::CliError;
 use crate::output::{print_output, OutputFormat};
 use clap::{Args, Subcommand, ValueEnum};
 use colored::Colorize;
-use openre_core::history::{HistoryStorage, ScanProgressSummary, ScanSummary};
+use openre_core::history::{HistoryError, HistoryStorage, ScanProgressSummary, ScanSummary};
 use openre_core::ids::{ProjectId, ScanId};
 use openre_core::result::Finding;
 use openre_core::result::Severity;
@@ -49,6 +49,8 @@ pub enum ScanCommands {
     /// Import scan data
     #[command(subcommand)]
     Import(ImportCommands),
+    /// Compare two scans and show what changed between them
+    Diff(DiffScanArgs),
 }
 
 #[derive(Args, Debug)]
@@ -261,6 +263,33 @@ pub(crate) struct ResumeScanArgs {
     scan_id: String,
 }
 
+/// Arguments for comparing two stored scans
+#[derive(Args, Debug)]
+pub(crate) struct DiffScanArgs {
+    /// Baseline scan ID (full UUID or unique prefix)
+    scan_id_a: String,
+
+    /// Current scan ID to compare against the baseline (full UUID or unique prefix)
+    scan_id_b: String,
+
+    /// Output format
+    #[arg(long, value_enum, default_value = "table")]
+    format: DiffFormatArg,
+
+    /// Output file path (JSON; prints to stdout when omitted)
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+}
+
+/// Output format for `scan diff`
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum DiffFormatArg {
+    /// Human-readable sections with a summary
+    Table,
+    /// Machine-readable JSON
+    Json,
+}
+
 impl ScanCommands {
     pub async fn execute(self, ctx: Context) -> Result<(), CliError> {
         match self {
@@ -272,6 +301,7 @@ impl ScanCommands {
             ScanCommands::Resume(args) => resume_scan(ctx, &args.scan_id).await,
             ScanCommands::Export(cmd) => export_command(ctx, cmd).await,
             ScanCommands::Import(cmd) => import_command(ctx, cmd).await,
+            ScanCommands::Diff(args) => diff_scans(ctx, args).await,
         }
     }
 }
@@ -592,6 +622,10 @@ async fn run_scan(ctx: Context, profile: ScanProfile, args: ScanArgs) -> Result<
     };
     history.save_scan_summary(&final_summary).await?;
 
+    // Persist the deduplicated finding set so a later `scan diff` can use
+    // this scan as a comparison baseline.
+    history.save_deduplicated_findings(&scan_id, &all_findings).await?;
+
     // Build scan result
     let mut severity_counts_hashmap = std::collections::HashMap::new();
     for f in &all_findings {
@@ -902,6 +936,10 @@ async fn run_custom_scan(ctx: Context, args: CustomScanArgs) -> Result<(), CliEr
         max_risk_score: final_summary.finding_stats.max_risk_score as u8,
     };
     history.save_scan_summary(&final_summary).await?;
+
+    // Persist the deduplicated finding set so a later `scan diff` can use
+    // this scan as a comparison baseline.
+    history.save_deduplicated_findings(&scan_id, &all_findings).await?;
 
     // Build scan result
     let mut severity_counts_hashmap = std::collections::HashMap::new();
@@ -1701,4 +1739,499 @@ async fn resume_scan(ctx: Context, scan_id: &str) -> Result<(), CliError> {
 
     println!("Scan {} resumed", scan_id);
     Ok(())
+}
+
+// Scan diff
+//
+// `openre scan diff <A> <B>` answers "what changed between two scans?":
+// findings that appeared (new), findings that disappeared (fixed/resolved),
+// and findings whose severity moved between the two scans.
+
+/// Result of comparing the findings of two scans.
+///
+/// The identity of a finding across scans is the pair `(title, plugin_source)`:
+/// `Finding::id` is a fresh UUID on every run and the optional `fingerprint`
+/// field is left unset by the web checks, so neither is stable across re-scans.
+/// Checks emit one distinct title per issue and stamp `plugin_source` with
+/// their check name, which makes that pair the natural persistent key.
+///
+/// If a check emits the same identity more than once within a single scan, the
+/// occurrences are paired in order and surplus occurrences on either side are
+/// reported as fixed/new respectively.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DiffResult {
+    /// Baseline scan ID (left nil by `diff_findings`, filled in by the caller)
+    pub baseline_scan_id: ScanId,
+    /// Current scan ID (left nil by `diff_findings`, filled in by the caller)
+    pub current_scan_id: ScanId,
+    /// Findings present in the current scan but not in the baseline
+    pub new_findings: Vec<Finding>,
+    /// Findings present in the baseline scan but no longer in the current scan
+    pub fixed_findings: Vec<Finding>,
+    /// Findings found in both scans with a different severity
+    pub severity_changes: Vec<SeverityChange>,
+    /// Findings found in both scans with an identical severity
+    pub unchanged_count: usize,
+}
+
+/// A finding whose severity changed between the two compared scans
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SeverityChange {
+    /// Finding title
+    pub title: String,
+    /// Check that produced the finding
+    pub check: String,
+    /// Severity recorded in the baseline scan
+    pub previous_severity: Severity,
+    /// Severity recorded in the current scan
+    pub current_severity: Severity,
+}
+
+/// Compare the findings of a baseline scan against a current scan.
+///
+/// Pure helper over the two finding sets only; the returned scan IDs are left
+/// nil for the caller to fill in. See the `DiffResult` docs for the identity
+/// key and duplicate handling.
+pub fn diff_findings(baseline: &[Finding], current: &[Finding]) -> DiffResult {
+    let baseline_occ = occurrences_by_identity(baseline);
+    let current_occ = occurrences_by_identity(current);
+
+    let mut new_findings = Vec::new();
+    let mut fixed_findings = Vec::new();
+    let mut severity_changes = Vec::new();
+    let mut unchanged_count = 0;
+
+    // Current-scan identities in current-scan order: matched, changed, or new.
+    for (identity, current_list) in &current_occ {
+        match baseline_occ.iter().find(|(key, _)| key == identity) {
+            Some((_, baseline_list)) => {
+                let paired = baseline_list.len().min(current_list.len());
+                for (old, new) in baseline_list.iter().zip(current_list.iter()).take(paired) {
+                    if old.severity != new.severity {
+                        severity_changes.push(SeverityChange {
+                            title: new.title.clone(),
+                            check: new.plugin_source.clone(),
+                            previous_severity: old.severity,
+                            current_severity: new.severity,
+                        });
+                    } else {
+                        unchanged_count += 1;
+                    }
+                }
+                new_findings.extend(current_list[paired..].iter().map(|f| (*f).clone()));
+                fixed_findings.extend(baseline_list[paired..].iter().map(|f| (*f).clone()));
+            }
+            None => new_findings.extend(current_list.iter().map(|f| (*f).clone())),
+        }
+    }
+
+    // Baseline-only identities in baseline order: fixed.
+    for (identity, baseline_list) in &baseline_occ {
+        if !current_occ.iter().any(|(key, _)| key == identity) {
+            fixed_findings.extend(baseline_list.iter().map(|f| (*f).clone()));
+        }
+    }
+
+    DiffResult {
+        baseline_scan_id: ScanId::nil(),
+        current_scan_id: ScanId::nil(),
+        new_findings,
+        fixed_findings,
+        severity_changes,
+        unchanged_count,
+    }
+}
+
+/// Group findings by identity, preserving first-seen order.
+fn occurrences_by_identity(findings: &[Finding]) -> Vec<((String, String), Vec<&Finding>)> {
+    let mut groups: Vec<((String, String), Vec<&Finding>)> = Vec::new();
+    for finding in findings {
+        let identity = (finding.title.clone(), finding.plugin_source.clone());
+        match groups.iter_mut().find(|(key, _)| *key == identity) {
+            Some((_, occurrences)) => occurrences.push(finding),
+            None => groups.push((identity, vec![finding])),
+        }
+    }
+    groups
+}
+
+/// Resolve a scan ID argument that may be a full UUID or a unique prefix of one.
+///
+/// Full UUIDs are returned as-is (existence is checked by the caller); any
+/// other input is matched case-insensitively against the persisted scan IDs
+/// listed by the history storage.
+async fn resolve_scan_id(history: &SqliteHistoryStorage, input: &str) -> Result<ScanId, CliError> {
+    if let Ok(uuid) = uuid::Uuid::parse_str(input) {
+        return Ok(ScanId::from_uuid(uuid));
+    }
+
+    let needle = input.to_lowercase();
+    let summaries = history
+        .list_scan_summaries(None, 10_000, 0)
+        .await
+        .map_err(|e| CliError::HistoryError(e.to_string()))?;
+
+    let matches: Vec<ScanId> = summaries
+        .iter()
+        .filter(|summary| summary.scan_id.to_string().starts_with(&needle))
+        .map(|summary| summary.scan_id)
+        .collect();
+
+    match matches.as_slice() {
+        [scan_id] => Ok(*scan_id),
+        [] => Err(CliError::NotFound(format!(
+            "Scan not found: '{}' (no stored scan ID starts with this prefix; list scans with 'openre scan export scans')",
+            input
+        ))),
+        many => Err(CliError::InvalidArgs(format!(
+            "Ambiguous scan ID prefix '{}': matches {} scans ({}, ...); use more characters",
+            input,
+            many.len(),
+            many.iter().take(3).map(ScanId::to_string).collect::<Vec<_>>().join(", ")
+        ))),
+    }
+}
+
+/// Load the persisted finding set for a scan, with a helpful error when the
+/// scan predates finding persistence.
+async fn load_scan_findings(
+    history: &SqliteHistoryStorage,
+    scan_id: ScanId,
+    input: &str,
+) -> Result<Vec<Finding>, CliError> {
+    history.get_deduplicated_findings(&scan_id).await.map_err(|e| match e {
+        HistoryError::NotFound(_) => CliError::InvalidArgs(format!(
+            "Scan {} has no stored findings; scans persist their findings automatically, so \
+             re-run the scan or import findings with 'openre scan import findings'",
+            input
+        )),
+        other => CliError::HistoryError(other.to_string()),
+    })
+}
+
+/// Compare two stored scans and report new, fixed, and severity-changed findings
+async fn diff_scans(ctx: Context, args: DiffScanArgs) -> Result<(), CliError> {
+    let history = get_history_storage(&ctx).await;
+
+    let scan_id_a = resolve_scan_id(&history, &args.scan_id_a).await?;
+    let scan_id_b = resolve_scan_id(&history, &args.scan_id_b).await?;
+
+    let summary_a = history
+        .get_scan_summary(&scan_id_a)
+        .await?
+        .ok_or_else(|| CliError::NotFound(format!("Scan not found: {}", args.scan_id_a)))?;
+    let summary_b = history
+        .get_scan_summary(&scan_id_b)
+        .await?
+        .ok_or_else(|| CliError::NotFound(format!("Scan not found: {}", args.scan_id_b)))?;
+
+    let findings_a = load_scan_findings(&history, scan_id_a, &args.scan_id_a).await?;
+    let findings_b = load_scan_findings(&history, scan_id_b, &args.scan_id_b).await?;
+
+    let diff = DiffResult {
+        baseline_scan_id: scan_id_a,
+        current_scan_id: scan_id_b,
+        ..diff_findings(&findings_a, &findings_b)
+    };
+
+    match args.format {
+        DiffFormatArg::Table => {
+            render_scan_diff(&summary_a, &summary_b, &diff);
+            if let Some(path) = &args.output {
+                print_output(&diff, OutputFormat::Json, Some(path))?;
+                println!("\n{} Diff written to {}", "✓".green().bold(), path.display());
+            }
+        }
+        DiffFormatArg::Json => print_output(&diff, OutputFormat::Json, args.output.as_deref())?,
+    }
+
+    Ok(())
+}
+
+/// Render the diff as three sections (new, fixed, severity changed) plus a
+/// severity counts summary, matching the scan summary output style.
+fn render_scan_diff(baseline: &ScanSummary, current: &ScanSummary, diff: &DiffResult) {
+    println!("\n{}", "═".repeat(60).dimmed());
+    println!(
+        "{} {}",
+        "📋 Scan Diff".bold().cyan(),
+        format!("{} → {}", diff.baseline_scan_id, diff.current_scan_id).dimmed()
+    );
+    println!("{}", "═".repeat(60).dimmed());
+    println!(
+        "  {} {} | {} | {}",
+        "Baseline:".bold(),
+        baseline.name,
+        baseline.config.target_url,
+        baseline.created_at.format("%Y-%m-%d %H:%M UTC")
+    );
+    println!(
+        "  {} {} | {} | {}",
+        "Current: ".bold(),
+        current.name,
+        current.config.target_url,
+        current.created_at.format("%Y-%m-%d %H:%M UTC")
+    );
+
+    println!(
+        "\n{} {}",
+        "New findings".bold().green(),
+        "(in current scan, absent from baseline)".dimmed()
+    );
+    print_finding_rows(&diff.new_findings);
+
+    println!(
+        "\n{} {}",
+        "Fixed findings".bold().green(),
+        "(in baseline, absent from current scan)".dimmed()
+    );
+    print_finding_rows(&diff.fixed_findings);
+
+    println!("\n{}", "Severity changed:".bold().yellow());
+    if diff.severity_changes.is_empty() {
+        println!("  {}", "(none)".dimmed());
+    } else {
+        let mut table = Table::new(
+            diff.severity_changes
+                .iter()
+                .map(|change| SeverityChangeRow {
+                    previous: severity_cell(&change.previous_severity),
+                    current: severity_cell(&change.current_severity),
+                    title: change.title.clone(),
+                    check: change.check.clone(),
+                })
+                .collect::<Vec<_>>(),
+        );
+        table.with(Style::modern());
+        println!("{}", table);
+    }
+
+    println!("\n{}", "Summary:".bold());
+    println!(
+        "  {} new, {} fixed/resolved, {} severity changed, {} unchanged",
+        diff.new_findings.len(),
+        diff.fixed_findings.len(),
+        diff.severity_changes.len(),
+        diff.unchanged_count
+    );
+    if !diff.new_findings.is_empty() {
+        print_severity_counts("New findings by severity", &diff.new_findings);
+    }
+    if !diff.fixed_findings.is_empty() {
+        print_severity_counts("Fixed findings by severity", &diff.fixed_findings);
+    }
+}
+
+fn print_finding_rows(findings: &[Finding]) {
+    if findings.is_empty() {
+        println!("  {}", "(none)".dimmed());
+        return;
+    }
+    let mut table = Table::new(
+        findings
+            .iter()
+            .map(|f| ScanFindingRow {
+                severity: severity_cell(&f.severity),
+                title: f.title.clone(),
+                check: f.plugin_source.clone(),
+            })
+            .collect::<Vec<_>>(),
+    );
+    table.with(Style::modern());
+    println!("{}", table);
+}
+
+fn severity_cell(severity: &Severity) -> String {
+    format!("{:?}", severity).color(severity_color(severity)).to_string()
+}
+
+fn print_severity_counts(label: &str, findings: &[Finding]) {
+    let mut counts = std::collections::HashMap::new();
+    for finding in findings {
+        *counts.entry(finding.severity).or_insert(0usize) += 1;
+    }
+    let parts: Vec<String> = [
+        (Severity::Critical, "critical"),
+        (Severity::High, "high"),
+        (Severity::Medium, "medium"),
+        (Severity::Low, "low"),
+        (Severity::Info, "info"),
+    ]
+    .iter()
+    .filter_map(|(severity, name)| counts.get(severity).map(|count| format!("{} {}", name, count)))
+    .collect();
+    println!("  {}: {}", label.bold(), parts.join(", "));
+}
+
+#[derive(tabled::Tabled)]
+struct SeverityChangeRow {
+    #[tabled(rename = "SEV A")]
+    previous: String,
+    #[tabled(rename = "SEV B")]
+    current: String,
+    #[tabled(rename = "TITLE")]
+    title: String,
+    #[tabled(rename = "CHECK")]
+    check: String,
+}
+
+#[cfg(test)]
+mod diff_tests {
+    use super::*;
+
+    /// Build a finding through the existing CSV record conversion so tests
+    /// stay in sync with the real construction path.
+    fn test_finding(title: &str, check: &str, severity: Severity) -> Finding {
+        CsvFindingRecord {
+            id: uuid::Uuid::new_v4().to_string(),
+            title: title.to_string(),
+            description: String::new(),
+            severity: severity.to_string(),
+            confidence: "medium".to_string(),
+            plugin_source: check.to_string(),
+            location: None,
+        }
+        .into()
+    }
+
+    #[test]
+    fn diff_reports_new_findings() {
+        let baseline = vec![test_finding("Old Issue", "check-a", Severity::Low)];
+        let current = vec![
+            test_finding("Old Issue", "check-a", Severity::Low),
+            test_finding("Fresh Issue", "check-b", Severity::High),
+        ];
+
+        let diff = diff_findings(&baseline, &current);
+
+        assert_eq!(diff.new_findings.len(), 1);
+        assert_eq!(diff.new_findings[0].title, "Fresh Issue");
+        assert_eq!(diff.new_findings[0].severity, Severity::High);
+        assert!(diff.fixed_findings.is_empty());
+        assert!(diff.severity_changes.is_empty());
+        assert_eq!(diff.unchanged_count, 1);
+        assert_eq!(diff.baseline_scan_id, ScanId::nil());
+        assert_eq!(diff.current_scan_id, ScanId::nil());
+    }
+
+    #[test]
+    fn diff_reports_fixed_findings() {
+        let baseline = vec![
+            test_finding("Resolved Issue", "check-a", Severity::Medium),
+            test_finding("Still Open", "check-b", Severity::High),
+        ];
+        let current = vec![test_finding("Still Open", "check-b", Severity::High)];
+
+        let diff = diff_findings(&baseline, &current);
+
+        assert_eq!(diff.fixed_findings.len(), 1);
+        assert_eq!(diff.fixed_findings[0].title, "Resolved Issue");
+        assert!(diff.new_findings.is_empty());
+        assert!(diff.severity_changes.is_empty());
+        assert_eq!(diff.unchanged_count, 1);
+    }
+
+    #[test]
+    fn diff_reports_severity_changes() {
+        let baseline = vec![test_finding("Escalating Issue", "check-a", Severity::Medium)];
+        let current = vec![test_finding("Escalating Issue", "check-a", Severity::Critical)];
+
+        let diff = diff_findings(&baseline, &current);
+
+        assert_eq!(diff.severity_changes.len(), 1);
+        let change = &diff.severity_changes[0];
+        assert_eq!(change.title, "Escalating Issue");
+        assert_eq!(change.check, "check-a");
+        assert_eq!(change.previous_severity, Severity::Medium);
+        assert_eq!(change.current_severity, Severity::Critical);
+        assert!(diff.new_findings.is_empty());
+        assert!(diff.fixed_findings.is_empty());
+        assert_eq!(diff.unchanged_count, 0);
+    }
+
+    #[test]
+    fn diff_reports_decreased_severity_too() {
+        let baseline = vec![test_finding("Downgraded Issue", "check-a", Severity::High)];
+        let current = vec![test_finding("Downgraded Issue", "check-a", Severity::Low)];
+
+        let diff = diff_findings(&baseline, &current);
+
+        assert_eq!(diff.severity_changes.len(), 1);
+        assert_eq!(diff.severity_changes[0].previous_severity, Severity::High);
+        assert_eq!(diff.severity_changes[0].current_severity, Severity::Low);
+    }
+
+    #[test]
+    fn diff_unchanged_when_scans_are_identical() {
+        let baseline = vec![
+            test_finding("Issue One", "check-a", Severity::Low),
+            test_finding("Issue Two", "check-b", Severity::Info),
+        ];
+        let current = baseline.clone();
+
+        let diff = diff_findings(&baseline, &current);
+
+        assert_eq!(diff.unchanged_count, 2);
+        assert!(diff.new_findings.is_empty());
+        assert!(diff.fixed_findings.is_empty());
+        assert!(diff.severity_changes.is_empty());
+    }
+
+    #[test]
+    fn diff_empty_scans_have_no_changes() {
+        let diff = diff_findings(&[], &[]);
+
+        assert!(diff.new_findings.is_empty());
+        assert!(diff.fixed_findings.is_empty());
+        assert!(diff.severity_changes.is_empty());
+        assert_eq!(diff.unchanged_count, 0);
+    }
+
+    #[test]
+    fn diff_identity_ignores_run_varying_fields() {
+        // Same title + check but different finding ID, description, target,
+        // and timestamp: the identity pair must still match the two runs.
+        let mut baseline = test_finding("Issue", "check-a", Severity::Low);
+        baseline.description = "from run one".to_string();
+        baseline.target = "http://one.test".to_string();
+        let mut current = test_finding("Issue", "check-a", Severity::Low);
+        current.description = "from run two".to_string();
+        current.target = "http://two.test".to_string();
+
+        let diff = diff_findings(&[baseline], &[current]);
+
+        assert_eq!(diff.unchanged_count, 1);
+        assert!(diff.new_findings.is_empty());
+        assert!(diff.fixed_findings.is_empty());
+    }
+
+    #[test]
+    fn diff_treats_same_title_different_check_as_distinct() {
+        let baseline = vec![test_finding("Title", "check-old", Severity::Low)];
+        let current = vec![test_finding("Title", "check-new", Severity::Low)];
+
+        let diff = diff_findings(&baseline, &current);
+
+        assert_eq!(diff.fixed_findings.len(), 1);
+        assert_eq!(diff.new_findings.len(), 1);
+        assert_eq!(diff.unchanged_count, 0);
+    }
+
+    #[test]
+    fn diff_handles_repeated_identities() {
+        // Two occurrences of the same identity in the baseline, one in the
+        // current scan: one pair stays unchanged, the surplus becomes fixed.
+        let baseline = vec![
+            test_finding("Repeated", "check-d", Severity::Low),
+            test_finding("Repeated", "check-d", Severity::Low),
+        ];
+        let current = vec![test_finding("Repeated", "check-d", Severity::Low)];
+
+        let diff = diff_findings(&baseline, &current);
+
+        assert_eq!(diff.unchanged_count, 1);
+        assert_eq!(diff.fixed_findings.len(), 1);
+        assert!(diff.new_findings.is_empty());
+        assert!(diff.severity_changes.is_empty());
+    }
 }
