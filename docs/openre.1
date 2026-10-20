@@ -1,0 +1,766 @@
+.TH OPENRE 1 "2026-10-21" "openre" "User Commands"
+.SH NAME
+openre \- open-source reverse engineering & offensive security platform
+.SH SYNOPSIS
+.B openre
+.RB [ \-d ]
+.I COMMAND
+.RI [ args ]
+.PP
+One subcommand per line; brackets mark optional arguments.
+.B \-d
+.RB ( \-\-debug )
+is a top-level flag and goes before the subcommand
+.RB ( "openre \-d scan quick URL" ).
+.PP
+.B openre hunt
+.RB \-t
+.IR TARGET
+.RB [ \-d
+.IR DEPTH ]
+.RB [ \-f
+.IR FORMAT ]
+.RB [ \-o ]
+.RB [ \-T ]
+.RB [ \-v ]
+.RB [ \-a ]
+.RB [ \-O
+.IR DIR ]
+.RB [ \-y ]
+.br
+.B openre scan
+.RB { quick | standard | full }
+.I TARGET
+.RB [ \-o
+.IR FILE ]
+.RB [ \-\-header
+.IR "KEY: VALUE" ]
+.RB [ \-\-timeout
+.IR SECONDS ]
+.RB [ \-\-follow\-redirects
+.IR BOOL ]
+.RB [ \-\-max\-redirects
+.IR N ]
+.RB [ \-\-user\-agent
+.IR UA ]
+.RB [ \-\-proxy
+.IR URL ]
+.RB [ \-\-rate\-limit
+.IR RPS ]
+.RB [ \-\-exclude
+.IR CHECKS ]
+.RB [ \-\-checks
+.IR CHECKS ]
+.br
+.B openre scan custom
+.I TARGET
+.RB [ \-\-profile
+.RI { quick | standard | full }]
+.RB [ \-\-checks
+.IR CHECKS ]
+.RB [ \-\-exclude
+.IR CHECKS ]
+.RB [ \-o
+.IR FILE ]
+.RB [ \-\-header
+.IR "KEY: VALUE" ]
+.RB [ \-\-timeout
+.IR SECONDS ]
+.br
+.B openre scan pause
+.I SCAN_ID
+.br
+.B openre scan resume
+.I SCAN_ID
+.br
+.B openre scan export
+.RB { findings | scans | projects }
+.RI [ args ]
+.br
+.B openre scan import
+.RB { findings | scans | projects }
+.RI [ args ]
+.br
+.B openre analyze
+.RB { info | symbols | imports | exports | sections | segments }
+.I FILE
+.RB [ \-\-binary\-format
+.RI { elf | pe | macho | wasm | auto }]
+.RB [ \-\-limit
+.IR N ]
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre analyze strings
+.I FILE
+.RB [ \-l
+.IR N ]
+.RB [ \-\-limit
+.IR N ]
+.RB [ \-\-binary\-format
+.IR FMT ]
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre analyze functions
+.I FILE
+.RB [ \-f
+.IR PATTERN ]
+.RB [ \-\-details ]
+.RB [ \-\-limit
+.IR N ]
+.RB [ \-\-binary\-format
+.IR FMT ]
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre analyze disasm
+.I FILE
+.RB [ \-f
+.IR "FUNCTION" ]
+.RB [ \-\-start
+.IR HEX ]
+.RB [ \-\-end
+.IR HEX ]
+.RB [ \-c
+.IR N ]
+.RB [ \-\-bytes ]
+.RB [ \-\-binary\-format
+.IR FMT ]
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre analyze decompile
+.I FILE
+.B \-f
+.I FUNCTION
+.RB [ \-\-binary\-format
+.IR FMT ]
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre analyze pipeline
+.I FILE
+.RB [ \-\-stages
+.IR LIST ]
+.RB [ \-\-binary\-format
+.IR FMT ]
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre ai chat
+.RI [ MESSAGE ]
+.RB [ \-\-system
+.IR PROMPT ]
+.RB [ \-\-temperature
+.IR T ]
+.RB [ \-\-max\-tokens
+.IR N ]
+.br
+.B openre ai analyze
+.I FINDING
+.RB [ \-\-context
+.IR TEXT ]
+.RB [ \-\-ultrathink ]
+.br
+.B openre ai explain
+.I FINDING
+.RB [ \-\-detail
+.RI { brief | standard | deep }]
+.RB [ \-\-audience
+.RI { developer | security\-team | management | executive }]
+.br
+.B openre ai remediate
+.I FINDING
+.RB [ \-\-fix\-type
+.RI { code | config | architecture | process }]
+.RB [ \-\-language
+.IR LANG ]
+.br
+.B openre ai correlate
+.I PATH
+.RB [ \-\-format
+.RI { table | json | yaml | sarif }]
+.RB [ \-\-min\-confidence
+.IR F ]
+.br
+.B openre ai providers
+.br
+.B openre ai test
+.RB [ \-\-provider
+.IR TYPE ]
+.RB [ \-\-model
+.IR MODEL ]
+.br
+.B openre exploit generate
+.I FINDING
+.RB [ \-\-language
+.IR LANG ]
+.RB [ \-\-template
+.IR NAME ]
+.RB [ \-\-target
+.IR URL ]
+.RB [ \-o
+.IR FILE ]
+.RB [ \-\-safe
+.IR BOOL ]
+.br
+.B openre exploit templates
+.RB [ \-\-category
+.IR CAT ]
+.RB [ \-\-language
+.IR LANG ]
+.br
+.B openre exploit validate
+.I FILE
+.B \-\-target
+.I URL
+.RB [ \-\-dry\-run ]
+.br
+.B openre exploit show
+.I TEMPLATE
+.br
+.B openre remediate plan
+.I FINDING
+.RB [ \-\-environment
+.RI { development | staging | production | ci\-cd }]
+.RB [ \-\-compliance
+.IR FRAMEWORK ]
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre remediate quick\-fix
+.I FINDING
+.RB [ \-\-language
+.IR LANG ]
+.br
+.B openre remediate report
+.I PATH
+.RB [ \-o
+.IR FILE ]
+.RB [ \-\-group\-by
+.IR FIELD ]
+.br
+.B openre remediate verify
+.I FINDING
+.RB [ \-\-target
+.IR TARGET ]
+.br
+.B openre report list
+.RB [ \-\-limit
+.IR N ]
+.RB [ \-\-offset
+.IR N ]
+.br
+.B openre report create
+.B \-n
+.I NAME
+.B \-f
+.RI { markdown | html | json | sarif }
+.B \-c
+.IR CONTENT
+.RB [ \-\-from\-file ]
+.br
+.B openre report delete
+.B \-n
+.I NAME
+.br
+.B openre report use
+.B \-n
+.I NAME
+.B \-s
+.I SCAN_ID
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre config
+.RB { show | set | get | reset | path | edit | init }
+.RI [ args ]
+.br
+.B openre queue
+.RB { submit | status | cancel | retry | logs | stats | list }
+.RI [ args ]
+.br
+.B openre schedule
+.RB { add | list | remove | pause | resume | show | daemon }
+.RI [ args ]
+.br
+.B openre completions
+.RB { bash | zsh | fish | powershell }
+.SH DESCRIPTION
+.B openre
+is one static Rust binary that does two jobs security teams usually buy
+separate tools for: it scans websites and APIs for vulnerabilities, and it
+analyzes compiled binaries (ELF, PE, Mach-O, WASM) down to symbols,
+imports, sections, disassembly, control-flow graphs, and dataflow. The
+container format is detected from the file's bytes; no database, server,
+or Docker is involved, and scan history lives in a SQLite that is compiled
+into the binary, so there is no database to install. TLS goes through the
+system OpenSSL on the glibc build (reqwest's default TLS), so an install
+is the one file plus a libc.
+.PP
+The scan side ships 18 built-in web checks (see docs/checks.md) grouped
+into three profiles: quick (6 checks, a CI-gate-sized pass), standard
+(16), and full (18). Every scan is recorded to local SQLite history,
+findings print as they are discovered, and output is machine-readable on
+request: JSON, YAML, or SARIF for GitHub code scanning. Scans can be
+paused and resumed by ID, exported and imported (findings, scan
+summaries, projects), and scheduled for continuous monitoring.
+.PP
+The analysis side is a capstone-backed disassembler with a multi-stage
+pipeline: identify the format, load, disassemble, recover a CFG, run
+dataflow, recover types, decompile, and enrich. Stages are selectable
+with
+.B \-\-stages
+as a comma-separated list.
+.PP
+An optional AI research layer correlates findings, explains them, drafts
+remediation plans, and generates proof-of-concept exploits. It is
+local-first: no provider is configured by default, and with none set the
+.B ai
+commands say so and everything else stays fully functional. Remote
+providers (OpenAI, Anthropic, vLLM) are opt-in through configuration.
+Exploit generation and remediation guidance work from the built-in
+template and knowledge bases with no provider at all.
+.PP
+.B hunt
+chains the pieces: scan a target, analyze what came back, generate PoCs
+for the critical findings, and write a shareable HTML report
+(openre-hunt-report.html in the working directory).
+.SH COMMANDS
+.SS openre hunt
+.B openre hunt
+.B \-t
+.IR TARGET ...
+.PP
+One-shot assessment of a URL, IP, hostname, or file path: scan, analyze,
+generate PoCs, write the report. Depth is
+.B quick
+or
+.B standard
+(default) or
+.BR deep .
+Format is
+.B terminal
+(default) or
+.B json
+or
+.B yaml
+or
+.BR html .
+.B \-o
+.RB ( \-\-open )
+tries to open the report in a browser;
+.B \-T
+.RB ( \-\-technical )
+adds technical detail to the output;
+.B \-v
+.RB ( \-\-viral )
+and
+.B \-a
+.RB ( \-\-achievements )
+add share badges and achievement tracking;
+.B \-O
+.I DIR
+redirects the report to a directory;
+.B \-y
+skips confirmation prompts.
+.SS openre scan quick|standard|full
+.B openre scan
+.I PROFILE
+.I TARGET
+.RI [ options ]
+.PP
+Run the named profile against one target. Profiles and their timing
+(quick about 2-3s, standard 10-15s, full 30-60s on the fixture server)
+come from the 18 checks in docs/checks.md. Findings print as they land;
+the summary block tallies them by severity.
+.B \-\-header "KEY: VALUE"
+is repeatable and adds request headers;
+.B \-\-user\-agent
+overrides the UA string;
+.B \-\-proxy
+routes requests through a proxy;
+.B \-\-rate\-limit
+caps requests per second;
+.B \-\-timeout
+(default 30) and
+.B \-\-max\-redirects
+(default 10) bound each request;
+.B \-\-follow\-redirects
+(default true) toggles redirect following.
+.B \-\-checks
+and
+.B \-\-exclude
+take comma-separated check names from docs/checks.md and filter the
+profile's list. When neither is passed, the built-in
+.B sensitive-files
+check is left out to keep default scans quiet.
+.B \-o
+writes the result to a file; a
+.I .sarif
+extension selects SARIF, a
+.I .json
+extension selects JSON, otherwise the configured default format is used.
+.PP
+Every scan is saved to SQLite history before, during, and after, so
+another process (or another terminal) can drive it:
+.SS openre scan pause / resume / custom
+.B openre scan pause
+.I SCAN_ID
+.br
+.B openre scan resume
+.I SCAN_ID
+.PP
+Flip a running scan's status to paused (the scan loop polls between
+checks and sleeps while paused) and back. Cancelling or failing is
+visible in
+.B openre queue
+history but has no dedicated subcommand.
+.B openre scan custom
+is the explicit form: pick
+.B \-\-profile
+(default standard) plus
+.B \-\-checks
+/
+.B \-\-exclude
+lists yourself.
+.SS openre scan export / import
+.B openre scan export findings
+.I SCAN_ID
+.RB [ \-\-format
+.RI { json | csv }]
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre scan export scans
+.RB [ \-\-project\-id
+.IR ID ]
+.RB [ \-\-status
+.IR STATUS ]
+.RB [ \-\-date\-from
+.IR ISO8601 ]
+.RB [ \-\-date\-to
+.IR ISO8601 ]
+.RB [ \-\-tags
+.IR LIST ]
+.RB [ \-\-min\-severity
+.IR SEV ]
+.RB [ \-\-format
+.RI { json | csv }]
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre scan export projects
+.RB [ \-\-format
+.RI { json | csv }]
+.RB [ \-o
+.IR FILE ]
+.br
+.B openre scan import findings
+.I INPUT
+.B \-\-scan\-id
+.IR SCAN_ID
+.br
+.B openre scan import scans
+.I INPUT
+.br
+.B openre scan import projects
+.I INPUT
+.PP
+Exports read from history; without
+.BR \-o ,
+they print to stdout. Imports read JSON (or the CSV shape the exports
+write) and file the rows back into history; importing findings requires
+the target scan to exist.
+.SS openre analyze
+.B openre analyze
+.I SUBCOMMAND
+.I FILE
+.RI [ options ]
+.PP
+The binary-analysis half. The target is a file on disk; the format is
+auto-detected and
+.B \-\-binary\-format
+(elf, pe, macho, wasm, auto) overrides detection when needed. Every
+subcommand accepts
+.B \-\-limit
+(0 = unlimited; default 100 rows) and
+.BR \-o .
+.TP
+.B info
+Identify the container and print its metadata.
+.TP
+.B symbols\ imports\ exports
+List the symbol table, dynamic imports, and exports.
+.TP
+.B strings
+Extract printable ASCII runs; \-l sets the minimum length (default 4).
+.TP
+.B sections\ segments
+List the section table and program headers.
+.TP
+.B functions
+List functions from the symbol table;
+.B \-f
+filters by name pattern,
+.B \-\-details
+adds type, binding, and visibility.
+.TP
+.B disasm
+Disassemble a function (\-f name or address) or an address range
+.RB ( \-\-start / \-\-end ,
+hex);
+.B \-c
+caps the instruction count (default 50),
+.B \-\-bytes
+adds the raw bytes column.
+.TP
+.B decompile
+Decompile one function (\-f, required).
+.TP
+.B pipeline
+Run the analysis pipeline;
+.B \-\-stages
+is a comma-separated list of identify, load, disassemble, cfg, dataflow,
+types, decompile, ai-enrich, or all (the default).
+.SS openre ai
+.B openre ai
+.I SUBCOMMAND
+.RI [ args ]
+.PP
+The AI research layer over findings and binaries. With no provider
+configured in the config file the chat command says so and exits;
+.B ai providers
+lists what is available and
+.B ai test
+checks one. Findings are addressed by ID (from history) or by a JSON
+file path.
+.B chat
+sends one message or starts an interactive session;
+.B analyze
+and
+.B explain
+break a finding down (explain's detail/audience flags tune the answer
+for the reader);
+.B remediate
+drafts a fix;
+.B correlate
+links findings across a project or results directory
+.RB ( \-\-min\-confidence ,
+default 0.5);
+.B \-\-ultrathink
+raises the thinking budget on
+.BR analyze .
+.SS openre exploit
+.B openre exploit generate
+.I FINDING
+.RI [ options ]
+.PP
+Generate a proof-of-concept exploit for a finding from the built-in
+template set. Languages: python (default), bash, javascript, go, rust,
+ruby, php, java, csharp, powershell.
+.B \-\-template
+picks a specific template,
+.B \-\-target
+overrides the URL the PoC points at,
+.B \-\-safe
+(default true) keeps destructive payloads out.
+.B exploit templates
+lists what ships (filter by
+.B \-\-category
+\-\- sqli, xss, ssrf, xxe, command-injection, deserialization,
+auth-bypass, idor, csrf, open-redirect \-\- or by language),
+.B exploit show
+prints one template,
+.B exploit validate
+checks a generated exploit file against a target without firing it
+unless it is not
+.BR \-\-dry\-run .
+.SS openre remediate
+.B openre remediate
+.I SUBCOMMAND
+.I FINDING
+.RI [ options ]
+.PP
+Fix guidance, verified against the knowledge base.
+.B plan
+produces a full remediation plan for an environment (development,
+staging, production \-\- the default \-\- or ci-cd), optionally mapped to
+a compliance framework (owasp, pci-dss, hipaa, gdpr, soc2, iso27001,
+nist).
+.B quick\-fix
+is the one-patch version for a language (python, javascript, typescript,
+go, java, csharp, php, ruby, rust).
+.B report
+aggregates every finding JSON in a directory into a remediation report,
+grouped by severity (default), category, component, or compliance.
+.B verify
+checks whether the finding still reproduces against an optional target.
+.SS openre report
+.B openre report
+.I SUBCOMMAND
+.RI [ args ]
+.PP
+Report template management.
+.B list
+paginates stored templates,
+.B create
+stores one (\-n name, \-f format among markdown, html, json, sarif;
+\-c content, or a path with \-\-from\-file),
+.B delete
+removes it by name, and
+.B use
+renders a stored template for one scan (\-s scan ID), writing to
+.B \-o
+when given. Templates live in the SQLite history store.
+.SS openre config
+.B openre config
+.I SUBCOMMAND
+.RI [ args ]
+.PP
+Inspect and manage configuration.
+.B show
+prints the effective config (a
+.B \-\-section
+narrows it,
+.B \-\-json
+makes it machine-readable),
+.B set/get
+read and write one dotted key (ai.provider, scan.timeout, ...),
+.B reset
+restores defaults for the file or one section
+.RB ( \-\-yes
+skips the prompt),
+.B path
+prints the config file location,
+.B edit
+opens it in $EDITOR (default vi), and
+.B init
+writes the default file
+.RB ( \-\-force
+overwrites).
+.SS openre queue
+.B openre queue
+.I SUBCOMMAND
+.RI [ args ]
+.PP
+A local job queue over the same SQLite store; the analysis pipeline is
+what executes jobs, this tracks submissions, state, and logs.
+.B submit
+takes a payload (inline JSON, or @file), a job type (analysis by
+default; identification, disassembly, control-flow, data-flow,
+type-recovery, decompilation, ai-enrichment, export, import,
+plugin-execution), a priority (low, default, high; \-P), an optional
+RFC3339 \-\-schedule\-at, retry bounds (\-\-max\-attempts, default 3), and
+optional project/file/user IDs, timeout, and repeated key=value
+\-\-tag rows.
+.B status
+shows one job,
+.B cancel
+stops a pending or running one (\-\-reason is recorded),
+.B retry
+requeues a failed one,
+.B logs
+prints a job's log entries (\-F follows),
+.B stats
+summarizes the queue, and
+.B list
+filters by status, type, priority, or project. All of these accept
+.B \-f
+for table (default), json, or yaml.
+.SS openre schedule
+.B openre schedule
+.I SUBCOMMAND
+.RI [ args ]
+.PP
+Scheduled scans for continuous monitoring, stored in their own SQLite
+file.
+.B add
+takes a target, \-n name, \-\-profile (default standard), and \-i
+interval in minutes (default 60), plus the scan knobs (\-\-checks,
+\-\-exclude, repeatable \-\-header, \-\-timeout, \-\-follow\-redirects,
+\-\-max\-redirects, \-\-user\-agent, \-\-proxy, \-\-rate\-limit,
+\-\-no\-tls\-verify).
+.B list
+shows schedules (\-\-enabled\-only / \-\-disabled\-only filter),
+.B remove/pause/resume/show
+act on a schedule ID, and
+.B daemon
+runs the scheduler loop that fires schedules when due (\-\-once for a
+single pass, the way a service manager would call it).
+.SS openre completions
+.B openre completions
+.RB { bash | zsh | fish | powershell }
+.PP
+Print a shell completion script to stdout. It covers the subcommands and
+flags of the build that produced it, so regenerate it after upgrading:
+.TP
+bash
+.B openre completions bash
+> ~/.local/share/bash-completion/completions/openre
+.TP
+zsh
+.B openre completions zsh
+> ~/.zfunc/_openre (put ~/.zfunc on your fpath before compinit)
+.TP
+fish
+.B openre completions fish
+> ~/.config/fish/completions/openre.fish
+.TP
+powershell
+.B openre completions powershell
+>> $PROFILE
+.SH FILES
+.TP
+.I ~/.config/openre/config.toml
+The user configuration. Resolution order (later sources override
+earlier ones): compiled defaults, this file,
+.I config.local.toml
+(gitignored overrides),
+.I OPENRE_*
+environment variables
+.RB ( "__"
+separates sections, e.g. OPENRE_AI__PROVIDER),
+and
+.I config.local.json
+last. On macOS the directory is ~/Library/Application Support/openre, on
+Windows %APPDATA%\\openre. No config file is required: defaults are
+compiled in.
+.TP
+.I ./data/storage/history.db
+SQLite scan history: scan summaries, findings, deduplicated findings,
+and report templates. The path comes from the storage.local_path
+configuration key, default ./data/storage relative to the directory
+openre runs in.
+.TP
+.I ./data/storage/schedules.db
+The schedule store used by
+.B openre schedule.
+.TP
+.I ./openre-hunt-report.html
+The report
+.B openre hunt
+writes into the working directory.
+.TP
+.I config.toml
+A sample configuration ships in the repository root for development.
+.SH EXIT STATUS
+.TP
+.B 0
+success
+.TP
+.B 1
+runtime error (config, scan, storage, or IO failure, scan cancelled or
+failed, target not found)
+.TP
+.B 2
+usage error (unknown flag, missing argument, rejected shell name)
+.SH SEE ALSO
+Project documentation ships in the repository under docs/: cli.md (the
+full CLI reference this page summarizes), checks.md (the 18 checks and
+their profiles), architecture.md, sarif.md, ai-providers.md, and
+PERFORMANCE.md.
+.PP
+.BR nmap (1),
+.BR objdump (1)
