@@ -28,7 +28,7 @@ jobs:
       matrix:
         include:
           - language: rust
-            build-mode: autobuild
+            build-mode: none
           - language: actions
             build-mode: none
     steps:
