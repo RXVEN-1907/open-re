@@ -134,7 +134,7 @@ tokenizers = "0.19"
 # Plugins
 libloading = "0.8"
 wasmtime = { version = "20.0", features = ["component-model", "async"] }
-wasmtime-wasi = { version = "20.0", features = ["preview1"] }
+wasmtime-wasi = { version = "36.0", features = ["preview1"] }
 notify = { version = "6.1", features = ["mio"] }
 utoipa = { version = "5.5", features = ["chrono", "actix_extras", "macros"] }
 utoipa-swagger-ui = { version = "7.0", features = ["axum"] }
