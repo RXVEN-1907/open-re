@@ -3476,7 +3476,7 @@ dependencies = [
  "bit-set 0.11.1",
  "capstone",
  "goblin 0.8.2",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "object 0.37.3",
  "openre-core",
  "petgraph",
