@@ -27,7 +27,7 @@ regex = "1.0"
 semver = "1.0"
 indexmap = "2.0"
 colored = "2.0"
-petgraph = { version = "0.6", features = ["serde"] }
+petgraph = { version = "0.8", features = ["serde"] }
 
 [features]
 default = ["full"]

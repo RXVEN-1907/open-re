@@ -57,7 +57,7 @@ sha1 = "0.10"
 md5 = { package = "md-5", version = "0.10" }
 semver = "1.0"
 indexmap = "2.0"
-petgraph = { version = "0.6", features = ["serde"] }
+petgraph = { version = "0.8", features = ["serde"] }
 rusqlite = { version = "0.31", features = ["chrono"] }
 colored = "2.0"
 urlencoding = { version = "1.0", features = [] }
