@@ -74,7 +74,7 @@ tokio-postgres = { version = "0.7" }
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "multipart", "gzip", "brotli", "cookies"] }
 url = "2.5"
 http = "0.2"
-http-body = "0.4"
+http-body = "1.1"
 hyper = { version = "1.0", features = ["full", "client", "http1", "http2"] }
 hyper-rustls = "0.24"
 # ring provider: aws-lc-rs does not cross-compile for all release targets
