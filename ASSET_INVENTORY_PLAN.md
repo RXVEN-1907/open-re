@@ -772,7 +772,7 @@ Queries supported:
 - Get all findings for an asset: SELECT findings.* FROM findings JOIN asset_findings ON findings.id = asset_findings.finding_id WHERE asset_findings.asset_id = ?
 - Get all assets for a finding: SELECT assets.* FROM assets JOIN asset_findings ON assets.id = asset_findings.asset_id WHERE asset_findings.finding_id = ?
 
-This enables powerful queries like:
+This enables queries like:
 - "Show all findings for my web server assets"
 - "Show which assets have critical findings"
 - "Track asset risk over time based on associated findings"

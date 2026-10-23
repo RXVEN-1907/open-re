@@ -37,10 +37,10 @@ Any known technical challenges, dependencies, or architectural impacts?
 
 ## Priority
 
-- [ ] Critical — Blocking other work
-- [ ] High — Significant user value
-- [ ] Medium — Nice to have
-- [ ] Low — Future consideration
+- [ ] Critical: blocking other work
+- [ ] High: significant user value
+- [ ] Medium: nice to have
+- [ ] Low: future consideration
 
 ## Implementation Ideas
 

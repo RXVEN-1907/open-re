@@ -59,19 +59,19 @@ We will credit you in the security advisory (unless you request anonymity).
 | Component | Risk | Mitigation |
 | ----------- | ------ | ------------ |
 | HTTP client | Response parsing | `reqwest` with strict limits, no auto-redirect |
-| HTML parser | Malformed HTML | `select`/`html5ever` — memory-safe, no code execution |
-| TLS | Certificate validation | `rustls` with `webpki-roots` — validates by default |
+| HTML parser | Malformed HTML | `select`/`html5ever`, memory-safe, no code execution |
+| TLS | Certificate validation | `rustls` with `webpki-roots`, validates by default |
 | File output | Path traversal | Output paths validated, no Shell expansion |
 | User input | Injection | URL parsing via `url` crate, header validation |
 
 ### Security Guarantees
 
 -   **No code execution** from scanned targets
--   **No Shell commands** — pure Rust HTTP client
--   **Memory safe** — no `unsafe` in scanner code
--   **No telemetry** — zero network calls except to target
--   **No auto-update** — user controls binary replacement
--   **Path traversal prevention** — output paths resolved safely
+-   **No Shell commands**: pure Rust HTTP client
+-   **Memory safe**: no `unsafe` in scanner code
+-   **No telemetry**: zero network calls except to target
+-   **No auto-update**: user controls binary replacement
+-   **Path traversal prevention**: output paths resolved safely
 
 ---
 
@@ -120,20 +120,20 @@ Docker run --rm --network none \
 
 ### Automated Scanning
 
--   **GitHub Dependabot** — weekly dependency updates
--   **Cargo-audit** — runs in CI on every PR
--   **Cargo-deny** — license and maintenance checks
+-   **GitHub Dependabot**: weekly dependency updates
+-   **Cargo-audit**: runs in CI on every PR
+-   **Cargo-deny**: license and maintenance checks
 
 ### Current Advisories (as of v0.1.0)
 
 | Crate | Version | Advisory | Status |
 | ------- | --------- | ---------- | -------- |
-| `time` | 0.1.45 | RUSTSEC-2020-0071 | Transitive via `xml5ever` (HTML parser) — **not directly reachable** |
-| `Protobuf` | 2.28.0 | RUSTSEC-2024-0437 | Transitive via `opentelemetry-prometheus` — **telemetry only** |
-| `ring` | 0.16.20 | RUSTSEC-2025-0009 | Transitive via `rustls` 0.20.9 — **TLS stack** |
-| `rustls` | 0.20.9 | RUSTSEC-2024-0336 | **Direct dependency** — tracked for upgrade |
+| `time` | 0.1.45 | RUSTSEC-2020-0071 | Transitive via `xml5ever` (HTML parser), **not directly reachable** |
+| `Protobuf` | 2.28.0 | RUSTSEC-2024-0437 | Transitive via `opentelemetry-prometheus`, **telemetry only** |
+| `ring` | 0.16.20 | RUSTSEC-2025-0009 | Transitive via `rustls` 0.20.9, **TLS stack** |
+| `rustls` | 0.20.9 | RUSTSEC-2024-0336 | **Direct dependency**, tracked for upgrade |
 
-> **Note**: The core scanner (`openre-scan`) does not directly depend on `sqlx`, `wasmtime`, or `axum` — those are in optional platform crates. Vulnerabilities in those crates do not affect the shipped binary.
+> **Note**: The core scanner (`openre-scan`) does not directly depend on `sqlx`, `wasmtime`, or `axum`. Those are in optional platform crates. Vulnerabilities in those crates do not affect the shipped binary.
 
 ### Upgrading
 
@@ -163,7 +163,7 @@ sha256sum -C openre-scan-Linux-x86_64.sha256
 
 -   Built on GitHub Actions (ephemeral runners)
 -   No external build dependencies
--   Static linking — no runtime library loading
+-   Static linking: no runtime library loading
 -   Reproducible builds via locked `Cargo.lock`
 
 ---
@@ -172,7 +172,7 @@ sha256sum -C openre-scan-Linux-x86_64.sha256
 
 | Date | Version | CVE/Advisory | Description |
 |------|---------|--------------|-------------|
-| — | — | — | No public vulnerabilities reported yet |
+| n/a | n/a | n/a | No public vulnerabilities reported yet |
 
 ---
 

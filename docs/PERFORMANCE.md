@@ -39,11 +39,11 @@ tokio = { version = "1.53", features = ["rt", "rt-multi-thread", "macros", "fs",
 
 Each remaining feature maps to actual usage in the workspace:
 
--   `fs` — openre-storage, openre-scan, openre-core, openre-plugins, openre-scanner
--   `io-util` — `AsyncReadExt` / `AsyncWriteExt` / `AsyncSeekExt` / `Empty` in openre-storage, openre-core, openre-analysis
--   `sync`, `time` — openre-intelligence, openre-analysis, openre-telemetry, openre-scan tests
--   `process` — openre-scan integration tests only
--   `macros`, `rt-multi-thread` — `#[tokio::main]` / `#[tokio::test]` and the multi-threaded runtime
+-   `fs`: openre-storage, openre-scan, openre-core, openre-plugins, openre-scanner
+-   `io-util`: `AsyncReadExt` / `AsyncWriteExt` / `AsyncSeekExt` / `Empty` in openre-storage, openre-core, openre-analysis
+-   `sync`, `time`: openre-intelligence, openre-analysis, openre-telemetry, openre-scan tests
+-   `process`: openre-scan integration tests only
+-   `macros`, `rt-multi-thread`: `#[tokio::main]` / `#[tokio::test]` and the multi-threaded runtime
 
 Dropped: `full` (umbrella), `tracing`, `parking_lot`. No workspace code uses tokio's `net` or `signal` modules directly. Transitive dependencies re-enable parts of the set regardless: hyper/reqwest/axum/metrics-exporter-prometheus pull `net`, wasmtime-wasi and tower pull `io-std`, and tokio's `process` pulls `signal-hook-registry`. Resolved tokio feature set (via `cargo tree -f '{f}' -p tokio`):
 
@@ -72,7 +72,7 @@ The trim narrows what the workspace itself requests; the remaining transitive fe
 
 | metric   | before       | after        |
 | -------- | ------------ | ------------ |
-| elapsed  | 0.04–0.06 s  | 0.04–0.06 s  |
+| elapsed  | 0.04-0.06 s  | 0.04-0.06 s  |
 | max RSS  | 1,792 KB     | 1,792 KB     |
 
 No measurable runtime change on this path: it is short-lived and the RSS delta from the tokio feature trim is below page granularity. The wins are on-disk size and install footprint; startup-path work (lazy loading of analysis backends) is the next lever for RAM.

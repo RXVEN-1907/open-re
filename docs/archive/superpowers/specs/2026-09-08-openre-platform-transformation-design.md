@@ -1,6 +1,6 @@
 # openre Platform Transformation Design Specification
 
-> **Status**: Draft — awaiting user review
+> **Status**: Draft, awaiting user review
 > **Date**: 2026-09-08
 > **Scope**: Architectural transformation adding 35+ major features across 7 phased implementations
 
@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-Transform `openre` from a capable binary analysis + web scanning platform into the **definitive cross-platform reverse engineering and offensive security toolkit** — a single ~20MB binary combining:
+Transform `openre` from a capable binary analysis + web scanning platform into the **definitive cross-platform reverse engineering and offensive security toolkit**: a single ~20MB binary combining:
 
 - **Static Analysis**: Disassembly, decompilation, CFG/DFG, data-flow, type inference, function identification
 - **Dynamic Analysis**: Tracing, emulation, runtime instrumentation, coverage-guided fuzzing
@@ -123,9 +123,9 @@ pub struct Function {
 ### 3.2 Decompilation Engine (`openre-decomp`)
 
 **Technology**: Hybrid approach
-- **Stage 1**: Structural analysis (CFG recovery, loop detection, SSA form) — pure Rust
-- **Stage 2**: Type inference (value-set analysis, pointer analysis) — pure Rust
-- **Stage 3**: Pseudo-C generation via local LLM (llama.cpp/ONNX) — optional, falls back to rule-based
+- **Stage 1**: Structural analysis (CFG recovery, loop detection, SSA form), pure Rust
+- **Stage 2**: Type inference (value-set analysis, pointer analysis), pure Rust
+- **Stage 3**: Pseudo-C generation via local LLM (llama.cpp/ONNX), optional, falls back to rule-based
 
 ```rust
 pub struct Decompiler {
@@ -253,8 +253,8 @@ openre firmware identify <file>
 ### 4.2 Raw Binary & Shared Library Support
 
 - Raw binary: Auto-detect architecture via entropy/string analysis + entry point heuristics
-- Shared libraries: `.so`, `.dylib`, `.dll` — export/import analysis, version scripts
-- Kernel modules: `.ko` — symbol versioning, vermagic
+- Shared libraries: `.so`, `.dylib`, `.dll` (export/import analysis, version scripts)
+- Kernel modules: `.ko` (symbol versioning, vermagic)
 
 ### 4.3 Architecture Support
 
@@ -318,14 +318,14 @@ pub enum TraceEventType {
 
 ### 5.2 Runtime Instrumentation
 
-- **Dynamic Binary Instrumentation (DBI)**: Frida (via `frida` crate, optional feature) for cross-platform hooking — requires Frida server on target
+- **Dynamic Binary Instrumentation (DBI)**: Frida (via `frida` crate, optional feature) for cross-platform hooking. Requires Frida server on target
 - **Lightweight**: `ptrace`-based for Linux, `VmRead/Write` for Windows, `procfs` for Linux
 - **Coverage Collection**: Edge coverage via instrumentation callbacks
 - **QEMU-user mode**: `qemu-user` + `libafl-qemu` plugin for binary-only coverage (no source)
 
 ### 5.3 Fuzzing Engine (`openre-fuzz`)
 
-**Technology**: `libafl` — pure Rust, in-process, coverage-guided
+**Technology**: `libafl`, pure Rust, in-process, coverage-guided
 
 ```rust
 pub struct Fuzzer {
@@ -373,7 +373,7 @@ pub enum HarnessType {
 - **Parallel fuzzing**: Multi-process via `libafl::multiprocess` (TCP/Unix socket coordination)
 - **Sanitizer integration**: ASAN/MSAN/TSAN via compiler flags (`-fsanitize=address,memory,thread`)
 - **Network fuzzing**: Custom mutators for HTTP, DNS, TLS, custom protocols via state machines
-- **Web/API fuzzing**: OpenAPI-driven — generates valid/invalid requests per schema, auth fuzzing
+- **Web/API fuzzing**: OpenAPI-driven, generates valid/invalid requests per schema, auth fuzzing
 
 **CLI**:
 ```bash
@@ -536,8 +536,8 @@ pub enum PoCLanguage {
 }
 
 **Compilation to WASM for Sandboxed Validation**:
-- Rust/C/Go: Native WASI targets — direct compilation, fast startup
-- Python: Pyodide (WebAssembly port of CPython) or `wasmtime` with `wasi-preview1` + embedded Python — slower but compatible
+- Rust/C/Go: Native WASI targets, direct compilation, fast startup
+- Python: Pyodide (WebAssembly port of CPython) or `wasmtime` with `wasi-preview1` + embedded Python (slower but compatible)
 - JavaScript: `quickjs` compiled to WASM or Wasmtime's JS host bindings
 - All WASM modules run in `Wasmtime` with `ResourceLimits` (CPU, memory, wall time, syscalls via WASI)
 ```
@@ -1588,7 +1588,7 @@ frida = ["dep:frida"]
 2. **JavaScript Rendering**: Include `headless_chrome` (adds ~50MB) or make optional feature?
 3. **Windows ARM64**: Support `aarch64-pc-windows-msvc` target?
 4. **FreeBSD Tier**: Tier 1 (full support) or Tier 2 (community-maintained)?
-5. **GPU Acceleration**: CUDA/Metal for ML inference — require or optional?
+5. **GPU Acceleration**: CUDA/Metal for ML inference. Required or optional?
 6. **Plugin SDK Stability**: Guarantee ABI stability for WASM plugins across versions?
 7. **Telemetry Opt-in**: Anonymous usage stats for prioritization? (Default: OFF)
 
@@ -1596,9 +1596,9 @@ frida = ["dep:frida"]
 
 ## 21. Next Steps
 
-1. **User reviews this spec** — request changes or approve
-2. **Invoke `writing-plans` skill** — detailed implementation plan for **Phase 1 only** (Core Binary Analysis: disasm, decomp, CFG/DFG, types, function ID)
-3. **Begin Phase 1 implementation** — `openre-disasm` crate first
+1. **User reviews this spec**, request changes or approve
+2. **Invoke `writing-plans` skill**, detailed implementation plan for **Phase 1 only** (Core Binary Analysis: disasm, decomp, CFG/DFG, types, function ID)
+3. **Begin Phase 1 implementation**, `openre-disasm` crate first
 4. **Subsequent phases** will each get their own implementation plan after Phase 1 completion
 
 > **Note**: This specification covers 7 phases (~68 weeks). Each phase will have a separate implementation plan created via `writing-plans` skill. Phase 1 plan will be created first upon approval.

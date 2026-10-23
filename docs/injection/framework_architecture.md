@@ -102,7 +102,7 @@ Final Score = Base × Method Weight × Severity Weight × Category Weight × Evi
 
 ### 5. Safety Controls (`safety_controls.rs`)
 
-Comprehensive safeguards:
+Safeguards:
 
 | Control | Description |
 | --------- | ------------- |

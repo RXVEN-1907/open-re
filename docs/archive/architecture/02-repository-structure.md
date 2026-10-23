@@ -115,7 +115,7 @@ open-re/
 
 ## Directory Rationale
 
-### `/crates` — Rust Workspace (Core Backend)
+### `/crates`: Rust Workspace (Core Backend)
 
 **Why separate crates?**
 
@@ -153,7 +153,7 @@ openre-analysis
 openre-api, openre-Python
 ```
 
-### `/plugins` — Built-in Plugins
+### `/plugins`: Built-in Plugins
 
 **Why separate from crates?**
 
@@ -176,7 +176,7 @@ plugins/
 │   └── README.md
 ```
 
-### `/Python` — Python Packages
+### `/Python`: Python Packages
 
 **Why separate Python workspace?**
 
@@ -185,7 +185,7 @@ plugins/
 -   **Jupyter integration**: Separate kernel package
 -   **Async-first API**: Designed for Python async/await patterns
 
-### `/frontend` — Web Frontend (Monorepo)
+### `/frontend`: Web Frontend (Monorepo)
 
 **Why pnpm workspaces / Turborepo?**
 
@@ -194,7 +194,7 @@ plugins/
 -   **Type safety**: TypeScript project references for cross-package types
 -   **Plugin UI extensions**: Plugins can contribute React components
 
-### `/cli` — Command Line Tools
+### `/cli`: Command Line Tools
 
 **Why separate CLI crates?**
 
@@ -202,7 +202,7 @@ plugins/
 -   **Distribution**: Single static binary for `openre-cli`
 -   **Headless CI**: `openre-headless` optimized for CI/CD (no UI deps)
 
-### `/Docker` — Container Definitions
+### `/Docker`: Container Definitions
 
 **Why separate Docker directory?**
 
@@ -210,7 +210,7 @@ plugins/
 -   **Environment parity**: Same images for dev, staging, prod
 -   **Compose for dev**: `Docker-compose.yml` spins up full stack locally
 
-### `/k8s` — Kubernetes (Optional)
+### `/k8s`: Kubernetes (Optional)
 
 **Why include if optional?**
 
@@ -218,7 +218,7 @@ plugins/
 -   **GitOps friendly**: ArgoCD/Flux compatible structure
 -   **Helm charts**: Standard packaging for K8s
 
-### `/scripts` — Automation
+### `/scripts`: Automation
 
 **Why separate scripts?**
 
@@ -226,7 +226,7 @@ plugins/
 -   **Discoverability**: `scripts/` is obvious place to look
 -   **Language agnostic**: Bash for portability, can call Cargo/pnpm/Python
 
-### `/tests` — Integration Tests
+### `/tests`: Integration Tests
 
 **Why separate from crates?**
 
@@ -234,7 +234,7 @@ plugins/
 -   **Fixtures management**: Shared test binaries, expected outputs
 -   **Snapshot testing**: Golden files for regression detection
 
-### `/benchmarks` — Performance Benchmarks
+### `/benchmarks`: Performance Benchmarks
 
 **Why separate?**
 

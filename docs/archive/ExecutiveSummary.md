@@ -1,6 +1,6 @@
 # Executive Summary
 
-## Project: open-re — The AI-Native Reverse Engineering Platform
+## Project: open-re, the AI-Native Reverse Engineering Platform
 
 ---
 
@@ -45,10 +45,10 @@ The current tool landscape is fragmented:
 
 | Persona | Current Pain | open-re Value |
 | --------- | -------------- | --------------- |
-| **Maya — Malware Analyst** | Slow triage; no collab; cloud AI banned | 50% faster triage; real-time team analysis; local AI |
-| **Alex — Student/CTF Player** | Ghidra overwhelming; tools expensive | Guided tutorials; free; keyboard-first; AI tutor |
-| **Jordan — Vuln Researcher** | Manual taint; poor diffing; no semantic search | Advanced taint; binary diffing; "find all strcpy" |
-| **Sam — Educator** | Lab setup week; grading manual; no cloud | Zero-install web viewer; auto-grading; curriculum packs |
+| **Maya (Malware Analyst)** | Slow triage; no collab; cloud AI banned | 50% faster triage; real-time team analysis; local AI |
+| **Alex (Student/CTF Player)** | Ghidra overwhelming; tools expensive | Guided tutorials; free; keyboard-first; AI tutor |
+| **Jordan (Vuln Researcher)** | Manual taint; poor diffing; no semantic search | Advanced taint; binary diffing; "find all strcpy" |
+| **Sam (Educator)** | Lab setup week; grading manual; no cloud | Zero-install web viewer; auto-grading; curriculum packs |
 
 ### Market Size
 
@@ -63,9 +63,9 @@ The current tool landscape is fragmented:
 ### Architecture Principles
 
 1.  **Modularity**: Every component is a plugin (disassembler, decompiler, AI models)
-2.  **Composability**: Unix philosophy — small, sharp tools with clean interfaces
+2.  **Composability**: Unix philosophy. Small, sharp tools with clean interfaces
 3.  **Observability**: Every analysis step inspectable and reproducible
-4.  **Performance**: Lazy, incremental, streaming — responsive at 100MB+
+4.  **Performance**: Lazy, incremental, streaming. Responsive at 100MB+
 5.  **Security**: WASM sandbox, no telemetry, reproducible builds, signed releases
 
 ### Technology Stack (High-Level)
@@ -95,7 +95,7 @@ The current tool landscape is fragmented:
 
 ## 5. Development Phases
 
-### Phase 0: Research & Definition (Months 0-3) — **CURRENT**
+### Phase 0: Research & Definition (Months 0-3), **CURRENT**
 
 -   ✅ Complete documentation suite (9 docs)
 -   ✅ GitHub repo initialized with governance files
@@ -167,7 +167,7 @@ The current tool landscape is fragmented:
 -   **Non-profit foundation** (OpenSSF / Linux Foundation incubation)
 -   **Diverse sponsors**: GitHub Sponsors, corporate backers, grants (NLnet, Sovereign Tech Fund)
 -   **Revenue from Phase 2**: Cloud hosting, enterprise support, training/certification
--   **No VC** — avoids exit pressure, keeps mission alignment
+-   **No VC**: avoids exit pressure, keeps mission alignment
 
 ---
 
@@ -230,7 +230,7 @@ The current tool landscape is fragmented:
 -   **Documentation**: Review ADRs, improve personas, add feature details
 -   **Research**: Claim a research task (competitor analysis, tech evaluation)
 -   **Design**: Architecture diagrams, UI mockups, API proposals
--   **Code**: Wait for Phase 1 — but help with spikes!
+-   **Code**: Wait for Phase 1, but help with spikes.
 
 ### For Sponsors
 
@@ -274,7 +274,7 @@ The current tool landscape is fragmented:
 
 > **Reverse engineering shouldn't require a $5,000 license, a PhD in compiler theory, or sending your malware to the cloud.**
 
-open-re exists to make expert-level binary analysis **accessible, collaborative, intelligent, and free** — for everyone.
+open-re exists to make expert-level binary analysis **accessible, collaborative, intelligent, and free**. For everyone.
 
 The technology is ready. The community is waiting. The market is underserved.
 

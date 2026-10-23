@@ -82,15 +82,15 @@ Based on analysis of:
 
 ### 2.3 Unmet Needs (Voice of Customer)
 
-> "I want Ghidra's decompiler with Binary Ninja's UI and IDA's architecture support, for free, with AI that doesn't send my malware to the cloud." — _Senior Malware Analyst_
+> "I want Ghidra's decompiler with Binary Ninja's UI and IDA's architecture support, for free, with AI that doesn't send my malware to the cloud." (_Senior Malware Analyst_)
 >
-> "Teaching RE with Ghidra is painful. Students spend weeks learning the UI, not the concepts." — _University Professor_
+> "Teaching RE with Ghidra is painful. Students spend weeks learning the UI, not the concepts." (_University Professor_)
 >
-> "I'd pay for Binary Ninja if it were $100/year, not $365. But I can't justify it for occasional use." — _CTF Player_
+> "I'd pay for Binary Ninja if it were $100/year, not $365. But I can't justify it for occasional use." (_CTF Player_)
 >
-> "Our team uses Ghidra shared projects but merge conflicts are a nightmare. Real-time collab would change everything." — _Security Team Lead_
+> "Our team uses Ghidra shared projects but merge conflicts are a nightmare. Real-time collab would change everything." (_Security Team Lead_)
 >
-> "I need to analyze firmware for 5 architectures. IDA supports them but costs $15k. Ghidra supports 3. I'm stuck." — _IoT Security Researcher_
+> "I need to analyze firmware for 5 architectures. IDA supports them but costs $15k. Ghidra supports 3. I'm stuck." (_IoT Security Researcher_)
 
 ---
 

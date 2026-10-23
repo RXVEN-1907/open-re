@@ -27,9 +27,9 @@
 
 Profile membership comes from `get_all_checks()`:
 
-- **quick** — 6 checks: `http-headers`, `security-headers`, `cookie-security`, `tls-certificate`, `info-disclosure`, `tech-fingerprint`
-- **standard** — 16 checks: quick + `csp`, `cors`, `robots-txt`, `sitemap`, `dir-listing`, `sensitive-files`, `forms`, `links`, `scripts`, `meta-tags`
-- **full** — 18 checks: standard + `http-methods`, `ssl-config`
+- **quick**, 6 checks: `http-headers`, `security-headers`, `cookie-security`, `tls-certificate`, `info-disclosure`, `tech-fingerprint`
+- **standard**, 16 checks: quick + `csp`, `cors`, `robots-txt`, `sitemap`, `dir-listing`, `sensitive-files`, `forms`, `links`, `scripts`, `meta-tags`
+- **full**, 18 checks: standard + `http-methods`, `ssl-config`
 
 ## Behavior notes
 
@@ -41,7 +41,7 @@ Profile membership comes from `get_all_checks()`:
 
 ## Severity conventions
 
-Findings carry `Severity` (Info/Low/Medium/High/Critical), `Confidence`, a `Category` (e.g. `SecurityMisconfiguration`, `InformationDisclosure`, `Configuration`), evidence with the observed header/body data, and — for the misconfiguration checks — structured `RemediationGuidance` (summary, steps, effort, priority). Typical severities: missing HSTS/CSP = High, wildcard CORS with credentials = High, password field in a GET form = High, missing `X-Frame-Options` = Medium, cookie without `Secure` = Medium, `TRACE`/`TRACK` enabled = Medium, `PUT`/`DELETE` enabled = High, generator/version disclosure = Low.
+Findings carry `Severity` (Info/Low/Medium/High/Critical), `Confidence`, a `Category` (e.g. `SecurityMisconfiguration`, `InformationDisclosure`, `Configuration`), evidence with the observed header/body data, and, for the misconfiguration checks, structured `RemediationGuidance` (summary, steps, effort, priority). Typical severities: missing HSTS/CSP = High, wildcard CORS with credentials = High, password field in a GET form = High, missing `X-Frame-Options` = Medium, cookie without `Secure` = Medium, `TRACE`/`TRACK` enabled = Medium, `PUT`/`DELETE` enabled = High, generator/version disclosure = Low.
 
 ## Using check names
 

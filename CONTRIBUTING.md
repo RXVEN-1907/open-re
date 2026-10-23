@@ -1,6 +1,6 @@
 # Contributing to openre-scan
 
-Thank you for contributing to **openre-scan** — a lightweight, standalone web security scanner.
+Thank you for contributing to **openre-scan**, a lightweight, standalone web security scanner.
 
 We welcome:
 
@@ -237,12 +237,12 @@ openre-scan/
 
 ### Key Types (from `openre-core`)
 
--   `Finding` — Core finding with severity, confidence, category, evidence, remediation
--   `Evidence` — Proof: HTTP request/response, location, timing, payload
--   `Severity` — Critical, High, Medium, Low, Info
--   `Confidence` — VeryHigh, High, Medium, Low
--   `Category` — SecurityMisconfiguration, InformationDisclosure, etc.
--   `RemediationGuidance` — Summary, steps, effort (Low/Medium/High), priority (Immediate/High/Medium/Low)
+-   `Finding`: core finding with severity, confidence, category, evidence, remediation
+-   `Evidence`: proof. HTTP request/response, location, timing, payload
+-   `Severity`: Critical, High, Medium, Low, Info
+-   `Confidence`: VeryHigh, High, Medium, Low
+-   `Category`: SecurityMisconfiguration, InformationDisclosure, etc.
+-   `RemediationGuidance`: summary, steps, effort (Low/Medium/High), priority (Immediate/High/Medium/Low)
 
 ---
 

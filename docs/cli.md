@@ -8,9 +8,9 @@
 
 Command modules live in `crates/openre-cli/src/commands/` and are all wired in `main.rs` under the ten top-level groups; the engine crates behind them are direct (non-optional) dependencies of `openre-cli`. One gap: the `queue` module imports an `openre_queue` crate that is neither a workspace member nor a declared dependency of `openre-cli` yet.
 
-Command surface documented here comes from the `Args`/`Subcommand` structs in each command module — the argument definitions, defaults, and value enums below are copied from source.
+Command surface documented here comes from the `Args`/`Subcommand` structs in each command module. The argument definitions, defaults, and value enums below are copied from source.
 
-## hunt — one-shot assessment
+## hunt: one-shot assessment
 
 Pipeline command: scan target, analyze exploitability, generate PoCs for Medium+ findings, write an HTML report.
 
@@ -30,7 +30,7 @@ openre hunt [FLAGS] --target <TARGET>
 | `-O`, `--output <DIR>` | cwd | Custom output directory (report lands at `<DIR>/openre-hunt-report.html`) |
 | `-y`, `--yes` | off | Skip confirmation prompts |
 
-## scan — web vulnerability scanning
+## scan: web vulnerability scanning
 
 Profile subcommands share `ScanArgs`; `custom` picks its own profile.
 
@@ -49,14 +49,14 @@ Profile subcommands share `ScanArgs`; `custom` picks its own profile.
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `<TARGET>` | required | Target URL or domain |
-| `-o`, `--output <PATH>` | — | Output file. `.sarif` extension selects SARIF, `.json` selects JSON |
+| `-o`, `--output <PATH>` | none | Output file. `.sarif` extension selects SARIF, `.json` selects JSON |
 | `--header <HEADER>` | empty | Repeatable `Key: Value` header |
 | `--timeout <SECS>` | `30` | Request timeout |
 | `--follow-redirects <BOOL>` | `true` | Follow redirects |
 | `--max-redirects <N>` | `10` | Redirect depth cap |
-| `--user-agent <UA>` | — | User agent string |
-| `--proxy <URL>` | — | e.g. `http://127.0.0.1:8080` |
-| `--rate-limit <RPS>` | — | Requests per second cap |
+| `--user-agent <UA>` | none | User agent string |
+| `--proxy <URL>` | none | e.g. `http://127.0.0.1:8080` |
+| `--rate-limit <RPS>` | none | Requests per second cap |
 | `--exclude <LIST>` | empty | Comma-separated check names to skip |
 | `--checks <LIST>` | empty | Comma-separated check names to include |
 
@@ -70,21 +70,21 @@ Behavior notes from `commands/scan.rs`:
 - Export filters for `scans`: `--project-id`, `--status`, `--date-from`/`--date-to` (RFC 3339), `--tags`, `--min-severity <critical|high|medium|low|info>`; `--format <json|csv>`.
 - `import findings` requires `--scan-id` pointing at an existing scan.
 
-## analyze — binary analysis
+## analyze: binary analysis
 
 All subcommands take a binary path and can force a format with `--binary-format <elf|pe|macho|wasm|auto>` and write to `--output`.
 
 | Subcommand | Extra flags |
 | --- | --- |
-| `analyze info <FILE>` | — |
-| `analyze symbols <FILE>` / `imports <FILE>` / `exports <FILE>` / `sections <FILE>` / `segments <FILE>` | — |
+| `analyze info <FILE>` | none |
+| `analyze symbols <FILE>` / `imports <FILE>` / `exports <FILE>` / `sections <FILE>` / `segments <FILE>` | none |
 | `analyze strings <FILE>` | `--min-length <N>` (default `4`) |
 | `analyze functions <FILE>` | `--filter <PATTERN>`, `--details` |
 | `analyze disasm <FILE>` | `--function <NAME\|ADDR>`, `--start <HEX>`, `--end <HEX>`, `--count <N>` (default `50`), `--bytes` |
 | `analyze decompile <FILE>` | `--function <NAME\|ADDR>` (required) |
 | `analyze pipeline <FILE>` | `--stages <LIST>` comma-separated from `all,identify,load,disassemble,cfg,dataflow,types,decompile,ai-enrich` (default `all`) |
 
-## ai — AI-assisted analysis
+## ai: AI-assisted analysis
 
 | Subcommand | Flags |
 | --- | --- |
@@ -98,16 +98,16 @@ All subcommands take a binary path and can force a format with `--binary-format 
 
 `FINDING` is a finding ID or a path to a finding JSON file (JSON file is the supported form). See [ai-providers.md](ai-providers.md) for provider configuration.
 
-## exploit — PoC generation
+## exploit: PoC generation
 
 | Subcommand | Flags |
 | --- | --- |
 | `exploit generate <FINDING>` | `--language <python|bash|javascript|go|rust|ruby|php|java|csharp|powershell>` (default `python`), `--template <NAME>`, `--target <URL>`, `-o/--output <PATH>`, `--safe <BOOL>` (default `true`: no destructive payloads) |
 | `exploit templates` | `--category <sqli|xss|rce|ssrf|xxe|path-traversal|command-injection|ldap-injection|template-injection|deserialization|auth-bypass|idor|csrf|open-redirect>`, `--language <LANG>` |
 | `exploit validate <FILE>` | `--target <URL>` (required), `--dry-run` |
-| `exploit show <TEMPLATE>` | — |
+| `exploit show <TEMPLATE>` | none |
 
-## remediate — fix guidance
+## remediate: fix guidance
 
 | Subcommand | Flags |
 | --- | --- |
@@ -116,7 +116,7 @@ All subcommands take a binary path and can force a format with `--binary-format 
 | `remediate report <PATH>` | `-o/--output <PATH>`, `--group-by <severity|category|component|compliance>` (default `severity`) |
 | `remediate verify <FINDING>` | `--target <URL>` |
 
-## report — report templates
+## report: report templates
 
 | Subcommand | Flags |
 | --- | --- |
@@ -125,21 +125,21 @@ All subcommands take a binary path and can force a format with `--binary-format 
 | `report delete` | `-n/--name <NAME>` |
 | `report use` | `-n/--name <NAME>`, `--scan-id <ID>`, `-o/--output <PATH>` |
 
-## config — configuration
+## config: configuration
 
 Keys use dot notation (`ai.provider`, `scan.timeout`).
 
 | Subcommand | Flags |
 | --- | --- |
 | `config show` | `--section <NAME>`, `--json` |
-| `config set <KEY> <VALUE>` | — |
-| `config get <KEY>` | — |
+| `config set <KEY> <VALUE>` | none |
+| `config get <KEY>` | none |
 | `config reset` | `--section <NAME>`, `--yes` |
 | `config path` | Prints the config file location |
 | `config edit` | Opens `$EDITOR` |
 | `config init` | `--force` overwrites an existing config |
 
-## queue — job queue
+## queue: job queue
 
 Depends on the `openre_queue` crate (not currently a workspace member). Job types: `analysis`, `identification`, `disassembly`, `control-flow`, `data-flow`, `type-recovery`, `decompilation`, `ai-enrichment`.
 
@@ -148,16 +148,16 @@ Depends on the `openre_queue` crate (not currently a workspace member). Job type
 | `queue submit` | `--job-type <TYPE>` (default `analysis`), `-P/--priority <low|default|high>`, `-p/--payload <JSON\|@FILE>` (required), `--max-attempts <N>` (default `3`), `--schedule-at <RFC3339>`, `--project-id`, `--file-id`, `--user-id`, `--timeout <SECS>`, `--tag <KEY=VALUE>` (repeatable), `-f/--format <table|json|yaml>` |
 | `queue status <JOB_ID>` | `-f/--format` |
 | `queue cancel <JOB_ID>` | `--reason <TEXT>` (default `User requested cancellation`) |
-| `queue retry <JOB_ID>` | — |
+| `queue retry <JOB_ID>` | none |
 | `queue logs <JOB_ID>` | `-l/--limit <N>` (default `100`), `-F/--follow`, `-f/--format` |
 | `queue stats` | `-f/--format` |
 | `queue list` | `--status <pending|queued|running|completed|failed|cancelled|scheduled>`, `--job-type`, `--priority`, `--project-id`, `-l/--limit` (default `50`), `-f/--format` |
 
-## schedule — recurring scans
+## schedule: recurring scans
 
 | Subcommand | Flags |
 | --- | --- |
 | `schedule add <TARGET>` | `-n/--name <NAME>` (required), `--profile <quick|standard|full>` (default `standard`), `-i/--interval <MINUTES>` (default `60`), plus the scan tuning flags: `--checks`, `--exclude`, `--header`, `--timeout`, `--follow-redirects`, `--max-redirects`, `--user-agent`, `--proxy`, `--rate-limit`, `--no-tls-verify` |
 | `schedule list` | `--enabled-only`, `--disabled-only` |
-| `schedule remove <ID>` / `pause <ID>` / `resume <ID>` / `show <ID>` | — |
+| `schedule remove <ID>` / `pause <ID>` / `resume <ID>` / `show <ID>` | none |
 | `schedule daemon` | `--once` runs one scheduling pass and exits (internal entry point) |

@@ -5,7 +5,7 @@
 ## Selecting SARIF
 
 - Library: `display_results(..., &OutputFormat::Sarif, ...)` or `print_sarif_results` directly (`openre_scan::output`).
-- CLI scan: pass `--output report.sarif` — the extension selects SARIF (`report.json` selects JSON).
+- CLI scan: pass `--output report.sarif`; the extension selects SARIF (`report.json` selects JSON).
 
 ## Document shape
 
@@ -32,7 +32,7 @@
 }
 ```
 
-`version` is the `openre-scan` crate version at compile time. There is one run per document; `rules` is currently empty (rule metadata is not published — rule identity travels on each result, below).
+`version` is the `openre-scan` crate version at compile time. There is one run per document; `rules` is currently empty (rule metadata is not published; rule identity travels on each result, below).
 
 ## Result mapping
 
@@ -40,10 +40,10 @@ Each `Finding` becomes one SARIF result:
 
 | SARIF field | Source | Notes |
 | --- | --- | --- |
-| `ruleId` | `finding.plugin_source` | The check name, e.g. `security-headers`, `csp` — the same names accepted by `scan --checks`/`--exclude` (see [checks.md](checks.md)) |
+| `ruleId` | `finding.plugin_source` | The check name, e.g. `security-headers`, `csp`; the same names accepted by `scan --checks`/`--exclude` (see [checks.md](checks.md)) |
 | `level` | `finding.severity` | `Critical`, `High` → `error`; `Medium` → `warning`; `Low`, `Info` → `note` |
 | `message.text` | `finding.title` | Human-readable title; full description rides in properties |
-| `locations[0].physicalLocation.artifactLocation.uri` | scan target URL | The scanned target, not a source file — these are runtime findings |
+| `locations[0].physicalLocation.artifactLocation.uri` | scan target URL | The scanned target, not a source file. These are runtime findings |
 | `locations[0].physicalLocation.region.startLine` | `1` | Fixed placeholder; web findings have no line semantics |
 | `properties.severity` | `finding.severity` | Original five-level severity, preserved because SARIF's `level` collapses it |
 | `properties.confidence` | `finding.confidence` | `VeryHigh`/`High`/`Medium`/`Low`/`VeryLow` |
@@ -79,6 +79,6 @@ jobs:
 
 ## Caveats
 
-- `artifactLocation.uri` is the scan target URL, not a path inside the scanned repository — for a web target the location is the URL itself. Consumers that expect repo-relative paths will need to map these.
+- `artifactLocation.uri` is the scan target URL, not a path inside the scanned repository. For a web target the location is the URL itself. Consumers that expect repo-relative paths will need to map these.
 - `startTimeUtc`/`endTimeUtc` are stamped at write time, not measured around the scan run.
 - The generic CLI output path (`--format sarif` on non-scan commands) currently writes JSON with a SARIF name; only the `openre-scan` writer produces valid SARIF.

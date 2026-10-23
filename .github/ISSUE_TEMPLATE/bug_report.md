@@ -45,7 +45,7 @@ What actually happens? Include error messages, stack traces, or screenshots.
 
 ## Severity
 
-- [ ] Critical — Crash, data loss, security issue
-- [ ] High — Major feature broken, incorrect findings
-- [ ] Medium — Minor feature broken, usability issue
-- [ ] Low — Cosmetic, documentation, minor annoyance
+- [ ] Critical: crash, data loss, security issue
+- [ ] High: major feature broken, incorrect findings
+- [ ] Medium: minor feature broken, usability issue
+- [ ] Low: cosmetic, documentation, minor annoyance

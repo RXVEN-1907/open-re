@@ -480,7 +480,7 @@ Capability detection: "What can this binary do?"
 
 ### 6.1 Positioning Statement
 
-> "open-re is the **first AI-native, open-source reverse engineering platform** that delivers **commercial-grade analysis** with **modern UX**, **privacy-first architecture**, and **community-driven extensibility**—making expert-level binary analysis accessible to everyone."
+> "open-re is the **first AI-native, open-source reverse engineering platform** that delivers **commercial-grade analysis** with **modern UX**, **privacy-first architecture**, and **community-driven extensibility**, making expert-level binary analysis accessible to everyone."
 
 ### 6.2 Differentiation Vectors
 
@@ -567,7 +567,7 @@ The market has **no tool** that combines:
 -   Open governance
 -   Extensible by design
 
-**open-re can fill this gap** by learning from each tool's strengths and avoiding their architectural mistakes. The window is open now—before incumbents add AI as a feature rather than a foundation.
+**open-re can fill this gap** by learning from each tool's strengths and avoiding their architectural mistakes. The window is open now, before incumbents add AI as a feature rather than a foundation.
 
 ---
 

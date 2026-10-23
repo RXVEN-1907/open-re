@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI system is designed as a **provider-agnostic abstraction layer** that supports local-first inference with optional remote fallback. The architecture ensures the REST of the application never depends directly on a specific model or provider, enabling seamless switching between local models (ONNX, llama.cpp), remote APIs (OpenAI, vLLM, custom), and future providers.
+The AI system is designed as a **provider-agnostic abstraction layer** that supports local-first inference with optional remote fallback. The architecture ensures the REST of the application never depends directly on a specific model or provider, enabling switching between local models (ONNX, llama.cpp), remote APIs (OpenAI, vLLM, custom), and future providers.
 
 ---
 

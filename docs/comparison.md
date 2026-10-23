@@ -25,7 +25,7 @@ running them here.
   Its SARIF and JSON pipelines are also older and battle-tested.
 - **radare2** is far deeper for RE: dozens of architectures, an
   interactive debugger, and decompiler plugins. openre's analysis is
-  read-only capstone output plus its pipeline — a report, not a workspace.
+  read-only capstone output plus its pipeline. A report, not a workspace.
 - openre's claim is narrower: one binary with no server, database, or
   Docker that covers a scan-and-triage pass **and** first-line binary
   analysis, with an AI layer that stays out of the way when

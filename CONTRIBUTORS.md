@@ -1,6 +1,6 @@
 # Contributors
 
-Thank you to everyone who has contributed to open-re!
+Thank you to everyone who has contributed to open-re.
 
 ## Project Leads
 
@@ -18,7 +18,7 @@ Thank you to everyone who has contributed to open-re!
 
 ## How to Add Yourself
 
-Contributors are added automatically when their first PR is merged. If you've contributed and don't see your name here, please open a PR to add yourself!
+Contributors are added automatically when their first PR is merged. If you've contributed and don't see your name here, open a PR to add yourself.
 
 ### Format
 

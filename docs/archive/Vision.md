@@ -2,11 +2,11 @@
 
 ## Mission Statement
 
-**To democratize reverse engineering by building an open-source platform that combines the analytical depth of traditional tools with the accessibility and intelligence of modern AI, enabling anyone—from students to seasoned professionals—to understand, analyze, and secure software at the binary level.**
+**To democratize reverse engineering by building an open-source platform that combines the analytical depth of traditional tools with the accessibility and intelligence of modern AI, enabling anyone (from students to seasoned professionals) to understand, analyze, and secure software at the binary level.**
 
 ## Elevator Pitch
 
-> "open-re is the reverse engineering platform we wished existed: powerful enough for NSA-grade analysis, accessible enough for a first-year CS student, and open enough for the community to shape its future. It's Ghidra meets VS Code meets Copilot—built from the ground up for the AI era."
+> "open-re is the reverse engineering platform we wished existed: powerful enough for NSA-grade analysis, accessible enough for a first-year CS student, and open enough for the community to shape its future. It's Ghidra meets VS Code meets Copilot, built from the ground up for the AI era."
 
 ## Core Philosophy
 
@@ -16,7 +16,7 @@ Everything is open source. No "community edition" vs "pro edition." No feature g
 
 ### 2. **AI-Native, Not AI-Bolted**
 
-AI assistance isn't a plugin—it's woven into every workflow. From automatic function recognition to natural language query of binary semantics, AI is a first-class citizen.
+AI assistance isn't a plugin. It's woven into every workflow. From automatic function recognition to natural language query of binary semantics, AI is a first-class citizen.
 
 ### 3. **Extensibility as Architecture**
 

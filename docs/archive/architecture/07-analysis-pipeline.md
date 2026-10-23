@@ -1099,4 +1099,4 @@ impl PipelineOrchestrator {
 
 ---
 
-_This pipeline architecture provides a robust, extensible foundation for binary analysis. Each stage is independently replaceable, supports parallel execution, and integrates seamlessly with the plugin and AI systems._
+_The pipeline is an extensible foundation for binary analysis. Each stage is independently replaceable, supports parallel execution, and integrates with the plugin and AI systems._

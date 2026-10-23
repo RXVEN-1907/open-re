@@ -10,7 +10,7 @@
 - Provider id: `llama.cpp`.
 - Capabilities: chat, completion, embedding, streaming. No tool calls, no vision, no JSON mode.
 - Config (`[ai.llama_cpp]`): `gpu_layers` (default `0`, CPU-only), `context_size` (default `4096`), `use_mlock` (default `false`), `use_mmap` (default `true`). Models load with mmap; mlock is opt-in.
-- Chat formatting: a plain `system`/`user`/`assistant` template compiled per message role — no model-specific chat template is applied, so pick a model that tolerates this or set prompts accordingly.
+- Chat formatting: a plain `system`/`user`/`assistant` template compiled per message role. No model-specific chat template is applied, so pick a model that tolerates this or set prompts accordingly.
 
 ### ONNX Runtime (`OnnxProvider`)
 
@@ -18,7 +18,7 @@
 - Provider id: `onnx`.
 - Capabilities: chat, completion, streaming. `embedding` is advertised via config but `embed()` currently returns "Embeddings not supported". No tools, no vision.
 - Decoding is greedy (argmax over logits) regardless of requested temperature.
-- Config (`[ai.onnx]`): `threads` (default `4`, must be non-zero), `providers` — execution providers, default `["cpu"]`, with `cuda` and `tensorrt` recognized as values.
+- Config (`[ai.onnx]`): `threads` (default `4`, must be non-zero), `providers` (execution providers, default `["cpu"]`, with `cuda` and `tensorrt` recognized as values).
 
 ## Remote providers (`RemoteProvider`)
 
@@ -43,20 +43,20 @@ There is no dedicated Ollama provider in `openre-ai`. Ollama servers speak the O
 
 | `allowed_remote_providers` entry | Required env | Optional env |
 | --- | --- | --- |
-| `openai` | `OPENAI_API_KEY` | — |
-| `anthropic` | `ANTHROPIC_API_KEY` | — |
+| `openai` | `OPENAI_API_KEY` | none |
+| `anthropic` | `ANTHROPIC_API_KEY` | none |
 | `vllm` | `VLLM_BASE_URL` | `VLLM_API_KEY` |
 
 Missing env vars are logged and skipped, not fatal. `ai.allow_remote` and `ai.models_dir` exist in `AiConfig` but are not consumed by `openre-ai` code yet.
 
 ## Routing
 
-`ModelRouter::select_provider` filters registry entries by the request: tool support, streaming support, estimated token count (content length / 4 + max_tokens) against `max_context_tokens`, and privacy — when `ai.privacy.local_only_mode` is true, only providers whose type is `onnx` or `llama.cpp` qualify.
+`ModelRouter::select_provider` filters registry entries by the request: tool support, streaming support, estimated token count (content length / 4 + max_tokens) against `max_context_tokens`, and privacy (when `ai.privacy.local_only_mode` is true, only providers whose type is `onnx` or `llama.cpp` qualify).
 
 Two strategies, chosen by `ai.local_first` (default `true`):
 
 - **local-first**: first qualifying local provider; remote only if `local_only_mode` is off.
-- **cost-optimized**: local first (free), otherwise the remote with the lowest estimated per-1k-token cost — OpenAI `0.03`, Anthropic `0.015`, vLLM `0.001` (self-hosted), other `0.01`.
+- **cost-optimized**: local first (free), otherwise the remote with the lowest estimated per-1k-token cost: OpenAI `0.03`, Anthropic `0.015`, vLLM `0.001` (self-hosted), other `0.01`.
 
 Per-provider usage stats (requests, tokens, latency, success/failure counts) are recorded on every call.
 
@@ -106,11 +106,11 @@ Defaults matter for air-gapped use: with `allowed_remote_providers = []` nothing
 
 ## Supporting services
 
-- **Cache** (`cache.rs`): two-level response cache keyed by SHA-256 of the request — in-memory LRU-capped by `memory_max_entries`, disk-backed under `data/cache/ai_cache.json` capped by `disk_max_size_mb`, entries expiring after `ttl_secs`.
+- **Cache** (`cache.rs`): two-level response cache keyed by SHA-256 of the request. In-memory LRU-capped by `memory_max_entries`, disk-backed under `data/cache/ai_cache.json` capped by `disk_max_size_mb`, entries expiring after `ttl_secs`.
 - **Privacy** (`privacy.rs`): `PrivacyController` rewrites messages and tool parameters through the configured redaction patterns (built-ins plus `custom_redaction_patterns`) and keeps an in-memory audit log of redactions.
 - **Prompt compiler** (`prompt_compiler.rs`): named prompt templates with few-shot example sets.
 - **Tools** (`tools.rs`): `AiTool` trait plus project/object/global store traits exposing functions, basic blocks, instructions, strings, symbols, xrefs, and search to tool-calling providers.
-- **Grounded service** (`grounded.rs`): evidence-grounded responses — every claim must cite an evidence ID in `[Evidence: <id>]` form, checked against the finding's evidence set.
+- **Grounded service** (`grounded.rs`): evidence-grounded responses. Every claim must cite an evidence ID in `[Evidence: <id>]` form, checked against the finding's evidence set.
 
 ## CLI surface
 

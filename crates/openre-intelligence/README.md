@@ -205,7 +205,7 @@ let config = IntelligenceConfig {
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
+We welcome contributions. Please see our [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 ### Areas for Enhancement
 

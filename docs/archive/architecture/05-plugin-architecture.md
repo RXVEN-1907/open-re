@@ -2,7 +2,7 @@
 
 ## Overview
 
-The plugin system is the **core architectural pillar** of open-re. Every major capability—binary loading, disassembly, decompilation, AI analysis, export—is implemented as a plugin. This enables users to replace any component, vendors to ship proprietary extensions, and the community to innovate without core changes.
+The plugin system is the **core architectural pillar** of open-re. Every major capability (binary loading, disassembly, decompilation, AI analysis, export) is implemented as a plugin. This enables users to replace any component, vendors to ship proprietary extensions, and the community to innovate without core changes.
 
 ---
 

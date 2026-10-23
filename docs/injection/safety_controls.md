@@ -2,7 +2,7 @@
 
 ## Overview
 
-The injection testing framework implements comprehensive safety controls to ensure testing is performed responsibly and only against authorized targets. These controls are mandatory and cannot be bypassed.
+The injection testing framework implements safety controls to ensure testing is performed responsibly and only against authorized targets. These controls are mandatory and cannot be bypassed.
 
 ## Safety Architecture
 

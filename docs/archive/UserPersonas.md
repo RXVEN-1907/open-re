@@ -8,7 +8,7 @@ This document defines the primary and secondary user personas for open-re. Each 
 
 ## 1. Primary Personas
 
-### 1.1 Maya — Senior Malware Analyst
+### 1.1 Maya: Senior Malware Analyst
 
 #### Demographics
 
@@ -61,7 +61,7 @@ This document defines the primary and secondary user personas for open-re. Each 
 
 ---
 
-### 1.2 Alex — CTF Player / Security Student
+### 1.2 Alex: CTF Player / Security Student
 
 #### Demographics
 
@@ -114,7 +114,7 @@ This document defines the primary and secondary user personas for open-re. Each 
 
 ---
 
-### 1.3 Jordan — Vulnerability Researcher
+### 1.3 Jordan: Vulnerability Researcher
 
 #### Demographics
 
@@ -168,7 +168,7 @@ This document defines the primary and secondary user personas for open-re. Each 
 
 ---
 
-### 1.4 Sam — Reverse Engineering Educator
+### 1.4 Sam: Reverse Engineering Educator
 
 #### Demographics
 
@@ -225,7 +225,7 @@ This document defines the primary and secondary user personas for open-re. Each 
 
 ## 2. Secondary Personas
 
-### 2.5 Casey — Embedded/IoT Security Engineer
+### 2.5 Casey: Embedded/IoT Security Engineer
 
 #### Profile
 
@@ -243,7 +243,7 @@ This document defines the primary and secondary user personas for open-re. Each 
 
 ---
 
-### 2.6 Riley — Compiler/Toolchain Engineer
+### 2.6 Riley: Compiler/Toolchain Engineer
 
 #### Profile
 
@@ -260,7 +260,7 @@ This document defines the primary and secondary user personas for open-re. Each 
 
 ---
 
-### 2.7 Morgan — Digital Forensics Investigator
+### 2.7 Morgan: Digital Forensics Investigator
 
 #### Profile
 
@@ -278,7 +278,7 @@ This document defines the primary and secondary user personas for open-re. Each 
 
 ---
 
-### 2.8 Taylor — Hobbyist / Retro Computing Enthusiast
+### 2.8 Taylor: Hobbyist / Retro Computing Enthusiast
 
 #### Profile
 

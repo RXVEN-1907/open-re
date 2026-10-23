@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Close all gaps between README promises and actual implementation by delivering 8 independently verifiable phases: Binary Analysis Pipeline, Plugin System E2E, API Server, Frontend, AI Security Analyst, Docker Platform, Configuration System, Release Automation — each with tests, docs, and CI/CD.
+**Goal:** Close all gaps between README promises and actual implementation by delivering 8 independently verifiable phases: Binary Analysis Pipeline, Plugin System E2E, API Server, Frontend, AI Security Analyst, Docker Platform, Configuration System, Release Automation. Each with tests, docs, and CI/CD.
 
 **Architecture:** The codebase is a Rust workspace with 17 crates. Most crate skeletons exist with substantial implementation. The plan wires them end-to-end: `openre-analysis` provides binary parsing + 9-stage pipeline; `openre-plugins` provides WASM runtime + capability system + 17 security plugins; `openre-api` serves REST/gRPC/WebSocket; `openre-cli` unifies all operations; `openre-security-ai` connects LLM providers; `openre-scan` is the standalone web scanner with TUI; `frontend` is React+TypeScript+Tailwind. Docker Compose orchestrates API+Worker+Frontend.
 

@@ -5,7 +5,7 @@
   </picture>
   <h1>openre</h1>
   <p><strong>Open-source reverse engineering &amp; offensive security platform</strong></p>
-  <p>Scan websites and APIs · analyze any binary · generate PoCs · remediate — one static Rust binary</p>
+  <p>Scan websites and APIs · analyze any binary · generate PoCs · remediate, all from one static Rust binary</p>
   <p>
     <a href="https://github.com/RXVEN-1907/open-re/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/RXVEN-1907/open-re/actions/workflows/ci.yml/badge.svg"></a>
     <a href="https://github.com/RXVEN-1907/open-re/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/RXVEN-1907/open-re?sort=semver"></a>
@@ -19,7 +19,7 @@
 
 **One binary, zero dependencies.** Point `openre` at a website and it runs
 18 security checks, fingerprints the stack, and hands you findings with
-severity and evidence. Point it at a binary — ELF, PE, Mach-O, or WASM —
+severity and evidence. Point it at a binary (ELF, PE, Mach-O, or WASM)
 and it reads metadata, symbols, imports, sections, and disassembles
 functions down to hex bytes. Wire in an LLM (local Ollama/llama.cpp/ONNX or
 cloud OpenAI/Anthropic/vLLM) and it correlates findings, drafts PoC
@@ -32,8 +32,7 @@ directory you own.
 <div align="center"><img src="docs/demo.gif" alt="animated terminal: openre scan standard against a deliberately vulnerable fixture - fifteen checks tick past, then the summary: 15 checks, 17 findings, 1.31s" width="800"></div>
 
 *Real output: a standard scan against the deliberately-vulnerable fixture
-that ships in `crates/openre-scan/tests/` — 15 checks, 17 findings, 1.31
-seconds.*
+in `crates/openre-scan/tests/`. 15 checks, 17 findings, 1.31 seconds.*
 
 <details>
 <summary><strong>Contents</strong></summary>
@@ -57,7 +56,7 @@ seconds.*
 
 ## Quickstart
 
-Prebuilt binaries for Linux, Windows, macOS, and FreeBSD — unpack and run:
+Prebuilt binaries for Linux, Windows, macOS, and FreeBSD. Unpack and run:
 
 ```console
 $ openre scan standard https://your-target.example
@@ -103,14 +102,14 @@ Shell completions ship in every release archive and via
 </div>
 
 Scan (`recon`) finds the surface, `exploit` turns a finding into a
-reproducible proof, `remediate` fixes it and adds the regression test —
-each one command, each verified against the same finding store.
+reproducible proof, `remediate` fixes it and adds the regression test.
+One command each, each verified against the same finding store.
 
 ## Web & API scanning
 
 Three profiles: `quick` (6 checks, CI-gate fast), `standard` (16 checks,
 the everyday scan), `full` (18 checks, audit depth). Every check is an
-independent pass — one that errors is logged and the scan continues.
+independent pass. One that errors is logged, and the scan continues.
 
 ```console
 $ openre scan full https://target --checks sensitive-files,http-methods
@@ -183,20 +182,20 @@ $ openre exploit <finding-id>          # PoC from a finding
 $ openre remediate <finding-id>        # plan + quick-fixes, verified against the KnowledgeBase
 ```
 
-Exploit and remediation work with or without an LLM — the template engine
+Exploit and remediation work with or without an LLM. The template engine
 and knowledge base (CWE/CAPEC/OWASP references) are local. Providers,
 caching, and privacy notes: [`docs/ai-providers.md`](docs/ai-providers.md).
 
 ## Scan diffing
 
-Re-scan a target and ask the only question that matters — *what changed?*
+Re-scan a target and ask the only question that matters: *what changed?*
 
 ```console
 $ openre scan diff 7c1a41b0 a6a3f67c   # unambiguous id prefixes are enough
 ```
 
 Three sections: **new** findings (in B, not A), **fixed** (in A, not B),
-**severity changed** — with per-severity counts, or `--format json`.
+**severity changed**, with per-severity counts, or `--format json`.
 Findings are matched by title + check identity, so re-runs diff cleanly.
 
 ## The terminal dashboard
@@ -232,7 +231,7 @@ Method and measurements: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 
 ## How it compares
 
-Against the tools it gets mentioned next to — and where they win, it says
+Against the tools it gets mentioned next to, and where they win, it says
 so:
 
 | dimension | openre | nmap | nuclei | radare2 |
@@ -244,7 +243,7 @@ so:
 | license | MIT | GPL-2.0 | MIT | LGPL-3.0 |
 
 nmap owns network mapping, nuclei owns template breadth, radare2 owns deep
-RE — openre's claim is the scan-and-triage pass **plus** first-line binary
+RE. openre's claim is the scan-and-triage pass **plus** first-line binary
 analysis in one dependency-free binary. The full table with sources:
 [`docs/comparison.md`](docs/comparison.md).
 
@@ -294,7 +293,7 @@ The SARIF contract: [`docs/sarif.md`](docs/sarif.md).
 Tag a version and the pipeline builds **17 artifacts**: Linux (x86-64
 glibc/musl/32-bit, aarch64 glibc/musl, armv7/armv6, riscv64, loongarch64,
 s390x), Windows (MSVC, GNU x86-64/32-bit, ARM64), macOS
-(Apple silicon, Intel, universal2), and FreeBSD — each archive carries
+(Apple silicon, Intel, universal2), and FreeBSD. Each archive carries
 `openre`, `openre-tui`, `sentinel`, and shell completions, staged
 deterministically with a combined sha256 checksums file. The Windows and
 macOS test suites run in CI on every push.
@@ -304,7 +303,7 @@ macOS test suites run in CI on every push.
 <details>
 <summary><strong>Is this an nmap replacement?</strong></summary>
 
-No — no host discovery, port scanning, or OS fingerprinting. openre reads
+No. No host discovery, port scanning, or OS fingerprinting. openre reads
 HTTP targets and local binary files. See the
 [comparison](#how-it-compares).
 </details>
@@ -356,7 +355,7 @@ flowchart LR
     TUI["openre-tui · sentinel"] --> INTEL
 ```
 
-Fourteen crates behind one front door — the full map with a paragraph per
+Fourteen crates behind one front door. The full map, with a paragraph per
 crate: [`docs/architecture.md`](docs/architecture.md).
 
 ## Documentation
@@ -376,8 +375,8 @@ crate: [`docs/architecture.md`](docs/architecture.md).
 CI gates formatting, clippy (`-D warnings`, all targets), and the full
 test suite on Linux, Windows, and macOS. Add a check to
 `crates/openre-scan/src/checks.rs`, add a tool, or pick something from the
-issue tracker — see [CONTRIBUTING.md](CONTRIBUTING.md).
+issue tracker. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
